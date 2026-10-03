@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<!--
+  Cabynetry Kitchen - Prototipo de interfaz para SketchUp
+  =========================================================
+  v3: calcado del EDITOR REAL de P12 (src/Layout.cs, LayoutContext.cs,
+  MaterialTab.cs, StyleTab.cs de Generador_P12_Muro) - no del prototipo R01
+  (config.xaml) usado en v1/v2, que resulto ser una version vieja y
+  abandonada. Confirmado con capturas reales en Revision_UI_017/*.png.
+
+  La herramienta real es un EDITOR CAD de manipulacion directa, no un
+  formulario de parametros:
+   - Toolbar: deshacer/rehacer, boton de vista (Alzado/Planta, clic =
+     siguiente, mantener pulsado = elegir), "Puertas/Interior", "Plano",
+     "Medir", boton de configuraciones guardadas, texto de ayuda.
+   - 3 pestanas: Distribucion (canvas + panel contextual segun seleccion),
+     Materiales (galeria de texturas arrastrable), Estilo (moderna/clasica/
+     simple, gola, jaladeras).
+   - Canvas: clic selecciona un modulo, Ctrl+clic selecciona varios,
+     arrastrar un modulo lo intercambia con el destino (Swap), Supr borra,
+     clic en cualquier cota (ancho, alto, divisiones) la vuelve editable.
+   - Panel derecho cambia segun la seleccion: ninguno -> botones "+Anadir";
+     uno -> Tipo/Ancho/Alto/Fondo/checkboxes propios del tipo.
+   - Materiales: muestras con textura por categoria (Madera/Color/
+     Cubiertas/Backsplash), "+Agregar", "Restablecer", clic abre editor
+     (nombre/color/patron/escala), arrastrar una muestra sobre una pieza
+     del canvas le aplica el material.
+
+  LO QUE QUEDA FUERA DE ESTE PROTOTIPO (para no replicar ~160 versiones de
+  trabajo en un solo archivo): los ~15 tipos de modulo "Especial"
+  (Refrigerador, Torre de hornos, Alacena, Frigobar, Estufa...) y el modo
+  Closet, cada uno con su propio panel contextual en el Layout.cs real.
+  Aqui solo se modelan los tipos base: Puertas y Cajones (bajo), igual
+  logica que cocina_core.recipe() ya portada en v1/v2.
+
+  Integracion futura real (SketchUp, UI::HtmlDialog): los TODO marcan donde
+  engancharia Ruby (seleccion de cara real, generacion de geometria 3D,
+  persistencia de config).
+-->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Cabynetry Kitchen</title>
+<!--
+  PRUEBA DE TIPOGRAFIA: Inter (interfaz general) + IBM Plex Mono (cotas y
+  campos numericos). Cargadas de Google Fonts solo para esta vista previa
+  en el navegador -- en los plugins reales habria que embeber los archivos
+  de fuente (PrivateFontCollection en C#/WinForms, @font-face con archivo
+  local en el HtmlDialog de SketchUp) para que funcione sin internet y se
+  vea igual en Windows y Mac.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+  html,body { height: 100%; margin: 0; }
+  body {
+    font-family: "Inter", "Segoe UI", -apple-system, Helvetica, Arial, sans-serif;
+    font-size: 12.5px;
+    color: #1f1f1f;
+    background: #DDE1E4;
+    display: flex;
+    justify-content: center;
+    padding: 16px 8px;
+  }
+  .window {
+    width: 1160px;
+    max-width: 100%;
+    height: 760px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 28px rgba(0,0,0,.22);
+  }
+  .titlebar {
+    background: linear-gradient(#E9EEF3,#DCE3E9);
+    border-bottom: 1px solid #B9C2C9;
+    padding: 5px 10px;
+    font-size: 12px;
+    color: #2b2b2b;
+  }
+
+  /* ---- sistema de botones (master Revit + SketchUp) ----
+     Radio 4px: en WinForms se logra con FlatStyle.Flat + pintado propio; en SketchUp es CSS directo. */
+  :root {
+    --ink: #266096;          /* tinta de marca: iconos, cotas, primario */
+    --ink-hover: #1E5080;
+    --ink-soft: #E6EFF7;     /* fondo de toggle activo */
+    --select: #1E90FF;       /* foco y seleccion */
+    --line: #CDD3D9;
+    --surface: #FFFFFF;
+    --surface-hover: #F1F4F7;
+    --text: #1F2A33;
+    --danger: #B5433B;
+    --danger-soft: #FBEDEB;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 32px; padding: 0 12px;
+    font: 500 12.5px "Inter", "Segoe UI", sans-serif; color: var(--text);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 4px;
+    cursor: pointer; white-space: nowrap;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .btn:hover { background: var(--surface-hover); border-color: #B8C0C8; }
+  .btn:active { background: #E7ECF0; }
+  .btn:focus-visible { outline: 2px solid var(--select); outline-offset: 1px; }
+  .btn:disabled { opacity: .4; cursor: default; background: var(--surface); }
+  .btn svg { flex: none; }
+
+  .btn-primary { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 600; }
+  .btn-primary:hover { background: var(--ink-hover); border-color: var(--ink-hover); }
+  .btn-primary:active { background: #194468; }
+
+  .btn-toggle.active { background: var(--ink-soft); border-color: var(--ink); color: var(--ink); font-weight: 600; }
+  .btn-toggle.active:hover { background: #DCE8F3; }
+
+  .btn-danger { color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-soft); border-color: #E2B5B0; }
+
+  .btn-icon { width: 32px; padding: 0; font-size: 15px; }
+  .btn-block { width: 100%; }
+  .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+
+  /* grupo segmentado (deshacer/rehacer) */
+  .seg { display: inline-flex; }
+  .seg .btn { border-radius: 0; }
+  .seg .btn:first-child { border-radius: 4px 0 0 4px; }
+  .seg .btn:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
+
+  /* ---- toolbar ---- */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px;
+    border-bottom: 1px solid #DADFE3;
+  }
+  .toolbar .sep { width: 1px; height: 22px; background: #DADFE3; margin: 0 4px; }
+  .toolbar .hint { margin-left: 6px; color: #5A6570; font-size: 12px; }
+
+  /* ---- body: canvas + tabs ---- */
+  .body { flex: 1; display: flex; min-height: 0; }
+  .canvas-wrap { flex: 1; position: relative; background: #F6F7F8; overflow: hidden; }
+  #stage { position: absolute; inset: 0; }
+
+  .tabs { width: 318px; border-left: 1px solid #DADFE3; display: flex; flex-direction: column; }
+  .tab-heads { display: flex; border-bottom: 1px solid #DADFE3; background: #fff; padding: 0 6px; }
+  .tab-heads button {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+    height: 42px; padding: 0 4px; border: none; background: none; cursor: pointer;
+    font: 500 12.5px "Inter", "Segoe UI", sans-serif; color: #5A6570;
+    box-shadow: inset 0 -2px transparent; transition: color .12s, box-shadow .12s;
+  }
+  .tab-heads button svg { flex: none; opacity: .7; }
+  .tab-heads button:hover { color: var(--text); box-shadow: inset 0 -2px #D5DCE2; }
+  .tab-heads button.active { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
+  .tab-heads button.active svg { opacity: 1; }
+  .tab-heads button:focus-visible { outline: 2px solid var(--select); outline-offset: -2px; }
+  .tab-body { flex: 1; overflow-y: auto; }
+  .tab-page { display: none; height: 100%; }
+  .tab-page.active { display: block; }
+
+  /* ---- controles de formulario compartidos (todas las pestanas) ---- */
+  .tab-page select, .tab-page input[type=number], .tab-page input[type=text] {
+    width: 100%; height: 32px; padding: 0 9px;
+    font: 400 12.5px "Inter", "Segoe UI", sans-serif; color: var(--text);
+    background: #fff; border: 1px solid var(--line); border-radius: 4px;
+    -webkit-user-select: text; user-select: text;
+  }
+  .tab-page input[type=number], #dimEdit { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+  .tab-page select {
+    appearance: none; -webkit-appearance: none; padding-right: 28px; cursor: pointer;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23266096' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;
+  }
+  .tab-page select:hover, .tab-page input:hover { border-color: #B8C0C8; }
+  .tab-page select:focus, .tab-page input[type=number]:focus, .tab-page input[type=text]:focus {
+    outline: none; border-color: var(--select); box-shadow: 0 0 0 3px rgba(30,144,255,.15);
+  }
+  .tab-page input[type=checkbox], .tab-page input[type=radio] { accent-color: var(--ink); width: 15px; height: 15px; margin: 0; cursor: pointer; }
+  /* oculta flechas nativas del numero: se edita escribiendo, como las cotas */
+  .tab-page input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* ---- panel Distribucion ---- */
+  #side { display: flex; flex-direction: column; min-height: 100%; }
+  .p-section { padding: 14px 14px; border-bottom: 1px solid #E8ECEF; }
+  .p-section:last-child { border-bottom: none; }
+  .p-label { font: 600 10.5px "Inter", sans-serif; letter-spacing: .07em; text-transform: uppercase; color: #6B7680; margin-bottom: 10px; }
+
+  .info-card { background: #F4F7FA; border: 1px solid #E1E7ED; border-radius: 6px; padding: 8px 10px; }
+  .info-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: #4A5560; padding: 2px 0; }
+  .info-row b { font: 500 12px 'IBM Plex Mono', monospace; color: var(--text); }
+
+  .m-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .m-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .chip { font: 500 11px 'IBM Plex Mono', monospace; color: var(--ink); background: var(--ink-soft); border-radius: 10px; padding: 3px 8px; white-space: nowrap; }
+
+  .field { display: block; margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > span { display: block; font-size: 12px; font-weight: 500; color: #3A4650; margin-bottom: 5px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .unit { position: relative; }
+  .unit input { padding-right: 34px !important; }
+  .unit::after { content: attr(data-unit); position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font: 400 11.5px 'IBM Plex Mono', monospace; color: #8A949E; pointer-events: none; }
+
+  .check { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text); padding: 6px 8px; margin: 0 -8px; border-radius: 4px; cursor: pointer; }
+  .check:hover { background: var(--surface-hover); }
+  .sub { margin: 4px 0 4px 24px; padding-left: 12px; border-left: 2px solid var(--ink-soft); }
+
+  .empty { text-align: center; padding: 26px 10px 18px; color: #6B7680; font-size: 12.5px; line-height: 1.5; }
+  .empty svg { display: block; margin: 0 auto 10px; }
+  .p-foot { margin-top: auto; padding: 14px; border-top: 1px solid #E8ECEF; }
+
+  /* ---- pestana Materiales ---- */
+  #page-materials.active { display: flex; flex-direction: column; }
+  #gallery { flex: 1; }
+  .mat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
+  .swatch { cursor: grab; min-width: 0; }
+  .swatch:active { cursor: grabbing; }
+  .sw-chip {
+    position: relative; height: 54px; border-radius: 6px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); transition: transform .1s, box-shadow .1s;
+  }
+  .swatch:hover .sw-chip { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 3px 8px rgba(31,42,51,.14); }
+  .sw-chip.assigned { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--ink); }
+  .sw-chip.assigned::after {
+    content: ""; position: absolute; right: 5px; top: 5px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6'%3E%3Cpath d='M1 3l2 2 4-4' fill='none' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat center;
+    box-shadow: 0 0 0 1.5px #fff;
+  }
+  .sw-chip.editing { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--select); }
+  .sw-name { font-size: 11px; color: #3A4650; margin-top: 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .swatch.add { cursor: pointer; }
+  .swatch.add .sw-chip { box-shadow: none; border: 1.5px dashed #B3BCC5; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #8A949E; background: #FAFBFC; }
+  .swatch.add:hover .sw-chip { border-color: var(--ink); color: var(--ink); transform: none; box-shadow: none; }
+  .swatch.reset .sw-chip { background: #fff linear-gradient(to top right, transparent calc(50% - .75px), #C9CFD5 calc(50% - .75px), #C9CFD5 calc(50% + .75px), transparent calc(50% + .75px)); }
+  .hint-box { font-size: 11.5px; color: #5A6570; line-height: 1.5; background: #F4F7FA; border: 1px solid #E1E7ED; border-radius: 6px; padding: 9px 10px; }
+  .hint-box b { color: var(--text); font-weight: 600; }
+
+  .mat-editor { display: none; border-top: 1px solid #DADFE3; background: #FAFBFC; box-shadow: 0 -6px 16px rgba(31,42,51,.06); }
+  .mat-editor.open { display: block; }
+  .mat-editor .ed-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .mat-editor .ed-preview { width: 36px; height: 36px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); flex: none; }
+  .mat-editor .ed-title { font-weight: 600; font-size: 13px; }
+  .mat-editor .ed-sub { font-size: 11px; color: #6B7680; }
+  .mat-editor .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mat-editor .colorchip { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+  .mat-editor .colorchip.on { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--select); }
+  .mat-editor .actions { display: flex; gap: 8px; margin-top: 14px; }
+  .mat-editor .actions .btn { flex: 1; }
+
+  /* ---- pestana Estilo: opciones como tarjetas ---- */
+  .opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 11px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; background: #fff; transition: border-color .12s, background .12s; }
+  .opt:last-child { margin-bottom: 0; }
+  .opt:hover { border-color: #B8C0C8; }
+  .opt input { margin-top: 1px !important; }
+  .opt.on { border-color: var(--ink); background: var(--ink-soft); }
+  .opt .t { font-size: 12.5px; font-weight: 600; color: var(--text); }
+  .opt .d { font-size: 11.5px; color: #5A6570; margin-top: 2px; line-height: 1.4; }
+  .opt.compact { padding: 8px 11px; }
+  .note { font-size: 11.5px; color: #6B7680; line-height: 1.45; margin-top: 10px; }
+
+  /* ---- bottom bar ---- */
+  .bottom { display: flex; align-items: center; border-top: 1px solid #DADFE3; padding: 10px 12px; gap: 8px; }
+  .bottom .status { flex: 1; font-size: 12px; color: #333; min-height: 18px; }
+  .bottom .btn { height: 34px; min-width: 104px; }
+
+  /* dimension inline editor over the canvas */
+  #dimEdit {
+    position: absolute; display: none; width: 64px; height: 26px; padding: 0 6px;
+    font: 500 12px 'IBM Plex Mono', monospace; color: var(--ink); text-align: center;
+    background: #fff; border: 1.5px solid var(--select); border-radius: 4px;
+    box-shadow: 0 0 0 3px rgba(30,144,255,.18), 0 4px 10px rgba(31,42,51,.15);
+    outline: none; z-index: 20; -webkit-user-select: text; user-select: text;
+  }
+  #dimEdit::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* ---- iconos de toolbar (calco de RulerIcon/DiskIcon/EyeIcon/DoorEyeIcon en Layout.cs: trazo fino, tinta #266096) ---- */
+</style>
+</head>
+<body>
+
+<div class="window">
+  <div class="titlebar">Cocina &middot; Distribuci&oacute;n &middot; Cabynetry Kitchen (prototipo SketchUp)</div>
+
+  <div class="toolbar">
+    <div class="seg">
+      <button class="btn btn-icon" id="btnUndo" title="Deshacer (Ctrl+Z)">&#8630;</button>
+      <button class="btn btn-icon" id="btnRedo" title="Rehacer (Ctrl+Y)">&#8631;</button>
+    </div>
+    <span class="sep"></span>
+    <button class="btn" id="btnView" title="Clic: siguiente vista &middot; mantener pulsado: elegir">
+      <svg width="20" height="13" viewBox="0 0 22 14" fill="none"><path d="M1 7C3.5 1.5 8 1 11 1s7.5 0.5 10 6c-2.5 5.5-7 6-10 6s-7.5-0.5-10-6Z" stroke="#266096" stroke-width="1.6" stroke-linejoin="round"/><circle cx="11" cy="7" r="3" fill="#266096"/></svg>
+      <span id="viewLabel">Alzado</span>
+    </button>
+    <button class="btn btn-icon" id="btnConfigs" title="Guardar y cargar configuraciones">
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 2h11l4 4v12H3V2Z" fill="#266096"/><rect x="6" y="2" width="7" height="5" fill="#fff"/><rect x="5" y="11" width="10" height="7" fill="#fff"/><rect x="10" y="3" width="2" height="3" fill="#266096"/></svg>
+    </button>
+    <span class="sep"></span>
+    <button class="btn btn-toggle active" id="btnDoors" title="Oculta puertas y cajones para ver el interior">
+      <svg width="20" height="17" viewBox="0 0 24 20" fill="none">
+        <!-- puerta detras, bien visible arriba/abajo del ojo -->
+        <rect x="8" y="1" width="12" height="18" rx="1" fill="#DED2BC" stroke="#266096" stroke-width="1.1"/>
+        <circle cx="17" cy="16" r="0.9" fill="#266096"/>
+        <!-- ojo adelante, mas chico, con fondo blanco para quedar en primer plano sin tapar toda la puerta -->
+        <path d="M8 10C9.5 7 11.5 6 14 6S18.5 7 20 10c-1.5 3-3.5 4-6 4S9.5 13 8 10Z" fill="#F6F7F8" stroke="#266096" stroke-width="1.5" stroke-linejoin="round"/>
+        <circle cx="14" cy="10" r="2.1" fill="#266096"/>
+      </svg>
+      <span id="doorsLabel">Puertas</span>
+    </button>
+    <button class="btn btn-toggle" id="btnFlat" title="Dibuja sin colores ni texturas, para leer mejor las cotas">
+      <svg width="18" height="14" viewBox="0 0 22 17" fill="none"><rect x="1" y="1" width="20" height="15" stroke="#266096" stroke-width="1.4"/><path d="M13 1v15M13 7H21M1 11H13" stroke="#266096" stroke-width="1.1"/></svg>
+      Plano
+    </button>
+    <button class="btn btn-toggle" id="btnMeasure" title="Muestra las cotas de cada frente en los módulos seleccionados">
+      <svg width="22" height="13" viewBox="0 0 26 16" fill="none"><rect x="1" y="4" width="23" height="8" stroke="#266096" stroke-width="1.5"/><path d="M5 4v5M9 4v3M13 4v5M17 4v3M21 4v5" stroke="#266096" stroke-width="1.5"/></svg>
+      Medir
+    </button>
+    <span class="hint">Ctrl + clic: selecci&oacute;n &middot; Arrastrar: mover (intercambia) &middot; Supr: borrar</span>
+  </div>
+
+  <div class="body">
+    <div class="canvas-wrap">
+      <canvas id="stage"></canvas>
+      <input type="number" id="dimEdit">
+    </div>
+
+    <div class="tabs">
+      <div class="tab-heads">
+        <button class="active" data-tab="layout">
+          <svg width="15" height="13" viewBox="0 0 16 14" fill="none"><rect x="1" y="1" width="14" height="12" rx="1" stroke="currentColor" stroke-width="1.4"/><path d="M6 1v12M11 1v12M1 10h14" stroke="currentColor" stroke-width="1.2"/></svg>
+          Distribuci&oacute;n
+        </button>
+        <button data-tab="materials">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5.5" height="5.5" rx="1" fill="currentColor"/><rect x="7.5" y="1" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="1" y="7.5" width="5.5" height="5.5" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="7.5" y="7.5" width="5.5" height="5.5" rx="1" fill="currentColor" opacity=".45"/></svg>
+          Materiales
+        </button>
+        <button data-tab="style">
+          <svg width="12" height="14" viewBox="0 0 12 14" fill="none"><rect x="1" y="1" width="10" height="12" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="3.3" y="3.3" width="5.4" height="7.4" stroke="currentColor" stroke-width="1"/><path d="M8.6 6v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          Estilo
+        </button>
+      </div>
+      <div class="tab-body">
+        <div class="tab-page active" id="page-layout">
+          <div id="side"></div>
+        </div>
+        <div class="tab-page" id="page-materials">
+          <div id="gallery"></div>
+          <div class="mat-editor" id="matEditor"></div>
+        </div>
+        <div class="tab-page" id="page-style">
+          <div id="styleTab"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom">
+    <div class="status" id="status">Prototipo de interfaz. Hac&eacute; clic en un m&oacute;dulo o una cota.</div>
+    <button class="btn" id="btnCancel">Cancelar</button>
+    <button class="btn btn-primary" id="btnGenerate">Generar</button>
+  </div>
+</div>
+
+<script>
+/* =======================================================================
+ * MODELO (equivalente simplificado a LayoutState/Config de src/*.cs)
+ * Solo tipos base Puertas/Cajones -- los tipos "Especial" y Closet quedan
+ * fuera de este prototipo (ver nota al inicio del archivo).
+ * ======================================================================= */
+const DEFAULTS = {
+  Profundidad_Total: 60.0, Altura_Zocalo: 10.0, Espesor_Cuerpo: 1.8, Espesor_Frente: 1.8,
+  Abertura_Uniero: 2.54, Fondo_Agarre: 3.0, Holgura_Frente: 0.2, Espesor_Cubierta: 2.0,
+};
+let state = {
+  altoTotal: 90, baseAltos: 145, separacionAltos: 60,
+  modulos: [], selection: new Set(),
+  style: 'Moderna', gola: 'L', jaladera: 'Barra', largoJaladera: 12.8, bisagras: true,
+  materialGeneral: null, materiales: {}, // key -> swatch id (Cubierta/Zoclo/Backsplash/Gola)
+};
+let undoStack = [], redoStack = [];
+let view = 'Alzado'; // 'Alzado' | 'Planta'
+let showDoors = true, flat = false, measure = false;
+let dragModule = null, dragOverModule = null;
+let dimensionKey = null;
+
+function snapshot(){ return JSON.parse(JSON.stringify({modulos: state.modulos, altoTotal: state.altoTotal})); }
+function pushUndo(){ undoStack.push(snapshot()); if (undoStack.length>50) undoStack.shift(); redoStack = []; }
+function change(fn){ pushUndo(); fn(); render(); }
+function restore(snap){ state.modulos = snap.modulos; state.altoTotal = snap.altoTotal; }
+
+function newModule(ancho){
+  return { id: 'm'+Math.random().toString(36).slice(2,9), tipo: 'Puertas', ancho, fondo: DEFAULTS.Profundidad_Total,
+    dosPuertas: false, invertir: false, anchoFijo: false, preparadoTarja: false, tarja: 'Sin tarja', bajoCubierta: false,
+    cajones: 3, material: null };
+}
+function resetDemo(){
+  state.modulos = [55,55,65,60,55].map(newModule);
+  state.modulos[1].tipo = 'Cajones';
+  state.selection = new Set([state.modulos[0].id]);
+}
+resetDemo();
+
+/* =======================================================================
+ * MOTOR DE MEDIDAS (puerto de cocina_core.recipe(), piezas de frente)
+ * ======================================================================= */
+function moduleRects(m){
+  /* sin gola (clasica/simple) los frentes cierran a hueso: no queda hueco de agarre arriba */
+  const g = DEFAULTS.Holgura_Frente, a = state.style==='Moderna' ? DEFAULTS.Abertura_Uniero : 0;
+  const z = DEFAULTS.Altura_Zocalo, c = DEFAULTS.Espesor_Cubierta;
+  const h = state.altoTotal, top = h - c, bodyh = top - z;
+  const rects = [
+    { type:'zocalo', x:0, w:m.ancho, zBottom:0, h:z },
+    { type:'cubierta', x:0, w:m.ancho, zBottom:top, h:c },
+  ];
+  if (m.tipo === 'Puertas') {
+    const doors = m.dosPuertas ? 2 : 1;
+    const doorw = (m.ancho - g*(doors+1))/doors;
+    /* misma regla que FrontLayout.cs: una hoja -> bisagra a la izquierda salvo Invertir; dos hojas -> abren hacia afuera */
+    for (let i=0;i<doors;i++) rects.push({type:'frente', kind:'puerta', hingeRight: doors===2 ? i===1 : m.invertir, x:g+(doorw+g)*i, w:doorw, zBottom:z+g, h:bodyh-a-g});
+  } else {
+    const n = Math.max(1, m.cajones);
+    const boundaries = [z, ...Array.from({length:n-1},(_,i)=>z+bodyh*(i+1)/n), top];
+    for (let i=0;i<boundaries.length-1;i++){
+      const low=boundaries[i], high=boundaries[i+1], fronth=high-low-a-g;
+      rects.push({type:'frente', kind:'cajon', x:g, w:m.ancho-g*2, zBottom:low+g, h:Math.max(2,fronth)});
+    }
+  }
+  return rects;
+}
+function totalWidth(){ return state.modulos.reduce((s,m)=>s+m.ancho,0); }
+
+/* =======================================================================
+ * CANVAS: pintar + seleccion + arrastrar (swap) + cotas editables
+ * (equivalente simplificado de PaintPreview/MouseDown/MouseMove de Layout.cs)
+ * ======================================================================= */
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+let hits = [];     // {rect, module}: columna completa de cada modulo
+let dimHits = [];  // {rect, key}: caja del numero de cada cota editable
+let hover = null;  // 'mod:<id>' | 'dim:<key>' | null
+let cssW = 0, cssH = 0;
+
+/* paleta del canvas (master): tinta de marca, seleccion DodgerBlue y piezas */
+const C = {
+  ink:'#266096', select:'#1E90FF', drag:'#EB7D1E',
+  line:'#6F7880', hidden:'#787D82', carcass:'#E9ECEE', interior:'#FAFAF8',
+  front:'#FFFFFF', zocalo:'#55595B', gola:'#3E4246', cubierta:'#CFD3D5', handle:'#4A5056', wall:'#9AA2AA',
+};
+
+function resizeCanvas(){
+  const r = canvas.parentElement.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cssW = r.width; cssH = r.height;
+  canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
+  canvas.style.width = cssW+'px'; canvas.style.height = cssH+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0); /* nitidez en pantallas HiDPI: se dibuja en px CSS */
+  render();
+}
+/* ResizeObserver y no window.resize: tambien detecta cuando el dialogo pasa de oculto a visible */
+new ResizeObserver(resizeCanvas).observe(canvas.parentElement);
+
+/* ---- texturas (equivalente a MaterialSwatches.Paint): un patron por categoria ---- */
+const patternCache = new Map();
+function seeded(seed){ let s = seed; return () => (s = (s*16807) % 2147483647) / 2147483647; }
+function materialFill(swatchId, fallback){
+  if (flat) return '#FFFFFF';
+  const sw = swatchId && SWATCHES.find(s=>s.id===swatchId);
+  if (!sw) return fallback;
+  if (sw.cat === 'Color') return sw.color;
+  const key = sw.id + sw.color;
+  if (patternCache.has(key)) return patternCache.get(key);
+  const c = document.createElement('canvas'), g = c.getContext('2d');
+  if (sw.cat === 'Madera') {
+    c.width = 42; c.height = 120; g.fillStyle = sw.color; g.fillRect(0,0,42,120); g.lineWidth = 1;
+    for (let i=0;i<6;i++){
+      g.strokeStyle = i%2 ? 'rgba(0,0,0,.09)' : 'rgba(0,0,0,.16)'; g.beginPath();
+      for (let y=0;y<=120;y+=4){ const x = 3+i*7 + Math.sin(y/120*Math.PI*2 + i*1.3)*1.8; if (y) g.lineTo(x,y); else g.moveTo(x,y); }
+      g.stroke();
+    }
+  } else if (sw.cat === 'Cubiertas') {
+    c.width = c.height = 48; g.fillStyle = sw.color; g.fillRect(0,0,48,48);
+    const rnd = seeded(7);
+    for (let i=0;i<70;i++){ g.fillStyle = rnd()<.5 ? 'rgba(0,0,0,.22)' : 'rgba(255,255,255,.35)'; g.fillRect(Math.floor(rnd()*48), Math.floor(rnd()*48), 1.3, 1.3); }
+  } else { /* Backsplash: subway con juntas desplazadas */
+    c.width = 32; c.height = 16; g.fillStyle = sw.color; g.fillRect(0,0,32,16); g.fillStyle = 'rgba(0,0,0,.18)';
+    g.fillRect(0,7,32,1); g.fillRect(0,15,32,1); g.fillRect(15,0,1,7); g.fillRect(31,0,1,7); g.fillRect(7,8,1,7); g.fillRect(23,8,1,7);
+  }
+  const p = ctx.createPattern(c, 'repeat'); patternCache.set(key, p); return p;
+}
+
+/* ---- primitivas ---- */
+function line(x1,y1,x2,y2){ ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); }
+function inside(p,r){ return p.x>=r.x && p.x<=r.x+r.w && p.y>=r.y && p.y<=r.y+r.h; }
+function title(t, sub){
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = C.ink; ctx.font = "600 15px 'Inter'"; ctx.fillText(t, 22, 32);
+  if (sub) { const w = ctx.measureText(t).width; ctx.fillStyle = '#7C868F'; ctx.font = "400 12.5px 'Inter'"; ctx.fillText(sub, 22+w+8, 32); }
+}
+/* cota (calco de Layout.DrawDimension): linea con marcas inclinadas y el numero FUERA de la linea
+   (encima en las horizontales, a la izquierda y girado en las verticales) para que no se pierda en
+   tramos cortos. Con key es editable: se registra la caja y se resalta al pasar el mouse. */
+function dim(x1,y1,x2,y2,label,key){
+  const vertical = Math.abs(x2-x1) < 1;
+  ctx.save();
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 1;
+  line(x1,y1,x2,y2); line(x1-4,y1+4,x1+4,y1-4); line(x2-4,y2+4,x2+4,y2-4);
+  ctx.font = "500 11.5px 'IBM Plex Mono'";
+  const bw = ctx.measureText(label).width + 8, bh = 17, cx = (x1+x2)/2, cy = (y1+y2)/2;
+  const box = vertical ? {x:cx-bh-3, y:cy-bw/2, w:bh, h:bw} : {x:cx-bw/2, y:cy-bh-3, w:bw, h:bh};
+  const on = key && hover === 'dim:'+key;
+  ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(box.x, box.y, box.w, box.h, 3); else ctx.rect(box.x, box.y, box.w, box.h);
+  ctx.fillStyle = on ? '#E6EFF7' : 'rgba(255,255,255,.84)'; ctx.fill(); /* papel semitransparente, como el real */
+  if (on) { ctx.strokeStyle = C.ink; ctx.stroke(); }
+  ctx.fillStyle = C.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const tx = box.x + box.w/2, ty = box.y + box.h/2;
+  if (vertical) { ctx.translate(tx,ty); ctx.rotate(-Math.PI/2); ctx.fillText(label,0,.5); } else ctx.fillText(label,tx,ty+.5);
+  ctx.restore();
+  if (key) dimHits.push({ rect: box, key });
+}
+
+/* render(): canvas + paneles. El hover y el arrastre solo redibujan el canvas (drawCanvas) para no
+   reconstruir el panel lateral en cada movimiento del mouse. */
+function render(){ drawCanvas(); renderSide(); renderGallery(); renderStyle(); syncUndo(); updateHint(); }
+
+function drawCanvas(){
+  ctx.clearRect(0,0,cssW,cssH);
+  hits = []; dimHits = [];
+  if (cssW < 320 || cssH < 240) return; /* area minima: con menos, la escala saldria negativa */
+  if (!state.modulos.length) {
+    title(view==='Planta' ? 'PLANTA' : 'ALZADO', '');
+    ctx.fillStyle = '#8A949E'; ctx.font = "400 13px 'Inter'"; ctx.textAlign = 'center';
+    ctx.fillText('Sin módulos en el tramo. Usá «+ Añadir bajo» en el panel.', cssW/2, cssH/2);
+    return;
+  }
+  if (view === 'Planta') drawPlan(); else drawElevation();
+}
+
+function drawElevation(){
+  title('ALZADO', '· frente');
+  const tw = totalWidth(), th = state.altoTotal, zb = DEFAULTS.Altura_Zocalo, c = DEFAULTS.Espesor_Cubierta, zt = th - c;
+  const anySink = state.modulos.some(m=>m.tipo==='Puertas' && m.preparadoTarja);
+  const L = 78, R = 72, T = anySink ? 110 : 82, B = 64;
+  const scale = Math.min((cssW-L-R)/tw, (cssH-T-B)/th, 7);
+  const ox = L + ((cssW-L-R) - tw*scale)/2, top = T + ((cssH-T-B) - th*scale)/2, ground = top + th*scale;
+  const Z = z => ground - z*scale;
+  const deferred = []; /* como el real: selecciones y simbolos por encima de las piezas */
+
+  let x = ox;
+  state.modulos.forEach(m => {
+    const w = m.ancho*scale, body = {x, y:Z(zt), w, h:(zt-zb)*scale};
+    const fronts = moduleRects(m).filter(r=>r.type==='frente');
+    if (showDoors) {
+      ctx.fillStyle = flat ? '#FFFFFF' : C.carcass; ctx.fillRect(body.x, body.y, body.w, body.h);
+      if (state.style === 'Moderna') { /* franja gola en el hueco de agarre sobre cada frente */
+        ctx.fillStyle = flat ? '#FFFFFF' : C.gola;
+        fronts.forEach(r => ctx.fillRect(x, Z(r.zBottom + r.h + DEFAULTS.Abertura_Uniero), w, DEFAULTS.Abertura_Uniero*scale));
+      }
+      fronts.forEach(r => drawFront(r, x, Z, scale, m));
+    } else drawInterior(m, body, Z, scale);
+    const mx = x; /* las funciones diferidas corren despues del recorrido: no pueden leer x */
+    if (m.tipo==='Puertas' && m.preparadoTarja) deferred.push(() => drawSinkElevation(m, mx, Z, scale));
+    if (measure && state.selection.has(m.id)) deferred.push(() => fronts.forEach(r => dim(mx+24, Z(r.zBottom), mx+24, Z(r.zBottom+r.h), r.h.toFixed(1), null)));
+    const sel = state.selection.has(m.id), hov = hover === 'mod:'+m.id, tgt = dragOverModule === m.id;
+    if (sel || hov || tgt) deferred.push(() => {
+      if (sel) { ctx.fillStyle = 'rgba(30,144,255,.14)'; ctx.fillRect(body.x, body.y, body.w, body.h); }
+      ctx.strokeStyle = tgt ? C.drag : sel ? C.select : 'rgba(30,144,255,.55)'; ctx.lineWidth = tgt ? 3 : sel ? 2 : 1.5;
+      ctx.strokeRect(body.x+1, body.y+1, body.w-2, body.h-2);
+    });
+    hits.push({ rect:{x, y:top, w, h:th*scale}, module:m });
+    x += w;
+  });
+
+  /* zocalo y cubierta corridos a todo el tramo */
+  const W = tw*scale;
+  ctx.fillStyle = materialFill(state.materiales.Zoclo, C.zocalo); ctx.fillRect(ox, Z(zb), W, zb*scale);
+  ctx.fillStyle = materialFill(state.materiales.Cubierta, C.cubierta); ctx.fillRect(ox, Z(th), W, c*scale);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  ctx.strokeRect(ox+.5, Z(zb)+.5, W-1, zb*scale-1); ctx.strokeRect(ox+.5, Z(th)+.5, W-1, c*scale-1);
+  deferred.forEach(f => f());
+
+  /* cotas: anchos arriba (editables), alto total a la izquierda (editable), parciales a la derecha, largo abajo */
+  const dimTop = top - (anySink ? 52 : 26);
+  x = ox; state.modulos.forEach(m => { dim(x, dimTop, x+m.ancho*scale, dimTop, String(m.ancho), 'width:'+m.id); x += m.ancho*scale; });
+  dim(ox-34, ground, ox-34, top, th+' cm', 'height');
+  dim(ox+W+30, ground, ox+W+30, Z(zb), String(zb), null);
+  dim(ox+W+30, Z(zb), ox+W+30, top, String(th-zb), null);
+  dim(ox, ground+32, ox+W, ground+32, tw+' cm', null);
+}
+
+function drawFront(r, x0, Z, scale, m){
+  const fr = { x:x0 + r.x*scale, y:Z(r.zBottom + r.h), w:r.w*scale, h:r.h*scale };
+  ctx.fillStyle = materialFill(m.material, C.front); ctx.fillRect(fr.x, fr.y, fr.w, fr.h);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(fr.x+.5, fr.y+.5, fr.w-1, fr.h-1);
+  if (r.kind === 'puerta') { /* simbolo de apertura (PreviewSymbols.cs): de las esquinas de la bisagra al centro del borde libre */
+    ctx.save(); ctx.setLineDash([4,3]); ctx.strokeStyle = C.hidden; ctx.lineWidth = .8;
+    const hx = r.hingeRight ? fr.x+fr.w : fr.x, fx = r.hingeRight ? fr.x : fr.x+fr.w, my = fr.y + fr.h/2;
+    line(hx, fr.y, fx, my); line(hx, fr.y+fr.h, fx, my);
+    ctx.restore();
+  }
+  if (state.style !== 'Moderna') drawHandle(r, fr, scale);
+}
+
+/* estilo clasico/simple (StyleTab.DrawStyle + HandleAt): marco shaker solo en clasica; jaladera en ambos */
+function drawHandle(r, fr, scale){
+  if (state.style === 'Clasica') {
+    const fw = Math.min(6, Math.min(r.w, r.h)/3.5)*scale;
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(fr.x+fw, fr.y+fw, fr.w-2*fw, fr.h-2*fw);
+  }
+  const L = state.largoJaladera, vertical = r.kind === 'puerta';
+  const cx = vertical ? (r.hingeRight ? fr.x + 5*scale : fr.x + fr.w - 5*scale) : fr.x + fr.w/2;
+  const cy = vertical ? fr.y + (5 + L/2)*scale : fr.y + fr.h/2;
+  ctx.fillStyle = ctx.strokeStyle = C.handle;
+  if (state.jaladera === 'Boton') { ctx.beginPath(); ctx.arc(cx, cy, Math.max(2.5, 1.1*scale), 0, Math.PI*2); ctx.fill(); return; }
+  const h = L/2*scale; ctx.lineWidth = Math.max(2, Math.min(4, 1.2*scale)); ctx.lineCap = 'round';
+  if (vertical) line(cx, cy-h, cx, cy+h); else line(cx-h, cy, cx+h, cy);
+  ctx.lineCap = 'butt';
+}
+
+/* vista Interior (boton Puertas apagado): carcasa, repisa en puertas, cajon oculto punteado en cajoneras */
+function drawInterior(m, body, Z, scale){
+  const t = DEFAULTS.Espesor_Cuerpo*scale;
+  ctx.fillStyle = flat ? '#FFFFFF' : C.carcass; ctx.fillRect(body.x, body.y, body.w, body.h);
+  ctx.fillStyle = flat ? '#FFFFFF' : C.interior; ctx.fillRect(body.x+t, body.y+t, body.w-2*t, body.h-2*t);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(body.x+t+.5, body.y+t+.5, body.w-2*t-1, body.h-2*t-1);
+  if (m.tipo === 'Puertas') {
+    const y = body.y + body.h/2 - t/2;
+    ctx.fillStyle = flat ? '#FFFFFF' : '#D9DCD7'; ctx.fillRect(body.x+t, y, body.w-2*t, t); ctx.strokeRect(body.x+t, y, body.w-2*t, t);
+  } else {
+    ctx.save(); ctx.setLineDash([4,3]); ctx.strokeStyle = C.hidden; ctx.lineWidth = .8;
+    moduleRects(m).filter(r=>r.kind==='cajon').forEach(r => {
+      const y1 = Z(r.zBottom), y0 = Z(Math.max(r.zBottom+4, r.zBottom+r.h-3));
+      ctx.strokeRect(body.x+t+2, y0, Math.max(2, body.w-2*t-4), y1-y0);
+    });
+    ctx.restore();
+  }
+}
+
+/* tarja en alzado: tina punteada bajo la cubierta y grifo encima */
+function drawSinkElevation(m, x, Z, scale){
+  const th = state.altoTotal, zt = th - DEFAULTS.Espesor_Cubierta, doble = m.tarja === 'Tarja doble';
+  const bw = Math.min(m.ancho - 12, doble ? 80 : 50), bx = x + (m.ancho - bw)/2*scale;
+  ctx.save(); ctx.setLineDash([4,3]); ctx.strokeStyle = C.ink; ctx.lineWidth = 1;
+  ctx.strokeRect(bx, Z(zt), bw*scale, 20*scale);
+  if (doble) line(bx + bw*scale/2, Z(zt), bx + bw*scale/2, Z(zt-20));
+  ctx.restore();
+  const fx = x + m.ancho/2*scale, base = Z(th), hgt = 16*scale, rad = 4*scale;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(fx, base); ctx.lineTo(fx, base-hgt+rad); ctx.arc(fx+rad, base-hgt+rad, rad, Math.PI, 0); ctx.lineTo(fx+2*rad, base-hgt+2.6*rad); ctx.stroke();
+  ctx.lineCap = 'butt';
+}
+
+/* como en el real (undo.Enabled=state.CanUndo): deshabilitados cuando no hay historial */
+function syncUndo(){
+  document.getElementById('btnUndo').disabled = undoStack.length === 0;
+  document.getElementById('btnRedo').disabled = redoStack.length === 0;
+}
+
+function drawPlan(){
+  title('PLANTA', '· frente arriba · muro abajo');
+  const tw = totalWidth(), depth = Math.max(...state.modulos.map(m=>m.fondo));
+  const L = 60, R = 80, T = 96, B = 96;
+  const scale = Math.min((cssW-L-R)/tw, (cssH-T-B)/depth, 7);
+  const ox = L + ((cssW-L-R) - tw*scale)/2, W = tw*scale;
+  const wallY = T + ((cssH-T-B) - depth*scale)/2 + depth*scale;
+
+  /* muro: linea gruesa con achurado */
+  ctx.fillStyle = flat ? '#FFFFFF' : '#E4E7EA'; ctx.fillRect(ox-14, wallY, W+28, 12);
+  ctx.save(); ctx.beginPath(); ctx.rect(ox-14, wallY, W+28, 12); ctx.clip();
+  ctx.strokeStyle = C.wall; ctx.lineWidth = 1;
+  for (let hx = ox-28; hx < ox+W+28; hx += 7) line(hx, wallY+12, hx+12, wallY);
+  ctx.restore();
+  ctx.strokeStyle = '#3E4246'; ctx.lineWidth = 2; line(ox-14, wallY, ox+W+14, wallY);
+
+  const deferred = [];
+  let x = ox;
+  state.modulos.forEach(m => {
+    const w = m.ancho*scale, r = {x, y:wallY - m.fondo*scale, w, h:m.fondo*scale};
+    ctx.fillStyle = materialFill(state.materiales.Cubierta, flat ? '#FFFFFF' : '#D5D9DC'); ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(r.x+.5, r.y+.5, r.w-1, r.h-1);
+    if (m.tipo==='Puertas' && m.preparadoTarja) drawSinkPlan(m, r, scale);
+    const sel = state.selection.has(m.id), hov = hover === 'mod:'+m.id, tgt = dragOverModule === m.id;
+    if (sel || hov || tgt) deferred.push(() => {
+      if (sel) { ctx.fillStyle = 'rgba(30,144,255,.16)'; ctx.fillRect(r.x, r.y, r.w, r.h); }
+      ctx.strokeStyle = tgt ? C.drag : sel ? C.select : 'rgba(30,144,255,.55)'; ctx.lineWidth = tgt ? 3 : sel ? 2 : 1.5;
+      ctx.strokeRect(r.x+1, r.y+1, r.w-2, r.h-2);
+    });
+    hits.push({ rect:r, module:m });
+    x += w;
+  });
+  deferred.forEach(f => f());
+
+  const dimTop = wallY - depth*scale - 26;
+  x = ox; state.modulos.forEach(m => { dim(x, dimTop, x+m.ancho*scale, dimTop, String(m.ancho), 'width:'+m.id); x += m.ancho*scale; });
+  dim(ox+W+32, wallY, ox+W+32, wallY-depth*scale, depth+' cm', null);
+  dim(ox, wallY+40, ox+W, wallY+40, tw+' cm', null);
+}
+
+/* tarja en planta: tina(s) con retiro frontal (el frente esta arriba) */
+function drawSinkPlan(m, r, scale){
+  const doble = m.tarja === 'Tarja doble', retiro = m.bajoCubierta ? 10 : 7;
+  const bw = Math.min(m.ancho - 12, doble ? 80 : 50), bd = Math.min(42, m.fondo - retiro - 6);
+  const bx = r.x + (m.ancho - bw)/2*scale, by = r.y + retiro*scale;
+  const basins = doble ? [[bx, bw/2 - 2], [bx + (bw/2 + 2)*scale, bw/2 - 2]] : [[bx, bw]];
+  basins.forEach(([px, pw]) => {
+    ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(px, by, pw*scale, bd*scale, 4); else ctx.rect(px, by, pw*scale, bd*scale);
+    ctx.fillStyle = flat ? '#FFFFFF' : 'rgba(38,96,150,.16)'; ctx.fill();
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 1; ctx.stroke();
+  });
+}
+
+/* barra inferior: resumen del tramo, o ayuda contextual segun lo que hay bajo el mouse (UpdateHint del real) */
+function summary(){
+  const n = state.modulos.length; if (!n) return 'Sin módulos en el tramo.';
+  const fijos = state.modulos.filter(m=>m.anchoFijo).length;
+  return `${n} ${n===1?'bajo':'bajos'} · Anchos: ${state.modulos.map(m=>m.ancho).join(' + ')} = ${totalWidth()} cm` + (fijos ? ` · ${fijos} ${fijos===1?'fijo':'fijos'}` : '');
+}
+function updateHint(){
+  if (hover && hover.startsWith('dim:')) { setStatus('Clic en la cota para escribir la medida · Enter confirma · Esc cancela'); return; }
+  const m = hover && state.modulos.find(x => 'mod:'+x.id === hover);
+  setStatus(m ? `M${state.modulos.indexOf(m)+1} · ${m.tipo} · ${m.ancho} cm — clic: seleccionar · Ctrl+clic: sumar · arrastrar: intercambiar` : summary());
+}
+function pick(p){
+  const d = dimHits.find(d => inside(p, d.rect)); if (d) return 'dim:'+d.key;
+  const h = hits.find(h => inside(p, h.rect)); return h ? 'mod:'+h.module.id : null;
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const p = { x:e.offsetX, y:e.offsetY };
+  const d = dimHits.find(d => inside(p, d.rect));
+  if (d) { beginDimension(d.key, d.rect); return; }
+  const h = hits.find(h => inside(p, h.rect));
+  if (h) {
+    const id = h.module.id;
+    if (e.ctrlKey) { if (state.selection.has(id)) state.selection.delete(id); else state.selection.add(id); }
+    else { if (!state.selection.has(id)) state.selection = new Set([id]); dragModule = id; }
+  } else if (!e.ctrlKey) state.selection.clear();
+  render();
+});
+canvas.addEventListener('mousemove', e => {
+  const p = { x:e.offsetX, y:e.offsetY };
+  if (dragModule) {
+    const h = hits.find(h => h.module.id !== dragModule && inside(p, h.rect));
+    const next = h ? h.module.id : null;
+    canvas.style.cursor = 'grabbing';
+    if (next !== dragOverModule) { dragOverModule = next; drawCanvas(); }
+    return;
+  }
+  const next = pick(p);
+  canvas.style.cursor = !next ? 'default' : next.startsWith('dim:') ? 'text' : 'pointer';
+  if (next !== hover) { hover = next; drawCanvas(); updateHint(); }
+});
+canvas.addEventListener('mouseleave', () => { if (hover && !dragModule) { hover = null; drawCanvas(); updateHint(); } });
+window.addEventListener('mouseup', () => {
+  if (!dragModule) return;
+  const from = dragModule, to = dragOverModule;
+  dragModule = null; dragOverModule = null; canvas.style.cursor = 'default';
+  if (to) {
+    change(() => {
+      const a = state.modulos.findIndex(m=>m.id===from), b = state.modulos.findIndex(m=>m.id===to);
+      [state.modulos[a], state.modulos[b]] = [state.modulos[b], state.modulos[a]];
+    });
+    setStatus('Módulos intercambiados.');
+  } else drawCanvas();
+});
+document.addEventListener('keydown', e => {
+  if (document.activeElement === dimEdit) return;
+  if (e.key==='Delete') { change(()=>{ state.modulos = state.modulos.filter(m=>!state.selection.has(m.id)); state.selection.clear(); }); }
+  if (e.ctrlKey && e.key==='z') { if (undoStack.length){ redoStack.push(snapshot()); restore(undoStack.pop()); render(); } }
+  if (e.ctrlKey && e.key==='y') { if (redoStack.length){ undoStack.push(snapshot()); restore(redoStack.pop()); render(); } }
+});
+
+/* cota editable (equivalente a BeginDimension/CommitDimension/dimEdit) */
+const dimEdit = document.getElementById('dimEdit');
+function beginDimension(key, rect){
+  dimensionKey = key;
+  dimEdit.value = key==='height' ? state.altoTotal : state.modulos.find(m=>m.id===key.split(':')[1]).ancho;
+  /* el campo aparece centrado sobre la caja de la cota, como el dimEdit del real */
+  dimEdit.style.left = (rect.x + rect.w/2 - 32) + 'px'; dimEdit.style.top = (rect.y + rect.h/2 - 13) + 'px';
+  dimEdit.style.display = 'block';
+  dimEdit.focus(); dimEdit.select();
+}
+dimEdit.addEventListener('keydown', e => { if (e.key==='Enter') commitDimension(); if (e.key==='Escape') { dimensionKey=null; dimEdit.style.display='none'; } });
+dimEdit.addEventListener('blur', commitDimension);
+function commitDimension(){
+  if (!dimensionKey) return; const key = dimensionKey; dimensionKey = null; dimEdit.style.display='none';
+  const value = parseFloat(dimEdit.value); if (isNaN(value)) return;
+  change(() => { if (key==='height') state.altoTotal = Math.max(65, Math.min(120, value)); else { const m=state.modulos.find(mm=>mm.id===key.split(':')[1]); m.ancho = Math.max(20, Math.min(120, value)); } });
+}
+
+/* =======================================================================
+ * PANEL DISTRIBUCION (equivalente simplificado de RefreshPreviewCore)
+ * ======================================================================= */
+const side = document.getElementById('side');
+function selectedModule(){ return state.modulos.find(m=>state.selection.has(m.id)); }
+function renderSide(){
+  const sel = [...state.selection];
+  const m = sel.length===1 ? state.modulos.find(x=>x.id===sel[0]) : null;
+  const check = (id, on, text) => `<label class="check"><input type="checkbox" id="${id}" ${on?'checked':''}>${text}</label>`;
+  const num = (id, label, value, unit, min, max) =>
+    `<label class="field"><span>${label}</span><div class="unit" data-unit="${unit}"><input type="number" id="${id}" value="${value}" min="${min}" max="${max}"></div></label>`;
+
+  let html = `<div class="p-section"><div class="p-label">Tramo</div><div class="info-card">
+      <div class="info-row">Base de altos <b>${state.baseAltos} cm</b></div>
+      <div class="info-row">Libre sobre cubierta <b>${state.separacionAltos} cm</b></div>
+      <div class="info-row">Largo total <b>${totalWidth()} cm</b></div>
+    </div></div>`;
+
+  if (sel.length === 0) {
+    html += `<div class="p-section"><div class="empty">
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none"><rect x="3" y="7" width="28" height="20" rx="2" stroke="#9AA6B1" stroke-width="1.5" stroke-dasharray="3 3"/><path d="M17 12v10M12 17h10" stroke="#266096" stroke-width="1.6" stroke-linecap="round"/></svg>
+        Hacé clic en un módulo del dibujo para editarlo,<br>o agregá uno nuevo al final del tramo.
+      </div><button class="btn btn-block" id="addBajo">+ Añadir bajo</button></div>`;
+  } else if (sel.length > 1) {
+    const anchoSel = state.modulos.filter(x=>state.selection.has(x.id)).reduce((s,x)=>s+x.ancho,0);
+    html += `<div class="p-section"><div class="m-head"><div class="m-title">${sel.length} módulos</div><span class="chip">${anchoSel} cm</span></div>
+      <div class="empty" style="padding:16px 0 4px">Ctrl + clic en el dibujo para sumar o quitar módulos de la selección.</div></div>`;
+    html += `<div class="p-foot"><button class="btn btn-danger btn-block" id="delSel">Eliminar ${sel.length} módulos</button></div>`;
+  } else {
+    const code = 'M' + (state.modulos.indexOf(m) + 1);
+    html += `<div class="p-section"><div class="m-head"><div class="m-title">Gabinete bajo</div><span class="chip">${code} · ${m.ancho} cm</span></div></div>`;
+
+    html += `<div class="p-section"><div class="p-label">Función</div>
+      <label class="field"><select id="fTipo"><option ${m.tipo==='Puertas'?'selected':''}>Puertas</option><option ${m.tipo==='Cajones'?'selected':''}>Cajones</option></select></label></div>`;
+
+    html += `<div class="p-section"><div class="p-label">Medidas</div><div class="grid-2">
+        ${num('fAncho','Ancho',m.ancho,'cm',20,120)}${num('fFondo','Fondo',m.fondo,'cm',45,75)}
+      </div>${check('fFijo', m.anchoFijo, 'Conservar este ancho')}</div>`;
+
+    if (m.tipo==='Puertas') {
+      let opts = check('fDos', m.dosPuertas, 'Dos puertas');
+      if (m.dosPuertas) opts += `<div class="sub">${check('fInv', m.invertir, 'Invertir abatimiento')}</div>`;
+      opts += check('fTarja', m.preparadoTarja, 'Preparado para tarja');
+      if (m.preparadoTarja) opts += `<div class="sub">
+          <label class="field" style="margin:6px 0 4px"><select id="fTarjaTipo"><option ${m.tarja!=='Tarja doble'?'selected':''}>Tarja sencilla</option><option ${m.tarja==='Tarja doble'?'selected':''}>Tarja doble</option></select></label>
+          ${check('fBajo', m.bajoCubierta, 'Tarja bajo cubierta')}</div>`;
+      html += `<div class="p-section"><div class="p-label">Puertas y tarja</div>${opts}</div>`;
+    } else {
+      html += `<div class="p-section"><div class="p-label">Cajones</div><div class="grid-2">${num('fCajones','Cantidad',m.cajones,'u',1,5)}</div></div>`;
+    }
+    html += `<div class="p-foot"><button class="btn btn-danger btn-block" id="delSel">Eliminar módulo</button></div>`;
+  }
+  side.innerHTML = html;
+  const bind = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
+  bind('addBajo','click',()=>change(()=>{ const mm=newModule(60); state.modulos.push(mm); state.selection=new Set([mm.id]); }));
+  bind('delSel','click',()=>change(()=>{ state.modulos = state.modulos.filter(x=>!state.selection.has(x.id)); state.selection.clear(); }));
+  if (m) {
+    bind('fTipo','change',e=>change(()=>m.tipo=e.target.value));
+    bind('fAncho','change',e=>change(()=>m.ancho=Math.max(20,Math.min(120,parseFloat(e.target.value)||m.ancho))));
+    bind('fFondo','change',e=>change(()=>m.fondo=parseFloat(e.target.value)||m.fondo));
+    bind('fFijo','change',e=>change(()=>m.anchoFijo=e.target.checked));
+    bind('fDos','change',e=>change(()=>m.dosPuertas=e.target.checked));
+    bind('fInv','change',e=>change(()=>m.invertir=e.target.checked));
+    bind('fTarja','change',e=>change(()=>{ m.preparadoTarja=e.target.checked; if (m.preparadoTarja && m.tarja==='Sin tarja') m.tarja='Tarja sencilla'; }));
+    bind('fTarjaTipo','change',e=>change(()=>m.tarja=e.target.value));
+    bind('fBajo','change',e=>change(()=>m.bajoCubierta=e.target.checked));
+    bind('fCajones','change',e=>change(()=>m.cajones=Math.max(1,Math.min(5,parseInt(e.target.value)||m.cajones))));
+  }
+}
+
+/* =======================================================================
+ * MATERIALES (equivalente simplificado de MaterialTab.cs: galeria + drag)
+ * ======================================================================= */
+const SWATCHES = [
+  {id:'madera-roble', cat:'Madera', name:'Roble claro', color:'#D3B080', texture:'repeating-linear-gradient(100deg,#D3B080,#D3B080 6px,#C29D6C 6px,#C29D6C 8px)'},
+  {id:'madera-nogal', cat:'Madera', name:'Nogal', color:'#785438', texture:'repeating-linear-gradient(100deg,#785438,#785438 6px,#664730 6px,#664730 8px)'},
+  {id:'madera-cerezo', cat:'Madera', name:'Cerezo', color:'#9C5C40', texture:'repeating-linear-gradient(100deg,#9C5C40,#9C5C40 6px,#8A4F37 6px,#8A4F37 8px)'},
+  {id:'madera-wengue', cat:'Madera', name:'Wengué', color:'#46342A', texture:'repeating-linear-gradient(100deg,#46342A,#46342A 6px,#3A2B22 6px,#3A2B22 8px)'},
+  {id:'color-blanco', cat:'Color', name:'Blanco mate', color:'#F2F1EC', texture:'#F2F1EC'},
+  {id:'color-negro', cat:'Color', name:'Negro mate', color:'#262628', texture:'#262628'},
+  {id:'color-grafito', cat:'Color', name:'Grafito', color:'#606266', texture:'#606266'},
+  {id:'color-azul', cat:'Color', name:'Azul petróleo', color:'#305460', texture:'#305460'},
+  {id:'cub-granito', cat:'Cubiertas', name:'Granito gris', color:'#949694', texture:'radial-gradient(circle at 20% 30%,#7d7f7d 1px,transparent 1.5px),radial-gradient(circle at 60% 70%,#aeb0ae 1px,transparent 1.5px),radial-gradient(circle at 80% 20%,#7d7f7d 1px,transparent 1.5px),#949694'},
+  {id:'cub-cuarzo', cat:'Cubiertas', name:'Cuarzo blanco', color:'#E8E8E4', texture:'radial-gradient(circle at 30% 40%,#d4d4d0 1px,transparent 1.5px),radial-gradient(circle at 70% 60%,#d4d4d0 1px,transparent 1.5px),#E8E8E4'},
+  {id:'back-subway', cat:'Backsplash', name:'Subway blanco', color:'#ECECE8', texture:'repeating-linear-gradient(0deg,#ECECE8,#ECECE8 14px,#CFCFCB 14px,#CFCFCB 15px),repeating-linear-gradient(90deg,#ECECE8,#ECECE8 28px,#CFCFCB 28px,#CFCFCB 29px)'},
+  {id:'back-marino', cat:'Backsplash', name:'Azul marino', color:'#2C3E60', texture:'repeating-linear-gradient(0deg,#2C3E60,#2C3E60 14px,#223049 14px,#223049 15px),repeating-linear-gradient(90deg,#2C3E60,#2C3E60 28px,#223049 28px,#223049 29px)'},
+];
+const CATEGORIES = ['Madera','Color','Cubiertas','Backsplash'];
+let editingSwatch = null;
+
+function renderGallery(){
+  const el = document.getElementById('gallery');
+  let html = `<div class="p-section"><div class="hint-box"><b>Arrastrá</b> una muestra sobre una pieza del dibujo para aplicarla. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla.</div></div>`;
+  CATEGORIES.forEach(cat => {
+    html += `<div class="p-section"><div class="p-label">${cat}</div><div class="mat-grid">`;
+    SWATCHES.filter(s=>s.cat===cat).forEach(s => {
+      const cls = (isAssigned(s.id)?' assigned':'') + (editingSwatch===s.id?' editing':'');
+      html += `<div class="swatch" draggable="true" data-id="${s.id}" title="${s.name}">
+        <div class="sw-chip${cls}" style="background:${s.texture}"></div>
+        <div class="sw-name">${s.name}</div></div>`;
+    });
+    html += `<div class="swatch add" data-add="${cat}"><div class="sw-chip">+</div><div class="sw-name">Agregar</div></div>`;
+    html += `</div></div>`;
+  });
+  html += `<div class="p-section"><div class="p-label">Restablecer</div><div class="mat-grid">
+      <div class="swatch reset" draggable="true" data-id="__original__" title="Quita el material propio"><div class="sw-chip"></div><div class="sw-name">Original</div></div>
+    </div></div>`;
+  const rows = [];
+  if (state.materiales.Cubierta) rows.push(['Cubierta', SWATCHES.find(s=>s.id===state.materiales.Cubierta).name]);
+  if (state.materiales.Zoclo) rows.push(['Zócalo', SWATCHES.find(s=>s.id===state.materiales.Zoclo).name]);
+  const own = state.modulos.filter(m=>m.material).length;
+  if (own) rows.push(['Material propio', own+(own===1?' gabinete':' gabinetes')]);
+  if (rows.length) html += `<div class="p-section"><div class="p-label">Asignados</div><div class="info-card">${rows.map(r=>`<div class="info-row">${r[0]} <b style="font-family:Inter;font-weight:600">${r[1]}</b></div>`).join('')}</div></div>`;
+  el.innerHTML = html;
+}
+/* eventos delegados en el contenedor: sobreviven a cada redibujo de la galeria */
+(() => {
+  const el = document.getElementById('gallery');
+  el.addEventListener('dragstart', e => { const n = e.target.closest('.swatch[draggable]'); if (n) e.dataTransfer.setData('text/swatch', n.dataset.id); });
+  el.addEventListener('click', e => {
+    const n = e.target.closest('.swatch'); if (!n) return;
+    if (n.classList.contains('add')) { setStatus('Prototipo: acá se crearía una muestra nueva en "'+n.dataset.add+'".'); return; }
+    if (n.classList.contains('reset') || e.detail > 1) return;
+    editingSwatch = n.dataset.id; renderGallery(); renderMatEditor();
+  });
+  el.addEventListener('dblclick', e => {
+    const n = e.target.closest('.swatch[draggable]'); if (!n || n.classList.contains('reset')) return;
+    if (!state.selection.size) { setStatus('Seleccioná uno o más módulos para aplicar con doble clic.'); return; }
+    const sw = SWATCHES.find(s=>s.id===n.dataset.id);
+    change(() => state.modulos.forEach(m => { if (state.selection.has(m.id)) m.material = sw.id; }));
+    setStatus(sw.name + ' aplicado a ' + state.selection.size + (state.selection.size===1?' módulo.':' módulos.'));
+  });
+})();
+function isAssigned(id){ return state.materiales.Cubierta===id || state.materiales.Zoclo===id || state.modulos.some(m=>m.material===id); }
+
+function renderMatEditor(){
+  const el = document.getElementById('matEditor');
+  const s = SWATCHES.find(x=>x.id===editingSwatch);
+  if (!s) { el.classList.remove('open'); el.innerHTML=''; return; }
+  el.classList.add('open');
+  el.innerHTML = `<div class="p-section">
+    <div class="ed-head"><div class="ed-preview" style="background:${s.texture}"></div>
+      <div><div class="ed-title">Editar muestra</div><div class="ed-sub">${s.cat}</div></div></div>
+    <label class="field"><span>Nombre</span><input type="text" id="matName" value="${s.name}"></label>
+    <div class="field"><span>Color rápido</span>
+      <div class="row" id="matColors">${SWATCHES.filter(x=>x.cat===s.cat).map(x=>`<div class="colorchip${x.color===s.color?' on':''}" data-c="${x.id}" style="background:${x.color}" title="${x.name}"></div>`).join('')}</div></div>
+    <div class="actions"><button class="btn btn-danger btn-sm" id="matDelete">Eliminar</button><button class="btn btn-primary btn-sm" id="matDone">Listo</button></div>
+  </div>`;
+  document.getElementById('matName').addEventListener('change', e => { s.name = e.target.value; renderGallery(); });
+  el.querySelectorAll('#matColors .colorchip').forEach(c => c.addEventListener('click', () => {
+    const src = SWATCHES.find(x=>x.id===c.dataset.c); s.color = src.color; s.texture = src.texture; renderGallery(); renderMatEditor();
+  }));
+  document.getElementById('matDone').addEventListener('click', () => { editingSwatch=null; renderGallery(); renderMatEditor(); });
+  document.getElementById('matDelete').addEventListener('click', () => setStatus('Prototipo: las muestras base no se eliminan.'));
+}
+
+/* soltar una muestra sobre el canvas (equivalente a canvas.DragDrop + ApplyMaterial) */
+canvas.addEventListener('dragover', e => e.preventDefault());
+canvas.addEventListener('drop', e => {
+  e.preventDefault();
+  const id = e.dataTransfer.getData('text/swatch'); if (!id) return;
+  const value = id === '__original__' ? null : id;
+  const p = { x:e.offsetX, y:e.offsetY };
+  const hit = [...hits].reverse().find(h => p.x>=h.rect.x && p.x<=h.rect.x+h.rect.w && p.y>=h.rect.y && p.y<=h.rect.y+h.rect.h);
+  if (!hit) { change(()=>state.materiales.Cubierta=state.materiales.Cubierta); setStatus('Soltalo sobre una pieza del dibujo.'); return; }
+  const swatch = value ? SWATCHES.find(s=>s.id===value) : null;
+  change(() => { hit.module.material = value; });
+  setStatus((swatch?swatch.name:'Original')+' aplicado al módulo.');
+});
+
+/* =======================================================================
+ * ESTILO (equivalente a StyleTab.cs)
+ * ======================================================================= */
+function renderStyle(){
+  const el = document.getElementById('styleTab');
+  const opt = (name, value, current, title, desc, compact) =>
+    `<label class="opt${compact?' compact':''}${current===value?' on':''}"><input type="radio" name="${name}" value="${value}" ${current===value?'checked':''}>
+      <div><div class="t">${title}</div>${desc?`<div class="d">${desc}</div>`:''}</div></label>`;
+  let html = `<div class="p-section"><div class="p-label">Estilo de frentes</div>
+      ${opt('style','Moderna',state.style,'Moderna','Frentes lisos con gola y perfil.')}
+      ${opt('style','Clasica',state.style,'Clásica','Puertas shaker con jaladeras, sin gola.')}
+      ${opt('style','Simple',state.style,'Simple','Frentes lisos con jaladeras, sin gola ni marcos.')}
+    </div>`;
+  if (state.style === 'Moderna') {
+    html += `<div class="p-section"><div class="p-label">Agarre de gola</div>
+      ${opt('gola','L',state.gola,'Aluminio','L superior / C entre cajones.',true)}
+      ${opt('gola','Melamina',state.gola,'Melamina 1.8 cm','Solo en gabinetes bajos.',true)}
+      <div class="note">Los frentes son lisos y se abren por el uñero de la gola.</div></div>`;
+  } else {
+    html += `<div class="p-section"><div class="p-label">Jaladera</div>
+      ${opt('jal','Barra',state.jaladera,'Barra tipo tubo','',true)}
+      ${opt('jal','Boton',state.jaladera,'Botón / perilla','',true)}
+      ${state.jaladera==='Barra' ? `<div class="grid-2" style="margin-top:12px"><label class="field"><span>Largo de la barra</span><div class="unit" data-unit="cm"><input type="number" id="jalLargo" value="${state.largoJaladera}" min="8" max="40" step="0.8"></div></label></div>` : ''}
+      <div class="note">Puertas y cajones cierran a hueso${state.style==='Clasica'?', con marco shaker':''} y jaladera.</div></div>`;
+  }
+  html += `<div class="p-section"><div class="p-label">Herrajes</div>
+      <label class="check"><input type="checkbox" id="hinge" ${state.bisagras?'checked':''}>Bisagras de cazoleta en las puertas</label></div>`;
+  el.innerHTML = html;
+  el.querySelectorAll('input[name=style]').forEach(r=>r.addEventListener('change', e=>change(()=>state.style=e.target.value)));
+  el.querySelectorAll('input[name=gola]').forEach(r=>r.addEventListener('change', e=>change(()=>state.gola=e.target.value)));
+  el.querySelectorAll('input[name=jal]').forEach(r=>r.addEventListener('change', e=>change(()=>state.jaladera=e.target.value)));
+  const jalLargo = document.getElementById('jalLargo'); if (jalLargo) jalLargo.addEventListener('change', e=>change(()=>state.largoJaladera=parseFloat(e.target.value)||state.largoJaladera));
+  const hinge = document.getElementById('hinge'); if (hinge) hinge.addEventListener('change', e=>change(()=>state.bisagras=e.target.checked));
+}
+
+/* =======================================================================
+ * TOOLBAR / TABS / STATUS
+ * ======================================================================= */
+function setStatus(t){ document.getElementById('status').textContent = t; }
+document.querySelectorAll('.tab-heads button').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab-heads button').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-page').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active'); document.getElementById('page-'+btn.dataset.tab).classList.add('active');
+}));
+document.getElementById('btnView').addEventListener('click', () => { view = view==='Alzado' ? 'Planta' : 'Alzado'; document.getElementById('viewLabel').textContent = view; render(); });
+document.getElementById('btnDoors').addEventListener('click', e => { showDoors=!showDoors; document.getElementById('btnDoors').classList.toggle('active',showDoors); document.getElementById('doorsLabel').textContent = showDoors?'Puertas':'Interior'; render(); });
+document.getElementById('btnFlat').addEventListener('click', () => { flat=!flat; document.getElementById('btnFlat').classList.toggle('active',flat); render(); });
+document.getElementById('btnMeasure').addEventListener('click', () => { measure=!measure; document.getElementById('btnMeasure').classList.toggle('active',measure); drawCanvas(); setStatus(measure?'Medir: cotas de cada frente sobre los módulos seleccionados.':summary()); });
+document.getElementById('btnUndo').addEventListener('click', () => { if (undoStack.length){ redoStack.push(snapshot()); restore(undoStack.pop()); render(); } });
+document.getElementById('btnRedo').addEventListener('click', () => { if (redoStack.length){ undoStack.push(snapshot()); restore(redoStack.pop()); render(); } });
+document.getElementById('btnConfigs').addEventListener('click', () => setStatus('Prototipo: acá se abriría guardar/cargar configuraciones.'));
+document.getElementById('btnCancel').addEventListener('click', () => setStatus('Cancelado.'));
+document.getElementById('btnGenerate').addEventListener('click', () => {
+  // TODO (SketchUp real): construir grupos/components con Geom/pushpull y
+  // enviar el payload al motor Ruby, ej:
+  //   sketchup.exec_callback('generar', JSON.stringify({ modulos: state.modulos, altoTotal: state.altoTotal, style: state.style }));
+  setStatus('Prototipo de interfaz: la generación 3D real todavía no está conectada.');
+});
+
+resizeCanvas();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(render); // evita que el canvas quede con la tipografia de reemplazo
+</script>
+</body>
+</html>
