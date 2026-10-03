@@ -242,11 +242,12 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
-   B14. [SketchUp OK 03/10] LED con segunda cama (LedUpgrade de Revit): en el
-       lecho de cada alto con LED, segunda cama con ranura de luz al frente o
-       atras, camara de 1.5 cm con la tira y el piso del gabinete encima; las
-       puertas alinean con la cara inferior de la cama (los niveles no cambian).
-       Antes era una tira suelta bajo los altos.
+   B14. [SketchUp OK 03/10] LED con segunda cama (LedUpgrade de Revit): bajo los
+       altos con LED, segunda cama corrida (tapa de todo el fondo, cortada en
+       reservados, campanas y cambios de fondo) con ranura de luz al frente o
+       atras; laterales y trasero arrancan sobre ella; camara de 1.5 cm con la
+       tira y el piso del gabinete encima; las puertas alinean con la cara
+       inferior de la cama (los niveles no cambian).
    B13. [SketchUp OK 03/10] Gola empotrada (referencia del usuario): canal de
        2.6 cm dentro del gabinete (mas hondo en melamina), perfil C de 7.4 cm
        entre cajones (2.2 por detras de cada frente) y L/C arriba hasta el
@@ -1691,16 +1692,19 @@ function planDePiezas(c = cfg){
     const matPanel = (dueno, zona, clave, grupo) => (dueno.materialesPaneles || {})[zona + '.' + clave] || groupMaterial(grupo) || null;
     /* carcasa (drawInterior): laterales a todo el alto, trasero entre laterales, piso y techo delante del trasero.
        Devuelve el hueco interior. Sin travesaños por ahora: el techo es completo (PLAN_PENDIENTE) */
+    /* ranura de luz de la segunda cama: a PLAN_LED.retiro del frente del alto, o del trasero si el LED va atras */
+    const ranuraLed = y1 => cfg.ledFrente ? y1 - PLAN_LED.retiro - PLAN_LED.ancho : sep + PLAN_CUERPO.fondo + PLAN_LED.retiro;
     const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false) => {
       const e = PLAN_CUERPO.lateral, ef = PLAN_CUERPO.fondo, y0 = sep, y1 = sep + fondo;
       const panel = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
-      panel('lateral:izq', 'Lateral', x0, x0 + e, y0, y1, z0, z1);
-      panel('lateral:der', 'Lateral', x1 - e, x1, y0, y1, z0, z1);
-      panel('trasero', 'Trasero', x0 + e, x1 - e, y0, y0 + ef, z0, z1, matPanel(dueno, zona, 'fondo', 'Interior'));
+      /* con LED, la segunda cama (corrida, ver camasLed) es la tapa inferior: laterales y trasero arrancan sobre ella */
+      const zl = led ? z0 + e : z0;
+      panel('lateral:izq', 'Lateral', x0, x0 + e, y0, y1, zl, z1);
+      panel('lateral:der', 'Lateral', x1 - e, x1, y0, y1, zl, z1);
+      panel('trasero', 'Trasero', x0 + e, x1 - e, y0, y0 + ef, zl, z1, matPanel(dueno, zona, 'fondo', 'Interior'));
       let zp = z0;
-      if (led) {   /* segunda cama con la ranura de luz, tira en la camara y el piso encima */
-        const L = PLAN_LED, r0 = cfg.ledFrente ? y1 - L.retiro - L.ancho : y0 + ef + L.retiro, r1 = r0 + L.ancho;
-        panel('cama:atras', 'Cama', x0 + e, x1 - e, y0 + ef, r0, z0, z0 + e); panel('cama:frente', 'Cama', x0 + e, x1 - e, r1, y1, z0, z0 + e);
+      if (led) {   /* tira en la camara, sobre la ranura de la cama, y el piso encima */
+        const L = PLAN_LED, r0 = ranuraLed(y1);
         zp = z0 + e + L.camara;
         add({ id: base + ':led', rol: 'herraje', modulo: dueno.id, tipo: 'LED', x: x0 + e, y: r0, z: zp - L.alto, ancho: x1 - x0 - 2*e, fondo: L.ancho, alto: L.alto, material: null, etiqueta: 'herrajes' });
       }
@@ -1907,6 +1911,17 @@ function planDePiezas(c = cfg){
         x += m.ancho;
       }
     }
+    /* segunda cama del LED (B14/B15): una tapa corrida bajo los altos con LED, de todo el fondo y por delante y por detras de la
+       ranura; se corta en las columnas reservadas, en los altos con campana y donde cambia el fondo */
+    if (cfg.led) { let xc = ajusteIzq(), tramo = null; const tramosCama = [];
+      for (const m of row(true)) { const con = !m.reserved && !hasCampana(m);
+        if (con && tramo && tramo.fondo === m.fondo) tramo.x1 = xc + m.ancho;
+        else if (con) { tramo = { x0: xc, x1: xc + m.ancho, fondo: m.fondo, m }; tramosCama.push(tramo); }
+        else tramo = null;
+        xc += m.ancho; }
+      tramosCama.forEach((q, k) => { const y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + PLAN_LED.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
+        const cama = (lado, a, b) => add({ id: 'cama:' + k + ':' + lado, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: a, z: z0, ancho: q.x1 - q.x0, fondo: b - a, alto: e, material: matDe(q.m), etiqueta: 'gabinetes' });
+        cama('atras', sep, r0); cama('frente', r1, y1); }); }
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
        a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
     const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
@@ -2122,11 +2137,14 @@ function pruebasPlanDePiezas(){
       ok(!tapa, nombre + ': el canal de ' + g.id + ' lo ocupa ' + (tapa && tapa.id)); });
     /* LED: cada alto con LED lleva su segunda cama (dos tablas con la ranura) en el lecho, la tira encima y las puertas alineadas */
     if (c.led) c.modulos.filter(m => m.upper && !m.reserved && !m.campana).forEach(m => {
-      const camas = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Cama'), tira = p.piezas.find(q => q.modulo === m.id && q.tipo === 'LED');
-      if (!camas.length && !tira) return;   /* columna de una caja corrida: la cama la lleva el primer modulo */
-      const puertas = p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < camas[0].z + 1);
-      ok(camas.length === 2 && tira && tira.z >= camas[0].z + camas[0].alto - .01, nombre + ': LED sin segunda cama en ' + m.id);
-      ok(puertas.every(q => Math.abs(q.z - camas[0].z) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la segunda cama'); });
+      const laterales = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Lateral' && q.z < 200), cx = laterales.length ? (Math.min(...laterales.map(q => q.x)) + Math.max(...laterales.map(q => q.x + q.ancho)))/2 : null;
+      if (cx === null) return;   /* columna de una caja corrida sin carcasa propia */
+      const camas = p.piezas.filter(q => q.tipo === 'Cama' && q.x <= cx && q.x + q.ancho >= cx), z0 = Math.min(...laterales.map(q => q.z));
+      ok(camas.length === 2, nombre + ': sin segunda cama bajo ' + m.id);
+      if (camas.length) { const zc = camas[0].z + camas[0].alto;
+        ok(Math.abs(z0 - zc) < .01, nombre + ': los laterales de ' + m.id + ' no arrancan sobre la segunda cama');
+        ok(p.piezas.some(q => q.tipo === 'LED' && q.modulo === m.id && q.z >= zc - .01), nombre + ': sin tira LED en ' + m.id);
+        ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - camas[0].z) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la segunda cama'); } });
     /* zoclo: un cierre en cada extremo pedido, en el primer y el ultimo tramo */
     const cierres = p.piezas.filter(q => q.rol === 'zoclo' && q.tipo === 'Cierre');
     ok(cierres.length === (c.generarZoclos && c.baseBajos > 0 ? (c.cerrarZocloIzq ? 1 : 0) + (c.cerrarZocloDer ? 1 : 0) : 0), nombre + ': ' + cierres.length + ' cierres de zoclo');
