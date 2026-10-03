@@ -242,6 +242,11 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B12. [SketchUp OK 03/10] Cocina de muro completa en el plan: gola de aluminio
+       (fondo y perfil L arriba / C entre cajones, segun perfil) o de melamina,
+       LED bajo los altos al frente o atras, y puertas ocultas (hoja con zoclo
+       pegado, juntas, jaladera a 100 cm, piston con su caja, tapetas lateral
+       y superior; sin vuelo de cubierta de ese lado).
    B11. [SketchUp OK 03/10] Cerrar extremos del zoclo: el plan genera la tapa
        (Cerrar_Izquierda / Cerrar_Derecha de Revit) en el primer y el ultimo
        tramo, de la cara posterior del zoclo hasta los gabinetes.
@@ -1634,14 +1639,16 @@ const PLAN_ESQUEMA = 1, PLAN_ESPESOR_FRENTE = 1.8;
 /* medidas de construccion que el editor no dibuja (en Revit viven dentro de las familias: Espesor_Cuerpo...). Ajustar aqui */
 const PLAN_CUERPO = { lateral: 1.8, fondo: 1.8 };                                    /* carcasa: laterales, piso y techo; trasero */
 const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3 };   /* caja de cajon dentro de la carcasa */
-const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 }, PLAN_GOLA = .5;       /* jaladera (barra o boton) y perfil gola */
+const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                     /* jaladera de barra o boton */
+const PLAN_GOLA = { lamina: .2, labio: 1, melamina: 1.2 };   /* gola: fondo y labios de aluminio; tablero de melamina retirado 0.6 */
+const PLAN_LED = { ancho: 2, alto: 1, retiro: 3 }, PLAN_JUNTA = { ancho: .4, salida: .2 };
 const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 1.8 };                       /* cazoleta de 35 mm a 1.8 cm del canto (Revit) */
 const PLAN_TARJA = { lamina: .8, ceja: 2.5, cejaAlto: .6 }, PLAN_PLACA = .6, PLAN_SHAKER_REHUNDIDO = .6;
 const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash', 'equipos'];
 const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo'];
 /* lo que el plan todavia no entrega (se anota aqui al cubrirlo) */
 const PLAN_PENDIENTE = ['forma de los equipos (horno, microondas, refrigerador, estufa, frigobar, tarja y campana van como cajas)',
-  'hueco de la parrilla en la cubierta', 'travesaños en lugar de techo en los bajos', 'puertas ocultas', 'LED', 'isla', 'closet'];
+  'hueco de la parrilla en la cubierta', 'travesaños en lugar de techo en los bajos', 'isla', 'closet'];
 /* textura de un material para SketchUp (B5): un mosaico del patron pintado con paintPattern, igual que la vista; ancho y alto
    en cm (patron x escala) para que SketchUp lo repita a su medida real. Colores lisos: sin textura (solo rgb) */
 const PLAN_TEXTURA_PX = 4, PLAN_TEXTURA_MAX = 1024, texturas = new Map();
@@ -1723,20 +1730,33 @@ function planDePiezas(c = cfg){
     };
     /* frente: liso, o en estilo Clasica con marco shaker (como drawHandle: frentes de 8 cm o mas que no son fijos): tablero
        rehundido con el id del frente y cuatro piezas de marco del ancho de Revit (Ancho_Marco = min(6, lado menor / 3.5)) */
-    const frente = (m, f, k, x0) => {
-      const base = m.id + ':frente:' + k, y = sep + m.fondo, a = x0 + f.x0, b = x0 + f.x1, w = f.x1 - f.x0, h = f.z1 - f.z0, mat = matDe(m);
-      const datos = { rol: 'frente', modulo: m.id, material: mat, etiqueta: 'frentes' };
-      if (cfg.style === 'Clasica' && !f.fijo && w >= 8 && h >= 8) {
+    const tablero = (modulo, base, kind, a, b, z0, z1, y, mat, hingeRight, fijo) => {
+      const w = b - a, h = z1 - z0, datos = { rol: 'frente', modulo, material: mat, etiqueta: 'frentes' };
+      if (cfg.style === 'Clasica' && !fijo && w >= 8 && h >= 8) {
         const fw = Math.max(1, Math.min(6, Math.min(w, h)/3.5)), r = PLAN_SHAKER_REHUNDIDO;
-        add(Object.assign({ id: base, tipo: f.kind, x: a + fw, y, z: f.z0 + fw, ancho: w - 2*fw, fondo: t - r, alto: h - 2*fw, bisagraDerecha: !!f.hingeRight, fijo: false }, datos));
-        add(Object.assign({ id: base + ':marco:izq', tipo: 'Marco', x: a, y, z: f.z0, ancho: fw, fondo: t, alto: h }, datos));
-        add(Object.assign({ id: base + ':marco:der', tipo: 'Marco', x: b - fw, y, z: f.z0, ancho: fw, fondo: t, alto: h }, datos));
-        add(Object.assign({ id: base + ':marco:abajo', tipo: 'Marco', x: a + fw, y, z: f.z0, ancho: w - 2*fw, fondo: t, alto: fw }, datos));
-        add(Object.assign({ id: base + ':marco:arriba', tipo: 'Marco', x: a + fw, y, z: f.z1 - fw, ancho: w - 2*fw, fondo: t, alto: fw }, datos));
-      } else add(Object.assign({ id: base, tipo: f.kind, x: a, y, z: f.z0, ancho: w, fondo: t, alto: h, bisagraDerecha: !!f.hingeRight, fijo: !!f.fijo }, datos));
+        add(Object.assign({ id: base, tipo: kind, x: a + fw, y, z: z0 + fw, ancho: w - 2*fw, fondo: t - r, alto: h - 2*fw, bisagraDerecha: !!hingeRight, fijo: false }, datos));
+        add(Object.assign({ id: base + ':marco:izq', tipo: 'Marco', x: a, y, z: z0, ancho: fw, fondo: t, alto: h }, datos));
+        add(Object.assign({ id: base + ':marco:der', tipo: 'Marco', x: b - fw, y, z: z0, ancho: fw, fondo: t, alto: h }, datos));
+        add(Object.assign({ id: base + ':marco:abajo', tipo: 'Marco', x: a + fw, y, z: z0, ancho: w - 2*fw, fondo: t, alto: fw }, datos));
+        add(Object.assign({ id: base + ':marco:arriba', tipo: 'Marco', x: a + fw, y, z: z1 - fw, ancho: w - 2*fw, fondo: t, alto: fw }, datos));
+      } else add(Object.assign({ id: base, tipo: kind, x: a, y, z: z0, ancho: w, fondo: t, alto: h, bisagraDerecha: !!hingeRight, fijo: !!fijo }, datos));
+    };
+    const frente = (m, f, k, x0) => {
+      const base = m.id + ':frente:' + k, y = sep + m.fondo, a = x0 + f.x0, b = x0 + f.x1;
+      tablero(m.id, base, f.kind, a, b, f.z0, f.z1, y, matDe(m), f.hingeRight, f.fijo);
       if (f.kind === 'Puerta') bisagras(m, base, a, b, f.z0, f.z1, !!f.hingeRight, y);
       jaladera(m, f, x0, base);
     };
+    /* gola (golaStrips, estilo Moderna). Aluminio: fondo de la franja (material Gola) y perfil (material Perfil) con labio arriba
+       (L) en la franja superior segun cfg.perfil y labios arriba y abajo (C) entre cajones. Melamina: tablero retirado 0.6 */
+    const gola = (m, xa, xb) => golaStrips(m).forEach(([gz, gh], k) => {
+      const G = PLAN_GOLA, y = sep + m.fondo, base = m.id + ':gola:' + k, mel = cfg.gola === 'Melamina';
+      add({ id: base, rol: 'herraje', modulo: m.id, tipo: 'Gola', x: xa, y, z: gz, ancho: xb - xa, fondo: mel ? G.melamina : G.lamina, alto: gh, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' });
+      if (mel) return;
+      const labio = (lado, z) => add({ id: base + ':perfil:' + lado, rol: 'herraje', modulo: m.id, tipo: 'Perfil', x: xa, y: y + G.lamina, z, ancho: xb - xa, fondo: G.labio, alto: G.lamina, material: cfg.materiales.Perfil || null, etiqueta: 'herrajes' });
+      labio('arriba', gz + gh - G.lamina);
+      if ((k === 0 ? cfg.perfil : 'C') === 'C') labio('abajo', gz);
+    });
     /* equipo como caja (horno, microondas, refrigerador, estufa, frigobar): marca el hueco y el volumen, sin modelo propio */
     const equipo = (m, k, tipo, a, b, z0, z1, c0, c1) => add({ id: m.id + ':' + k, rol: 'equipo', modulo: m.id, tipo, x: a, y: c0, z: z0, ancho: b - a, fondo: c1 - c0, alto: z1 - z0, material: null, etiqueta: 'equipos' });
     /* cajas de cajon de un especial: cada frente de cajon va en la zona interior con la que mas se solapa */
@@ -1814,7 +1834,7 @@ function planDePiezas(c = cfg){
       }
       cajasEn(m, x, zonas);
       fronts(m).forEach((f, k) => frente(m, f, k, x));
-      golaStrips(m).forEach(([gz, gh], k) => add({ id: m.id + ':gola:' + k, rol: 'herraje', modulo: m.id, tipo: 'Gola', x: isTower(m) ? xi0 : x, y: y1, z: gz, ancho: isTower(m) ? xi1 - xi0 : m.ancho, fondo: PLAN_GOLA, alto: gh, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' }));
+      gola(m, isTower(m) ? xi0 : x, isTower(m) ? xi1 : x + m.ancho);
     };
     /* cuerpos y frentes por fila: los modulos se colocan uno tras otro desde la tapeta izquierda */
     for (const upper of [false, true]) {
@@ -1841,7 +1861,7 @@ function planDePiezas(c = cfg){
         /* campana (drawCampana): en el hueco bajo el alto, del muro a su fondo y casi a todo el ancho */
         if (hasCampana(m) && m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos(), baseAltos() + m.huecoCampana, sep, sep + m.fondoCampana);
         /* gola: franja de perfil en cada hueco de agarre (golaStrips), detras del plano de los frentes */
-        golaStrips(m).forEach(([gz, gh], k) => add({ id: m.id + ':gola:' + k, rol: 'herraje', modulo: m.id, tipo: 'Gola', x, y: sep + m.fondo, z: gz, ancho: m.ancho, fondo: PLAN_GOLA, alto: gh, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' }));
+        gola(m, x, x + m.ancho);
         /* modulo superior del alto doble (drawCap): uno por grupo de columnas unidas, del primero y a todo su ancho */
         const cap = isDoble(m) ? capGroupOf(m) : null;
         if (cap && cap.lead === m) {
@@ -1863,7 +1883,7 @@ function planDePiezas(c = cfg){
     const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
     const dBajo = sep + fondoDe(lows) + t, dAlto = sep + fondoDe(highs) + t;
     const run0 = cfg.corridaIzq ? ajusteIzq() : 0, run1 = cfg.corridaDer ? W - ajusteDer() : W;
-    const vI = cfg.corridaIzq ? 0 : vueloEf(), vD = cfg.corridaDer ? 0 : vueloEf();
+    const vI = cfg.corridaIzq || hdExtra(false) > 0 ? 0 : vueloEf(), vD = cfg.corridaDer || hdExtra(true) > 0 ? 0 : vueloEf();   /* ni contra una puerta oculta */
     if (lows.length) {
       /* en 3D el zoclo se detiene en una tapeta que llega al piso (corrida o junto a un especial); el alzado 2D lo pinta encima */
       const alPiso = left => { const lo = lows[left ? 0 : lows.length - 1]; return (left ? cfg.tapetaIzq : cfg.tapetaDer) && ((left ? cfg.corridaIzq : cfg.corridaDer) || isSpecial(lo) || cortaZoclo(lo)); };
@@ -1931,6 +1951,34 @@ function planDePiezas(c = cfg){
       if (lo) { const [z0, z1] = isSpecial(lo) ? [0, altoEsp(lo)] : cortaZoclo(lo) ? [0, zBar - pq] : [zb, zBar - pq]; pieza(':bajo', z0, z1, dBajo); }
       if (hi && !hi.reserved) pieza(':alto', zBA, zTop, dAlto);
     });
+    /* LED bajo los altos (drawElevation): perfil bajo su lecho, al frente o atras (ledFrente), cortado en los especiales */
+    if (cfg.led && highs.length) cutRun(ajusteIzq(), W - ajusteDer()).forEach(([a, b], k) => { const L = PLAN_LED;
+      add({ id: 'led:' + k, rol: 'herraje', tipo: 'LED', x: a, y: cfg.ledFrente ? dAlto - t - L.retiro - L.ancho : sep + L.retiro, z: zBA - L.alto, ancho: b - a, fondo: L.ancho, alto: L.alto, material: null, etiqueta: 'herrajes' }); });
+    /* puertas ocultas (drawHiddenDoors / hdFronts): fuera de la cota del muro. Hoja de piso a techo con su zoclo pegado (o desde
+       el piso), juntas aplicadas al frente, jaladera a 100 cm junto al canto libre, gabinete de piston opcional y tapetas lateral
+       y superior. El pano de la hoja queda a d.fondo del muro; detras, el vano libre */
+    doors().forEach(d => {
+      const [s0, s1] = hdSpan(d), top = hdTop(d), zc = hdLeafTop(d), b = hdBottom(d), hr = hdHingeRight(d), hol = .2, yF = d.fondo - t;
+      const dm = { id: d.id, fondo: yF - sep, materialesPaneles: {} }, dmat = d.material || cfg.materialGeneral || null, capMat = d.materialPiston || dmat;
+      const base = d.id + ':hoja', a = s0 + hol, c = s1 - hol, z0 = b + hol, z1 = zc - hol, J = PLAN_JUNTA, juntas = hdJoints(d);
+      if (b > 0) add({ id: d.id + ':zoclo', rol: 'zoclo', tipo: 'Hoja', modulo: d.id, x: a, y: yF, z: hol, ancho: c - a, fondo: t, alto: b - 2*hol, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
+      if (cfg.style === 'Clasica') hdPanels(d).forEach(([p0, p1, q0, q1], i) => tablero(d.id, base + ':tablero:' + i, 'Puerta', s0 + p0, s0 + p1, q0, q1, yF, dmat, hr, false));
+      else tablero(d.id, base, 'Puerta', a, c, z0, z1, yF, dmat, hr, false);
+      bisagras(dm, base, a, c, z0, z1, hr, yF);
+      juntas.forEach((jz, i) => add({ id: base + ':junta:' + i, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: a, y: yF + t, z: jz - J.ancho/2, ancho: c - a, fondo: J.salida, alto: J.ancho, material: d.materialJuntas || null, etiqueta: 'herrajes' }));
+      if (d.juntaVertical) [z0, ...juntas.flatMap(j => [j - J.ancho/2, j + J.ancho/2]), z1].forEach((z, i, l) => { if (i % 2) return;
+        add({ id: base + ':junta:v:' + i/2, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: (s0 + s1)/2 - J.ancho/2, y: yF + t, z, ancho: J.ancho, fondo: J.salida, alto: l[i + 1] - z, material: d.materialJuntas || null, etiqueta: 'herrajes' }); });
+      if (cfg.style !== 'Moderna') { const Jl = PLAN_JALADERA, boton = cfg.jaladera === 'Boton', cx = hr ? s0 + 5 : s1 - 5, [w, h] = boton ? [Jl.boton, Jl.boton] : [Jl.grueso, cfg.largoJaladera];
+        add({ id: base + ':jaladera', rol: 'herraje', modulo: d.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: yF + t + J.salida, z: 100 - h/2, ancho: w, fondo: boton ? Jl.boton : Jl.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' }); }
+      if (d.piston) {
+        carcasa(dm, d.id + ':piston', s0, s1, zc, top, yF - sep, capMat, 'cap');
+        add({ id: d.id + ':piston:frente', rol: 'frente', modulo: d.id, tipo: 'Elevable', x: a, y: yF, z: zc + hol, ancho: c - a, fondo: t, alto: top - zc - 2*hol, material: capMat, etiqueta: 'frentes', bisagraDerecha: false, fijo: false });
+      }
+      const [f0, f1] = d.tapetaLateral ? hdFiller(d) : [s0, s0];
+      if (d.tapetaLateral) add({ id: d.id + ':tapeta:lateral', rol: 'tapeta', modulo: d.id, x: f0, y: 0, z: 0, ancho: f1 - f0, fondo: d.fondo, alto: top, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
+      if (d.tapetaSuperior && cfg.alturaMuro - top > .1) { const x0 = d.tapetaLateral ? Math.min(s0, f0) : s0, x1 = d.tapetaLateral ? Math.max(s1, f1) : s1;
+        add({ id: d.id + ':tapeta:superior', rol: 'tapeta', modulo: d.id, x: x0, y: 0, z: top, ancho: x1 - x0, fondo: d.fondo, alto: cfg.alturaMuro - top, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' }); }
+    });
     if (highs.length && cfg.tapetaSuperior) add({ id: 'tapeta:superior', rol: 'tapeta', x: run0, y: 0, z: zTop, ancho: run1 - run0, fondo: dAlto, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
     return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
@@ -1965,6 +2013,13 @@ function pruebasPlanDePiezas(){
     ['tarja doble de sobreponer, nariz, parrilla y campana', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       c.narizCubierta = true; c.alturaNariz = 5; c.altoBajos -= 2; c.moduloTarja = l[1].id; c.tipoTarja = 2; l[3].parrilla = true; u[3].campana = true; return c; }],
     ['muro con decimales y solo tapeta izquierda', c => { c.longitud = 312.37; c.tapetaDer = false; return c; }],
+    ['gola de aluminio en C, LED al frente y puerta oculta lisa con junta vertical', c => { const l = c.modulos.filter(m => !m.upper);
+      c.perfil = 'C'; c.led = true; c.ledFrente = true; c.vuelo = 2; l[2].tipo = 'Cajones';
+      c.puertasOcultas = [Object.assign(newDoor(true), { juntaVertical: true, juntasHorizontales: [85, 145] })]; return c; }],
+    ['moderna con gola de melamina y cajonera', c => { c.gola = 'Melamina'; c.modulos.filter(m => !m.upper)[1].tipo = 'Cajones'; return c; }],
+    ['clasica con puertas ocultas a los dos lados (piston, juntas) y LED atras', c => {
+      c.style = 'Clasica'; c.led = true; c.ledFrente = false;
+      c.puertasOcultas = [Object.assign(newDoor(false), { piston: true, altoPiston: 40, juntasHorizontales: [120] }), Object.assign(newDoor(true), { tapetaLateral: false, zoclo: false })]; return c; }],
     ['zoclo cerrado en los dos extremos y cortado por el refrigerador', c => { const l = c.modulos.filter(m => !m.upper);
       c.cerrarZocloIzq = c.cerrarZocloDer = true; l[2].tipo = 'Refri'; return c; }],
     ['tarja bajo cubierta, shaker y puertas dobles', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
@@ -1988,7 +2043,8 @@ function pruebasPlanDePiezas(){
       ok(PLAN_ETIQUETAS.includes(q.etiqueta), nombre + ': etiqueta desconocida ' + q.etiqueta);
       ok(q.z >= -.01 && q.z + q.alto <= c.alturaMuro + .01, nombre + ': fuera de la altura del muro ' + q.id);
       const v = q.rol === 'cubierta' ? (c.cubiertaAPano ? 0 : c.vuelo) : 0;   /* la cubierta vuela fuera del tramo en un extremo libre */
-      ok(q.x >= -v - .01 && q.x + q.ancho <= c.longitud + v + .01, nombre + ': fuera del largo del tramo ' + q.id);
+      const ext = derecha => Math.max(0, ...(c.puertasOcultas || []).filter(d => d.derecha === derecha).map(d => d.ancho + (d.tapetaLateral ? d.anchoTapeta : 0)));   /* puertas ocultas */
+      ok(q.x >= -v - ext(false) - .01 && q.x + q.ancho <= c.longitud + v + ext(true) + .01, nombre + ': fuera del largo del tramo ' + q.id);
     });
     /* cada bajo ocupa exactamente su columna (cuerpo o carcasa, mas la tapeta del cesto) y la fila llega a la tapeta derecha */
     const extension = id => { const qs = p.piezas.filter(q => q.modulo === id && ['modulo', 'panel', 'tapeta', 'equipo'].includes(q.rol));
@@ -2003,7 +2059,11 @@ function pruebasPlanDePiezas(){
     const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]);
     p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !cruza(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
     /* bisagras: las de la regla de Revit en cada puerta (2 hasta 90 cm, 3 hasta 160, 4 hasta 200, 5 mas) */
-    p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Puerta').forEach(q => {
+    const ocultas = new Set((c.puertasOcultas || []).map(d => d.id));
+    (c.puertasOcultas || []).forEach(d => { const n = p.piezas.filter(r => r.id.startsWith(d.id + ':hoja:bisagra:')).length, prev = cfg; cfg = c;
+      const h = hdLeafTop(d) - hdBottom(d) - .4; cfg = prev;
+      ok(n === (c.bisagras ? (h <= 90 ? 2 : h <= 160 ? 3 : h <= 200 ? 4 : 5) : 0), nombre + ': ' + n + ' bisagras en la puerta oculta ' + d.id); });
+    p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Puerta' && !ocultas.has(q.modulo)).forEach(q => {
       const marco = p.piezas.filter(r => r.id.startsWith(q.id + ':marco:')), h = marco.length ? Math.max(...marco.map(r => r.alto)) : q.alto;
       const n = p.piezas.filter(r => r.id.startsWith(q.id + ':bisagra:')).length;
       ok(n === (c.bisagras ? (h <= 90 ? 2 : h <= 160 ? 3 : h <= 200 ? 4 : 5) : 0), nombre + ': ' + n + ' bisagras en ' + q.id); });
