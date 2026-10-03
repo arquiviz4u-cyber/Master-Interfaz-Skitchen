@@ -242,12 +242,12 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
-   B14. [SketchUp OK 03/10] LED con segunda cama (LedUpgrade de Revit): bajo los
-       altos con LED, segunda cama corrida (tapa de todo el fondo, cortada en
-       reservados, campanas y cambios de fondo) con ranura de luz al frente o
-       atras; laterales y trasero arrancan sobre ella; camara de 1.5 cm con la
-       tira y el piso del gabinete encima; las puertas alinean con la cara
-       inferior de la cama (los niveles no cambian).
+   B14. [SketchUp OK 03/10] LED bajo los altos (usuario): cama corrida como piso
+       de los altos (de todo el fondo, cortada en reservados, campanas y cambios
+       de fondo), laterales y trasero apoyados sobre ella, sin doble cama; perfil
+       LED de 1.7 x 0.7 cm embutido en una ranura por debajo de la cama, a 3 cm
+       del frente o del trasero; las puertas alinean con la cara inferior de la
+       cama (los niveles no cambian).
    B13. [SketchUp OK 03/10] Gola empotrada (referencia del usuario): canal de
        2.6 cm dentro del gabinete (mas hondo en melamina), perfil C de 7.4 cm
        entre cajones (2.2 por detras de cada frente) y L/C arriba hasta el
@@ -1656,9 +1656,9 @@ const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                 
    pasa 2.2 cm por detras de los frentes vecinos (C de 7.4 cm para un hueco de 3.0); los laterales van rebajados en esa zona */
 const PLAN_GOLA = { fondo: 2.6, traslape: 2.2, lamina: .2, melamina: 1.8 };
 const golaHondo = () => PLAN_GOLA.fondo + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina - PLAN_GOLA.lamina : 0);   /* melamina: mas hondo, mismo canal libre */
-/* LED bajo los altos (LedUpgrade de Revit, peticion del usuario 03/10): segunda cama en el lecho del alto (las puertas alinean con su
-   cara inferior), camara de 1.5 cm sobre ella con la tira y el piso del gabinete encima; la luz sale por una ranura de la cama */
-const PLAN_LED = { ancho: 2, alto: 1, retiro: 3, camara: 1.5 }, PLAN_JUNTA = { ancho: .4, salida: .2 };
+/* LED bajo los altos (usuario, 03/10): la cama corrida es el piso de los altos (laterales y trasero apoyan sobre ella y las puertas
+   alinean con su cara inferior); el perfil LED de 1.7 x 0.7 cm va embutido en una ranura por debajo de la cama */
+const PLAN_LED = { ancho: 1.7, hondo: .7, retiro: 3 }, PLAN_JUNTA = { ancho: .4, salida: .2 };
 const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 1.8 };                       /* cazoleta de 35 mm a 1.8 cm del canto (Revit) */
 const PLAN_TARJA = { lamina: .8, ceja: 2.5, cejaAlto: .6 }, PLAN_PLACA = .6, PLAN_SHAKER_REHUNDIDO = .6;
 const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash', 'equipos'];
@@ -1697,20 +1697,14 @@ function planDePiezas(c = cfg){
     const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false) => {
       const e = PLAN_CUERPO.lateral, ef = PLAN_CUERPO.fondo, y0 = sep, y1 = sep + fondo;
       const panel = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
-      /* con LED, la segunda cama (corrida, ver camasLed) es la tapa inferior: laterales y trasero arrancan sobre ella */
+      /* con LED, la cama corrida (ver mas abajo) es el piso: laterales y trasero apoyan sobre ella y el gabinete no lleva piso propio */
       const zl = led ? z0 + e : z0;
       panel('lateral:izq', 'Lateral', x0, x0 + e, y0, y1, zl, z1);
       panel('lateral:der', 'Lateral', x1 - e, x1, y0, y1, zl, z1);
       panel('trasero', 'Trasero', x0 + e, x1 - e, y0, y0 + ef, zl, z1, matPanel(dueno, zona, 'fondo', 'Interior'));
-      let zp = z0;
-      if (led) {   /* tira en la camara, sobre la ranura de la cama, y el piso encima */
-        const L = PLAN_LED, r0 = ranuraLed(y1);
-        zp = z0 + e + L.camara;
-        add({ id: base + ':led', rol: 'herraje', modulo: dueno.id, tipo: 'LED', x: x0 + e, y: r0, z: zp - L.alto, ancho: x1 - x0 - 2*e, fondo: L.ancho, alto: L.alto, material: null, etiqueta: 'herrajes' });
-      }
-      panel('piso', 'Piso', x0 + e, x1 - e, y0 + ef, y1, zp, zp + e);
+      if (!led) panel('piso', 'Piso', x0 + e, x1 - e, y0 + ef, y1, z0, z0 + e);
       if (techo) panel('techo', 'Techo', x0 + e, x1 - e, y0 + ef, y1, z1 - e, z1);
-      return { x0: x0 + e, x1: x1 - e, y0: y0 + ef, y1, z0: zp + e, z1: z1 - e };
+      return { x0: x0 + e, x1: x1 - e, y0: y0 + ef, y1, z0: z0 + e, z1: z1 - e };
     };
     /* repisas repartidas en el alto libre (drawShelves) y divisiones verticales repartidas en el ancho; con divisiones,
        cada repisa se corta en tramos entre ellas */
@@ -1911,17 +1905,18 @@ function planDePiezas(c = cfg){
         x += m.ancho;
       }
     }
-    /* segunda cama del LED (B14/B15): una tapa corrida bajo los altos con LED, de todo el fondo y por delante y por detras de la
-       ranura; se corta en las columnas reservadas, en los altos con campana y donde cambia el fondo */
+    /* cama del LED (B14): piso corrido bajo los altos con LED, de todo el fondo, con la ranura por debajo (tabla delgada encima del
+       perfil) y el perfil embutido a ras; se corta en las columnas reservadas, en los altos con campana y donde cambia el fondo */
     if (cfg.led) { let xc = ajusteIzq(), tramo = null; const tramosCama = [];
       for (const m of row(true)) { const con = !m.reserved && !hasCampana(m);
         if (con && tramo && tramo.fondo === m.fondo) tramo.x1 = xc + m.ancho;
         else if (con) { tramo = { x0: xc, x1: xc + m.ancho, fondo: m.fondo, m }; tramosCama.push(tramo); }
         else tramo = null;
         xc += m.ancho; }
-      tramosCama.forEach((q, k) => { const y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + PLAN_LED.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
-        const cama = (lado, a, b) => add({ id: 'cama:' + k + ':' + lado, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: a, z: z0, ancho: q.x1 - q.x0, fondo: b - a, alto: e, material: matDe(q.m), etiqueta: 'gabinetes' });
-        cama('atras', sep, r0); cama('frente', r1, y1); }); }
+      tramosCama.forEach((q, k) => { const L = PLAN_LED, y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + L.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
+        const cama = (lado, a, b, za) => add({ id: 'cama:' + k + ':' + lado, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: a, z: za, ancho: q.x1 - q.x0, fondo: b - a, alto: z0 + e - za, material: matDe(q.m), etiqueta: 'gabinetes' });
+        cama('atras', sep, r0, z0); cama('ranura', r0, r1, z0 + L.hondo); cama('frente', r1, y1, z0);
+        add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: null, etiqueta: 'herrajes' }); }); }
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
        a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
     const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
@@ -2140,11 +2135,13 @@ function pruebasPlanDePiezas(){
       const laterales = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Lateral' && q.z < 200), cx = laterales.length ? (Math.min(...laterales.map(q => q.x)) + Math.max(...laterales.map(q => q.x + q.ancho)))/2 : null;
       if (cx === null) return;   /* columna de una caja corrida sin carcasa propia */
       const camas = p.piezas.filter(q => q.tipo === 'Cama' && q.x <= cx && q.x + q.ancho >= cx), z0 = Math.min(...laterales.map(q => q.z));
-      ok(camas.length === 2, nombre + ': sin segunda cama bajo ' + m.id);
-      if (camas.length) { const zc = camas[0].z + camas[0].alto;
-        ok(Math.abs(z0 - zc) < .01, nombre + ': los laterales de ' + m.id + ' no arrancan sobre la segunda cama');
-        ok(p.piezas.some(q => q.tipo === 'LED' && q.modulo === m.id && q.z >= zc - .01), nombre + ': sin tira LED en ' + m.id);
-        ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - camas[0].z) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la segunda cama'); } });
+      const led = p.piezas.find(q => q.tipo === 'LED' && q.x <= cx && q.x + q.ancho >= cx);
+      ok(camas.length === 3 && led, nombre + ': sin cama con ranura y LED bajo ' + m.id);
+      if (camas.length && led) { const zb = Math.min(...camas.map(q => q.z)), zc = Math.max(...camas.map(q => q.z + q.alto));
+        ok(Math.abs(z0 - zc) < .01, nombre + ': los laterales de ' + m.id + ' no apoyan sobre la cama');
+        ok(Math.abs(led.z - zb) < .01 && Math.abs(led.fondo - PLAN_LED.ancho) < .01 && Math.abs(led.alto - PLAN_LED.hondo) < .01, nombre + ': el LED no va embutido a ras en ' + m.id);
+        ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
+        ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
     /* zoclo: un cierre en cada extremo pedido, en el primer y el ultimo tramo */
     const cierres = p.piezas.filter(q => q.rol === 'zoclo' && q.tipo === 'Cierre');
     ok(cierres.length === (c.generarZoclos && c.baseBajos > 0 ? (c.cerrarZocloIzq ? 1 : 0) + (c.cerrarZocloDer ? 1 : 0) : 0), nombre + ': ' + cierres.length + ' cierres de zoclo');
