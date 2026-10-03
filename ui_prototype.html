@@ -123,6 +123,10 @@
        selecciona completa con un clic y su panel la trata como un elemento:
        repisas y divisiones de toda la caja, Separar la caja y Añadir la
        columna derecha.
+   A45. [Revit OK, no aplica] Cotas editables (03/10): el clic en una cota abria
+       el campo y el mismo clic le quitaba el foco (lo tomaba el lienzo), asi
+       que se cerraba al instante, en el navegador y en SketchUp. Corregido
+       con preventDefault en el mousedown de la cota.
    A44. [Revit OK, ya lo hacia] Vuelo de cubierta como Revit (03/10): con «A paño de
        gabinetes» la cubierta no vuela tampoco a los lados (VueloEfectivo = 0),
        en el alzado y en la planta; en planta tampoco vuela contra una tapeta
@@ -3706,7 +3710,8 @@ canvas.addEventListener('mousedown', e => {
   if (e.button !== 0) return;   /* el canvas ignora todo boton que no sea el izquierdo */
   const p = pt(e), dbl = e.detail >= 2;   /* e.detail: Clicks del real (2 = doble clic) */
   canvas.focus();
-  const d = dimHits.find(q => inside(p, q.rect)); if (d) { beginDimension(d.key, d.rect); return; }
+  /* A45: sin preventDefault el clic termina dando el foco al lienzo, el campo pierde el foco (blur) y se cierra al instante */
+  const d = dimHits.find(q => inside(p, q.rect)); if (d) { e.preventDefault(); beginDimension(d.key, d.rect); return; }
   const g = gripHits.find(q => inside(p, q.rect));
   if (g) {   /* el iman toma todos los bordes visibles de los demas modulos y piezas, mas sus niveles (AlignLevels) */
     const snap = [...new Set(edges.filter(q => q.id !== g.id).map(q => Math.round(q.z*100)/100))].concat(magnetLevels(g.id));
