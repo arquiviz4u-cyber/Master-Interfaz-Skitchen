@@ -245,7 +245,8 @@
    B14. [SketchUp OK 03/10] LED bajo los altos (usuario): cama corrida como piso
        de los altos (de todo el fondo, cortada en reservados, campanas y cambios
        de fondo), laterales y trasero apoyados sobre ella, sin doble cama; perfil
-       LED de 1.7 x 0.7 cm embutido en una ranura por debajo de la cama, a 3 cm
+       LED de 1.7 x 0.7 cm embutido en la ranura de la cama (una sola pieza con
+       ranura: campo ranura del plan, Ruby la construye como perfil), a 3 cm
        del frente o del trasero; las puertas alinean con la cara inferior de la
        cama (los niveles no cambian).
    B13. [SketchUp OK 03/10] Gola empotrada (referencia del usuario): canal de
@@ -1914,8 +1915,9 @@ function planDePiezas(c = cfg){
         else tramo = null;
         xc += m.ancho; }
       tramosCama.forEach((q, k) => { const L = PLAN_LED, y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + L.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
-        const cama = (lado, a, b, za) => add({ id: 'cama:' + k + ':' + lado, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: a, z: za, ancho: q.x1 - q.x0, fondo: b - a, alto: z0 + e - za, material: matDe(q.m), etiqueta: 'gabinetes' });
-        cama('atras', sep, r0, z0); cama('ranura', r0, r1, z0 + L.hondo); cama('frente', r1, y1, z0);
+        /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
+        add({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes',
+          ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } });
         add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: null, etiqueta: 'herrajes' }); }); }
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
        a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
@@ -2109,9 +2111,14 @@ function pruebasPlanDePiezas(){
       ok(e && Math.abs(e[0] - xb) < .02 && Math.abs(e[1] - xb - m.ancho) < .02, nombre + ': el bajo ' + m.id + ' no ocupa su columna'); xb += m.ancho; });
     ok(Math.abs(xb + aj(false) - c.longitud) < .02, nombre + ': los bajos y tapetas no suman el largo');
     const cruza = (a, b) => ['x', 'y', 'z'].every((e, i) => { const w = ['ancho', 'fondo', 'alto'][i]; return a[e] + a[w] > b[e] + .01 && b[e] + b[w] > a[e] + .01; });
+    /* una pieza con ranura es solida salvo el hueco de la ranura: se compara por sus tres partes macizas */
+    const solidos = q => !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
+      Object.assign({}, q, { y: q.y + q.ranura.y, fondo: q.ranura.ancho, z: q.z + q.ranura.hondo, alto: q.alto - q.ranura.hondo }),
+      Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
+    const choca = (a, b) => solidos(a).some(u => solidos(b).some(v => cruza(u, v)));
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
     const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]);
-    p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !cruza(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
+    p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !choca(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
     /* bisagras: las de la regla de Revit en cada puerta (2 hasta 90 cm, 3 hasta 160, 4 hasta 200, 5 mas) */
     const ocultas = new Set((c.puertasOcultas || []).map(d => d.id));
     (c.puertasOcultas || []).forEach(d => { const n = p.piezas.filter(r => r.id.startsWith(d.id + ':hoja:bisagra:')).length, prev = cfg; cfg = c;
@@ -2128,7 +2135,7 @@ function pruebasPlanDePiezas(){
       const zLibre0 = Math.max(g.z, ...aletas.filter(q => q.z <= g.z + .01).map(q => q.z + q.alto)), zLibre1 = Math.min(g.z + g.alto, ...aletas.filter(q => q.z > g.z + .01).map(q => q.z));
       Object.assign(dedo, { z: zLibre0 + .01, alto: zLibre1 - zLibre0 - .02, fondo: aletas[0].y + aletas[0].fondo - dedo.y - .02 });
       ok(dedo.alto > 2.5 && dedo.fondo > .5, nombre + ': canal de gola sin espacio en ' + g.id);
-      const tapa = p.piezas.find(q => q !== alma && !aletas.includes(q) && cruza(q, dedo));
+      const tapa = p.piezas.find(q => q !== alma && !aletas.includes(q) && choca(q, dedo));
       ok(!tapa, nombre + ': el canal de ' + g.id + ' lo ocupa ' + (tapa && tapa.id)); });
     /* LED: cada alto con LED lleva su segunda cama (dos tablas con la ranura) en el lecho, la tira encima y las puertas alineadas */
     if (c.led) c.modulos.filter(m => m.upper && !m.reserved && !m.campana).forEach(m => {
@@ -2136,10 +2143,10 @@ function pruebasPlanDePiezas(){
       if (cx === null) return;   /* columna de una caja corrida sin carcasa propia */
       const camas = p.piezas.filter(q => q.tipo === 'Cama' && q.x <= cx && q.x + q.ancho >= cx), z0 = Math.min(...laterales.map(q => q.z));
       const led = p.piezas.find(q => q.tipo === 'LED' && q.x <= cx && q.x + q.ancho >= cx);
-      ok(camas.length === 3 && led, nombre + ': sin cama con ranura y LED bajo ' + m.id);
-      if (camas.length && led) { const zb = Math.min(...camas.map(q => q.z)), zc = Math.max(...camas.map(q => q.z + q.alto));
+      ok(camas.length === 1 && camas[0].ranura && led, nombre + ': sin una cama con ranura y LED bajo ' + m.id);
+      if (camas.length && camas[0].ranura && led) { const cm = camas[0], zb = cm.z, zc = cm.z + cm.alto, rr = cm.ranura;
         ok(Math.abs(z0 - zc) < .01, nombre + ': los laterales de ' + m.id + ' no apoyan sobre la cama');
-        ok(Math.abs(led.z - zb) < .01 && Math.abs(led.fondo - PLAN_LED.ancho) < .01 && Math.abs(led.alto - PLAN_LED.hondo) < .01, nombre + ': el LED no va embutido a ras en ' + m.id);
+        ok(Math.abs(led.z - zb) < .01 && Math.abs(led.y - cm.y - rr.y) < .01 && Math.abs(led.fondo - rr.ancho) < .01 && Math.abs(led.alto - rr.hondo) < .01, nombre + ': el LED no va embutido a ras en la ranura de ' + m.id);
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
         ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
     /* zoclo: un cierre en cada extremo pedido, en el primer y el ultimo tramo */
