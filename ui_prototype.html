@@ -288,8 +288,10 @@
        fuera del master por decision del usuario (01/10/2026).
 
   D. Simplificaciones de este prototipo (revisar al portar).
-   D1. Sin compensacion decimal del muro: el largo se redondea a cm (el real
-       manda el sobrante decimal a las tapetas activas).
+   D1. [Resuelto 03/10] Compensacion decimal del muro como el real: los modulos
+       van en cm enteros y el sobrante decimal se suma a la tapeta derecha (o a
+       la izquierda si es la unica activa); sin tapetas, aviso. La cota del
+       largo admite decimales y SketchUp manda el largo de la cara sin redondear.
    D2. Tarja y grifo dibujados con medidas aproximadas.
    D3. Guardado en memoria y en el navegador en lugar del archivo del
        proyecto.
@@ -1311,8 +1313,9 @@ const altoBarra = () => cfg.baseBajos + cfg.altoBajos + paquete();
 const baseAltos = () => altoBarra() + cfg.separacionAltos;
 const topeAltos = () => cfg.alturaMuro - (cfg.tapetaSuperior ? cfg.alturaTapetaSuperior : 0);
 const altoAltos = () => topeAltos() - baseAltos();
-const ajusteIzq = () => cfg.tapetaIzq ? cfg.reservaIzq : 0;
-const ajusteDer = () => cfg.tapetaDer ? cfg.reservaDer : 0;
+/* D1: el sobrante decimal del muro (compensacion, LayoutState de Revit) va a la tapeta derecha, o a la izquierda si es la unica */
+const ajusteIzq = () => cfg.tapetaIzq ? cfg.reservaIzq + (!cfg.tapetaDer ? cfg.compensacion || 0 : 0) : 0;
+const ajusteDer = () => cfg.tapetaDer ? cfg.reservaDer + (cfg.compensacion || 0) : 0;
 /* medidas en la unidad de Ajustes (el modelo siempre en cm): fmt da el numero y uS() el sufijo */
 const fmtNum = v => String(Math.round(v*10)/10);
 const UNIDADES = { cm: ' cm', mm: ' mm', in: '"', ftin: '' };
@@ -1961,6 +1964,7 @@ function pruebasPlanDePiezas(){
       c.style = 'Clasica'; Object.assign(l[1], { tipo: 'EspecieroTorre', extraible: true }); Object.assign(l[3], { tipo: 'Hornos', microondas: false, torreInferior: 'Repisas', torreSuperior: '2 puertas', rejillaHorno: false }); return c; }],
     ['tarja doble de sobreponer, nariz, parrilla y campana', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       c.narizCubierta = true; c.alturaNariz = 5; c.altoBajos -= 2; c.moduloTarja = l[1].id; c.tipoTarja = 2; l[3].parrilla = true; u[3].campana = true; return c; }],
+    ['muro con decimales y solo tapeta izquierda', c => { c.longitud = 312.37; c.tapetaDer = false; return c; }],
     ['zoclo cerrado en los dos extremos y cortado por el refrigerador', c => { const l = c.modulos.filter(m => !m.upper);
       c.cerrarZocloIzq = c.cerrarZocloDer = true; l[2].tipo = 'Refri'; return c; }],
     ['tarja bajo cubierta, shaker y puertas dobles', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
@@ -1989,10 +1993,11 @@ function pruebasPlanDePiezas(){
     /* cada bajo ocupa exactamente su columna (cuerpo o carcasa, mas la tapeta del cesto) y la fila llega a la tapeta derecha */
     const extension = id => { const qs = p.piezas.filter(q => q.modulo === id && ['modulo', 'panel', 'tapeta', 'equipo'].includes(q.rol));
       return qs.length ? [Math.min(...qs.map(q => q.x)), Math.max(...qs.map(q => q.x + q.ancho))] : null; };
-    let xb = c.tapetaIzq ? c.reservaIzq : 0;
+    const aj = left => { const previo = cfg; cfg = c; try { return left ? ajusteIzq() : ajusteDer(); } finally { cfg = previo; } };
+    let xb = aj(true);
     c.modulos.filter(m => !m.upper).forEach(m => { const e = extension(m.id);
       ok(e && Math.abs(e[0] - xb) < .02 && Math.abs(e[1] - xb - m.ancho) < .02, nombre + ': el bajo ' + m.id + ' no ocupa su columna'); xb += m.ancho; });
-    ok(Math.abs(xb + (c.tapetaDer ? c.reservaDer : 0) - c.longitud) < .05, nombre + ': los bajos y tapetas no suman el largo');
+    ok(Math.abs(xb + aj(false) - c.longitud) < .02, nombre + ': los bajos y tapetas no suman el largo');
     const cruza = (a, b) => ['x', 'y', 'z'].every((e, i) => { const w = ['ancho', 'fondo', 'alto'][i]; return a[e] + a[w] > b[e] + .01 && b[e] + b[w] > a[e] + .01; });
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
     const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]);
@@ -2080,6 +2085,12 @@ function recalculate(){
     if (m.tipo === 'Cajones' || m.tipo === 'Abierto') m.dosPuertas = false;
   }
   for (const m of cfg.modulos) if (sinPuertas(m)) m.dosPuertas = false;
+  /* D1 (Revit: LayoutState.Compensacion): los modulos se reparten en cm enteros y el decimal del largo lo absorben las tapetas */
+  { let raw = cfg.longitud - (cfg.tapetaIzq ? cfg.reservaIzq : 0) - (cfg.tapetaDer ? cfg.reservaDer : 0);
+    if (Math.abs(raw - Math.round(raw)) < 1e-7) raw = Math.round(raw);
+    const residual = Math.max(0, Math.round((raw - Math.floor(raw + 1e-7))*100)/100);
+    if (!cfg.tapetaIzq && !cfg.tapetaDer && residual > .001) throw new Error('Activa una tapeta para absorber los decimales del muro.');
+    cfg.compensacion = residual; }
   const lows = row(false), highs = row(true);
   if (lows.length === highs.length) lows.forEach((a, i) => { const b = highs[i];
     if (a.fijo && b.fijo && Math.abs(a.ancho-b.ancho) > .011) throw new Error('Los anchos fijos de la misma columna no coinciden. Libera uno antes de reorganizar.');
@@ -2532,8 +2543,8 @@ function drawElevation(){
     return [lo && isSpecial(lo) ? [0, altoEsp(lo)] : lo && cortaZoclo(lo) ? [0, zBar - paquete()] : [zb, zBar - paquete()]].concat(hi && !hi.reserved ? [[zBA, zTop]] : []);
   };
   const tapetaPaint = r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Tapetas'), C.tapeta); outline(r, C.line, 1); };
-  part('fillerI', cfg.tapetaIzq, sideRows(true).map(([a, b]) => RX(0, cfg.tapetaIzq ? cfg.reservaIzq : 3, a, b)), tapetaPaint, post);
-  part('fillerD', cfg.tapetaDer, sideRows(false).map(([a, b]) => RX(W - (cfg.tapetaDer ? cfg.reservaDer : 3), W, a, b)), tapetaPaint, post);
+  part('fillerI', cfg.tapetaIzq, sideRows(true).map(([a, b]) => RX(0, cfg.tapetaIzq ? ajusteIzq() : 3, a, b)), tapetaPaint, post);
+  part('fillerD', cfg.tapetaDer, sideRows(false).map(([a, b]) => RX(W - (cfg.tapetaDer ? ajusteDer() : 3), W, a, b)), tapetaPaint, post);
   /* tapeta superior bajo el techo, a todo el largo de los altos */
   if (highs.length) part('fillerTop', cfg.tapetaSuperior, [RX(run0, run1, cfg.tapetaSuperior ? zTop : cfg.alturaMuro - 3, cfg.alturaMuro)], tapetaPaint, post);
 
@@ -2627,7 +2638,7 @@ function drawClosetElevation(){
   }
   const tap = r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Tapetas'), C.tapeta); outline(r, C.line, 1); };
   for (const left of [true, false]) {
-    const adj = lows[left ? 0 : lows.length - 1], z0 = adj && adj.tipo === 'Vanity' ? 0 : zc, on = left ? cfg.tapetaIzq : cfg.tapetaDer, w = on ? (left ? cfg.reservaIzq : cfg.reservaDer) : 3;
+    const adj = lows[left ? 0 : lows.length - 1], z0 = adj && adj.tipo === 'Vanity' ? 0 : zc, on = left ? cfg.tapetaIzq : cfg.tapetaDer, w = on ? (left ? ajusteIzq() : ajusteDer()) : 3;
     part(left ? 'fillerI' : 'fillerD', on, [RX(left ? 0 : W - w, left ? w : W, z0, zc + AC)], tap, post);
   }
   part('fillerTop', cfg.tapetaSuperior, [RX(0, W, cfg.tapetaSuperior ? H - cfg.alturaTapetaSuperior : H - 3, H)], tap, post);
@@ -3930,7 +3941,7 @@ function commitDimension(){
   if (k === 'halfw') { setWidth(id, Math.round(2*v)); return; }
   change(c => {
     if (k === 'wall') c.alturaMuro = v;
-    else if (k === 'length') c.longitud = Math.round(v);
+    else if (k === 'length') c.longitud = Math.round(v*100)/100;   /* D1: con decimales; el sobrante va a las tapetas */
     else if (k === 'bar') c.altoBajos = v - c.baseBajos - paquete();
     else if (k === 'refri') byId(id).huecoRefri = v;
     else if (k === 'cseg') { const m = byId(id); if (i === 'zoc') c.baseBajos = v; else if (i === 'esc') m.altoEscritorio = v; else if (i === 'caj') m.altoCajonCloset = v; else if (i === 'zap') m.altoZapatera = v; else if (i === 'mal') m.altoMaletero = v; }
@@ -5586,8 +5597,9 @@ function sketchupCargar(texto){
 }
 /* cocina nueva en la cara de muro elegida: el largo se redondea al cm como al escribirlo en la cota (k === 'length') */
 function sketchupNueva(longitud, alturaMuro){
-  sketchupAbrir(() => { const c = defaultConfig(Math.round(longitud)); c.catalogo = cfg.catalogo; c.alturaMuro = Math.round(alturaMuro*10)/10; return c; },
-    `El muro elegido (${fmt(longitud)} × ${fmt(alturaMuro)}${uS()}) no admite una cocina: `, `Muro de ${fmt(Math.round(longitud))} × ${fmt(alturaMuro)}${uS()} tomado de SketchUp.`);
+  const largo = Math.round(longitud*100)/100;   /* D1: el decimal del muro lo absorben las tapetas */
+  sketchupAbrir(() => { const c = defaultConfig(largo); c.catalogo = cfg.catalogo; c.alturaMuro = Math.round(alturaMuro*10)/10; return c; },
+    `El muro elegido (${fmt(longitud)} × ${fmt(alturaMuro)}${uS()}) no admite una cocina: `, `Muro de ${fmt(largo)} × ${fmt(alturaMuro)}${uS()} tomado de SketchUp.`);
 }
 function sketchupResultado(ok, mensaje){ if (ok) setStatus(mensaje); else showDialog('SketchUp', mensaje); }
 document.getElementById('btnCancel').addEventListener('click', () => offerSave('salir', () => {
