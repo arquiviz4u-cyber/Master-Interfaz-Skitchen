@@ -233,6 +233,13 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B6. Plan de piezas (03/10): planDePiezas() resuelve la cocina con las reglas
+       del editor y devuelve cajas en cm (id estable, rol, modulo, tipo, x/y/z,
+       ancho/fondo/alto, material, etiqueta) para que Ruby solo construya;
+       pruebasPlanDePiezas() lo verifica. Cubre cuerpos, modulo superior,
+       frentes, zoclo, cubierta, tapetas y backsplash; lo que falta esta en
+       PLAN_PENDIENTE (repisas, cajas de cajon, gola, herrajes, tarja, isla,
+       closet...). Revit no lo usa.
    B5. Materiales de SketchUp a partir del catalogo (color y textura por
        categoria).
 
@@ -1574,6 +1581,108 @@ const capTarget = m => selectedPart && selectedPart.startsWith('ucap:') ? partMo
 /* repisas y divisiones de una caja corrida van a todas sus columnas, se editen desde la caja o desde una columna */
 const boxTargets = m => { const g = currentBox() || (m ? bodyGroupOf(byId(m.id)) : null); return g ? g.members.map(q => q.id) : m ? [m.id] : []; };
 /* UpperCaps.Groups: cada alto doble aporta un modulo superior; «Unir» lo funde con el de la columna siguiente. Manda el primero */
+/* ---- PLAN DE PIEZAS (B4/B6: contrato con SketchUp, ver ../Skitchen_SketchUp/CONVENCIONES.md §7) ----
+   Funcion sin efectos sobre la pantalla ni sobre la configuracion: resuelve la cocina con las MISMAS reglas que dibuja el
+   editor (fronts, bodyH, altoBarra, cortes de cubierta y zoclo...) y devuelve las piezas como cajas en cm. Ruby solo las
+   construye; no recalcula reglas. Ejes: x a lo largo del muro desde el inicio del tramo (0 = extremo izquierdo visto de
+   frente), y desde la cara del muro hacia la habitacion, z desde el piso terminado (desfasePiso aparte, en tramo).
+   Cada pieza: id estable (para actualizar), rol (Atributos::ROLES de Ruby), modulo, tipo, x y z, ancho fondo alto,
+   material (id del catalogo o null) y etiqueta (clave de Nombres::ETIQUETAS de Ruby). */
+const PLAN_ESQUEMA = 1, PLAN_ESPESOR_FRENTE = 1.8;
+const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash'];
+const PLAN_ROLES = ['modulo', 'frente', 'repisa', 'division', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo'];
+/* lo que el plan todavia no entrega (se anota aqui al cubrirlo) */
+const PLAN_PENDIENTE = ['repisas y divisiones', 'cajas de cajon', 'gola', 'jaladeras y bisagras', 'tarja y parrilla', 'campana',
+  'equipos de la torre', 'puertas ocultas', 'nariz y cama de cubierta (va como una losa del espesor del paquete)', 'LED', 'isla', 'closet'];
+function planDePiezas(c = cfg){
+  const previo = cfg; cfg = c;
+  try {
+    if (cfg.isla || cfg.closet) throw new Error('El plan de piezas todavía no cubre islas ni closets.');
+    const piezas = [], sep = cfg.separacionPosterior || 0, t = PLAN_ESPESOR_FRENTE, r2 = v => Math.round(v*100)/100;
+    const add = p => { if (p.ancho > .01 && p.fondo > .01 && p.alto > .01) piezas.push(Object.assign(p, { x: r2(p.x), y: r2(p.y), z: r2(p.z), ancho: r2(p.ancho), fondo: r2(p.fondo), alto: r2(p.alto) })); };
+    const matDe = m => m.material || cfg.materialGeneral || null;
+    const lows = row(false), highs = row(true);
+    const fondoDe = list => Math.max(0, ...list.filter(m => !m.reserved).map(m => m.fondo));
+    /* cuerpos y frentes por fila: los modulos se colocan uno tras otro desde la tapeta izquierda */
+    for (const upper of [false, true]) {
+      let x = ajusteIzq();
+      for (const m of row(upper)) {
+        if (!m.reserved) {
+          const z0 = upper ? baseAltos() : isRefri(m) ? 0 : cfg.baseBajos;
+          const z1 = upper ? baseAltos() + bodyH(m) : isSpecial(m) ? altoEsp(m) : cfg.baseBajos + cfg.altoBajos;
+          add({ id: m.id + ':cuerpo', rol: 'modulo', modulo: m.id, tipo: m.tipo, fila: upper ? 'alto' : 'bajo', x, y: sep, z: z0, ancho: m.ancho, fondo: m.fondo, alto: z1 - z0, material: matDe(m), etiqueta: 'gabinetes' });
+          if (isDoble(m)) add({ id: m.id + ':superior', rol: 'modulo', modulo: m.id, tipo: 'Superior', fila: 'alto', x, y: sep, z: topeAltos() - m.altoSuperior, ancho: m.ancho, fondo: m.fondo, alto: m.altoSuperior, material: m.materialSuperior || matDe(m), etiqueta: 'gabinetes' });
+          fronts(m).forEach((f, k) => add({ id: m.id + ':frente:' + k, rol: 'frente', modulo: m.id, tipo: f.kind, x: x + f.x0, y: sep + m.fondo, z: f.z0, ancho: f.x1 - f.x0, fondo: t, alto: f.z1 - f.z0, material: matDe(m), etiqueta: 'frentes', bisagraDerecha: !!f.hingeRight, fijo: !!f.fijo }));
+        }
+        x += m.ancho;
+      }
+    }
+    /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
+       a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
+    const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
+    const dBajo = sep + fondoDe(lows) + t, dAlto = sep + fondoDe(highs) + t;
+    const run0 = cfg.corridaIzq ? ajusteIzq() : 0, run1 = cfg.corridaDer ? W - ajusteDer() : W;
+    const vI = cfg.corridaIzq ? 0 : vueloEf(), vD = cfg.corridaDer ? 0 : vueloEf();
+    if (lows.length) {
+      /* en 3D el zoclo se detiene en una tapeta que llega al piso (corrida o junto a un especial); el alzado 2D lo pinta encima */
+      const alPiso = left => { const lo = lows[left ? 0 : lows.length - 1]; return (left ? cfg.tapetaIzq : cfg.tapetaDer) && ((left ? cfg.corridaIzq : cfg.corridaDer) || isSpecial(lo) || cortaZoclo(lo)); };
+      if (cfg.generarZoclos && zb > 0) cutRun(alPiso(true) ? ajusteIzq() : run0, alPiso(false) ? W - ajusteDer() : run1, cortaZoclo).forEach(([a, b], k) => add({ id: 'zoclo:' + k, rol: 'zoclo', x: a, y: sep + fondoDe(lows) - cfg.retiroZoclo - t, z: 0, ancho: b - a, fondo: t, alto: zb, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' }));
+      if (cfg.generarCubierta) cutRun(run0 - vI, run1 + vD, cortaCubierta).forEach(([a, b], k) => add({ id: 'cubierta:' + k, rol: 'cubierta', x: a, y: 0, z: zBar - pq, ancho: b - a, fondo: dBajo + vueloEf(), alto: pq, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' }));
+      if (cfg.backsplash) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
+        cutRun(run0, run1, isSpecial).forEach(([a, b], k) => add({ id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: top - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' })); }
+    }
+    /* tapetas laterales (sideRows del alzado): baja y alta, o de piso a techo si es corrida; junto a un especial la baja va del
+       piso a su tope y la alta no existe (columna reservada) */
+    [['izq', true], ['der', false]].forEach(([lado, left]) => {
+      if (!(left ? cfg.tapetaIzq : cfg.tapetaDer)) return;
+      const w = left ? ajusteIzq() : ajusteDer(), x0 = left ? 0 : W - w, pieza = (suf, z0, z1, fondo) => add({ id: 'tapeta:' + lado + suf, rol: 'tapeta', x: x0, y: 0, z: z0, ancho: w, fondo, alto: z1 - z0, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
+      if (left ? cfg.corridaIzq : cfg.corridaDer) { pieza('', 0, cfg.alturaMuro, Math.max(dBajo, dAlto)); return; }
+      const lo = lows.length ? lows[left ? 0 : lows.length - 1] : null, hi = highs.length ? highs[left ? 0 : highs.length - 1] : null;
+      if (lo) { const [z0, z1] = isSpecial(lo) ? [0, altoEsp(lo)] : cortaZoclo(lo) ? [0, zBar - pq] : [zb, zBar - pq]; pieza(':bajo', z0, z1, dBajo); }
+      if (hi && !hi.reserved) pieza(':alto', zBA, zTop, dAlto);
+    });
+    if (highs.length && cfg.tapetaSuperior) add({ id: 'tapeta:superior', rol: 'tapeta', x: run0, y: 0, z: zTop, ancho: run1 - run0, fondo: dAlto, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
+    return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
+      tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
+      materiales: (cfg.catalogo || []).map(q => ({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] })),
+      piezas, pendiente: PLAN_PENDIENTE.slice() };
+  } finally { cfg = previo; }
+}
+/* pruebas del plan (se corren en el navegador o desde SketchUp): devuelve la lista de fallas, vacia si todo esta bien */
+function pruebasPlanDePiezas(){
+  const fallas = [], ok = (cond, txt) => { if (!cond) fallas.push(txt); };
+  const base = JSON.parse(JSON.stringify(cfg));
+  const casos = [['de inicio', c => c],
+    ['con torre, refrigerador y alto doble', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
+      if (l[0]) l[0].tipo = 'Hornos'; if (l[1]) l[1].tipo = 'Refri'; if (l[2]) l[2].tipo = 'Cajones'; if (u[2]) u[2].tipo = 'Doble'; return c; }],
+    ['sin cubierta ni zoclo, tapeta corrida', c => { c.generarCubierta = false; c.generarZoclos = false; c.corridaIzq = true; return c; }],
+    ['con vuelo, sin tapetas y con tapeta superior', c => { c.vuelo = 3; c.tapetaIzq = c.tapetaDer = false; c.tapetaSuperior = true; return c; }]];
+  for (const [nombre, prep] of casos) {
+    const c = prep(JSON.parse(JSON.stringify(base))); let p;
+    try { const previo = cfg; cfg = c; try { recalculate(); } finally { cfg = previo; } p = planDePiezas(c); } catch (e) { fallas.push(nombre + ': error ' + e.message); continue; }
+    ok(JSON.stringify(cfg) === JSON.stringify(base), nombre + ': el plan cambio la configuracion del editor');
+    ok(p.esquema === PLAN_ESQUEMA && p.unidad === 'cm', nombre + ': esquema o unidad');
+    ok(JSON.stringify(JSON.parse(JSON.stringify(p))) === JSON.stringify(p), nombre + ': no es JSON puro');
+    const ids = new Set(p.piezas.map(q => q.id)); ok(ids.size === p.piezas.length, nombre + ': ids repetidos');
+    p.piezas.forEach(q => {
+      ok(['x', 'y', 'z', 'ancho', 'fondo', 'alto'].every(k => Number.isFinite(q[k])), nombre + ': numero no finito en ' + q.id);
+      ok(q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': medida no positiva en ' + q.id);
+      ok(PLAN_ROLES.includes(q.rol), nombre + ': rol desconocido ' + q.rol);
+      ok(PLAN_ETIQUETAS.includes(q.etiqueta), nombre + ': etiqueta desconocida ' + q.etiqueta);
+      ok(q.z >= -.01 && q.z + q.alto <= c.alturaMuro + .01, nombre + ': fuera de la altura del muro ' + q.id);
+      const v = q.rol === 'cubierta' ? (c.cubiertaAPano ? 0 : c.vuelo) : 0;   /* la cubierta vuela fuera del tramo en un extremo libre */
+      ok(q.x >= -v - .01 && q.x + q.ancho <= c.longitud + v + .01, nombre + ': fuera del largo del tramo ' + q.id);
+    });
+    const bajos = p.piezas.filter(q => q.rol === 'modulo' && q.fila === 'bajo');
+    const ancho = bajos.reduce((a, q) => a + q.ancho, 0) + (c.tapetaIzq ? c.reservaIzq : 0) + (c.tapetaDer ? c.reservaDer : 0);
+    ok(Math.abs(ancho - c.longitud) < .05, nombre + ': los bajos y tapetas no suman el largo (' + ancho + ' de ' + c.longitud + ')');
+    const cruza = (a, b) => ['x', 'y', 'z'].every((e, i) => { const w = ['ancho', 'fondo', 'alto'][i]; return a[e] + a[w] > b[e] + .01 && b[e] + b[w] > a[e] + .01; });
+    p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(!cruza(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
+    p.piezas.filter(q => q.rol === 'frente').forEach(f => { const cu = p.piezas.find(q => q.id === f.modulo + ':cuerpo');
+      ok(cu && f.x >= cu.x - .01 && f.x + f.ancho <= cu.x + cu.ancho + .01, nombre + ': frente fuera de su modulo ' + f.id); });
+  }
+  return fallas;
+}
 function capGroups(){
   const out = []; let open = null, x = ajusteIzq();
   for (const m of row(true)) {
