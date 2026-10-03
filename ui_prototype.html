@@ -143,6 +143,10 @@
        la misma columna una puerta o cajones iguales (especieroCon), a la
        izquierda o a la derecha (especieroLado), con division en la carcasa;
        gola entre cajones solo del lado de los cajones. Revit: falta.
+   A52. Especiero heredado (03/10, usuario): al pasar a Especiero un bajo de
+       puertas (o cajon y puerta) queda Especiero + puerta y uno de cajones,
+       Especiero + cajones, conservando su ancho (minimo especiero + 30 cm).
+       Revit: falta (ver A51).
    A45. [Revit OK, no aplica] Cotas editables (03/10): el clic en una cota abria
        el campo y el mismo clic le quitaba el foco (lo tomaba el lienzo), asi
        que se cerraba al instante, en el navegador y en SketchUp. Corregido
@@ -1434,7 +1438,7 @@ const espIzq = m => m.especieroLado !== 'Derecha';
 /* [especiero x0, x1, resto x0, x1] relativos al modulo; sin combinar, el especiero ocupa todo el ancho */
 const espPartes = m => { const A = espAncho(m); if (espCon(m) === 'Nada') return [0, m.ancho, 0, 0];
   return espIzq(m) ? [0, A, A, m.ancho] : [m.ancho - A, m.ancho, 0, m.ancho - A]; };
-const ANCHO_TIPO = { EspecieroTorre: () => 20, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + 40) : 20, Basura: m => m.anchoBasura, Estufa: () => 60 };
+const ANCHO_TIPO = { EspecieroTorre: () => 20, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + 30) : 20,   /* A52: combinado, conserva el ancho del modulo */ Basura: m => m.anchoBasura, Estufa: () => 60 };
 /* la campana es una casilla de los altos (Campana extractora): sobre Sencillo = espacio para campana; sobre el doble = doble con campana */
 const TIPOS_ALTO = [['Sencillo','Sencillo'],['Abierto','Abierto / repisas'],['Doble','Módulo inferior + módulo superior']];
 /* especiales (Module.Special): de piso a su tope, reservan la columna de altos */
@@ -4634,6 +4638,8 @@ const ACT = {
     cfg.modulos.forEach(m => { if (!ids.includes(m.id)) return;
       /* especiero, especiero torre, cesto y estufa fijan su ancho; al dejar de serlo se libera el de la columna */
       if (ANCHO_TIPO[m.tipo] && m.tipo !== v) { m.fijo = false; if (l.length === h.length) h[l.indexOf(m)].fijo = false; }
+      /* A52 (usuario): un bajo de puertas o de cajones que pasa a Especiero lo lleva con su puerta o sus cajones y su ancho */
+      if (v === 'Especiero' && m.tipo !== 'Especiero') m.especieroCon = m.tipo === 'Cajones' ? 'Cajones' : m.tipo === 'Puertas' || m.tipo === 'C' ? 'Puerta' : 'Nada';
       m.tipo = v; m.frenteSup = m.frenteMed = 0; m.frentes = []; m.inferiorAbierto = false;
       if (cfg.closet && v === 'Repisas' && m.repisasEspecial < 3) m.repisasEspecial = 5;
       if (ANCHO_TIPO[v]) { if (l.length === h.length) h[l.indexOf(m)].fijo = false; m.ancho = ANCHO_TIPO[v](Object.assign({}, m, { tipo: v })); m.fijo = true; }
