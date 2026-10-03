@@ -242,6 +242,13 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B16. [SketchUp OK 03/10] Isla (Line-Island) en el plan de piezas: gabinetes con
+       frentes alineados, costados o cascadas, paneles posteriores (reparto y
+       shaker hacia los bancos), zoclo frontal con cierres, zoclo posterior con
+       su tapa, LED posterior y barra elevada (losa, peralte, cascadas propias).
+       En 3D la cubierta queda a pano de las puertas como en el muro; el corte
+       2D de la isla dibuja las puertas 1.8 cm fuera de la cubierta a pano
+       (revisar en el master y en Revit cual es el correcto).
    B15. [SketchUp OK 03/10] Editor a todo el dialogo en SketchUp: sin la ventana
        de muestra de 1160 x 760; se ajusta al redimensionar o maximizar. El
        selector de comando del prototipo no se muestra (en SketchUp son menus).
@@ -1691,8 +1698,12 @@ function texturaDe(m){
 function planDePiezas(c = cfg){
   const previo = cfg; cfg = c;
   try {
-    if (cfg.isla || cfg.closet) throw new Error('El plan de piezas todavía no cubre islas ni closets.');
-    const piezas = [], sep = cfg.separacionPosterior || 0, t = PLAN_ESPESOR_FRENTE, r2 = v => Math.round(v*100)/100;
+    if (cfg.closet) throw new Error('El plan de piezas todavía no cubre closets.');
+    const piezas = [], sepMuro = cfg.separacionPosterior || 0, t = PLAN_ESPESOR_FRENTE, r2 = v => Math.round(v*100)/100;
+    /* sep: del origen del plan a la cara posterior del modulo. Muro: separacion posterior. Isla (B16): y va del canto de los bancos
+       (0) al frente de la cubierta (islaAncho) y los frentes quedan alineados, asi que cada modulo arranca segun su fondo */
+    const sepDe = m => cfg.isla ? cfg.islaAncho - vueloEf() - t - m.fondo : sepMuro;
+    let sep = sepMuro;
     const add = p => { if (p.ancho > .01 && p.fondo > .01 && p.alto > .01) piezas.push(Object.assign(p, { x: r2(p.x), y: r2(p.y), z: r2(p.z), ancho: r2(p.ancho), fondo: r2(p.fondo), alto: r2(p.alto) })); };
     const matDe = m => m.material || cfg.materialGeneral || null;
     const lows = row(false), highs = row(true);
@@ -1760,11 +1771,11 @@ function planDePiezas(c = cfg){
     };
     /* frente: liso, o en estilo Clasica con marco shaker (como drawHandle: frentes de 8 cm o mas que no son fijos): tablero
        rehundido con el id del frente y cuatro piezas de marco del ancho de Revit (Ancho_Marco = min(6, lado menor / 3.5)) */
-    const tablero = (modulo, base, kind, a, b, z0, z1, y, mat, hingeRight, fijo) => {
+    const tablero = (modulo, base, kind, a, b, z0, z1, y, mat, hingeRight, fijo, atras = false) => {
       const w = b - a, h = z1 - z0, datos = { rol: 'frente', modulo, material: mat, etiqueta: 'frentes' };
       if (cfg.style === 'Clasica' && !fijo && w >= 8 && h >= 8) {
-        const fw = Math.max(1, Math.min(6, Math.min(w, h)/3.5)), r = PLAN_SHAKER_REHUNDIDO;
-        add(Object.assign({ id: base, tipo: kind, x: a + fw, y, z: z0 + fw, ancho: w - 2*fw, fondo: t - r, alto: h - 2*fw, bisagraDerecha: !!hingeRight, fijo: false }, datos));
+        const fw = Math.max(1, Math.min(6, Math.min(w, h)/3.5)), r = PLAN_SHAKER_REHUNDIDO;   /* atras: la cara vista mira hacia y = 0 */
+        add(Object.assign({ id: base, tipo: kind, x: a + fw, y: atras ? y + r : y, z: z0 + fw, ancho: w - 2*fw, fondo: t - r, alto: h - 2*fw, bisagraDerecha: !!hingeRight, fijo: false }, datos));
         add(Object.assign({ id: base + ':marco:izq', tipo: 'Marco', x: a, y, z: z0, ancho: fw, fondo: t, alto: h }, datos));
         add(Object.assign({ id: base + ':marco:der', tipo: 'Marco', x: b - fw, y, z: z0, ancho: fw, fondo: t, alto: h }, datos));
         add(Object.assign({ id: base + ':marco:abajo', tipo: 'Marco', x: a + fw, y, z: z0, ancho: w - 2*fw, fondo: t, alto: fw }, datos));
@@ -1875,6 +1886,7 @@ function planDePiezas(c = cfg){
     for (const upper of [false, true]) {
       let x = ajusteIzq();
       for (const m of row(upper)) {
+        sep = sepDe(m);
         if (m.reserved) { x += m.ancho; continue; }
         if (isSpecial(m) || m.tipo === 'Estufa' || m.tipo === 'Frigobar') { especial(m, x); x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
@@ -1914,6 +1926,7 @@ function planDePiezas(c = cfg){
         x += m.ancho;
       }
     }
+    sep = sepMuro;
     /* cama del LED (B14): piso corrido bajo los altos con LED, de todo el fondo, con la ranura por debajo (tabla delgada encima del
        perfil) y el perfil embutido a ras; se corta en las columnas reservadas, en los altos con campana y donde cambia el fondo */
     if (cfg.led) { let xc = ajusteIzq(), tramo = null; const tramosCama = [];
@@ -1930,6 +1943,10 @@ function planDePiezas(c = cfg){
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
        a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
     const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
+    /* largo de la cubierta de isla: entre cascadas o con el vuelo; una cascada propia de la barra la recorta por ese lado */
+    const cubXIsla = () => { const barra = cfg.islaBarraElevada, be = espesorBarra();
+      return [Math.max(cfg.cascadaIzq ? ajusteIzq() : -vueloEf(), barra && cfg.islaBarraCascadaIzq ? barraX0() + be : -1e9),
+        Math.min(cfg.cascadaDer ? W - ajusteDer() : W + vueloEf(), barra && cfg.islaBarraCascadaDer ? barraX1() - be : 1e9)]; };
     const dBajo = sep + fondoDe(lows) + t, dAlto = sep + fondoDe(highs) + t;
     const run0 = cfg.corridaIzq ? ajusteIzq() : 0, run1 = cfg.corridaDer ? W - ajusteDer() : W;
     const vI = cfg.corridaIzq || hdExtra(false) > 0 ? 0 : vueloEf(), vD = cfg.corridaDer || hdExtra(true) > 0 ? 0 : vueloEf();   /* ni contra una puerta oculta */
@@ -1938,7 +1955,7 @@ function planDePiezas(c = cfg){
       const alPiso = left => { const lo = lows[left ? 0 : lows.length - 1]; return (left ? cfg.tapetaIzq : cfg.tapetaDer) && ((left ? cfg.corridaIzq : cfg.corridaDer) || isSpecial(lo) || cortaZoclo(lo)); };
       /* cierres (Cerrar_Izquierda / Cerrar_Derecha de Revit): en el primer y el ultimo tramo, una tapa del espesor del zoclo
          que va de su cara posterior hacia atras hasta los gabinetes */
-      if (cfg.generarZoclos && zb > 0) { const yz = sep + fondoDe(lows) - cfg.retiroZoclo - t, tramosZ = cutRun(alPiso(true) ? ajusteIzq() : run0, alPiso(false) ? W - ajusteDer() : run1, cortaZoclo);
+      if (!cfg.isla && cfg.generarZoclos && zb > 0) { const yz = sep + fondoDe(lows) - cfg.retiroZoclo - t, tramosZ = cutRun(alPiso(true) ? ajusteIzq() : run0, alPiso(false) ? W - ajusteDer() : run1, cortaZoclo);
         tramosZ.forEach(([a, b], k) => {
           add({ id: 'zoclo:' + k, rol: 'zoclo', tipo: 'Frente', x: a, y: yz, z: 0, ancho: b - a, fondo: t, alto: zb, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
           const cierre = (lado, x) => add({ id: 'zoclo:' + k + ':cierre:' + lado, rol: 'zoclo', tipo: 'Cierre', x, y: sep, z: 0, ancho: t, fondo: yz - sep, alto: zb, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
@@ -1950,7 +1967,7 @@ function planDePiezas(c = cfg){
       if (cfg.generarCubierta && sm && !sm.upper && cfg.tipoTarja > 0) {
         let sx = ajusteIzq(); for (const m of lows) { if (m === sm) break; sx += m.ancho; }
         const doble = cfg.tipoTarja === 2, bw = Math.min(sm.ancho - 8, cfg.tarjaAncho*(doble ? 1.6 : 1)), bd = Math.min(cfg.tarjaFondo, sm.fondo - cfg.retiroTarja - 4);
-        hueco = { x0: sx + (sm.ancho - bw)/2, x1: sx + (sm.ancho + bw)/2, y0: sep + sm.fondo - cfg.retiroTarja - bd, y1: sep + sm.fondo - cfg.retiroTarja, doble, m: sm, cx: sx + sm.ancho/2 };
+        hueco = { x0: sx + (sm.ancho - bw)/2, x1: sx + (sm.ancho + bw)/2, y0: sepDe(sm) + sm.fondo - cfg.retiroTarja - bd, y1: sepDe(sm) + sm.fondo - cfg.retiroTarja, doble, m: sm, cx: sx + sm.ancho/2 };
       }
       /* losa con el hueco: alrededor de el, cuatro tiras (izquierda, derecha, detras y delante) */
       const losa = (id, tipo, a, b, y0, y1, z0, z1) => {
@@ -1961,12 +1978,14 @@ function planDePiezas(c = cfg){
       };
       /* nariz (seccion del master; Mostrar_Nariz / Mostrar_Cama de Revit): losa del espesor arriba, nariz de 1.8 al frente hasta la
          altura total y cama debajo de la losa, retirada del frente 2 cm (6.8 con tarja, Retiro_Frontal_Cama) */
-      const D = dBajo + vueloEf(), esp = cfg.espesorCubierta, nariz = cfg.narizCubierta && pq > esp + .01;
-      if (cfg.generarCubierta) cutRun(run0 - vI, run1 + vD, cortaCubierta).forEach(([a, b], k) => {
-        if (!nariz) { losa('cubierta:' + k, 'Losa', a, b, 0, D, zBar - pq, zBar); return; }
-        losa('cubierta:' + k, 'Losa', a, b, 0, D, zBar - esp, zBar);
+      const D = cfg.isla ? cfg.islaAncho : dBajo + vueloEf(), esp = cfg.espesorCubierta, nariz = cfg.narizCubierta && pq > esp + .01;
+      const barraIsla = cfg.isla && cfg.islaBarraElevada, yC = barraIsla ? cfg.islaBarraAncho : 0;   /* con barra, la cubierta llega al peralte */
+      const cubX = cfg.isla ? cubXIsla() : [run0 - vI, run1 + vD];
+      if (cfg.generarCubierta) cutRun(cubX[0], cubX[1], cortaCubierta).forEach(([a, b], k) => {
+        if (!nariz) { losa('cubierta:' + k, 'Losa', a, b, yC, D, zBar - pq, zBar); return; }
+        losa('cubierta:' + k, 'Losa', a, b, yC, D, zBar - esp, zBar);
         add({ id: 'cubierta:' + k + ':nariz', rol: 'cubierta', tipo: 'Nariz', x: a, y: D - t, z: zBar - pq, ancho: b - a, fondo: t, alto: pq - esp, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' });
-        losa('cubierta:' + k + ':cama', 'Cama', a, b, 0, D - (cfg.tipoTarja > 0 ? 6.8 : 2), zBar - pq, zBar - esp);
+        losa('cubierta:' + k + ':cama', 'Cama', a, b, yC, D - (cfg.tipoTarja > 0 ? 6.8 : 2), zBar - pq, zBar - esp);
       });
       /* tina de lamina (paredes y fondo): bajo cubierta llega a la base de la cubierta; de sobreponer sube hasta su cara y
          lleva ceja encima. Monomando detras de la tina */
@@ -1985,14 +2004,47 @@ function planDePiezas(c = cfg){
       /* parrilla de induccion (planta): placa centrada a 4 cm del frente del gabinete, sobre la cubierta */
       if (cfg.generarCubierta) { let px = ajusteIzq(); lows.forEach(m => {
         if (m.parrilla && !m.reserved) { const pw = Math.min(m.parrillaAncho, m.ancho - 4), pd = Math.min(52, m.fondo - 8);
-          equipo(m, 'parrilla', 'Parrilla', px + (m.ancho - pw)/2, px + (m.ancho + pw)/2, zBar, zBar + PLAN_PLACA, sep + m.fondo - 4 - pd, sep + m.fondo - 4); }
+          equipo(m, 'parrilla', 'Parrilla', px + (m.ancho - pw)/2, px + (m.ancho + pw)/2, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4 - pd, sepDe(m) + m.fondo - 4); }
         px += m.ancho; }); }
       if (cfg.backsplash) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
         cutRun(run0, run1, isSpecial).forEach(([a, b], k) => add({ id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: top - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' })); }
     }
+    /* ISLA (B16; drawIslandFront / Plan / Back / Section): costados o cascadas en los extremos, zoclo frontal con cierres hasta el
+       zoclo posterior (o los paneles), paneles posteriores con su reparto (islandPanels) mirando a los bancos, zoclo posterior con
+       su tapa cuando va retirado, LED posterior bajo la cubierta y barra elevada (losa, peralte sobre la cubierta y cascadas). En
+       3D la cubierta queda a pano de las puertas, como en el muro (el corte 2D las dibuja 1.8 fuera de la cubierta a pano) */
+    if (cfg.isla && lows.length) {
+      const A = cfg.islaAncho, aI = ajusteIzq(), aD = ajusteDer(), v = vueloEf(), yFr = A - v - t, atrasG = yFr - islaFondoMax();
+      const V = Math.max(0, Math.min(islaEspEf(), atrasG - t)), zp = cfg.islaZocloPosterior && cfg.generarZoclos && zb > 0, pz = zp ? zb : 0, pt = panelTope();
+      const zFace = Math.max(V, Math.min(islaZocloCara(), atrasG - t)), b0 = panelesX0(), b1 = panelesX1(), be = espesorBarra(), bf = barraFondo(), topH = islaTopH();
+      const pieza = (id, rol, tipo, x0, x1, y0, y1, z0, z1, material, etiqueta) => add({ id, rol, tipo, x: x0, y: y0, z: z0, ancho: x1 - x0, fondo: y1 - y0, alto: z1 - z0, material, etiqueta });
+      [[true, 'izq'], [false, 'der']].forEach(([left, lado]) => {
+        const w = left ? aI : aD, x0 = left ? 0 : W - w, bcasc = cfg.islaBarraElevada && (left ? cfg.islaBarraCascadaIzq : cfg.islaBarraCascadaDer);
+        if (w <= 0) return;
+        if (left ? cfg.cascadaIzq : cfg.cascadaDer) pieza('cascada:' + lado, 'cubierta', 'Cascada', x0, x0 + w, bcasc ? bf : 0, A, 0, zBar, groupMaterial('Cubierta') || null, 'cubierta');
+        else { const adj = left ? lows[0] : lows[lows.length - 1];
+          pieza('costado:' + lado, 'tapeta', 'Costado', x0, x0 + w, V, A - v, cfg.generarZoclos ? zb : 0, zb + cfg.altoBajos, (adj && (adj.material || cfg.materialGeneral)) || null, 'tapetas'); }
+      });
+      if (cfg.generarZoclos && zb > 0) { const yz = yFr - cfg.retiroZoclo - t, yAtras = (zp ? zFace : V) + t, tramosZ = cutRun(aI, W - aD, cortaZoclo);
+        tramosZ.forEach(([a, b], k) => {
+          pieza('zoclo:' + k, 'zoclo', 'Frente', a, b, yz, yz + t, 0, zb, groupMaterial('Zoclo'), 'zoclo');
+          if (k === 0 && cfg.cerrarZocloIzq) pieza('zoclo:' + k + ':cierre:izq', 'zoclo', 'Cierre', a, a + t, yAtras, yz, 0, zb, groupMaterial('Zoclo'), 'zoclo');
+          if (k === tramosZ.length - 1 && cfg.cerrarZocloDer) pieza('zoclo:' + k + ':cierre:der', 'zoclo', 'Cierre', b - t, b, yAtras, yz, 0, zb, groupMaterial('Zoclo'), 'zoclo');
+        }); }
+      let px = b0;
+      cfg.islaPaneles.forEach((q, k) => { tablero(null, 'respaldo:' + k, 'Respaldo', px, px + q.ancho, pz, pt, V, q.material || cfg.materialGeneral || null, false, false, true); px += q.ancho; });
+      if (zp) { pieza('zoclo:posterior', 'zoclo', 'Posterior', b0, b1, zFace, zFace + t, 0, pz, groupMaterial('Zoclo'), 'zoclo');
+        if (zFace - V > .2) pieza('zoclo:posterior:tapa', 'zoclo', 'Tapa', b0, b1, V + t, zFace + t, pz, pz + t, groupMaterial('Zoclo'), 'zoclo'); }
+      if (cfg.islaLedPosterior && V > 2.5) pieza('led:posterior', 'herraje', 'LED', b0, b1, V - 2, V - 1, pt - 1.2, pt - .2, null, 'herrajes');
+      if (cfg.islaBarraElevada) { const x0 = barraX0(), x1 = barraX1(), mb = groupMaterial('BarraElevada') || null;
+        pieza('barra', 'cubierta', 'Barra', x0, x1, 0, bf, topH - be, topH, mb, 'cubierta');
+        if (cfg.islaBarraCascadaIzq) pieza('barra:cascada:izq', 'cubierta', 'Cascada', x0, x0 + be, 0, bf, 0, topH - be, mb, 'cubierta');
+        if (cfg.islaBarraCascadaDer) pieza('barra:cascada:der', 'cubierta', 'Cascada', x1 - be, x1, 0, bf, 0, topH - be, mb, 'cubierta');
+        if (cfg.generarCubierta) pieza('barra:peralte', 'cubierta', 'Peralte', cubXIsla()[0], cubXIsla()[1], cfg.islaBarraAncho, bf, zBar, topH - be, groupMaterial('BarraPeralte') || null, 'cubierta'); }
+    }
     /* tapetas laterales (sideRows del alzado): baja y alta, o de piso a techo si es corrida; junto a un especial la baja va del
        piso a su tope y la alta no existe (columna reservada) */
-    [['izq', true], ['der', false]].forEach(([lado, left]) => {
+    if (!cfg.isla) [['izq', true], ['der', false]].forEach(([lado, left]) => {
       if (!(left ? cfg.tapetaIzq : cfg.tapetaDer)) return;
       const w = left ? ajusteIzq() : ajusteDer(), x0 = left ? 0 : W - w, pieza = (suf, z0, z1, fondo) => add({ id: 'tapeta:' + lado + suf, rol: 'tapeta', x: x0, y: 0, z: z0, ancho: w, fondo, alto: z1 - z0, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
       if (left ? cfg.corridaIzq : cfg.corridaDer) { pieza('', 0, cfg.alturaMuro, Math.max(dBajo, dAlto)); return; }
@@ -2084,6 +2136,13 @@ function pruebasPlanDePiezas(){
     ['clasica con puertas ocultas a los dos lados (piston, juntas) y LED atras', c => {
       c.style = 'Clasica'; c.led = true; c.ledFrente = false;
       c.puertasOcultas = [Object.assign(newDoor(false), { piston: true, altoPiston: 40, juntasHorizontales: [120] }), Object.assign(newDoor(true), { tapetaLateral: false, zoclo: false })]; return c; }],
+    ['isla de inicio', c => { const d = defaultIsland(240, 90); d.catalogo = c.catalogo; return d; }],
+    ['isla con cascadas, barra elevada con cascadas propias, LED posterior y tarja', c => { const d = defaultIsland(260, 110); d.catalogo = c.catalogo;
+      Object.assign(d, { cascadaIzq: true, cascadaDer: true, islaBarraElevada: true, islaBarraCascadaIzq: true, islaBarraCascadaDer: true, islaLedPosterior: true, islaEspacioBancos: 30 });
+      d.moduloTarja = d.modulos[1].id; d.tipoTarja = 1; return d; }],
+    ['isla clasica con costados, barra con vuelos, parrilla y sin zoclo posterior', c => { const d = defaultIsland(240, 105); d.catalogo = c.catalogo;
+      Object.assign(d, { style: 'Clasica', islaBarraElevada: true, islaBarraVueloIzq: 15, islaBarraVueloDer: 10, islaZocloPosterior: false, cubiertaAPano: false, vuelo: 3 });
+      d.modulos[2].parrilla = true; d.modulos[0].tipo = 'Cajones'; return d; }],
     ['zoclo cerrado en los dos extremos y cortado por el refrigerador', c => { const l = c.modulos.filter(m => !m.upper);
       c.cerrarZocloIzq = c.cerrarZocloDer = true; l[2].tipo = 'Refri'; return c; }],
     ['tarja bajo cubierta, shaker y puertas dobles', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
@@ -2106,7 +2165,7 @@ function pruebasPlanDePiezas(){
       ok(PLAN_ROLES.includes(q.rol), nombre + ': rol desconocido ' + q.rol);
       ok(PLAN_ETIQUETAS.includes(q.etiqueta), nombre + ': etiqueta desconocida ' + q.etiqueta);
       ok(q.z >= -.01 && q.z + q.alto <= c.alturaMuro + .01, nombre + ': fuera de la altura del muro ' + q.id);
-      const v = q.rol === 'cubierta' ? (c.cubiertaAPano ? 0 : c.vuelo) : 0;   /* la cubierta vuela fuera del tramo en un extremo libre */
+      const v = q.rol === 'cubierta' ? (c.cubiertaAPano ? 0 : c.vuelo) + (c.isla ? Math.max(c.islaBarraVueloIzq || 0, c.islaBarraVueloDer || 0) + 10 : 0) : 0;   /* vuelos de cubierta y barra */
       const ext = derecha => Math.max(0, ...(c.puertasOcultas || []).filter(d => d.derecha === derecha).map(d => d.ancho + (d.tapetaLateral ? d.anchoTapeta : 0)));   /* puertas ocultas */
       ok(q.x >= -v - ext(false) - .01 && q.x + q.ancho <= c.longitud + v + ext(true) + .01, nombre + ': fuera del largo del tramo ' + q.id);
     });
@@ -2167,7 +2226,7 @@ function pruebasPlanDePiezas(){
       ok(tina && !p.piezas.some(q => q.rol === 'cubierta' && cruza(q, Object.assign({}, tina, { z: tina.z, alto: 200 }))), nombre + ': la cubierta tapa la tarja');
       ok(!p.piezas.some(q => q.id === c.moduloTarja + ':cuerpo:techo'), nombre + ': el gabinete de la tarja tiene techo'); }
     /* frentes dentro de la carcasa de su modulo; cajas de cajon y jaladeras, una por cada frente de cajon o frente con jaladera */
-    p.piezas.filter(q => q.rol === 'frente').forEach(f => { const e = extension(f.modulo);
+    p.piezas.filter(q => q.rol === 'frente' && q.modulo).forEach(f => { const e = extension(f.modulo);   /* los paneles posteriores de la isla no son de un modulo */
       ok(e && f.x >= e[0] - .01 && f.x + f.ancho <= e[1] + .01, nombre + ': frente fuera de su modulo ' + f.id); });
     const cajones = p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Cajon' && !q.fijo && !p.piezas.some(r => r.rol === 'modulo' && r.modulo === q.modulo));
     ok(p.piezas.filter(q => q.rol === 'caja' && q.tipo === 'Piso').length === cajones.length, nombre + ': falta una caja de cajon');
