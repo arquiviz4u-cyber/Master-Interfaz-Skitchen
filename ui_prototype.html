@@ -1203,8 +1203,8 @@ function islandPanels(){
 }
 function islandValidate(){
   if (row(false).some(m => !ISLA_TIPOS.includes(m.tipo))) throw new Error('La isla solo admite gabinetes bajos (sin refrigerador, torre ni alacena).');
-  const need = islaFondoMax() + vueloEf() + 1.8;
-  if (cfg.islaAncho < need - .01) throw new Error(`La isla mide ${fmt(cfg.islaAncho)}${uS()} de ancho; los gabinetes, su vuelo y el panel trasero necesitan ${fmt(need)}${uS()}.`);
+  const need = islaFondoMax() + 1.8 + vueloEf() + 1.8;   /* B16: con sus frentes (la cubierta queda a pano de las puertas) */
+  if (cfg.islaAncho < need - .01) throw new Error(`La isla mide ${fmt(cfg.islaAncho)}${uS()} de ancho; los gabinetes con sus frentes, su vuelo y el panel trasero necesitan ${fmt(need)}${uS()}.`);
   if (cfg.islaBarraElevada) {
     if (cfg.islaBarraAncho < 20 || cfg.islaBarraAncho > islaSeparacion()) throw new Error(`La barra elevada debe medir entre 20 y ${fmt(islaSeparacion())}${uS()} de ancho para no invadir los gabinetes (ensancha la isla si necesitas más).`);
     if (cfg.islaBarraEspesor < 1 || cfg.islaBarraEspesor > 10) throw new Error('El espesor de la barra elevada debe estar entre 1 y 10 cm.');
@@ -2137,6 +2137,7 @@ function pruebasPlanDePiezas(){
       c.style = 'Clasica'; c.led = true; c.ledFrente = false;
       c.puertasOcultas = [Object.assign(newDoor(false), { piston: true, altoPiston: 40, juntasHorizontales: [120] }), Object.assign(newDoor(true), { tapetaLateral: false, zoclo: false })]; return c; }],
     ['isla de inicio', c => { const d = defaultIsland(240, 90); d.catalogo = c.catalogo; return d; }],
+    ['isla del ancho minimo', c => { const d = defaultIsland(200, 63.6); d.catalogo = c.catalogo; return d; }],
     ['isla con cascadas, barra elevada con cascadas propias, LED posterior y tarja', c => { const d = defaultIsland(260, 110); d.catalogo = c.catalogo;
       Object.assign(d, { cascadaIzq: true, cascadaDer: true, islaBarraElevada: true, islaBarraCascadaIzq: true, islaBarraCascadaDer: true, islaLedPosterior: true, islaEspacioBancos: 30 });
       d.moduloTarja = d.modulos[1].id; d.tipoTarja = 1; return d; }],
@@ -5792,7 +5793,8 @@ function offerSave(action, proceed){
    Solo existe dentro del UI::HtmlDialog de Skitchen (../Skitchen_SketchUp/src/drawlibri_skitchen/dialogo.rb), que inyecta
    window.sketchup. Llamadas a Ruby: sketchup.listo() al cargar, sketchup.generar(texto) con {config, plan} y
    sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
-   sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual. */
+   sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida), sketchupNuevaIsla(longitud, ancho) (isla nueva
+   con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual. */
 const enSketchUp = () => typeof window.sketchup === 'object' && window.sketchup !== null;
 if (enSketchUp()) document.documentElement.classList.add('sketchup');   /* B15: a todo el dialogo */
 function sketchupAbrir(crear, error, estado){
@@ -5812,6 +5814,12 @@ function sketchupNueva(longitud, alturaMuro){
   const largo = Math.round(longitud*100)/100;   /* D1: el decimal del muro lo absorben las tapetas */
   sketchupAbrir(() => { const c = defaultConfig(largo); c.catalogo = cfg.catalogo; c.alturaMuro = Math.round(alturaMuro*10)/10; return c; },
     `El muro elegido (${fmt(longitud)} × ${fmt(alturaMuro)}${uS()}) no admite una cocina: `, `Muro de ${fmt(largo)} × ${fmt(alturaMuro)}${uS()} tomado de SketchUp.`);
+}
+/* isla nueva con el largo y el ancho de los 3 puntos de Line-Island (canto frontal de la cubierta y lado de los bancos) */
+function sketchupNuevaIsla(longitud, ancho){
+  const largo = Math.round(longitud*100)/100, an = Math.round(ancho*10)/10;
+  sketchupAbrir(() => { const c = defaultIsland(largo, an); c.catalogo = cfg.catalogo; return c; },
+    `La isla elegida (${fmt(largo)} × ${fmt(an)}${uS()}) no admite gabinetes: `, `Isla de ${fmt(largo)} × ${fmt(an)}${uS()} tomada de SketchUp.`);
 }
 function sketchupResultado(ok, mensaje){ if (ok) setStatus(mensaje); else showDialog('SketchUp', mensaje); }
 document.getElementById('btnCancel').addEventListener('click', () => offerSave('salir', () => {
