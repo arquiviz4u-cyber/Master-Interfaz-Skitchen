@@ -123,6 +123,11 @@
        selecciona completa con un clic y su panel la trata como un elemento:
        repisas y divisiones de toda la caja, Separar la caja y Añadir la
        columna derecha.
+   A44. [Revit OK, ya lo hacia] Vuelo de cubierta como Revit (03/10): con «A paño de
+       gabinetes» la cubierta no vuela tampoco a los lados (VueloEfectivo = 0),
+       en el alzado y en la planta; en planta tampoco vuela contra una tapeta
+       de piso a techo (antes ambos dibujaban el vuelo lateral igual). El plan
+       de piezas (B6) ya usaba esta regla.
    A43. [Revit OK P12.186] Medir en cajas corridas (02/10): con la caja elegida como pieza se ven
        su alto y su ancho, los entrepaños entre repisas en todo el largo y el
        hueco libre de cada espacio entre divisiones (antes no salia nada, y
@@ -2213,7 +2218,7 @@ function drawElevation(){
   drawSinkTap(RX, X, Z, scale, post);
   drawHiddenDoors(X, Z, RX, scale, post);
   /* cubierta y zoclo corridos a todo el tramo; la cubierta va delante de la gola */
-  const vueloI = cfg.corridaIzq ? 0 : cfg.vuelo, vueloD = cfg.corridaDer ? 0 : cfg.vuelo;   /* sin vuelo contra una tapeta de piso a techo */
+  const vueloI = cfg.corridaIzq ? 0 : vueloEf(), vueloD = cfg.corridaDer ? 0 : vueloEf();   /* A44: sin vuelo contra una tapeta de piso a techo ni a paño */
   part('plinth', cfg.generarZoclos, cutRun(run0, run1, cortaZoclo).map(([a, b]) => RX(a, b, 0, zb)), r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Zoclo'), C.zocalo); }, post);
   part('cover', cfg.generarCubierta, cutRun(run0 - vueloI, run1 + vueloD, cortaCubierta).map(([a, b]) => RX(a, b, zBar - paquete(), zBar)), r => {
     fillMat(r.x, r.y, r.w, r.h, groupMaterial('Cubierta'), C.cubierta); outline(r, C.line, 1);
@@ -3184,7 +3189,7 @@ function drawPlan(){
   ctx.restore(); ctx.strokeStyle = C.wallLine; ctx.lineWidth = 2; line(X(0) - 14, wallY, X(W) + 14, wallY);
   if (!lows.length) { ctx.fillStyle = C.empty; ctx.font = "400 13px 'Inter'"; ctx.textAlign = 'center'; ctx.fillText('Añade un bajo para ver la cubierta', X(W/2), Y(30)); ctx.textAlign = 'left'; }
   /* cubierta y tapetas */
-  if (lows.length && !cfg.closet) part('cover', cfg.generarCubierta, cutRun(-cfg.vuelo, W + cfg.vuelo, cortaCubierta).map(([a, b]) => ({ x: X(a), y: wallY, w: (b - a)*scale, h: dLow*scale })), r => {
+  if (lows.length && !cfg.closet) part('cover', cfg.generarCubierta, cutRun(cfg.corridaIzq ? ajusteIzq() : -vueloEf(), cfg.corridaDer ? W - ajusteDer() : W + vueloEf(), cortaCubierta).map(([a, b]) => ({ x: X(a), y: wallY, w: (b - a)*scale, h: dLow*scale })), r => {
     fillMat(r.x, r.y, r.w, r.h, groupMaterial('Cubierta'), C.planCover); outline(r, C.line, 1);
   }, post);
   let x = ajusteIzq();
