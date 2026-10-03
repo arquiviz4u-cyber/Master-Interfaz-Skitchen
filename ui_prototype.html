@@ -238,6 +238,12 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B8. Piezas completas en el plan (03/10): carcasa real (laterales, trasero,
+       piso y techo), repisas y divisiones como drawShelves, caja corrida y
+       modulo superior unido como en la vista, cajas de cajon, gola (Moderna)
+       y jaladeras de barra o boton (HandleAt). Espesores que el editor no
+       dibuja en PLAN_CUERPO / PLAN_CAJA / PLAN_JALADERA. Especiales, estufa y
+       frigobar siguen como cuerpo macizo (PLAN_PENDIENTE).
    B7. Puente con SketchUp (03/10): dentro del HtmlDialog de Skitchen, Generar
        manda {config, plan} a Ruby (sketchup.generar) y Ruby actualiza solo las
        piezas que cambian; Cancelar cierra el dialogo; al abrir con una cocina
@@ -1600,10 +1606,15 @@ const boxTargets = m => { const g = currentBox() || (m ? bodyGroupOf(byId(m.id))
    Cada pieza: id estable (para actualizar), rol (Atributos::ROLES de Ruby), modulo, tipo, x y z, ancho fondo alto,
    material (id del catalogo o null) y etiqueta (clave de Nombres::ETIQUETAS de Ruby). */
 const PLAN_ESQUEMA = 1, PLAN_ESPESOR_FRENTE = 1.8;
+/* medidas de construccion que el editor no dibuja (en Revit viven dentro de las familias: Espesor_Cuerpo...). Ajustar aqui */
+const PLAN_CUERPO = { lateral: 1.8, fondo: 1.8 };                                    /* carcasa: laterales, piso y techo; trasero */
+const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3 };   /* caja de cajon dentro de la carcasa */
+const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 }, PLAN_GOLA = .5;       /* jaladera (barra o boton) y perfil gola */
 const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash'];
-const PLAN_ROLES = ['modulo', 'frente', 'repisa', 'division', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo'];
+const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo'];
 /* lo que el plan todavia no entrega (se anota aqui al cubrirlo) */
-const PLAN_PENDIENTE = ['repisas y divisiones', 'cajas de cajon', 'gola', 'jaladeras y bisagras', 'tarja y parrilla', 'campana',
+const PLAN_PENDIENTE = ['especiales por dentro (torre, alacena y refrigerador van como un cuerpo macizo)', 'estufa y frigobar como aparatos',
+  'bisagras', 'marco shaker del estilo Clasica', 'travesaños en lugar de techo en los bajos', 'tarja y parrilla', 'campana',
   'equipos de la torre', 'puertas ocultas', 'nariz y cama de cubierta (va como una losa del espesor del paquete)', 'LED', 'isla', 'closet'];
 function planDePiezas(c = cfg){
   const previo = cfg; cfg = c;
@@ -1614,16 +1625,98 @@ function planDePiezas(c = cfg){
     const matDe = m => m.material || cfg.materialGeneral || null;
     const lows = row(false), highs = row(true);
     const fondoDe = list => Math.max(0, ...list.filter(m => !m.reserved).map(m => m.fondo));
+    /* material de una pieza interior: el propio del modulo (materialesPaneles, como en drawShelves) o el de su grupo */
+    const matPanel = (dueno, zona, clave, grupo) => (dueno.materialesPaneles || {})[zona + '.' + clave] || groupMaterial(grupo) || null;
+    /* carcasa (drawInterior): laterales a todo el alto, trasero entre laterales, piso y techo delante del trasero.
+       Devuelve el hueco interior. Sin travesaños por ahora: el techo es completo (PLAN_PENDIENTE) */
+    const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona) => {
+      const e = PLAN_CUERPO.lateral, ef = PLAN_CUERPO.fondo, y0 = sep, y1 = sep + fondo;
+      const panel = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
+      panel('lateral:izq', 'Lateral', x0, x0 + e, y0, y1, z0, z1);
+      panel('lateral:der', 'Lateral', x1 - e, x1, y0, y1, z0, z1);
+      panel('trasero', 'Trasero', x0 + e, x1 - e, y0, y0 + ef, z0, z1, matPanel(dueno, zona, 'fondo', 'Interior'));
+      panel('piso', 'Piso', x0 + e, x1 - e, y0 + ef, y1, z0, z0 + e);
+      panel('techo', 'Techo', x0 + e, x1 - e, y0 + ef, y1, z1 - e, z1);
+      return { x0: x0 + e, x1: x1 - e, y0: y0 + ef, y1, z0: z0 + e, z1: z1 - e };
+    };
+    /* repisas repartidas en el alto libre (drawShelves) y divisiones verticales repartidas en el ancho; con divisiones,
+       cada repisa se corta en tramos entre ellas */
+    const interior = (dueno, base, h, nRep, nDiv, zona) => {
+      const e = PLAN_CUERPO.lateral, xs = [h.x0];
+      for (let d = 1; d <= nDiv; d++) {
+        const xc = h.x0 + (h.x1 - h.x0)*d/(nDiv + 1);
+        add({ id: base + ':division:' + d, rol: 'division', modulo: dueno.id, tipo: 'Division', x: xc - e/2, y: h.y0, z: h.z0, ancho: e, fondo: h.y1 - h.y0, alto: h.z1 - h.z0, material: matPanel(dueno, zona, d === 1 ? 'division' : 'division.' + d, 'Repisas'), etiqueta: 'gabinetes' });
+        xs.push(xc - e/2, xc + e/2);
+      }
+      xs.push(h.x1);
+      for (let i = 1; i <= nRep; i++) {
+        const zc = h.z0 + (h.z1 - h.z0)*i/(nRep + 1);
+        for (let b = 0; b < xs.length; b += 2) add({ id: base + ':repisa:' + i + (nDiv ? ':' + b/2 : ''), rol: 'repisa', modulo: dueno.id, tipo: 'Repisa', x: xs[b], y: h.y0, z: zc - e/2, ancho: xs[b + 1] - xs[b], fondo: h.y1 - h.y0, alto: e, material: matPanel(dueno, zona, 'repisa.' + i, 'Repisas'), etiqueta: 'gabinetes' });
+      }
+    };
+    /* caja de cajon tras cada frente de cajon movil: lados, frente, trasera y piso, con holgura de correderas */
+    const cajaCajon = (m, base, h, f) => {
+      const c = PLAN_CAJA, x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, y0 = h.y0 + c.retiro, y1 = h.y1;
+      const z0 = Math.max(f.z0, h.z0 + .5), z1 = Math.min(Math.max(z0 + 4, f.z1 - c.libreArriba), h.z1 - .5), mat = matPanel(m, 'cuerpo', 'caja', 'Interior');
+      const lado = (k, tipo, a, b, p0, p1, q0, q1) => add({ id: base + ':' + k, rol: 'caja', modulo: m.id, tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, etiqueta: 'gabinetes' });
+      lado('lado:izq', 'Lado', x0, x0 + c.lado, y0, y1, z0, z1);
+      lado('lado:der', 'Lado', x1 - c.lado, x1, y0, y1, z0, z1);
+      lado('frente', 'Frente', x0 + c.lado, x1 - c.lado, y1 - c.lado, y1, z0, z1);
+      lado('trasera', 'Trasera', x0 + c.lado, x1 - c.lado, y0, y0 + c.lado, z0, z1);
+      lado('piso', 'Piso', x0 + c.lado, x1 - c.lado, y0 + c.lado, y1 - c.lado, z0, z0 + c.piso);
+    };
+    /* jaladera (drawHandle / HandleAt): solo fuera del estilo Moderna; frentes de 8 cm o mas que no son fijos */
+    const jaladera = (m, f, x0, base) => {
+      if (cfg.style === 'Moderna' || f.fijo || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
+      const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', J = PLAN_JALADERA, boton = cfg.jaladera === 'Boton';
+      const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + 5 : (f.z0 + f.z1)/2;
+      const cx = x0 + (vertical ? (f.hingeRight ? f.x0 + 5 : f.x1 - 5) : (f.x0 + f.x1)/2);
+      const [w, h] = boton ? [J.boton, J.boton] : vertical ? [J.grueso, L] : [L, J.grueso];
+      add({ id: base + ':jaladera', rol: 'herraje', modulo: m.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: sep + m.fondo + t, z: cz - h/2, ancho: w, fondo: boton ? J.boton : J.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' });
+    };
+    const frente = (m, f, k, x0) => {
+      const base = m.id + ':frente:' + k;
+      add({ id: base, rol: 'frente', modulo: m.id, tipo: f.kind, x: x0 + f.x0, y: sep + m.fondo, z: f.z0, ancho: f.x1 - f.x0, fondo: t, alto: f.z1 - f.z0, material: matDe(m), etiqueta: 'frentes', bisagraDerecha: !!f.hingeRight, fijo: !!f.fijo });
+      jaladera(m, f, x0, base);
+    };
     /* cuerpos y frentes por fila: los modulos se colocan uno tras otro desde la tapeta izquierda */
     for (const upper of [false, true]) {
       let x = ajusteIzq();
       for (const m of row(upper)) {
-        if (!m.reserved) {
-          const z0 = upper ? baseAltos() : isRefri(m) ? 0 : cfg.baseBajos;
-          const z1 = upper ? baseAltos() + bodyH(m) : isSpecial(m) ? altoEsp(m) : cfg.baseBajos + cfg.altoBajos;
-          add({ id: m.id + ':cuerpo', rol: 'modulo', modulo: m.id, tipo: m.tipo, fila: upper ? 'alto' : 'bajo', x, y: sep, z: z0, ancho: m.ancho, fondo: m.fondo, alto: z1 - z0, material: matDe(m), etiqueta: 'gabinetes' });
-          if (isDoble(m)) add({ id: m.id + ':superior', rol: 'modulo', modulo: m.id, tipo: 'Superior', fila: 'alto', x, y: sep, z: topeAltos() - m.altoSuperior, ancho: m.ancho, fondo: m.fondo, alto: m.altoSuperior, material: m.materialSuperior || matDe(m), etiqueta: 'gabinetes' });
-          fronts(m).forEach((f, k) => add({ id: m.id + ':frente:' + k, rol: 'frente', modulo: m.id, tipo: f.kind, x: x + f.x0, y: sep + m.fondo, z: f.z0, ancho: f.x1 - f.x0, fondo: t, alto: f.z1 - f.z0, material: matDe(m), etiqueta: 'frentes', bisagraDerecha: !!f.hingeRight, fijo: !!f.fijo }));
+        if (m.reserved) { x += m.ancho; continue; }
+        if (isSpecial(m) || m.tipo === 'Estufa' || m.tipo === 'Frigobar') {   /* todavia como cuerpo macizo con sus frentes (PLAN_PENDIENTE) */
+          const z0 = isRefri(m) ? 0 : cfg.baseBajos, z1 = isSpecial(m) ? altoEsp(m) : cfg.baseBajos + cfg.altoBajos;
+          add({ id: m.id + ':cuerpo', rol: 'modulo', modulo: m.id, tipo: m.tipo, fila: 'bajo', x, y: sep, z: z0, ancho: m.ancho, fondo: m.fondo, alto: z1 - z0, material: matDe(m), etiqueta: 'gabinetes' });
+          fronts(m).forEach((f, k) => frente(m, f, k, x));
+          x += m.ancho; continue;
+        }
+        /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
+           interior del primero (BodyLead) y a todo el ancho del grupo */
+        const z0 = upper ? baseAltos() + (hasCampana(m) ? m.huecoCampana : 0) : cfg.baseBajos;
+        const z1 = upper ? baseAltos() + bodyH(m) : cfg.baseBajos + cfg.altoBajos;
+        const grp = upper && sinPuertas(m) ? bodyGroupOf(m) : null, cajones = fronts(m).filter(f => f.kind === 'Cajon' && !f.fijo);
+        if (!grp || grp.members[grp.members.length - 1] === m) {
+          const lead = grp ? grp.members[0] : m, gx0 = grp ? grp.x0 : x, gx1 = grp ? grp.x0 + grp.width : x + m.ancho;
+          const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
+          const basura = m.tipo === 'Basura' && m.ancho > m.anchoBasura + .01;   /* el cesto ocupa su ancho; el resto, tapeta */
+          const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo');
+          if (basura) add({ id: m.id + ':tapeta', rol: 'tapeta', modulo: m.id, tipo: 'Compensacion', x: x + m.anchoBasura, y: sep + m.fondo, z: cfg.baseBajos, ancho: m.ancho - m.anchoBasura, fondo: t, alto: cfg.altoBajos, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
+          interior(lead, lead.id + ':cuerpo', h, shelvesOf(lead), !cajones.length && hasDivider(lead) ? Math.max(1, lead.divisiones || 1) : 0, 'cuerpo');
+          cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, h, f));
+        }
+        fronts(m).forEach((f, k) => frente(m, f, k, x));
+        /* gola: franja de perfil en cada hueco de agarre (golaStrips), detras del plano de los frentes */
+        golaStrips(m).forEach(([gz, gh], k) => add({ id: m.id + ':gola:' + k, rol: 'herraje', modulo: m.id, tipo: 'Gola', x, y: sep + m.fondo, z: gz, ancho: m.ancho, fondo: PLAN_GOLA, alto: gh, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' }));
+        /* modulo superior del alto doble (drawCap): uno por grupo de columnas unidas, del primero y a todo su ancho */
+        const cap = isDoble(m) ? capGroupOf(m) : null;
+        if (cap && cap.lead === m) {
+          const cz0 = topeAltos() - m.altoSuperior, cz1 = topeAltos(), cx0 = cap.x0, cx1 = cap.x0 + cap.width, hol = .2;
+          const capMat = m.materialSuperior || cfg.materialGeneral || null, fondo = Math.max(...cap.members.map(q => q.fondo));
+          const h = carcasa(m, m.id + ':superior', cx0, cx1, cz0, cz1, fondo, capMat, 'cap');
+          interior(m, m.id + ':superior', h, m.repisasSuperior || 0, m.divisionSuperior ? Math.max(1, m.divisionesSuperior || 1) : 0, 'cap');
+          const capFront = (k, kind, a, b, hingeRight) => add({ id: m.id + ':superior:frente:' + k, rol: 'frente', modulo: m.id, tipo: kind, x: a, y: sep + fondo, z: cz0 + hol, ancho: b - a, fondo: t, alto: cz1 - cz0 - 2*hol, material: capMat, etiqueta: 'frentes', bisagraDerecha: hingeRight, fijo: false });
+          if (m.tipoSuperior === 'Puertas') { const xm = (cx0 + cx1)/2; capFront(0, 'Puerta', cx0 + hol, xm - hol, false); capFront(1, 'Puerta', xm + hol, cx1 - hol, true); }
+          else if (m.tipoSuperior !== 'Repisas') capFront(0, 'Elevable', cx0 + hol, cx1 - hol, false);
         }
         x += m.ancho;
       }
@@ -1667,10 +1760,17 @@ function pruebasPlanDePiezas(){
     ['con torre, refrigerador y alto doble', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       if (l[0]) l[0].tipo = 'Hornos'; if (l[1]) l[1].tipo = 'Refri'; if (l[2]) l[2].tipo = 'Cajones'; if (u[2]) u[2].tipo = 'Doble'; return c; }],
     ['sin cubierta ni zoclo, tapeta corrida', c => { c.generarCubierta = false; c.generarZoclos = false; c.corridaIzq = true; return c; }],
-    ['con vuelo, sin tapetas y con tapeta superior', c => { c.vuelo = 3; c.tapetaIzq = c.tapetaDer = false; c.tapetaSuperior = true; return c; }]];
+    ['con vuelo, sin tapetas y con tapeta superior', c => { c.vuelo = 3; c.tapetaIzq = c.tapetaDer = false; c.tapetaSuperior = true; return c; }],
+    ['clasica con jaladeras, campana, division y basura', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
+      c.style = 'Clasica'; c.jaladera = 'Barra'; u[0].campana = true; u[1].dosPuertas = true; u[1].division = true; u[1].divisiones = 2; u[1].repisas = 2;
+      l[1].tipo = 'Basura'; l[2].tipo = 'Cajones'; l[3].dosPuertas = true; l[3].division = true; l[3].repisaBajo = true; return c; }],
+    ['botones, cajas abiertas unidas y superiores unidos', c => { const u = c.modulos.filter(m => m.upper);
+      c.style = 'Clasica'; c.jaladera = 'Boton'; u[0].tipo = u[1].tipo = 'Abierto'; u[0].unirCuerpo = true; u[0].repisas = 2;
+      u[2].tipo = u[3].tipo = u[4].tipo = 'Doble'; u[2].unirSuperior = true; u[2].tipoSuperior = 'Puertas'; u[2].repisasSuperior = 1;
+      u[4].tipoSuperior = 'Repisas'; u[4].repisasSuperior = 1; u[4].divisionSuperior = true; return c; }]];
   for (const [nombre, prep] of casos) {
     const c = prep(JSON.parse(JSON.stringify(base))); let p;
-    try { const previo = cfg; cfg = c; try { recalculate(); } finally { cfg = previo; } p = planDePiezas(c); } catch (e) { fallas.push(nombre + ': error ' + e.message); continue; }
+    try { const previo = cfg; cfg = c; try { recalculate(); validate(); } finally { cfg = previo; } p = planDePiezas(c); } catch (e) { fallas.push(nombre + ': error ' + e.message); continue; }
     ok(JSON.stringify(cfg) === JSON.stringify(base), nombre + ': el plan cambio la configuracion del editor');
     ok(p.esquema === PLAN_ESQUEMA && p.unidad === 'cm', nombre + ': esquema o unidad');
     ok(JSON.stringify(JSON.parse(JSON.stringify(p))) === JSON.stringify(p), nombre + ': no es JSON puro');
@@ -1684,13 +1784,23 @@ function pruebasPlanDePiezas(){
       const v = q.rol === 'cubierta' ? (c.cubiertaAPano ? 0 : c.vuelo) : 0;   /* la cubierta vuela fuera del tramo en un extremo libre */
       ok(q.x >= -v - .01 && q.x + q.ancho <= c.longitud + v + .01, nombre + ': fuera del largo del tramo ' + q.id);
     });
-    const bajos = p.piezas.filter(q => q.rol === 'modulo' && q.fila === 'bajo');
-    const ancho = bajos.reduce((a, q) => a + q.ancho, 0) + (c.tapetaIzq ? c.reservaIzq : 0) + (c.tapetaDer ? c.reservaDer : 0);
-    ok(Math.abs(ancho - c.longitud) < .05, nombre + ': los bajos y tapetas no suman el largo (' + ancho + ' de ' + c.longitud + ')');
+    /* cada bajo ocupa exactamente su columna (cuerpo o carcasa, mas la tapeta del cesto) y la fila llega a la tapeta derecha */
+    const extension = id => { const qs = p.piezas.filter(q => q.modulo === id && ['modulo', 'panel', 'tapeta'].includes(q.rol));
+      return qs.length ? [Math.min(...qs.map(q => q.x)), Math.max(...qs.map(q => q.x + q.ancho))] : null; };
+    let xb = c.tapetaIzq ? c.reservaIzq : 0;
+    c.modulos.filter(m => !m.upper).forEach(m => { const e = extension(m.id);
+      ok(e && Math.abs(e[0] - xb) < .02 && Math.abs(e[1] - xb - m.ancho) < .02, nombre + ': el bajo ' + m.id + ' no ocupa su columna'); xb += m.ancho; });
+    ok(Math.abs(xb + (c.tapetaDer ? c.reservaDer : 0) - c.longitud) < .05, nombre + ': los bajos y tapetas no suman el largo');
     const cruza = (a, b) => ['x', 'y', 'z'].every((e, i) => { const w = ['ancho', 'fondo', 'alto'][i]; return a[e] + a[w] > b[e] + .01 && b[e] + b[w] > a[e] + .01; });
     p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(!cruza(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
-    p.piezas.filter(q => q.rol === 'frente').forEach(f => { const cu = p.piezas.find(q => q.id === f.modulo + ':cuerpo');
-      ok(cu && f.x >= cu.x - .01 && f.x + f.ancho <= cu.x + cu.ancho + .01, nombre + ': frente fuera de su modulo ' + f.id); });
+    /* frentes dentro de la carcasa de su modulo; cajas de cajon y jaladeras, una por cada frente de cajon o frente con jaladera */
+    p.piezas.filter(q => q.rol === 'frente').forEach(f => { const e = extension(f.modulo);
+      ok(e && f.x >= e[0] - .01 && f.x + f.ancho <= e[1] + .01, nombre + ': frente fuera de su modulo ' + f.id); });
+    const cajones = p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Cajon' && !q.fijo && !p.piezas.some(r => r.rol === 'modulo' && r.modulo === q.modulo));
+    ok(p.piezas.filter(q => q.rol === 'caja' && q.tipo === 'Piso').length === cajones.length, nombre + ': falta una caja de cajon');
+    const conJaladera = p.piezas.filter(q => q.rol === 'herraje' && q.tipo !== 'Gola').length;
+    ok(c.style === 'Moderna' ? conJaladera === 0 : conJaladera > 0, nombre + ': jaladeras que no corresponden al estilo');
+    ok(c.style === 'Moderna' ? p.piezas.some(q => q.tipo === 'Gola') : !p.piezas.some(q => q.tipo === 'Gola'), nombre + ': gola que no corresponde al estilo');
   }
   return fallas;
 }
