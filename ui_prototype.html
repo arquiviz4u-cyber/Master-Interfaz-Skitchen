@@ -242,6 +242,9 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B11. [SketchUp OK 03/10] Cerrar extremos del zoclo: el plan genera la tapa
+       (Cerrar_Izquierda / Cerrar_Derecha de Revit) en el primer y el ultimo
+       tramo, de la cara posterior del zoclo hasta los gabinetes.
    B10. Detalles en el plan (03/10): tarja (hueco en losa y cama, tina de
        lamina sencilla o doble, de sobreponer con ceja o bajo cubierta,
        monomando; gabinete sin techo), parrilla sobre la cubierta, campana en
@@ -1861,7 +1864,15 @@ function planDePiezas(c = cfg){
     if (lows.length) {
       /* en 3D el zoclo se detiene en una tapeta que llega al piso (corrida o junto a un especial); el alzado 2D lo pinta encima */
       const alPiso = left => { const lo = lows[left ? 0 : lows.length - 1]; return (left ? cfg.tapetaIzq : cfg.tapetaDer) && ((left ? cfg.corridaIzq : cfg.corridaDer) || isSpecial(lo) || cortaZoclo(lo)); };
-      if (cfg.generarZoclos && zb > 0) cutRun(alPiso(true) ? ajusteIzq() : run0, alPiso(false) ? W - ajusteDer() : run1, cortaZoclo).forEach(([a, b], k) => add({ id: 'zoclo:' + k, rol: 'zoclo', x: a, y: sep + fondoDe(lows) - cfg.retiroZoclo - t, z: 0, ancho: b - a, fondo: t, alto: zb, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' }));
+      /* cierres (Cerrar_Izquierda / Cerrar_Derecha de Revit): en el primer y el ultimo tramo, una tapa del espesor del zoclo
+         que va de su cara posterior hacia atras hasta los gabinetes */
+      if (cfg.generarZoclos && zb > 0) { const yz = sep + fondoDe(lows) - cfg.retiroZoclo - t, tramosZ = cutRun(alPiso(true) ? ajusteIzq() : run0, alPiso(false) ? W - ajusteDer() : run1, cortaZoclo);
+        tramosZ.forEach(([a, b], k) => {
+          add({ id: 'zoclo:' + k, rol: 'zoclo', tipo: 'Frente', x: a, y: yz, z: 0, ancho: b - a, fondo: t, alto: zb, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
+          const cierre = (lado, x) => add({ id: 'zoclo:' + k + ':cierre:' + lado, rol: 'zoclo', tipo: 'Cierre', x, y: sep, z: 0, ancho: t, fondo: yz - sep, alto: zb, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
+          if (k === 0 && cfg.cerrarZocloIzq) cierre('izq', a);
+          if (k === tramosZ.length - 1 && cfg.cerrarZocloDer) cierre('der', b - t);
+        }); }
       /* tarja (drawSinkTap y planta): hueco del ancho de la tina (1.6 veces si es doble), a retiroTarja del frente del gabinete */
       const sm = byId(cfg.moduloTarja); let hueco = null;
       if (cfg.generarCubierta && sm && !sm.upper && cfg.tipoTarja > 0) {
@@ -1927,7 +1938,8 @@ function planDePiezas(c = cfg){
 /* pruebas del plan (se corren en el navegador o desde SketchUp): devuelve la lista de fallas, vacia si todo esta bien */
 function pruebasPlanDePiezas(){
   const fallas = [], ok = (cond, txt) => { if (!cond) fallas.push(txt); };
-  const base = JSON.parse(JSON.stringify(cfg));
+  /* base fija (cocina de 300 cm de inicio): los casos no dependen de lo que este abierto en el editor */
+  const editor = JSON.stringify(cfg), base = (() => { const c = defaultConfig(300); c.catalogo = JSON.parse(JSON.stringify(cfg.catalogo)); return c; })();
   const casos = [['de inicio', c => c],
     ['con torre, refrigerador y alto doble', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       if (l[0]) l[0].tipo = 'Hornos'; if (l[1]) l[1].tipo = 'Refri'; if (l[2]) l[2].tipo = 'Cajones'; if (u[2]) u[2].tipo = 'Doble'; return c; }],
@@ -1949,13 +1961,15 @@ function pruebasPlanDePiezas(){
       c.style = 'Clasica'; Object.assign(l[1], { tipo: 'EspecieroTorre', extraible: true }); Object.assign(l[3], { tipo: 'Hornos', microondas: false, torreInferior: 'Repisas', torreSuperior: '2 puertas', rejillaHorno: false }); return c; }],
     ['tarja doble de sobreponer, nariz, parrilla y campana', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       c.narizCubierta = true; c.alturaNariz = 5; c.altoBajos -= 2; c.moduloTarja = l[1].id; c.tipoTarja = 2; l[3].parrilla = true; u[3].campana = true; return c; }],
+    ['zoclo cerrado en los dos extremos y cortado por el refrigerador', c => { const l = c.modulos.filter(m => !m.upper);
+      c.cerrarZocloIzq = c.cerrarZocloDer = true; l[2].tipo = 'Refri'; return c; }],
     ['tarja bajo cubierta, shaker y puertas dobles', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       c.style = 'Clasica'; c.moduloTarja = l[2].id; c.tipoTarja = 1; c.tarjaBajoCubierta = true; l[2].dosPuertas = true; u[1].dosPuertas = true;
       u[2].tipo = 'Doble'; u[2].tipoSuperior = 'Puertas'; return c; }]];
   for (const [nombre, prep] of casos) {
     const c = prep(JSON.parse(JSON.stringify(base))); let p;
     try { const previo = cfg; cfg = c; try { recalculate(); validate(); } finally { cfg = previo; } p = planDePiezas(c); } catch (e) { fallas.push(nombre + ': error ' + e.message); continue; }
-    ok(JSON.stringify(cfg) === JSON.stringify(base), nombre + ': el plan cambio la configuracion del editor');
+    ok(JSON.stringify(cfg) === editor, nombre + ': el plan cambio la configuracion del editor');
     ok(p.esquema === PLAN_ESQUEMA && p.unidad === 'cm', nombre + ': esquema o unidad');
     /* B5: cada material con patron lleva su mosaico (PNG y medida en cm); los colores lisos, no */
     p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id), conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
@@ -1988,6 +2002,9 @@ function pruebasPlanDePiezas(){
       const marco = p.piezas.filter(r => r.id.startsWith(q.id + ':marco:')), h = marco.length ? Math.max(...marco.map(r => r.alto)) : q.alto;
       const n = p.piezas.filter(r => r.id.startsWith(q.id + ':bisagra:')).length;
       ok(n === (c.bisagras ? (h <= 90 ? 2 : h <= 160 ? 3 : h <= 200 ? 4 : 5) : 0), nombre + ': ' + n + ' bisagras en ' + q.id); });
+    /* zoclo: un cierre en cada extremo pedido, en el primer y el ultimo tramo */
+    const cierres = p.piezas.filter(q => q.rol === 'zoclo' && q.tipo === 'Cierre');
+    ok(cierres.length === (c.generarZoclos && c.baseBajos > 0 ? (c.cerrarZocloIzq ? 1 : 0) + (c.cerrarZocloDer ? 1 : 0) : 0), nombre + ': ' + cierres.length + ' cierres de zoclo');
     /* tarja: la cubierta queda abierta sobre la tina y el gabinete de la tarja no lleva techo */
     if (c.tipoTarja > 0 && c.moduloTarja && c.generarCubierta) { const tina = p.piezas.find(q => q.id === c.moduloTarja + ':tarja:fondo');
       ok(tina && !p.piezas.some(q => q.rol === 'cubierta' && cruza(q, Object.assign({}, tina, { z: tina.z, alto: 200 }))), nombre + ': la cubierta tapa la tarja');
