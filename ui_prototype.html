@@ -123,6 +123,18 @@
        selecciona completa con un clic y su panel la trata como un elemento:
        repisas y divisiones de toda la caja, Separar la caja y Añadir la
        columna derecha.
+   A46. Cajones iguales por defecto (03/10, usuario): un modulo nuevo arranca
+       con cajonesIguales = true. Revit: Module.CajonesIguales por defecto.
+   A47. Materiales (03/10, usuario): barra fija arriba para agregar un color
+       por categoria y editor del material fijo abajo, sin bajar hasta el final
+       de la galeria. Revit: MaterialTab.
+   A48. Funcion plegada (03/10, usuario): la seccion Funcion muestra solo el
+       tipo elegido y se despliega al pasar el mouse, para tener a la vista las
+       opciones del mueble. Revit: panel del modulo.
+   A49. Un solo Especiero (03/10, usuario): la Funcion muestra un tipo
+       Especiero y su altura (Bajo / Torre) se elige en sus opciones; por
+       dentro siguen las claves Especiero y EspecieroTorre. Revit: lista de
+       tipos y panel del especiero.
    A45. [Revit OK, no aplica] Cotas editables (03/10): el clic en una cota abria
        el campo y el mismo clic le quitaba el foco (lo tomaba el lienzo), asi
        que se cerraba al instante, en el navegador y en SketchUp. Corregido
@@ -592,7 +604,7 @@
   .p-foot { margin-top: auto; padding: 14px; border-top: 1px solid #E8ECEF; }
 
   /* ---- pestana Materiales ---- */
-  #page-materials.active { display: flex; flex-direction: column; }
+  #page-materials.active { display: flex; flex-direction: column; height: auto; min-height: 100%; }
   #gallery { flex: 1; }
   .mat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
   .swatch { cursor: grab; min-width: 0; }
@@ -618,7 +630,15 @@
   .hint-box b { color: var(--text); font-weight: 600; }
 
   .mat-editor { display: none; border-top: 1px solid #DADFE3; background: #FAFBFC; box-shadow: 0 -6px 16px rgba(31,42,51,.06); }
-  .mat-editor.open { display: block; }
+  /* A47: el editor del material queda fijo abajo y la barra para agregar fija arriba: no hay que bajar hasta el final */
+  .mat-editor.open { display: block; position: sticky; bottom: 0; z-index: 3; flex-shrink: 0; max-height: 62vh; overflow-y: auto; }
+  .mat-agregar { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 14px;
+    background: #fff; border-bottom: 1px solid #E8ECEF; box-shadow: 0 4px 10px rgba(31,42,51,.05); }
+  .mat-agregar .t { font-weight: 600; font-size: 11.5px; color: #5A6570; margin-right: 2px; }
+  .mat-agregar button { font: 500 11.5px 'Inter', sans-serif; padding: 4px 9px; border: 1px solid var(--line); border-radius: 5px; background: #F6F7F8; color: var(--text); cursor: pointer; }
+  .mat-agregar button:hover { border-color: var(--ink); color: var(--ink); }
+  html[data-theme=dark] .mat-agregar { background: #2A2D31; border-bottom-color: #33363B; }
+  html[data-theme=dark] .mat-agregar button { background: #2C2F34; border-color: #3A3E44; color: #D5DAE0; }
   .mat-editor .ed-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   .mat-editor .ed-preview { width: 36px; height: 36px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); flex: none; }
   .mat-editor .ed-title { font-weight: 600; font-size: 13px; }
@@ -640,6 +660,9 @@
   .opt.compact { padding: 8px 11px; }
   /* FUNCION en tarjetas con icono (A33) */
   .ftiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  /* A48: la Funcion queda plegada en el tipo elegido y se despliega al pasar el mouse, para tener cerca las opciones del mueble */
+  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on) .ftile:not(.on) { display: none; }
+  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on) .p-label::after { content: ' · pasa el mouse para cambiar'; font-weight: 400; text-transform: none; letter-spacing: 0; color: #8A949E; }
   .ftile { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 3px 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; color: #5A6570; font: 500 11px/1.2 'Inter', sans-serif; text-align: center; transition: border-color .12s, background .12s; }
   .ftile:hover { border-color: #B8C0C8; }
   .ftile.on { border-color: var(--ink); background: var(--ink-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
@@ -925,7 +948,7 @@ function newModule(upper){
   return { id: uid(), upper, tipo: upper ? 'Sencillo' : 'Puertas', ancho: 60, fijo: false, fondo: upper ? 35 : 60,
     dosPuertas: false, invertir: false, preparadoTarja: false, repisaBajo: true, division: false, repisas: 2,
     frenteSup: 0, frenteMed: 0, material: null, unirCuerpo: false, materialesPaneles: {},
-    numCajones: 3, cajonesIguales: false, frentes: [], campana: false, repisasZona: {},
+    numCajones: 3, cajonesIguales: true, frentes: [], campana: false, repisasZona: {},   /* A46: iguales por defecto */
     /* refrigerador, frigobar, cesto de basura, especiero y parrilla de induccion */
     huecoRefri: 190, superiorRefri: true, lateralesRefri: true, altoFrigobar: 82, tapetaFrigobar: true, anchoBasura: 40, extraible: false,
     parrilla: false, parrillaAncho: 60,
@@ -1704,7 +1727,10 @@ function planDePiezas(c = cfg){
        (0) al frente de la cubierta (islaAncho) y los frentes quedan alineados, asi que cada modulo arranca segun su fondo */
     const sepDe = m => cfg.isla ? cfg.islaAncho - vueloEf() - t - m.fondo : sepMuro;
     let sep = sepMuro;
-    const add = p => { if (p.ancho > .01 && p.fondo > .01 && p.alto > .01) piezas.push(Object.assign(p, { x: r2(p.x), y: r2(p.y), z: r2(p.z), ancho: r2(p.ancho), fondo: r2(p.fondo), alto: r2(p.alto) })); };
+    /* se redondean los extremos de la caja y la medida sale de ellos: dos piezas que se tocan siguen tocandose al centesimo */
+    const borde = (a, w) => { const a0 = r2(a), a1 = r2(a + w); return [a0, r2(a1 - a0)]; };
+    const add = p => { if (p.ancho > .01 && p.fondo > .01 && p.alto > .01) { const [x, ancho] = borde(p.x, p.ancho), [y, fondo] = borde(p.y, p.fondo), [z, alto] = borde(p.z, p.alto);
+      piezas.push(Object.assign(p, { x, y, z, ancho, fondo, alto })); } };
     const matDe = m => m.material || cfg.materialGeneral || null;
     const lows = row(false), highs = row(true);
     const fondoDe = list => Math.max(0, ...list.filter(m => !m.reserved).map(m => m.fondo));
@@ -2094,7 +2120,7 @@ function planDePiezas(c = cfg){
       qs.forEach(q => { const a = Math.max(p.z, q.z0), b = Math.min(p.z + p.alto, q.z1);
         if (a > z + .01) tramos.push([z, a, p.fondo]); tramos.push([a, b, r2(q.y0 - p.y)]); z = b; });
       if (p.z + p.alto > z + .01) tramos.push([z, p.z + p.alto, p.fondo]);
-      piezas.splice(i, 1, ...tramos.map(([a, b, f], k) => Object.assign({}, p, { id: k ? p.id + ':' + k : p.id, z: r2(a), alto: r2(b - a), fondo: f })));
+      piezas.splice(i, 1, ...tramos.map(([a, b, f], k) => Object.assign({}, p, { id: k ? p.id + ':' + k : p.id, z: r2(a), alto: r2(r2(b) - r2(a)), fondo: f })));
     }
     return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
@@ -4225,7 +4251,7 @@ const FI = (() => {
 const FI_CORTO = { 'Abierto / repisas': 'Abierto', 'Módulo inferior + módulo superior': 'Inferior + superior' };
 const tiles = (act, opts, cur) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span></button>`).join('')}</div>`;
 const radios = (act, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${v === cur ? ' on' : ''}"><input type="radio" name="${act}" data-act="${act}" value="${v}" ${v === cur ? 'checked' : ''}><div><div class="t">${t}</div></div></label>`).join('')}</div>`;
-const section = (label, html) => `<div class="p-section">${label ? `<div class="p-label">${label}</div>` : ''}${html}</div>`;
+const section = (label, html, cls = '') => `<div class="p-section${cls ? ' ' + cls : ''}">${label ? `<div class="p-label">${label}</div>` : ''}${html}</div>`;
 const head = (titleText, chip) => `<div class="p-section"><div class="m-head"><div class="m-title">${titleText}</div>${chip ? `<span class="chip">${chip}</span>` : ''}</div></div>`;
 
 function renderSide(){
@@ -4252,18 +4278,22 @@ function renderSide(){
     } else if (!m) {
       const mods = ids.map(byId), sameRow = mods.every(x => x.upper === mods[0].upper);
       html += head(`${ids.length} módulos seleccionados`, `${fmt(mods.reduce((s, x) => s + x.ancho, 0))}${uS()}`);
-      if (sameRow) html += section('Función', tiles('tipo', mods[0].upper ? TIPOS_ALTO : cfg.closet ? CLOSET_TIPOS : tiposBajo(), mods[0].tipo));
+      if (sameRow) html += section('Función', tiles('tipo', mods[0].upper ? TIPOS_ALTO : cfg.closet ? CLOSET_TIPOS : tilesBajo(), tileTipo(mods[0].tipo)), 'plegable');
     } else if (!m.reserved) html += modulePanel(m);
     if (ids.length) html += `<div class="p-foot"><button class="btn btn-danger btn-block" data-act="delSel">Eliminar selección</button></div>`;
   }
   side.innerHTML = html;
 }
 const tiposBajo = () => cfg.isla ? TIPOS_BAJO.filter(([v]) => ISLA_TIPOS.includes(v)) : TIPOS_BAJO;
+/* A49: la Funcion muestra un solo Especiero; su altura (Bajo o Torre) se elige en sus opciones */
+const tilesBajo = () => tiposBajo().filter(([v]) => v !== 'EspecieroTorre');
+const tileTipo = t => t === 'EspecieroTorre' ? 'Especiero' : t;
+const alturaEspeciero = m => cfg.isla ? '' : radios('espAlto', [['Bajo', 'Bajo (15 cm, del alto de los gabinetes)'], ['Torre', 'Torre (20 cm, del zoclo al tope de los altos)']], m.tipo === 'EspecieroTorre' ? 'Torre' : 'Bajo');
 /* panel de modulo de closet (closet*Settings de Layout.cs) */
 function closetPanel(m){
   const col = row(false).indexOf(m) + 1, T = m.tipo, cj = T === 'Cajonera' || T === 'Completo';
   let html = head(nombreModulo(m), `Col. ${col} · ${fmt(m.ancho)}${uS()}`);
-  html += section('Función', tiles('tipo', CLOSET_TIPOS, T));
+  html += section('Función', tiles('tipo', CLOSET_TIPOS, T), 'plegable');
   html += section('Medidas', `<div class="grid-2">${num('cAlto', 'Alto del cuerpo del closet', cfg.altoBajos, 'cm', 150, 300)}${num('cFondo', 'Fondo', m.fondo, 'cm', 35, 80)}</div>` + chk('fijo', m.fijo, 'Conservar este ancho'));
   if (cj) html += section('Cajonera', `<div class="grid-2">${num('cCaj', 'Cajones', m.cajonesCloset, 'u', 1, 6, 1)}${num('cAltoCaj', 'Alto de cada cajón', m.altoCajonCloset, 'cm', 12, 40)}</div>` + `<label class="field"><span>Sobre la cajonera</span></label>` + sel('cSobre', [['Barra', 'Barra'], ['Repisas', 'Repisas']], m.sobreCajonera));
   if (T === 'Repisas' || cj && m.sobreCajonera === 'Repisas') html += section('Repisas', `<div class="grid-2">${num('cRep', 'Repisas', m.repisasEspecial, 'u', 0, 12, 1)}</div>`);
@@ -4284,7 +4314,7 @@ function modulePanel(m){
   let html = bx ? head('Caja de repisas corrida', `${bx.members.length} columnas · ${fmt(bx.width)}${uS()}`)
     + section('Caja', `<button class="btn btn-block" data-act="sepBox">Separar la caja</button>${extBoxBtn(currentBox())}`)
     : head(nombreModulo(m), `Col. ${col} · ${fmt(m.ancho)}${uS()}`);
-  html += section('Función', tiles('tipo', m.upper ? TIPOS_ALTO : tiposBajo(), m.tipo));
+  html += section('Función', tiles('tipo', m.upper ? TIPOS_ALTO : tilesBajo(), tileTipo(m.tipo)), 'plegable');
   if (cfg.isla) html += section('Medidas', `<div class="grid-2">${num('iAlto', 'Alto gabinete bajo', cfg.altoBajos, 'cm', 60, 100)}${num('iFondo', 'Fondo', m.fondo, 'cm', 50, 70)}</div>`
     + (view === 'Alzado' ? `<button class="btn btn-block" style="margin-top:10px" data-act="centrar">Centrar en la isla</button>` : ''));
   let opts = chk('fijo', m.fijo, 'Conservar este ancho');
@@ -4319,7 +4349,7 @@ function modulePanel(m){
     if (t !== 'Sin tarja') tj += chk('bajoCub', cfg.tarjaBajoCubierta, 'Tarja bajo cubierta');
     html += section('Tarja', tj);
   }
-  if (m.tipo === 'Especiero') html += section('Especiero', chk('extr', m.extraible, 'Extraíble (abre como cajón)'));
+  if (m.tipo === 'Especiero') html += section('Especiero', alturaEspeciero(m) + chk('extr', m.extraible, 'Extraíble (abre como cajón)'));
   if (m.tipo === 'Estufa') html += section('Estufa', chk('quem6', m.ancho >= 70, '6 quemadores (76 cm); sin marcar, 4 (60 cm)'));
   if (m.tipo === 'Frigobar') html += section('Frigobar', `<div class="grid-2">${num('altoFrig', 'Alto del frigobar (desde el zoclo)', m.altoFrigobar, 'cm', 50, 120)}</div>`
     + chk('tapFrig', m.tapetaFrigobar, 'Tapeta superior bajo la cubierta') + `<div class="note-sm">Si el frigobar supera el alto del gabinete, baja hasta el piso y el zoclo se interrumpe.</div>`);
@@ -4339,7 +4369,7 @@ function specialPanel(m){
   const valid = zone && (isTower(m) ? zone === 'inferior' || zone === 'superior' : zone === 'cajones' ? m.cajonesAlacena : +zone.slice(6) <= m.cuerposAlacena);
   if (valid) return focusPanelHtml(m, zone, chip);
   let html = head(nombreModulo(m), chip);
-  html += section('Función', tiles('tipo', TIPOS_BAJO, m.tipo));
+  html += section('Función', tiles('tipo', tilesBajo(), tileTipo(m.tipo)), 'plegable');
   html += section('Medidas', (m.tipo === 'EspecieroTorre' ? '' : chk('fijo', m.fijo, 'Conservar este ancho'))
     + `<div class="grid-2" style="margin-top:10px">${num('topeEsp', 'Alto desde el piso', altoEsp(m), 'cm', 160, topeAltos())}${num('lat', 'Espesor laterales', m.espesorLaterales, 'cm', 1, 5)}</div>`);
   if (isTower(m)) html += section('Torre', `<div class="note-sm" style="margin-top:0">Doble clic en el gabinete inferior o superior del dibujo para elegir puertas, cajones o repisas. Clic en el horno, el microondas o la rejilla para editarlos.</div><div class="grid-2" style="margin-top:10px">${num('aire', 'Aire posterior', m.aireHornos, 'cm', 5, 15)}</div>`);
@@ -4352,7 +4382,7 @@ function specialPanel(m){
         + `<div class="grid-2" style="margin-top:10px">${num('repRefri', 'Repisas gabinete superior', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'), showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '') : ''));
   }
   else if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en cada cuerpo o en la cajonera del dibujo para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`);
-  else html += section('Especiero', `<div class="note-sm" style="margin-top:0">Torre de 20 cm con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)'));
+  else html += section('Especiero', alturaEspeciero(m) + `<div class="note-sm">Torre de 20 cm con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)'));
   if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.</div>`);
   return html;
 }
@@ -4566,6 +4596,7 @@ const ACT = {
   anchoRefri: (v, m) => setWidth(m.id, Math.ceil(v + HOLGURA_REFRI + (m.lateralesRefri ? 2*m.espesorLaterales : 0) - 1e-6)),
   repRefri: (v, m) => change(() => { const t = byId(m.id); t.repisasZona.superior = Math.max(0, Math.min(MAX_REPISAS, Math.round(v))); }),
   extr: (v, m) => change(() => byId(m.id).extraible = v),
+  espAlto: v => ACT.tipo(v === 'Torre' ? 'EspecieroTorre' : 'Especiero'),   /* A49 */
   quem6: (v, m) => setWidth(m.id, v ? 76 : 60),   /* como la cota de ancho: la columna completa toma el ancho nuevo */
   altoFrig: (v, m) => change(() => byId(m.id).altoFrigobar = v), tapFrig: (v, m) => change(() => byId(m.id).tapetaFrigobar = v),
   parr: (v, m) => change(c => { const q = byId(m.id); q.parrilla = v; if (v) { q.preparadoTarja = false; quitarTarja(c, m.id); } }),   /* parrilla y tarja se excluyen (A36) */ parrAncho: (v, m) => change(() => byId(m.id).parrillaAncho = v),
@@ -4696,7 +4727,9 @@ const isAssigned = id => cfg.materialGeneral === id || (cfg.islaPaneles || []).s
 
 function renderGallery(){
   const el = document.getElementById('gallery');
-  let html = `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla.</div></div>`;
+  const cats = CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash');
+  let html = `<div class="mat-agregar"><span class="t">Agregar</span>${cats.map(cat => `<button type="button" data-addcat="${cat}">+ ${cat}</button>`).join('')}</div>`
+    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla.</div></div>`;
   CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash').forEach(cat => {
     html += `<div class="p-section"><div class="p-label">${cat}</div><div class="mat-grid">`;
     cfg.catalogo.filter(m => m.categoria === cat).forEach(m => {
@@ -4723,6 +4756,8 @@ function renderGallery(){
   el.addEventListener('dragstart', e => { const n = e.target.closest('.swatch[draggable]'); if (!n) return; e.dataTransfer.setData('text/swatch', n.dataset.id); matDrag = { id: n.dataset.id, x: -999, y: -999 }; });
   el.addEventListener('dragend', () => { if (matDrag) { matDrag = null; drawCanvas(); updateHint(); } });
   el.addEventListener('click', e => {
+    const ad = e.target.closest('[data-addcat]');   /* A47: barra fija para agregar */
+    if (ad) { let created = null; change(c => created = addMaterial(c, ad.dataset.addcat)); if (created) { editingSwatch = created.id; renderGallery(); renderMatEditor(); } return; }
     const n = e.target.closest('.swatch'); if (!n) return;
     if (n.classList.contains('add')) { let created = null; change(c => created = addMaterial(c, n.dataset.add)); if (created) { editingSwatch = created.id; renderGallery(); renderMatEditor(); } return; }
     if (n.classList.contains('reset') || e.detail > 1) return;
