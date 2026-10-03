@@ -242,6 +242,9 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B15. [SketchUp OK 03/10] Editor a todo el dialogo en SketchUp: sin la ventana
+       de muestra de 1160 x 760; se ajusta al redimensionar o maximizar. El
+       selector de comando del prototipo no se muestra (en SketchUp son menus).
    B14. [SketchUp OK 03/10] LED bajo los altos (usuario): cama corrida como piso
        de los altos (de todo el fondo, cortada en reservados, campanas y cambios
        de fondo), laterales y trasero apoyados sobre ella, sin doble cama; perfil
@@ -427,6 +430,11 @@
     flex-direction: column;
     box-shadow: 0 8px 28px rgba(0,0,0,.22);
   }
+  /* B15: dentro de SketchUp el editor ocupa todo el dialogo y se ajusta al redimensionarlo o maximizarlo (como el editor de Revit);
+     el selector de comando es solo del prototipo (en SketchUp cada comando es una entrada del menu) */
+  html.sketchup body { padding: 0; display: block; height: 100vh; overflow: hidden; }
+  html.sketchup .window { width: 100%; max-width: none; height: 100vh; box-shadow: none; }
+  html.sketchup .cmdsel, html.sketchup .proto { display: none; }
   .titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
     background: linear-gradient(#E9EEF3,#DCE3E9);
     border-bottom: 1px solid #B9C2C9;
@@ -774,7 +782,7 @@
 <body>
 
 <div class="window">
-  <div class="titlebar"><span class="brandbar"><span class="prod" id="prodName"><b>Skit</b>chen</span><span class="by">by Drawlibri</span><span class="bsep">&middot;</span><span id="winTitle">Cocina &middot; Distribuci&oacute;n</span><span class="bsep">&middot; prototipo</span></span>
+  <div class="titlebar"><span class="brandbar"><span class="prod" id="prodName"><b>Skit</b>chen</span><span class="by">by Drawlibri</span><span class="bsep">&middot;</span><span id="winTitle">Cocina &middot; Distribuci&oacute;n</span><span class="bsep proto">&middot; prototipo</span></span>
     <span class="cmdsel" title="Solo en el prototipo: simula el comando de la cinta que abre el editor">Comando:
       <button data-cmd="muro" class="on">Wall-kitchen</button><button data-cmd="isla">Line-Island</button><button data-cmd="closet">Wall-closet</button></span></div>
 
@@ -5727,6 +5735,7 @@ function offerSave(action, proceed){
    sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
    sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual. */
 const enSketchUp = () => typeof window.sketchup === 'object' && window.sketchup !== null;
+if (enSketchUp()) document.documentElement.classList.add('sketchup');   /* B15: a todo el dialogo */
 function sketchupAbrir(crear, error, estado){
   const before = JSON.stringify(cfg);
   try { cfg = crear(); recalculate(); validate(); }
