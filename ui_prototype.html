@@ -242,6 +242,11 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B14. [SketchUp OK 03/10] LED con segunda cama (LedUpgrade de Revit): en el
+       lecho de cada alto con LED, segunda cama con ranura de luz al frente o
+       atras, camara de 1.5 cm con la tira y el piso del gabinete encima; las
+       puertas alinean con la cara inferior de la cama (los niveles no cambian).
+       Antes era una tira suelta bajo los altos.
    B13. [SketchUp OK 03/10] Gola empotrada (referencia del usuario): canal de
        2.6 cm dentro del gabinete (mas hondo en melamina), perfil C de 7.4 cm
        entre cajones (2.2 por detras de cada frente) y L/C arriba hasta el
@@ -1650,7 +1655,9 @@ const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                 
    pasa 2.2 cm por detras de los frentes vecinos (C de 7.4 cm para un hueco de 3.0); los laterales van rebajados en esa zona */
 const PLAN_GOLA = { fondo: 2.6, traslape: 2.2, lamina: .2, melamina: 1.8 };
 const golaHondo = () => PLAN_GOLA.fondo + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina - PLAN_GOLA.lamina : 0);   /* melamina: mas hondo, mismo canal libre */
-const PLAN_LED = { ancho: 2, alto: 1, retiro: 3 }, PLAN_JUNTA = { ancho: .4, salida: .2 };
+/* LED bajo los altos (LedUpgrade de Revit, peticion del usuario 03/10): segunda cama en el lecho del alto (las puertas alinean con su
+   cara inferior), camara de 1.5 cm sobre ella con la tira y el piso del gabinete encima; la luz sale por una ranura de la cama */
+const PLAN_LED = { ancho: 2, alto: 1, retiro: 3, camara: 1.5 }, PLAN_JUNTA = { ancho: .4, salida: .2 };
 const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 1.8 };                       /* cazoleta de 35 mm a 1.8 cm del canto (Revit) */
 const PLAN_TARJA = { lamina: .8, ceja: 2.5, cejaAlto: .6 }, PLAN_PLACA = .6, PLAN_SHAKER_REHUNDIDO = .6;
 const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash', 'equipos'];
@@ -1684,15 +1691,22 @@ function planDePiezas(c = cfg){
     const matPanel = (dueno, zona, clave, grupo) => (dueno.materialesPaneles || {})[zona + '.' + clave] || groupMaterial(grupo) || null;
     /* carcasa (drawInterior): laterales a todo el alto, trasero entre laterales, piso y techo delante del trasero.
        Devuelve el hueco interior. Sin travesaños por ahora: el techo es completo (PLAN_PENDIENTE) */
-    const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true) => {
+    const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false) => {
       const e = PLAN_CUERPO.lateral, ef = PLAN_CUERPO.fondo, y0 = sep, y1 = sep + fondo;
       const panel = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       panel('lateral:izq', 'Lateral', x0, x0 + e, y0, y1, z0, z1);
       panel('lateral:der', 'Lateral', x1 - e, x1, y0, y1, z0, z1);
       panel('trasero', 'Trasero', x0 + e, x1 - e, y0, y0 + ef, z0, z1, matPanel(dueno, zona, 'fondo', 'Interior'));
-      panel('piso', 'Piso', x0 + e, x1 - e, y0 + ef, y1, z0, z0 + e);
+      let zp = z0;
+      if (led) {   /* segunda cama con la ranura de luz, tira en la camara y el piso encima */
+        const L = PLAN_LED, r0 = cfg.ledFrente ? y1 - L.retiro - L.ancho : y0 + ef + L.retiro, r1 = r0 + L.ancho;
+        panel('cama:atras', 'Cama', x0 + e, x1 - e, y0 + ef, r0, z0, z0 + e); panel('cama:frente', 'Cama', x0 + e, x1 - e, r1, y1, z0, z0 + e);
+        zp = z0 + e + L.camara;
+        add({ id: base + ':led', rol: 'herraje', modulo: dueno.id, tipo: 'LED', x: x0 + e, y: r0, z: zp - L.alto, ancho: x1 - x0 - 2*e, fondo: L.ancho, alto: L.alto, material: null, etiqueta: 'herrajes' });
+      }
+      panel('piso', 'Piso', x0 + e, x1 - e, y0 + ef, y1, zp, zp + e);
       if (techo) panel('techo', 'Techo', x0 + e, x1 - e, y0 + ef, y1, z1 - e, z1);
-      return { x0: x0 + e, x1: x1 - e, y0: y0 + ef, y1, z0: z0 + e, z1: z1 - e };
+      return { x0: x0 + e, x1: x1 - e, y0: y0 + ef, y1, z0: zp + e, z1: z1 - e };
     };
     /* repisas repartidas en el alto libre (drawShelves) y divisiones verticales repartidas en el ancho; con divisiones,
        cada repisa se corta en tramos entre ellas */
@@ -1866,7 +1880,8 @@ function planDePiezas(c = cfg){
           const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
           const basura = m.tipo === 'Basura' && m.ancho > m.anchoBasura + .01;   /* el cesto ocupa su ancho; el resto, tapeta */
           const tarja = !upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0 && cfg.generarCubierta;   /* la tina entra por arriba */
-          const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo', !tarja);
+          const led = upper && cfg.led && !hasCampana(m);   /* el alto con campana no lleva LED: su lecho es el hueco de la campana */
+          const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo', !tarja, led);
           if (basura) add({ id: m.id + ':tapeta', rol: 'tapeta', modulo: m.id, tipo: 'Compensacion', x: x + m.anchoBasura, y: sep + m.fondo, z: cfg.baseBajos, ancho: m.ancho - m.anchoBasura, fondo: t, alto: cfg.altoBajos, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
           interior(lead, lead.id + ':cuerpo', h, shelvesOf(lead), !cajones.length && hasDivider(lead) ? Math.max(1, lead.divisiones || 1) : 0, 'cuerpo');
           cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, h, f));
@@ -1965,9 +1980,6 @@ function planDePiezas(c = cfg){
       if (lo) { const [z0, z1] = isSpecial(lo) ? [0, altoEsp(lo)] : cortaZoclo(lo) ? [0, zBar - pq] : [zb, zBar - pq]; pieza(':bajo', z0, z1, dBajo); }
       if (hi && !hi.reserved) pieza(':alto', zBA, zTop, dAlto);
     });
-    /* LED bajo los altos (drawElevation): perfil bajo su lecho, al frente o atras (ledFrente), cortado en los especiales */
-    if (cfg.led && highs.length) cutRun(ajusteIzq(), W - ajusteDer()).forEach(([a, b], k) => { const L = PLAN_LED;
-      add({ id: 'led:' + k, rol: 'herraje', tipo: 'LED', x: a, y: cfg.ledFrente ? dAlto - t - L.retiro - L.ancho : sep + L.retiro, z: zBA - L.alto, ancho: b - a, fondo: L.ancho, alto: L.alto, material: null, etiqueta: 'herrajes' }); });
     /* puertas ocultas (drawHiddenDoors / hdFronts): fuera de la cota del muro. Hoja de piso a techo con su zoclo pegado (o desde
        el piso), juntas aplicadas al frente, jaladera a 100 cm junto al canto libre, gabinete de piston opcional y tapetas lateral
        y superior. El pano de la hoja queda a d.fondo del muro; detras, el vano libre */
@@ -2108,6 +2120,13 @@ function pruebasPlanDePiezas(){
       ok(dedo.alto > 2.5 && dedo.fondo > .5, nombre + ': canal de gola sin espacio en ' + g.id);
       const tapa = p.piezas.find(q => q !== alma && !aletas.includes(q) && cruza(q, dedo));
       ok(!tapa, nombre + ': el canal de ' + g.id + ' lo ocupa ' + (tapa && tapa.id)); });
+    /* LED: cada alto con LED lleva su segunda cama (dos tablas con la ranura) en el lecho, la tira encima y las puertas alineadas */
+    if (c.led) c.modulos.filter(m => m.upper && !m.reserved && !m.campana).forEach(m => {
+      const camas = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Cama'), tira = p.piezas.find(q => q.modulo === m.id && q.tipo === 'LED');
+      if (!camas.length && !tira) return;   /* columna de una caja corrida: la cama la lleva el primer modulo */
+      const puertas = p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < camas[0].z + 1);
+      ok(camas.length === 2 && tira && tira.z >= camas[0].z + camas[0].alto - .01, nombre + ': LED sin segunda cama en ' + m.id);
+      ok(puertas.every(q => Math.abs(q.z - camas[0].z) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la segunda cama'); });
     /* zoclo: un cierre en cada extremo pedido, en el primer y el ultimo tramo */
     const cierres = p.piezas.filter(q => q.rol === 'zoclo' && q.tipo === 'Cierre');
     ok(cierres.length === (c.generarZoclos && c.baseBajos > 0 ? (c.cerrarZocloIzq ? 1 : 0) + (c.cerrarZocloDer ? 1 : 0) : 0), nombre + ': ' + cierres.length + ' cierres de zoclo');
