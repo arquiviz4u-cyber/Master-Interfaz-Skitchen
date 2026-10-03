@@ -264,8 +264,9 @@
        frentes, zoclo, cubierta, tapetas y backsplash; lo que falta esta en
        PLAN_PENDIENTE (repisas, cajas de cajon, gola, herrajes, tarja, isla,
        closet...). Revit no lo usa.
-   B5. Materiales de SketchUp a partir del catalogo (color y textura por
-       categoria).
+   B5. [SketchUp OK 03/10] Materiales de SketchUp a partir del catalogo: cada material con patron viaja
+       en el plan con su mosaico (texturaDe: PNG pintado con paintPattern y su
+       medida en cm); Ruby crea o actualiza DLB_<nombre> solo si cambia.
 
   C. Contenido que el real ya tiene y falta en este master y en SketchUp
      (reutiliza los patrones del master: panel de contexto, grips, foco).
@@ -1623,6 +1624,19 @@ const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', '
 const PLAN_PENDIENTE = ['forma de los equipos (horno, microondas, refrigerador, estufa y frigobar van como cajas)',
   'bisagras', 'marco shaker del estilo Clasica', 'travesaños en lugar de techo en los bajos', 'tarja y parrilla', 'campana',
   'puertas ocultas', 'nariz y cama de cubierta (va como una losa del espesor del paquete)', 'LED', 'isla', 'closet'];
+/* textura de un material para SketchUp (B5): un mosaico del patron pintado con paintPattern, igual que la vista; ancho y alto
+   en cm (patron x escala) para que SketchUp lo repita a su medida real. Colores lisos: sin textura (solo rgb) */
+const PLAN_TEXTURA_PX = 4, PLAN_TEXTURA_MAX = 1024, texturas = new Map();
+function texturaDe(m){
+  const spec = m.categoria !== 'Color' && patternOf(m.patron); if (!spec) return null;
+  const esc = m.escala || 1, w = spec.w*esc, h = spec.h*esc, key = [m.r, m.g, m.b, m.patron, esc].join('|');
+  if (texturas.has(key)) return texturas.get(key);
+  let k = PLAN_TEXTURA_PX; while (k > 1 && Math.max(w, h)*k > PLAN_TEXTURA_MAX) k /= 2;   /* px por cm; mitades para que el mosaico cierre exacto */
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w*k)); c.height = Math.max(1, Math.round(h*k));
+  const g = c.getContext('2d'); g.fillStyle = rgbOf(m); g.fillRect(0, 0, c.width, c.height);
+  paintPattern(g, 0, 0, c.width, c.height, spec, k*esc, lineColorOf(m));
+  const tx = { png: c.toDataURL('image/png'), ancho: w, alto: h }; texturas.set(key, tx); return tx;
+}
 function planDePiezas(c = cfg){
   const previo = cfg; cfg = c;
   try {
@@ -1829,7 +1843,7 @@ function planDePiezas(c = cfg){
     if (highs.length && cfg.tapetaSuperior) add({ id: 'tapeta:superior', rol: 'tapeta', x: run0, y: 0, z: zTop, ancho: run1 - run0, fondo: dAlto, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
     return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
-      materiales: (cfg.catalogo || []).map(q => ({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] })),
+      materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); }),
       piezas, pendiente: PLAN_PENDIENTE.slice() };
   } finally { cfg = previo; }
 }
@@ -1861,6 +1875,10 @@ function pruebasPlanDePiezas(){
     try { const previo = cfg; cfg = c; try { recalculate(); validate(); } finally { cfg = previo; } p = planDePiezas(c); } catch (e) { fallas.push(nombre + ': error ' + e.message); continue; }
     ok(JSON.stringify(cfg) === JSON.stringify(base), nombre + ': el plan cambio la configuracion del editor');
     ok(p.esquema === PLAN_ESQUEMA && p.unidad === 'cm', nombre + ': esquema o unidad');
+    /* B5: cada material con patron lleva su mosaico (PNG y medida en cm); los colores lisos, no */
+    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id), conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
+      ok(conPatron === !!q.textura, nombre + ': textura que no corresponde en ' + q.id);
+      if (q.textura) ok(q.textura.png.startsWith('data:image/png;base64,') && q.textura.ancho > 0 && q.textura.alto > 0, nombre + ': textura invalida en ' + q.id); });
     ok(JSON.stringify(JSON.parse(JSON.stringify(p))) === JSON.stringify(p), nombre + ': no es JSON puro');
     const ids = new Set(p.piezas.map(q => q.id)); ok(ids.size === p.piezas.length, nombre + ': ids repetidos');
     p.piezas.forEach(q => {
