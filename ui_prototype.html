@@ -242,6 +242,12 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B13. [SketchUp OK 03/10] Gola empotrada (referencia del usuario): canal de
+       2.6 cm dentro del gabinete (mas hondo en melamina), perfil C de 7.4 cm
+       entre cajones (2.2 por detras de cada frente) y L/C arriba hasta el
+       techo; laterales partidos y rebajados en el canal, techo, repisas y
+       cajas de cajon acortados. Antes era una franja al plano de los frentes,
+       sin espacio para los dedos. Revit: revisar que sus familias lo hagan.
    B12. [SketchUp OK 03/10] Cocina de muro completa en el plan: gola de aluminio
        (fondo y perfil L arriba / C entre cajones, segun perfil) o de melamina,
        LED bajo los altos al frente o atras, y puertas ocultas (hoja con zoclo
@@ -1640,7 +1646,10 @@ const PLAN_ESQUEMA = 1, PLAN_ESPESOR_FRENTE = 1.8;
 const PLAN_CUERPO = { lateral: 1.8, fondo: 1.8 };                                    /* carcasa: laterales, piso y techo; trasero */
 const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3 };   /* caja de cajon dentro de la carcasa */
 const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                     /* jaladera de barra o boton */
-const PLAN_GOLA = { lamina: .2, labio: 1, melamina: 1.2 };   /* gola: fondo y labios de aluminio; tablero de melamina retirado 0.6 */
+/* gola empotrada (referencia de construccion del usuario, 03/10): el canal entra 2.6 cm en el gabinete desde su canto y el perfil
+   pasa 2.2 cm por detras de los frentes vecinos (C de 7.4 cm para un hueco de 3.0); los laterales van rebajados en esa zona */
+const PLAN_GOLA = { fondo: 2.6, traslape: 2.2, lamina: .2, melamina: 1.8 };
+const golaHondo = () => PLAN_GOLA.fondo + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina - PLAN_GOLA.lamina : 0);   /* melamina: mas hondo, mismo canal libre */
 const PLAN_LED = { ancho: 2, alto: 1, retiro: 3 }, PLAN_JUNTA = { ancho: .4, salida: .2 };
 const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 1.8 };                       /* cazoleta de 35 mm a 1.8 cm del canto (Revit) */
 const PLAN_TARJA = { lamina: .8, ceja: 2.5, cejaAlto: .6 }, PLAN_PLACA = .6, PLAN_SHAKER_REHUNDIDO = .6;
@@ -1701,8 +1710,8 @@ function planDePiezas(c = cfg){
       }
     };
     /* caja de cajon tras cada frente de cajon movil: lados, frente, trasera y piso, con holgura de correderas */
-    const cajaCajon = (m, base, h, f) => {
-      const c = PLAN_CAJA, x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, y0 = h.y0 + c.retiro, y1 = h.y1;
+    const cajaCajon = (m, base, h, f) => {   /* con gola, la caja termina detras del canal */
+      const c = PLAN_CAJA, x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, y0 = h.y0 + c.retiro, y1 = h.y1 - (golaStrips(m).length ? golaHondo() : 0);
       const z0 = Math.max(f.z0, h.z0 + .5), z1 = Math.min(Math.max(z0 + 4, f.z1 - c.libreArriba), h.z1 - .5), mat = matPanel(m, 'cuerpo', 'caja', 'Interior');
       const lado = (k, tipo, a, b, p0, p1, q0, q1) => add({ id: base + ':' + k, rol: 'caja', modulo: m.id, tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, etiqueta: 'gabinetes' });
       lado('lado:izq', 'Lado', x0, x0 + c.lado, y0, y1, z0, z1);
@@ -1747,15 +1756,20 @@ function planDePiezas(c = cfg){
       if (f.kind === 'Puerta') bisagras(m, base, a, b, f.z0, f.z1, !!f.hingeRight, y);
       jaladera(m, f, x0, base);
     };
-    /* gola (golaStrips, estilo Moderna). Aluminio: fondo de la franja (material Gola) y perfil (material Perfil) con labio arriba
-       (L) en la franja superior segun cfg.perfil y labios arriba y abajo (C) entre cajones. Melamina: tablero retirado 0.6 */
+    /* gola (golaStrips, estilo Moderna): canal empotrado PLAN_GOLA.fondo dentro del gabinete, a todo el ancho del modulo. La franja
+       superior (L, o C segun cfg.perfil) va del traslape bajo el hueco hasta el techo; entre cajones, C con traslape arriba y abajo.
+       Aluminio: alma al fondo (material Gola) y aletas del perfil (material Perfil); melamina: tableros de 1.8. Las piezas del modulo
+       que entran en el canal se rebajan despues (muescas) */
+    const muescas = [];
     const gola = (m, xa, xb) => golaStrips(m).forEach(([gz, gh], k) => {
-      const G = PLAN_GOLA, y = sep + m.fondo, base = m.id + ':gola:' + k, mel = cfg.gola === 'Melamina';
-      add({ id: base, rol: 'herraje', modulo: m.id, tipo: 'Gola', x: xa, y, z: gz, ancho: xb - xa, fondo: mel ? G.melamina : G.lamina, alto: gh, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' });
-      if (mel) return;
-      const labio = (lado, z) => add({ id: base + ':perfil:' + lado, rol: 'herraje', modulo: m.id, tipo: 'Perfil', x: xa, y: y + G.lamina, z, ancho: xb - xa, fondo: G.labio, alto: G.lamina, material: cfg.materiales.Perfil || null, etiqueta: 'herrajes' });
-      labio('arriba', gz + gh - G.lamina);
-      if ((k === 0 ? cfg.perfil : 'C') === 'C') labio('abajo', gz);
+      const G = PLAN_GOLA, mel = cfg.gola === 'Melamina', y1 = sep + m.fondo, y0 = y1 - golaHondo(), base = m.id + ':gola:' + k;
+      const superior = k === 0, z0 = gz - G.traslape, z1 = superior ? gz + gh : gz + gh + G.traslape, forma = superior ? cfg.perfil : 'C';
+      const e = mel ? G.melamina : G.lamina, mat = mel ? groupMaterial('Gola') || null : cfg.materiales.Perfil || null;
+      add({ id: base, rol: 'herraje', modulo: m.id, tipo: 'Gola', x: xa, y: y0, z: z0, ancho: xb - xa, fondo: e, alto: z1 - z0, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' });
+      const aleta = (lado, z) => add({ id: base + ':perfil:' + lado, rol: 'herraje', modulo: m.id, tipo: 'Perfil', x: xa, y: y0 + e, z, ancho: xb - xa, fondo: y1 - y0 - e, alto: e, material: mat, etiqueta: 'herrajes' });
+      aleta('abajo', z0);
+      if (forma === 'C') aleta('arriba', z1 - e);
+      muescas.push({ modulo: m.id, x0: xa, x1: xb, y0, z0, z1, hueco: [gz, gz + gh], e });
     });
     /* equipo como caja (horno, microondas, refrigerador, estufa, frigobar): marca el hueco y el volumen, sin modelo propio */
     const equipo = (m, k, tipo, a, b, z0, z1, c0, c1) => add({ id: m.id + ':' + k, rol: 'equipo', modulo: m.id, tipo, x: a, y: c0, z: z0, ancho: b - a, fondo: c1 - c0, alto: z1 - z0, material: null, etiqueta: 'equipos' });
@@ -1980,6 +1994,24 @@ function planDePiezas(c = cfg){
         add({ id: d.id + ':tapeta:superior', rol: 'tapeta', modulo: d.id, x: x0, y: 0, z: top, ancho: x1 - x0, fondo: d.fondo, alto: cfg.alturaMuro - top, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' }); }
     });
     if (highs.length && cfg.tapetaSuperior) add({ id: 'tapeta:superior', rol: 'tapeta', x: run0, y: 0, z: zTop, ancho: run1 - run0, fondo: dAlto, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
+    /* muescas de la gola: los laterales se parten (a todo fondo fuera del canal, rebajados dentro); techo, lechos, repisas y
+       divisiones del modulo que entran en el canal se acortan hasta su fondo */
+    for (let i = piezas.length - 1; i >= 0; i--) {
+      const p = piezas[i];
+      if (!['panel', 'repisa', 'division'].includes(p.rol)) continue;
+      const qs = muescas.filter(q => q.modulo === p.modulo && p.y + p.fondo > q.y0 + .01 && p.x < q.x1 - .01 && p.x + p.ancho > q.x0 + .01 && p.z < q.z1 - .01 && p.z + p.alto > q.z0 + .01)
+        .sort((a, b) => a.z0 - b.z0);
+      if (!qs.length) continue;
+      const corto = r2(Math.min(...qs.map(q => q.y0)) - p.y);
+      if (corto <= .01) { piezas.splice(i, 1); continue; }
+      if (p.tipo !== 'Lateral') { p.fondo = corto; continue; }
+      /* lateral: tramos a todo fondo entre muescas y rebajados dentro de cada una, en un solo corte (ids estables) */
+      const tramos = []; let z = p.z;
+      qs.forEach(q => { const a = Math.max(p.z, q.z0), b = Math.min(p.z + p.alto, q.z1);
+        if (a > z + .01) tramos.push([z, a, p.fondo]); tramos.push([a, b, r2(q.y0 - p.y)]); z = b; });
+      if (p.z + p.alto > z + .01) tramos.push([z, p.z + p.alto, p.fondo]);
+      piezas.splice(i, 1, ...tramos.map(([a, b, f], k) => Object.assign({}, p, { id: k ? p.id + ':' + k : p.id, z: r2(a), alto: r2(b - a), fondo: f })));
+    }
     return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
       materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); }),
@@ -2067,6 +2099,15 @@ function pruebasPlanDePiezas(){
       const marco = p.piezas.filter(r => r.id.startsWith(q.id + ':marco:')), h = marco.length ? Math.max(...marco.map(r => r.alto)) : q.alto;
       const n = p.piezas.filter(r => r.id.startsWith(q.id + ':bisagra:')).length;
       ok(n === (c.bisagras ? (h <= 90 ? 2 : h <= 160 ? 3 : h <= 200 ? 4 : 5) : 0), nombre + ': ' + n + ' bisagras en ' + q.id); });
+    /* gola: detras de cada hueco de agarre queda libre el canal (del alma del perfil al plano de los frentes) para los dedos */
+    if (c.style === 'Moderna') p.piezas.filter(q => q.tipo === 'Gola').forEach(g => {
+      const alma = p.piezas.find(q => q.id === g.id), dedo = { x: g.x + .5, y: g.y + g.fondo + .01, z: 0, ancho: g.ancho - 1, fondo: 0, alto: 0 };
+      const aletas = p.piezas.filter(q => q.id.startsWith(g.id + ':perfil:'));
+      const zLibre0 = Math.max(g.z, ...aletas.filter(q => q.z <= g.z + .01).map(q => q.z + q.alto)), zLibre1 = Math.min(g.z + g.alto, ...aletas.filter(q => q.z > g.z + .01).map(q => q.z));
+      Object.assign(dedo, { z: zLibre0 + .01, alto: zLibre1 - zLibre0 - .02, fondo: aletas[0].y + aletas[0].fondo - dedo.y - .02 });
+      ok(dedo.alto > 2.5 && dedo.fondo > .5, nombre + ': canal de gola sin espacio en ' + g.id);
+      const tapa = p.piezas.find(q => q !== alma && !aletas.includes(q) && cruza(q, dedo));
+      ok(!tapa, nombre + ': el canal de ' + g.id + ' lo ocupa ' + (tapa && tapa.id)); });
     /* zoclo: un cierre en cada extremo pedido, en el primer y el ultimo tramo */
     const cierres = p.piezas.filter(q => q.rol === 'zoclo' && q.tipo === 'Cierre');
     ok(cierres.length === (c.generarZoclos && c.baseBajos > 0 ? (c.cerrarZocloIzq ? 1 : 0) + (c.cerrarZocloDer ? 1 : 0) : 0), nombre + ': ' + cierres.length + ' cierres de zoclo');
