@@ -238,6 +238,13 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B9. Especiales en el plan (03/10): torre (cuerpo inferior con cajones o
+       repisas, rejilla, horno, hueco intermedio, microondas empotrado o de
+       sobreponer, cuerpo superior y compartimento de piston), alacena
+       (cajonera y cuerpos con su tipo), refrigerador (hueco y gabinete
+       superior, con o sin laterales), estufa y frigobar como aparatos.
+       Tableros del espesor de laterales del especial; equipos como cajas
+       (etiqueta equipos). Todo con las alturas de drawSpecial y fronts.
    B8. Piezas completas en el plan (03/10): carcasa real (laterales, trasero,
        piso y techo), repisas y divisiones como drawShelves, caja corrida y
        modulo superior unido como en la vista, cajas de cajon, gola (Moderna)
@@ -1610,12 +1617,12 @@ const PLAN_ESQUEMA = 1, PLAN_ESPESOR_FRENTE = 1.8;
 const PLAN_CUERPO = { lateral: 1.8, fondo: 1.8 };                                    /* carcasa: laterales, piso y techo; trasero */
 const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3 };   /* caja de cajon dentro de la carcasa */
 const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 }, PLAN_GOLA = .5;       /* jaladera (barra o boton) y perfil gola */
-const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash'];
+const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash', 'equipos'];
 const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo'];
 /* lo que el plan todavia no entrega (se anota aqui al cubrirlo) */
-const PLAN_PENDIENTE = ['especiales por dentro (torre, alacena y refrigerador van como un cuerpo macizo)', 'estufa y frigobar como aparatos',
+const PLAN_PENDIENTE = ['forma de los equipos (horno, microondas, refrigerador, estufa y frigobar van como cajas)',
   'bisagras', 'marco shaker del estilo Clasica', 'travesaños en lugar de techo en los bajos', 'tarja y parrilla', 'campana',
-  'equipos de la torre', 'puertas ocultas', 'nariz y cama de cubierta (va como una losa del espesor del paquete)', 'LED', 'isla', 'closet'];
+  'puertas ocultas', 'nariz y cama de cubierta (va como una losa del espesor del paquete)', 'LED', 'isla', 'closet'];
 function planDePiezas(c = cfg){
   const previo = cfg; cfg = c;
   try {
@@ -1679,17 +1686,91 @@ function planDePiezas(c = cfg){
       add({ id: base, rol: 'frente', modulo: m.id, tipo: f.kind, x: x0 + f.x0, y: sep + m.fondo, z: f.z0, ancho: f.x1 - f.x0, fondo: t, alto: f.z1 - f.z0, material: matDe(m), etiqueta: 'frentes', bisagraDerecha: !!f.hingeRight, fijo: !!f.fijo });
       jaladera(m, f, x0, base);
     };
+    /* equipo como caja (horno, microondas, refrigerador, estufa, frigobar): marca el hueco y el volumen, sin modelo propio */
+    const equipo = (m, k, tipo, a, b, z0, z1, c0, c1) => add({ id: m.id + ':' + k, rol: 'equipo', modulo: m.id, tipo, x: a, y: c0, z: z0, ancho: b - a, fondo: c1 - c0, alto: z1 - z0, material: null, etiqueta: 'equipos' });
+    /* cajas de cajon de un especial: cada frente de cajon va en la zona interior con la que mas se solapa */
+    const cajasEn = (m, x, zonas) => fronts(m).forEach((f, k) => {
+      if (f.kind !== 'Cajon' || f.fijo || !zonas.length) return;
+      const solape = h => Math.min(f.z1, h.z1) - Math.max(f.z0, h.z0), h = zonas.reduce((a, b) => solape(b) > solape(a) ? b : a);
+      if (solape(h) > 0) cajaCajon(m, m.id + ':caja:' + k, h, f);
+    });
+    /* especiales (drawSpecial): laterales de su espesor (del zoclo al tope; refrigerador, del piso), trasero, piso, techo y
+       tableros del mismo espesor entre sus cuerpos. Torre y refrigerador llevan los frentes entre laterales: sus laterales
+       llegan al plano de los frentes. Estufa (drawStove) y frigobar (drawFridge): el aparato ocupa su hueco */
+    const especial = (m, x) => {
+      const zb = cfg.baseBajos, x1 = x + m.ancho, y0 = sep, y1 = sep + m.fondo, mat = matDe(m);
+      if (m.tipo === 'Estufa') { equipo(m, 'estufa', 'Estufa', x, x1, 0, altoBarra(), y0, y1 + t); return; }
+      if (m.tipo === 'Frigobar') {
+        const A = cfg.altoBajos, fh = Math.min(m.altoFrigobar, zb + A), z0 = fh > A ? zb + A - fh : zb;
+        equipo(m, 'frigobar', 'Frigobar', x, x1, z0, z0 + fh, y0, y1 + t);
+        if (fh < A && m.tapetaFrigobar) add({ id: m.id + ':tapeta', rol: 'tapeta', modulo: m.id, tipo: 'Frigobar', x, y: y1, z: zb + fh, ancho: m.ancho, fondo: t, alto: A - fh, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
+        return;
+      }
+      const refri = isRefri(m), top = altoEsp(m), e = m.espesorLaterales, ef = PLAN_CUERPO.fondo, lat = !refri || m.lateralesRefri;
+      const xi0 = lat ? x + e : x, xi1 = lat ? x1 - e : x1, yl = y1 + (isTower(m) || refri ? t : 0), zonas = [];
+      const tab = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: m.id + ':' + k, rol: 'panel', modulo: m.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
+      const piso = (k, z) => tab(k, 'Piso', xi0, xi1, y0 + ef, y1, z, z + e);
+      const zona = (lo, hi) => { const h = { x0: xi0, x1: xi1, y0: y0 + ef, y1, z0: lo, z1: hi }; if (hi - lo > 2) zonas.push(h); return h; };
+      const repisas = (h, base, n, zonaId) => { if (h.z1 - h.z0 > 2*e) interior(m, base, h, n, 0, zonaId); };
+      if (lat) { tab('lateral:izq', 'Lateral', x, x + e, y0, yl, refri ? 0 : zb, top); tab('lateral:der', 'Lateral', x1 - e, x1, y0, yl, refri ? 0 : zb, top); }
+      if (isTower(m)) {
+        tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'inferior', 'fondo', 'Interior'));
+        piso('piso', zb); piso('techo', top - e);
+        const zh = zb + m.baseHorno, lift = towerLift(m), lh = lift ? towerLiftHeight(m) : 0;
+        piso('lecho:horno', zh - e);
+        repisas(zona(zb + e, zh - e), m.id + ':inferior', hasDrawers(m) ? 0 : zoneShelves(m, 'inferior'), 'inferior');
+        if (grille(m) > 0) add({ id: m.id + ':rejilla', rol: 'herraje', modulo: m.id, tipo: 'Rejilla', x: xi0, y: y1, z: zb + bodyH(m), ancho: xi1 - xi0, fondo: t, alto: grille(m), material: null, etiqueta: 'herrajes' });
+        let z = zh;
+        if (m.mostrarEquipos) equipo(m, 'horno', 'Horno', xi0, xi1, z, z + m.altoHorno, y0 + ef, yl);
+        z += m.altoHorno; piso('division:horno', z); z += e;
+        if (m.microondas) {
+          const mg = microGap(m);
+          if (mg > 0) {   /* hueco intermedio: tapa al frente y lecho del microondas */
+            add({ id: m.id + ':intermedio', rol: 'tapeta', modulo: m.id, tipo: 'Intermedio', x: xi0, y: y1, z, ancho: xi1 - xi0, fondo: t, alto: mg, material: (m.materialesPaneles || {}).intermedio || mat, etiqueta: 'frentes' });
+            z += mg; if (mg > e) piso('lecho:micro', z - e);
+          }
+          const sob = m.microSobreponer, mw = sob ? Math.min(m.microAncho, xi1 - xi0 - 1) : xi1 - xi0, mx = (xi0 + xi1)/2 - mw/2;
+          if (m.mostrarEquipos) equipo(m, 'micro', 'Microondas', mx, mx + mw, z, z + (sob ? m.microAlto : m.altoMicro), y0 + ef, sob ? y1 : yl);
+          z += m.altoMicro; piso('division:micro', z); z += e;
+        }
+        if (lift) piso('division:piston', top - lh - e);
+        repisas(zona(z, top - e - (lift ? lh : 0)), m.id + ':superior', zoneShelves(m, 'superior'), 'superior');
+        if (lift) zona(top - lh, top - e);
+      } else if (isPantry(m)) {
+        tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'cuerpo1', 'fondo', 'Interior'));
+        piso('piso', zb); piso('techo', top - e);
+        const hs = pantryHeights(m), n = hs.length, ps = pantryStart(m);
+        if (m.cajonesAlacena) { piso('lecho:cuerpos', ps - e); zona(zb + e, ps - e); }
+        let at = ps;
+        hs.forEach((h, j) => {
+          const bt = bodyType(m, j, n), zid = 'cuerpo' + (j + 1), lo = j === 0 && !m.cajonesAlacena ? at + e : at;
+          if (j < n - 1) piso('division:' + (j + 1), at + h - e);
+          const hz = zona(lo, at + h - e);
+          if (bt !== 'Especiero extraíble') repisas(hz, m.id + ':' + zid, bt === 'Elevable' ? m.repisasElevable : bt === 'Especiero' ? 5 : zoneShelves(m, zid), zid);
+          at += h;
+        });
+      } else {   /* refrigerador: hueco del piso a huecoRefri y gabinete superior con sus repisas */
+        const hr = m.huecoRefri;
+        if (m.mostrarEquipos) { const fw = anchoRefri(m), fx = (xi0 + xi1)/2 - fw/2; equipo(m, 'refri', 'Refrigerador', fx, fx + fw, 0, hr - 2, y0 + 2, yl); }
+        if (m.superiorRefri && top - hr > 2*e) {
+          const lt = lat ? 0 : PLAN_CUERPO.lateral, sx0 = xi0 + lt, sx1 = xi1 - lt;   /* sin laterales del refrigerador, el gabinete lleva los suyos */
+          if (!lat) { tab('superior:lateral:izq', 'Lateral', x, x + lt, y0, y1, hr, top); tab('superior:lateral:der', 'Lateral', x1 - lt, x1, y0, y1, hr, top); }
+          tab('superior:trasero', 'Trasero', sx0, sx1, y0, y0 + ef, hr, top, matPanel(m, 'superior', 'fondo', 'Interior'));
+          tab('superior:piso', 'Piso', sx0, sx1, y0 + ef, y1, hr, hr + e); tab('superior:techo', 'Techo', sx0, sx1, y0 + ef, y1, top - e, top);
+          const hz = { x0: sx0, x1: sx1, y0: y0 + ef, y1, z0: hr + e, z1: top - e };
+          repisas(hz, m.id + ':superior', zoneShelves(m, 'superior'), 'superior');
+        }
+      }
+      cajasEn(m, x, zonas);
+      fronts(m).forEach((f, k) => frente(m, f, k, x));
+      golaStrips(m).forEach(([gz, gh], k) => add({ id: m.id + ':gola:' + k, rol: 'herraje', modulo: m.id, tipo: 'Gola', x: isTower(m) ? xi0 : x, y: y1, z: gz, ancho: isTower(m) ? xi1 - xi0 : m.ancho, fondo: PLAN_GOLA, alto: gh, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' }));
+    };
     /* cuerpos y frentes por fila: los modulos se colocan uno tras otro desde la tapeta izquierda */
     for (const upper of [false, true]) {
       let x = ajusteIzq();
       for (const m of row(upper)) {
         if (m.reserved) { x += m.ancho; continue; }
-        if (isSpecial(m) || m.tipo === 'Estufa' || m.tipo === 'Frigobar') {   /* todavia como cuerpo macizo con sus frentes (PLAN_PENDIENTE) */
-          const z0 = isRefri(m) ? 0 : cfg.baseBajos, z1 = isSpecial(m) ? altoEsp(m) : cfg.baseBajos + cfg.altoBajos;
-          add({ id: m.id + ':cuerpo', rol: 'modulo', modulo: m.id, tipo: m.tipo, fila: 'bajo', x, y: sep, z: z0, ancho: m.ancho, fondo: m.fondo, alto: z1 - z0, material: matDe(m), etiqueta: 'gabinetes' });
-          fronts(m).forEach((f, k) => frente(m, f, k, x));
-          x += m.ancho; continue;
-        }
+        if (isSpecial(m) || m.tipo === 'Estufa' || m.tipo === 'Frigobar') { especial(m, x); x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
            interior del primero (BodyLead) y a todo el ancho del grupo */
         const z0 = upper ? baseAltos() + (hasCampana(m) ? m.huecoCampana : 0) : cfg.baseBajos;
@@ -1767,7 +1848,14 @@ function pruebasPlanDePiezas(){
     ['botones, cajas abiertas unidas y superiores unidos', c => { const u = c.modulos.filter(m => m.upper);
       c.style = 'Clasica'; c.jaladera = 'Boton'; u[0].tipo = u[1].tipo = 'Abierto'; u[0].unirCuerpo = true; u[0].repisas = 2;
       u[2].tipo = u[3].tipo = u[4].tipo = 'Doble'; u[2].unirSuperior = true; u[2].tipoSuperior = 'Puertas'; u[2].repisasSuperior = 1;
-      u[4].tipoSuperior = 'Repisas'; u[4].repisasSuperior = 1; u[4].divisionSuperior = true; return c; }]];
+      u[4].tipoSuperior = 'Repisas'; u[4].repisasSuperior = 1; u[4].divisionSuperior = true; return c; }],
+    ['torre con micro, piston y cajones; alacena con cajonera y tres cuerpos', c => { const l = c.modulos.filter(m => !m.upper);
+      Object.assign(l[0], { tipo: 'Hornos', microSobreponer: true, elevacionMicro: 8, torreSuperior: 'Pistón + repisas', torreInferior: 'Cajones' });
+      Object.assign(l[4], { tipo: 'Alacena', cajonesAlacena: true, cuerposAlacena: 3, cuerposTipos: ['Repisas', '2 puertas', 'Elevable'], repisasElevable: 1 }); return c; }],
+    ['refrigerador sin laterales, estufa y frigobar', c => { const l = c.modulos.filter(m => !m.upper);
+      Object.assign(l[0], { tipo: 'Refri', lateralesRefri: false }); l[2].tipo = 'Estufa'; l[3].tipo = 'Frigobar'; return c; }],
+    ['clasica con especiero torre extraible y torre de repisas', c => { const l = c.modulos.filter(m => !m.upper);
+      c.style = 'Clasica'; Object.assign(l[1], { tipo: 'EspecieroTorre', extraible: true }); Object.assign(l[3], { tipo: 'Hornos', microondas: false, torreInferior: 'Repisas', torreSuperior: '2 puertas', rejillaHorno: false }); return c; }]];
   for (const [nombre, prep] of casos) {
     const c = prep(JSON.parse(JSON.stringify(base))); let p;
     try { const previo = cfg; cfg = c; try { recalculate(); validate(); } finally { cfg = previo; } p = planDePiezas(c); } catch (e) { fallas.push(nombre + ': error ' + e.message); continue; }
@@ -1785,7 +1873,7 @@ function pruebasPlanDePiezas(){
       ok(q.x >= -v - .01 && q.x + q.ancho <= c.longitud + v + .01, nombre + ': fuera del largo del tramo ' + q.id);
     });
     /* cada bajo ocupa exactamente su columna (cuerpo o carcasa, mas la tapeta del cesto) y la fila llega a la tapeta derecha */
-    const extension = id => { const qs = p.piezas.filter(q => q.modulo === id && ['modulo', 'panel', 'tapeta'].includes(q.rol));
+    const extension = id => { const qs = p.piezas.filter(q => q.modulo === id && ['modulo', 'panel', 'tapeta', 'equipo'].includes(q.rol));
       return qs.length ? [Math.min(...qs.map(q => q.x)), Math.max(...qs.map(q => q.x + q.ancho))] : null; };
     let xb = c.tapetaIzq ? c.reservaIzq : 0;
     c.modulos.filter(m => !m.upper).forEach(m => { const e = extension(m.id);
@@ -1798,7 +1886,7 @@ function pruebasPlanDePiezas(){
       ok(e && f.x >= e[0] - .01 && f.x + f.ancho <= e[1] + .01, nombre + ': frente fuera de su modulo ' + f.id); });
     const cajones = p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Cajon' && !q.fijo && !p.piezas.some(r => r.rol === 'modulo' && r.modulo === q.modulo));
     ok(p.piezas.filter(q => q.rol === 'caja' && q.tipo === 'Piso').length === cajones.length, nombre + ': falta una caja de cajon');
-    const conJaladera = p.piezas.filter(q => q.rol === 'herraje' && q.tipo !== 'Gola').length;
+    const conJaladera = p.piezas.filter(q => q.tipo === 'Jaladera' || q.tipo === 'Boton').length;
     ok(c.style === 'Moderna' ? conJaladera === 0 : conJaladera > 0, nombre + ': jaladeras que no corresponden al estilo');
     ok(c.style === 'Moderna' ? p.piezas.some(q => q.tipo === 'Gola') : !p.piezas.some(q => q.tipo === 'Gola'), nombre + ': gola que no corresponde al estilo');
   }
