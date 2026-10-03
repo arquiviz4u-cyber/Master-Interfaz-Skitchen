@@ -241,7 +241,9 @@
    B7. Puente con SketchUp (03/10): dentro del HtmlDialog de Skitchen, Generar
        manda {config, plan} a Ruby (sketchup.generar) y Ruby actualiza solo las
        piezas que cambian; Cancelar cierra el dialogo; al abrir con una cocina
-       seleccionada Ruby la carga con sketchupCargar(). En el navegador no cambia.
+       seleccionada Ruby la carga con sketchupCargar(); al elegir una cara de
+       muro abre una cocina nueva de ese largo y altura con sketchupNueva().
+       En el navegador no cambia.
    B6. Plan de piezas (03/10): planDePiezas() resuelve la cocina con las reglas
        del editor y devuelve cajas en cm (id estable, rol, modulo, tipo, x/y/z,
        ancho/fondo/alto, material, etiqueta) para que Ruby solo construya;
@@ -5240,18 +5242,25 @@ function offerSave(action, proceed){
 /* ---------------- Puente con SketchUp (B7) ----------------
    Solo existe dentro del UI::HtmlDialog de Skitchen (../Skitchen_SketchUp/src/drawlibri_skitchen/dialogo.rb), que inyecta
    window.sketchup. Llamadas a Ruby: sketchup.listo() al cargar, sketchup.generar(texto) con {config, plan} y
-   sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida) y
-   sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual. */
+   sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
+   sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual. */
 const enSketchUp = () => typeof window.sketchup === 'object' && window.sketchup !== null;
-function sketchupCargar(texto){
+function sketchupAbrir(crear, error, estado){
   const before = JSON.stringify(cfg);
-  try {
-    const c = JSON.parse(texto); if (!c.catalogo) c.catalogo = cfg.catalogo;
-    cfg = c; recalculate(); validate();
-  } catch (err) { cfg = JSON.parse(before); showDialog('Configuración', 'No se pudo abrir la cocina guardada: ' + err.message); return; }
+  try { cfg = crear(); recalculate(); validate(); }
+  catch (err) { cfg = JSON.parse(before); recalculate(); showDialog('SketchUp', error + err.message); return; }
   undoStack = []; redoStack = []; sectionCut = NaN; view = 'Alzado';
   selection = new Set(row(false).length ? [row(false)[0].id] : []); selectedPart = null; focusPanel = null; upperFocus = null; pieces.clear();
-  syncCommandUI(); render(); setStatus('Cocina cargada desde SketchUp: los cambios actualizan solo las piezas que cambian.');
+  syncCommandUI(); render(); setStatus(estado);
+}
+function sketchupCargar(texto){
+  sketchupAbrir(() => { const c = JSON.parse(texto); if (!c.catalogo) c.catalogo = cfg.catalogo; return c; },
+    'No se pudo abrir la cocina guardada: ', 'Cocina cargada desde SketchUp: los cambios actualizan solo las piezas que cambian.');
+}
+/* cocina nueva en la cara de muro elegida: el largo se redondea al cm como al escribirlo en la cota (k === 'length') */
+function sketchupNueva(longitud, alturaMuro){
+  sketchupAbrir(() => { const c = defaultConfig(Math.round(longitud)); c.catalogo = cfg.catalogo; c.alturaMuro = Math.round(alturaMuro*10)/10; return c; },
+    `El muro elegido (${fmt(longitud)} × ${fmt(alturaMuro)}${uS()}) no admite una cocina: `, `Muro de ${fmt(Math.round(longitud))} × ${fmt(alturaMuro)}${uS()} tomado de SketchUp.`);
 }
 function sketchupResultado(ok, mensaje){ if (ok) setStatus(mensaje); else showDialog('SketchUp', mensaje); }
 document.getElementById('btnCancel').addEventListener('click', () => offerSave('salir', () => {
