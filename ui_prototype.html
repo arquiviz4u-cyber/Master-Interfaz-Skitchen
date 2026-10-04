@@ -153,6 +153,10 @@
        los gabinetes (los bancos quedan del lado opuesto; un lado corto no se
        acepta). Revit: Generator.cs pide hoy 3 puntos (largo y ancho); cambiar
        a rectangulo + lado de los gabinetes.
+   A54. Gola de un solo material (03/10, usuario): la franja se pintaba por
+       mitades (fondo y linea del perfil eran destinos distintos); ahora un
+       material arrastrado a cualquier franja va a toda la gola y en 3D el
+       perfil usa el mismo. Revit: Material_Perfil_Gola aparte; unificar.
    A45. [Revit OK, no aplica] Cotas editables (03/10): el clic en una cota abria
        el campo y el mismo clic le quitaba el foco (lo tomaba el lienzo), asi
        que se cerraba al instante, en el navegador y en SketchUp. Corregido
@@ -273,6 +277,10 @@
        y entrega a Ruby un plan de piezas (cm, rol, modulo, material); Ruby
        solo construye. Hay que exponer ese plan como funcion pura del JS.
        Proyecto: ../Skitchen_SketchUp (ver CONVENCIONES.md).
+   B17. [SketchUp OK 03/10] Interactuar (boton de la barra, como en Revit): el
+       plan marca con frente las piezas que se mueven juntas y con abre como
+       abre cada frente (puerta: lado y eje vertical; elevable: eje arriba;
+       cajon: recorrido); Ruby abre o cierra todos los frentes del modulo.
    B16. [SketchUp OK 03/10] Isla (Line-Island) en el plan de piezas: gabinetes con
        frentes alineados, costados o cascadas, paneles posteriores (reparto y
        shaker hacia los bancos), zoclo frontal con cierres, zoclo posterior con
@@ -1420,7 +1428,7 @@ function parseLen(str){
   return ((+m[1] || 0)*12 + (+m[2] || 0) + (m[3] ? m[3]/m[4] : 0))*2.54;
 }
 /* GroupMaterial (MaterialTab.cs): la pieza sin material propio toma el material general del mueble; la gola, antes el del zoclo */
-const groupMaterial = key => cfg.materiales[key] || (key === 'Gola' && cfg.materiales.Zoclo)
+const groupMaterial = key => cfg.materiales[key] || (key === 'Gola' && (cfg.materiales.Perfil || cfg.materiales.Zoclo))   /* A54: Perfil antiguo -> Gola */
   || ((key === 'BarraPeralte') && cfg.materiales.BarraElevada) || ((key === 'BarraElevada' || key === 'BarraPeralte') && cfg.materiales.Cubierta) || cfg.materialGeneral;
 const tarjaDe = m => m.id === cfg.moduloTarja && cfg.tipoTarja > 0 ? (cfg.tipoTarja === 1 ? 'Tarja sencilla' : 'Tarja doble') : 'Sin tarja';
 /* Cajones: N cajones (1 a 6), el de arriba pequeño y los demas grandes, o todos iguales. 'C' = cajon y puerta */
@@ -1820,10 +1828,10 @@ function planDePiezas(c = cfg){
       }
     };
     /* caja de cajon tras cada frente de cajon movil: lados, frente, trasera y piso, con holgura de correderas */
-    const cajaCajon = (m, base, h, f) => {   /* con gola, la caja termina detras del canal */
+    const cajaCajon = (m, base, h, f, frenteId) => {   /* frenteId: la caja se mueve con su frente (Interactuar) */   /* con gola, la caja termina detras del canal */
       const c = PLAN_CAJA, x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, y0 = h.y0 + c.retiro, y1 = h.y1 - (golaStrips(m).length ? golaHondo() : 0);
       const z0 = Math.max(f.z0, h.z0 + .5), z1 = Math.min(Math.max(z0 + 4, f.z1 - c.libreArriba), h.z1 - .5), mat = matPanel(m, 'cuerpo', 'caja', 'Interior');
-      const lado = (k, tipo, a, b, p0, p1, q0, q1) => add({ id: base + ':' + k, rol: 'caja', modulo: m.id, tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, etiqueta: 'gabinetes' });
+      const lado = (k, tipo, a, b, p0, p1, q0, q1) => add({ frente: frenteId, id: base + ':' + k, rol: 'caja', modulo: m.id, tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, etiqueta: 'gabinetes' });
       lado('lado:izq', 'Lado', x0, x0 + c.lado, y0, y1, z0, z1);
       lado('lado:der', 'Lado', x1 - c.lado, x1, y0, y1, z0, z1);
       lado('frente', 'Frente', x0 + c.lado, x1 - c.lado, y1 - c.lado, y1, z0, z1);
@@ -1875,7 +1883,7 @@ function planDePiezas(c = cfg){
       const xa = s0 === undefined ? xa0 : xa0 + s0, xb = s1 === undefined ? xb0 : xa0 + s1;
       const G = PLAN_GOLA, mel = cfg.gola === 'Melamina', y1 = sep + m.fondo, y0 = y1 - golaHondo(), base = m.id + ':gola:' + k;
       const superior = k === 0, z0 = gz - G.traslape, z1 = superior ? gz + gh : gz + gh + G.traslape, forma = superior ? cfg.perfil : 'C';
-      const e = mel ? G.melamina : G.lamina, mat = mel ? groupMaterial('Gola') || null : cfg.materiales.Perfil || null;
+      const e = mel ? G.melamina : G.lamina, mat = groupMaterial('Gola') || null;   /* A54: el mismo material en fondo y perfil */
       add({ id: base, rol: 'herraje', modulo: m.id, tipo: 'Gola', x: xa, y: y0, z: z0, ancho: xb - xa, fondo: e, alto: z1 - z0, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' });
       const aleta = (lado, z) => add({ id: base + ':perfil:' + lado, rol: 'herraje', modulo: m.id, tipo: 'Perfil', x: xa, y: y0 + e, z, ancho: xb - xa, fondo: y1 - y0 - e, alto: e, material: mat, etiqueta: 'herrajes' });
       aleta('abajo', z0);
@@ -1888,7 +1896,7 @@ function planDePiezas(c = cfg){
     const cajasEn = (m, x, zonas) => fronts(m).forEach((f, k) => {
       if (f.kind !== 'Cajon' || f.fijo || !zonas.length) return;
       const solape = h => Math.min(f.z1, h.z1) - Math.max(f.z0, h.z0), h = zonas.reduce((a, b) => solape(b) > solape(a) ? b : a);
-      if (solape(h) > 0) cajaCajon(m, m.id + ':caja:' + k, h, f);
+      if (solape(h) > 0) cajaCajon(m, m.id + ':caja:' + k, h, f, m.id + ':frente:' + k);
     });
     /* especiales (drawSpecial): laterales de su espesor (del zoclo al tope; refrigerador, del piso), trasero, piso, techo y
        tableros del mismo espesor entre sus cuerpos. Torre y refrigerador llevan los frentes entre laterales: sus laterales
@@ -1972,7 +1980,7 @@ function planDePiezas(c = cfg){
            interior del primero (BodyLead) y a todo el ancho del grupo */
         const z0 = upper ? baseAltos() + (hasCampana(m) ? m.huecoCampana : 0) : cfg.baseBajos;
         const z1 = upper ? baseAltos() + bodyH(m) : cfg.baseBajos + cfg.altoBajos;
-        const grp = upper && sinPuertas(m) ? bodyGroupOf(m) : null, cajones = fronts(m).filter(f => f.kind === 'Cajon' && !f.fijo);
+        const grp = upper && sinPuertas(m) ? bodyGroupOf(m) : null, frs = fronts(m), cajones = frs.filter(f => f.kind === 'Cajon' && !f.fijo);
         if (!grp || grp.members[grp.members.length - 1] === m) {
           const lead = grp ? grp.members[0] : m, gx0 = grp ? grp.x0 : x, gx1 = grp ? grp.x0 + grp.width : x + m.ancho;
           const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
@@ -1987,10 +1995,10 @@ function planDePiezas(c = cfg){
             const hI = Object.assign({}, h, { x1: xd - e/2 }), hD = Object.assign({}, h, { x0: xd + e/2 }), hEsp = espIzq(m) ? hI : hD, hResto = espIzq(m) ? hD : hI;
             if (!m.extraible) interior(m, m.id + ':especiero', hEsp, 5, 0, 'cuerpo');
             if (espCon(m) === 'Puerta' && m.repisaBajo) interior(m, m.id + ':resto', hResto, 1, 0, 'resto');
-            cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, x + (f.x0 + f.x1)/2 < xd ? hI : hD, f));
+            cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, x + (f.x0 + f.x1)/2 < xd ? hI : hD, f, m.id + ':frente:' + frs.indexOf(f)));
           } else {
             interior(lead, lead.id + ':cuerpo', h, shelvesOf(lead), !cajones.length && hasDivider(lead) ? Math.max(1, lead.divisiones || 1) : 0, 'cuerpo');
-            cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, h, f));
+            cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, h, f, m.id + ':frente:' + frs.indexOf(f)));
           }
         }
         fronts(m).forEach((f, k) => frente(m, f, k, x));
@@ -2147,7 +2155,7 @@ function planDePiezas(c = cfg){
       const [s0, s1] = hdSpan(d), top = hdTop(d), zc = hdLeafTop(d), b = hdBottom(d), hr = hdHingeRight(d), hol = .2, yF = d.fondo - t;
       const dm = { id: d.id, fondo: yF - sep, materialesPaneles: {} }, dmat = d.material || cfg.materialGeneral || null, capMat = d.materialPiston || dmat;
       const base = d.id + ':hoja', a = s0 + hol, c = s1 - hol, z0 = b + hol, z1 = zc - hol, J = PLAN_JUNTA, juntas = hdJoints(d);
-      if (b > 0) add({ id: d.id + ':zoclo', rol: 'zoclo', tipo: 'Hoja', modulo: d.id, x: a, y: yF, z: hol, ancho: c - a, fondo: t, alto: b - 2*hol, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
+      if (b > 0) add({ frente: d.id + ':hoja', id: d.id + ':zoclo', rol: 'zoclo', tipo: 'Hoja', modulo: d.id, x: a, y: yF, z: hol, ancho: c - a, fondo: t, alto: b - 2*hol, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
       if (cfg.style === 'Clasica') hdPanels(d).forEach(([p0, p1, q0, q1], i) => tablero(d.id, base + ':tablero:' + i, 'Puerta', s0 + p0, s0 + p1, q0, q1, yF, dmat, hr, false));
       else tablero(d.id, base, 'Puerta', a, c, z0, z1, yF, dmat, hr, false);
       bisagras(dm, base, a, c, z0, z1, hr, yF);
@@ -2168,6 +2176,25 @@ function planDePiezas(c = cfg){
     if (highs.length && cfg.tapetaSuperior) add({ id: 'tapeta:superior', rol: 'tapeta', x: run0, y: 0, z: zTop, ancho: run1 - run0, fondo: dAlto, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
     /* muescas de la gola: los laterales se parten (a todo fondo fuera del canal, rebajados dentro); techo, lechos, repisas y
        divisiones del modulo que entran en el canal se acortan hasta su fondo */
+    /* B17 Interactuar (como en Revit): cada frente que abre (puerta, cajon o elevable, no fijo) junta sus piezas (tablero o marcos,
+       jaladera, bisagras, juntas, zoclo de puerta oculta, caja de cajon) con frente = id del frente; la pieza principal lleva abre:
+       puerta = lado de la bisagra y eje vertical (x, y de su cara posterior); elevable = eje horizontal arriba (z, y); cajon =
+       recorrido. Todo en cm del plan; Ruby solo gira o desliza */
+    const duenoDe = q => { if (q.frente) return q.frente; const h = /^(.*?:hoja)(:|$)/.exec(q.id); if (h) return h[1];
+      const f = /^(.*?:frente:\d+)(:|$)/.exec(q.id); if (f) return f[1];
+      return q.rol === 'frente' && ['Puerta', 'Cajon', 'Elevable'].includes(q.tipo) ? q.id : null; };
+    const movibles = new Map();
+    piezas.forEach(q => { const d = duenoDe(q); if (d) { if (!movibles.has(d)) movibles.set(d, []); movibles.get(d).push(q); } });
+    movibles.forEach((qs, d) => {
+      const fr = qs.filter(q => q.rol === 'frente' && ['Puerta', 'Cajon', 'Elevable', 'Marco'].includes(q.tipo)), principal = fr.find(q => q.tipo !== 'Marco');
+      if (!principal || principal.fijo) { qs.forEach(q => delete q.frente); return; }
+      const x0 = Math.min(...fr.map(q => q.x)), x1 = Math.max(...fr.map(q => q.x + q.ancho)), y = Math.min(...fr.map(q => q.y)), z1 = Math.max(...fr.map(q => q.z + q.alto));
+      const cajas = qs.filter(q => q.rol === 'caja');
+      qs.forEach(q => { q.frente = d; });
+      principal.abre = principal.tipo === 'Puerta' ? { tipo: 'Puerta', lado: principal.bisagraDerecha ? 'derecha' : 'izquierda', x: r2(principal.bisagraDerecha ? x1 : x0), y: r2(y) }
+        : principal.tipo === 'Elevable' ? { tipo: 'Elevable', z: r2(z1), y: r2(y) }
+        : { tipo: 'Cajon', recorrido: r2(cajas.length ? Math.max(...cajas.map(q => q.fondo))*.8 : 40) };
+    });
     for (let i = piezas.length - 1; i >= 0; i--) {
       const p = piezas[i];
       if (!['panel', 'repisa', 'division'].includes(p.rol)) continue;
@@ -2312,6 +2339,11 @@ function pruebasPlanDePiezas(){
         ok(Math.abs(borde - PLAN_LED.retiro) < .01, nombre + ': el canal del LED queda a ' + borde + ' cm del borde en ' + m.id);
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
         ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
+    /* B17: cada frente que abre forma un grupo con una sola pieza abre; cada caja de cajon va con un frente que abre como cajon */
+    const grupos = {}; p.piezas.filter(q => q.frente).forEach(q => (grupos[q.frente] = grupos[q.frente] || []).push(q));
+    Object.entries(grupos).forEach(([d, qs]) => ok(qs.filter(q => q.abre).length === 1, nombre + ': el frente ' + d + ' no tiene una sola pieza que abra'));
+    p.piezas.filter(q => q.rol === 'caja').forEach(q => ok(grupos[q.frente] && grupos[q.frente].some(r => r.abre && r.abre.tipo === 'Cajon'), nombre + ': caja sin su cajon ' + q.id));
+    p.piezas.filter(q => q.rol === 'frente' && ['Puerta', 'Cajon', 'Elevable'].includes(q.tipo) && !q.fijo).forEach(q => ok(q.frente, nombre + ': frente que no abre ' + q.id));
     /* zoclo: un cierre en cada extremo pedido, en el primer y el ultimo tramo */
     const cierres = p.piezas.filter(q => q.rol === 'zoclo' && q.tipo === 'Cierre');
     ok(cierres.length === (c.generarZoclos && c.baseBajos > 0 ? (c.cerrarZocloIzq ? 1 : 0) + (c.cerrarZocloDer ? 1 : 0) : 0), nombre + ': ' + cierres.length + ' cierres de zoclo');
@@ -3378,14 +3410,14 @@ function moduleChrome(m, rect, post, sel){
   else if (sel) post.push(() => outline(rect, C.accent, 3));
   else if (hov) post.push(() => outline(rect, C.hoverMod, 1.5));
 }
-/* franja gola con su perfil de aluminio: linea clara superior (material «Perfil») */
+/* franja gola con su perfil de aluminio. A54 (usuario): un solo material para toda la gola (fondo y perfil); la linea clara
+   superior solo sugiere el perfil y ya no es un destino aparte para arrastrar materiales */
 function drawGola(m, x0, RX, post){
   golaStrips(m).forEach(([z, h, s0 = 0, s1 = m.ancho]) => {   /* A51: una franja puede cubrir solo parte del ancho */
     const r = RX(x0 + s0, x0 + s1, z, z + h);
     fillMat(r.x, r.y, r.w, r.h, groupMaterial('Gola'), C.gola); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(r.x, r.y, r.w, r.h);
     const band = { x: r.x, y: r.y, w: r.w, h: Math.min(4, r.h/3) };
-    fillMat(band.x, band.y, band.w, band.h, cfg.materiales.Perfil, C.perfil);
-    materialHits.push({ rect: band, key: 'Perfil' });
+    ctx.save(); ctx.globalAlpha = .55; ctx.fillStyle = C.perfil; ctx.fillRect(band.x, band.y, band.w, band.h); ctx.restore();
     partHits.push({ rect: r, key: 'gola', active: true });
     if (selectedPart === 'gola') post.push(() => outline(r, C.select, 2));
     else if (hover === 'part:gola') post.push(() => outline(r, C.hoverPart, 1.5));
@@ -3905,7 +3937,6 @@ function drawPlan(){
 /* arrastre de material: destino resaltado y rotulo «Material → destino» (MaterialTab.DrawMaterialDrag) */
 function materialTarget(p){
   const onMod = view === 'Planta' && hits.find(h => inside(p, h.rect));
-  const pf = onMod ? null : topmost(materialHits.filter(h => h.key === 'Perfil'), p); if (pf) return { key: 'Perfil', rects: [pf.rect] };   /* linea clara de la gola */
   const ph = onMod ? null : PART_ORDER.map(k => partHits.find(h => h.key === k && inside(p, h.rect))).find(Boolean);
   if (ph) { const map = { cover:'Cubierta', sink:'Cubierta', tap:'Cubierta', plinth:'Zoclo', backsplash:'Backsplash', gola:'Gola', fillerI: cfg.isla ? 'Cubierta' : 'Tapetas', fillerD: cfg.isla ? 'Cubierta' : 'Tapetas', fillerTop:'Tapetas', raisedbar:'BarraElevada', riser:'BarraPeralte' }; return { key: map[ph.key], rects: partHits.filter(h => h.key === ph.key).map(h => h.rect) }; }
   /* piezas interiores, cuerpos de torre y alacena y modulo superior (materialHits: lo dibujado al final manda) */
@@ -4633,7 +4664,7 @@ function partPanel(key){
   } else if (key === 'fillerTop') {
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`);
   } else if (key === 'gola') {
-    html += section('Perfil de aluminio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Perfil de aluminio visible en 3D.</div>` + radios('perfil', [['L', 'Perfil L'], ['C', 'Perfil C']], cfg.perfil) + `<div class="note-sm">Arrastra un material sobre la franja para cambiar el fondo, o sobre la línea clara superior para cambiar el perfil.</div>`);
+    html += section('Perfil de aluminio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Perfil de aluminio visible en 3D.</div>` + radios('perfil', [['L', 'Perfil L'], ['C', 'Perfil C']], cfg.perfil) + `<div class="note-sm">Arrastra un material sobre cualquier franja: se aplica a toda la gola (fondo y perfil).</div>`);
   }
   if (key !== 'wall') html += `<div class="p-foot"><button class="btn btn-block" data-act="closePart">Volver a los gabinetes</button></div>`;
   return html;
@@ -5225,7 +5256,7 @@ const EN = {
   'Arrastra los puntos azules del dibujo (maletero, zapatera, escritorio y cajones) o haz clic en su cota.': 'Drag the blue points in the drawing (top storage, shoe rack, desk and drawers) or click their dimension.',
   'Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.': 'Drag the blue points in the drawing to change the heights, or click their dimension.',
   'Arrastra un material sobre la caja (vista Interior) o sobre su puerta (vista Puertas), o doble clic en una muestra con esta pieza seleccionada.': 'Drag a material onto the box (Interior view) or its door (Doors view), or double-click a swatch with this part selected.',
-  'Arrastra un material sobre la franja para cambiar el fondo, o sobre la línea clara superior para cambiar el perfil.': 'Drag a material onto the strip to change its background, or onto the light top line to change the profile.',
+  'Arrastra un material sobre cualquier franja: se aplica a toda la gola (fondo y perfil).': 'Drag a material onto any strip: it applies to the whole gola (background and profile).',
   'Arrastra un material sobre una pieza seleccionada, o haz doble clic en una muestra de la pestaña Materiales: se aplica a toda la selección. Ctrl + clic suma o quita piezas.': 'Drag a material onto a selected part, or double-click a swatch in the Materials tab: it applies to the whole selection. Ctrl + click adds or removes parts.',
   'Backsplash': 'Backsplash',
   'Bajo cubierta': 'Undermount',
