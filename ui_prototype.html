@@ -160,6 +160,16 @@
        Cocina n / Isla 0n. Revit: ya es asi.
    A69. Pestana estable (04/10): la pestana elegida se recuerda y se restaura
        al recargar la pagina (SketchUp) y al cerrar Guardado o Ajustes.
+   A73. Puerta oculta: Abre (04/10, usuario): la opcion Lado se cambia por Abre:
+       hacia adentro (al vano, de fabrica, como Revit) o hacia afuera (a la
+       cocina); el lado se elige al agregarla. Planta e Interactuar siguen el
+       sentido. Revit: hoy siempre adentro; agregar la opcion.
+   A74. Especiero extraible de fabrica (04/10, usuario): al elegir Especiero
+       entra extraible (abre como cajon). Revit: mismo valor inicial.
+   B25. [SketchUp 04/10] Luz del LED simulada: plano contra el muro entre la
+       cubierta y cada seccion de cama, con mosaico PNG de luz calida que se
+       desvanece (alfa); etiqueta DLB_Luz_LED, sin sombras; opcion en
+       Iluminacion. Revit: no aplica.
    A72. Elegir lleva a Distribucion (04/10, usuario): desde Materiales o
        Estilo, elegir un componente en el dibujo (clic, doble clic o recuadro)
        cambia a Distribucion, donde se editan sus opciones; arrastrar una
@@ -1195,7 +1205,7 @@ function newModule(upper){
     frenteSup: 0, frenteMed: 0, material: null, unirCuerpo: false, materialesPaneles: {},
     numCajones: 3, cajonesIguales: true, frentes: [], campana: false, repisasZona: {},   /* A46: iguales por defecto */
     /* refrigerador, frigobar, cesto de basura, especiero y parrilla de induccion */
-    especieroCon: 'Nada', especieroLado: 'Izquierda', anchoEspeciero: 20, huecoRefri: 190, superiorRefri: true, lateralesRefri: true, altoFrigobar: 82, tapetaFrigobar: true, anchoBasura: 40, extraible: false,
+    especieroCon: 'Nada', especieroLado: 'Izquierda', anchoEspeciero: 20, huecoRefri: 190, superiorRefri: true, lateralesRefri: true, altoFrigobar: 82, tapetaFrigobar: true, anchoBasura: 40, extraible: true,
     parrilla: false, parrillaAncho: 60,
     /* closet (ClosetModule) */
     cajonesCloset: 3, altoCajonCloset: 20, sobreCajonera: 'Barra', closetSinPuertas: false, maletero: false, altoMaletero: 40, puertaMaletero: true,
@@ -1347,7 +1357,7 @@ function defaultConfig(length){
     baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, vuelo: 0,
     tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5,
     generarCubierta: true, generarZoclos: true, retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
-    backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 2, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8,
+    backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 2, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
     style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, anchoShaker: 5, bisagras: true, cubiertaAPano: false,
     narizCubierta: false, alturaNariz: 5, puertasOcultas: [],
@@ -1363,7 +1373,7 @@ function defaultConfig(length){
   return c;
 }
 /* Puerta oculta: hoja de piso a techo que parece gabinete, fuera de la cota del muro (una por lado como maximo) */
-const newDoor = derecha => ({ id: 'd' + Math.random().toString(36).slice(2, 9), derecha, ancho: 90, invertir: false, piston: false, altoPiston: 40,
+const newDoor = derecha => ({ id: 'd' + Math.random().toString(36).slice(2, 9), derecha, ancho: 90, invertir: false, abre: 'adentro', piston: false, altoPiston: 40,
   tapetaLateral: true, anchoTapeta: 5, tapetaSuperior: true, zoclo: true, fondo: 60, juntaVertical: false, juntasHorizontales: [],
   material: null, materialJuntas: null, materialPiston: null });
 const doors = () => cfg.puertasOcultas || [];
@@ -1985,8 +1995,16 @@ const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 1.8,                   
 const PLAN_CORREDERA = { fija: .6, movil: .5, alto: 4.5, centro: 2.6, pared: .15 };   /* B19: en la holgura de la caja (PLAN_CAJA.holgura) */
 const PLAN_PISTON = { cuerpo: 1.8, vastago: .8, largoCuerpo: .6 };                    /* B19: el cuerpo es el 60 % del piston cerrado (Revit) */
 const PLAN_TARJA = { lamina: .8, ceja: 2.5, cejaAlto: .6 }, PLAN_PLACA = .6, PLAN_SHAKER_REHUNDIDO = .6;
-const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash', 'equipos'];
-const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo'];
+const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash', 'equipos', 'luz'];
+const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo', 'luz'];
+/* B25 (usuario, 04/10): luz del LED simulada. Plano contra el muro (o el backsplash) entre la cubierta y los altos, con un mosaico PNG
+   de luz calida que se desvanece hacia abajo (canal alfa); un mosaico a lo alto del plano y de 10 cm a lo ancho */
+const PLAN_LUZ = { id: 'LUZ_LED', nombre: 'Luz LED', rgb: [255, 228, 180], mosaico: 10, alfa: .75 };
+function texturaLuz(alto){
+  const c = document.createElement('canvas'); c.width = 8; c.height = 256; const g = c.getContext('2d'), [r, v, b] = PLAN_LUZ.rgb;
+  for (let i = 0; i < c.height; i++) { const t = i/(c.height - 1); g.fillStyle = `rgba(${r},${v},${b},${(PLAN_LUZ.alfa*Math.pow(1 - t, 2.2)).toFixed(3)})`; g.fillRect(0, i, c.width, 1); }
+  return { png: c.toDataURL('image/png'), ancho: PLAN_LUZ.mosaico, alto };
+}
 /* lo que el plan todavia no entrega (se anota aqui al cubrirlo) */
 const PLAN_PENDIENTE = ['forma de los equipos (horno, microondas, refrigerador, estufa, frigobar, tarja y campana van como cajas)',
   'hueco de la parrilla en la cubierta', 'travesaños en lugar de techo en los bajos', 'isla', 'closet'];
@@ -2270,7 +2288,11 @@ function planDePiezas(c = cfg){
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
         add({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes',
           ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } });
-        add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: null, etiqueta: 'herrajes' }); }); }
+        add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: null, etiqueta: 'herrajes' });
+        /* B25: la luz en el muro, de la cubierta a la cama; delante del backsplash si lo hay */
+        const yl = (cfg.backsplash && lows.length ? cfg.espesorBacksplash : 0) + .05, zl = altoBarra();
+        if (cfg.ledLuz !== false && z0 - zl > 5) add({ id: 'cama:' + k + ':luz', rol: 'luz', modulo: q.m.id, tipo: 'Luz', x: q.x0, y: yl, z: zl, ancho: q.x1 - q.x0, fondo: .1, alto: z0 - zl,
+          material: PLAN_LUZ.id, etiqueta: 'luz', forma: { tipo: 'plano', eje: 'y' } }); }); }
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
        a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
     const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
@@ -2438,7 +2460,9 @@ function planDePiezas(c = cfg){
       const x0 = Math.min(...fr.map(q => q.x)), x1 = Math.max(...fr.map(q => q.x + q.ancho)), y = Math.max(...fr.map(q => q.y + q.fondo)), z1 = Math.max(...fr.map(q => q.z + q.alto));   /* eje en la cara vista: al abrir no invade al vecino */
       const cajas = qs.filter(q => q.rol === 'caja');
       qs.forEach(q => { q.frente = d; });
-      principal.abre = principal.tipo === 'Puerta' ? { tipo: 'Puerta', lado: principal.bisagraDerecha ? 'derecha' : 'izquierda', x: r2(principal.bisagraDerecha ? x1 : x0), y: r2(y) }
+      const oculta = doors().find(q => q.id === principal.modulo), adentro = principal.tipo === 'Puerta' && oculta && oculta.abre !== 'afuera';   /* A73 */
+      principal.abre = principal.tipo === 'Puerta' ? Object.assign({ tipo: 'Puerta', lado: principal.bisagraDerecha ? 'derecha' : 'izquierda', x: r2(principal.bisagraDerecha ? x1 : x0) },
+          adentro ? { y: r2(Math.min(...fr.map(q => q.y))), sentido: 'adentro' } : { y: r2(y) })
         : principal.tipo === 'Elevable' ? { tipo: 'Elevable', z: r2(z1), y: r2(y) }
         : { tipo: 'Cajon', recorrido: r2(cajas.length ? Math.max(...cajas.map(q => q.fondo))*.8 : 40) };
     });
@@ -2549,7 +2573,8 @@ function planDePiezas(c = cfg){
     return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
       materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); })
-        .concat([...usados].map(k => ({ id: k, nombre: PREDETERMINADOS[k].nombre, rgb: PREDETERMINADOS[k].rgb.slice() }))),
+        .concat([...usados].map(k => ({ id: k, nombre: PREDETERMINADOS[k].nombre, rgb: PREDETERMINADOS[k].rgb.slice() })))
+        .concat(piezas.filter(q => q.rol === 'luz').slice(0, 1).map(q => ({ id: PLAN_LUZ.id, nombre: PLAN_LUZ.nombre, rgb: PLAN_LUZ.rgb.slice(), textura: texturaLuz(q.alto) }))),
       piezas, pendiente: PLAN_PENDIENTE.slice() };
   } finally { cfg = previo; }
 }
@@ -2611,7 +2636,7 @@ function pruebasPlanDePiezas(){
     ok(JSON.stringify(cfg) === editor, nombre + ': el plan cambio la configuracion del editor');
     ok(p.esquema === PLAN_ESQUEMA && p.unidad === 'cm', nombre + ': esquema o unidad');
     /* B5: cada material con patron lleva su mosaico (PNG y medida en cm); los colores lisos, no */
-    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id); if (!cat) { ok(!!PREDETERMINADOS[q.id] && !q.textura, nombre + ': material fuera del catalogo ' + q.id); return; } const conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
+    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id); if (!cat) { ok(q.id === PLAN_LUZ.id ? !!q.textura : !!PREDETERMINADOS[q.id] && !q.textura, nombre + ': material fuera del catalogo ' + q.id); return; } const conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
       ok(conPatron === !!q.textura, nombre + ': textura que no corresponde en ' + q.id);
       if (q.textura) ok(q.textura.png.startsWith('data:image/png;base64,') && q.textura.ancho > 0 && q.textura.alto > 0, nombre + ': textura invalida en ' + q.id); });
     ok(JSON.stringify(JSON.parse(JSON.stringify(p))) === JSON.stringify(p), nombre + ': no es JSON puro');
@@ -2639,7 +2664,7 @@ function pruebasPlanDePiezas(){
     const solidos = q => !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
       Object.assign({}, q, { y: q.y + q.ranura.y, fondo: q.ranura.ancho, z: q.z + q.ranura.hondo, alto: q.alto - q.ranura.hondo }),
       Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
-    const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado */
+    const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && a.rol !== 'luz' && b.rol !== 'luz' && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado */
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
     const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) ||
       a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago');   /* B19: el vastago entra en su cuerpo */
@@ -2679,7 +2704,7 @@ function pruebasPlanDePiezas(){
         ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
     /* B19: la forma de cada pieza cabe en su caja; cada cajon lleva su par de correderas y cada elevable sus pistones */
     const dentro = (q, v) => v.every((c, i) => c >= -.001 && c <= [q.ancho, q.fondo, q.alto][i] + .001);
-    p.piezas.filter(q => q.forma).forEach(q => ok(q.forma.tipo === 'cilindro' ? dentro(q, q.forma.de) && dentro(q, q.forma.a) && q.forma.diametro > 0 && q.forma.lados >= 6
+    p.piezas.filter(q => q.forma).forEach(q => ok(q.forma.tipo === 'plano' ? ['x', 'y', 'z'].includes(q.forma.eje) : q.forma.tipo === 'cilindro' ? dentro(q, q.forma.de) && dentro(q, q.forma.a) && q.forma.diametro > 0 && q.forma.lados >= 6
       : q.forma.tipo === 'perfil' && ['x', 'y', 'z'].includes(q.forma.eje) && q.forma.puntos.length >= 3 && q.forma.puntos.every(([u, v]) => {
         const [du, dv] = { x: [q.fondo, q.alto], y: [q.ancho, q.alto], z: [q.ancho, q.fondo] }[q.forma.eje]; return u >= -.001 && v >= -.001 && u <= du + .001 && v <= dv + .001; }),
       nombre + ': forma fuera de su caja en ' + q.id));
@@ -4269,12 +4294,13 @@ function drawPlan(){
   for (const d of doors()) {
     const [s0] = hdSpan(d), yf = Y(d.fondo), t = 1.8*scale, r = d.ancho*scale, leaf = { x: X(s0), y: yf - t, w: r, h: t };
     if (d.tapetaLateral) { const [f0, f1] = hdFiller(d); outline({ x: X(f0), y: wallY, w: (f1 - f0)*scale, h: d.fondo*scale }, C.line, 1); }
-    const hrt = hdHingeRight(d), hx = hrt ? leaf.x + leaf.w : leaf.x, a0 = hrt ? Math.PI : 1.5*Math.PI, a1 = hrt ? 1.5*Math.PI : 2*Math.PI;
+    const hrt = hdHingeRight(d), afuera = d.abre === 'afuera', hx = hrt ? leaf.x + leaf.w : leaf.x;   /* A73: adentro, hacia el muro; afuera, hacia la cocina */
+    const a0 = afuera ? (hrt ? .5*Math.PI : 0) : hrt ? Math.PI : 1.5*Math.PI, a1 = afuera ? (hrt ? Math.PI : .5*Math.PI) : hrt ? 1.5*Math.PI : 2*Math.PI;
     if (proyOn()) { ctx.fillStyle = 'rgba(52,120,205,.18)'; ctx.beginPath(); ctx.moveTo(hx, yf); ctx.arc(hx, yf, r, a0, a1); ctx.closePath(); ctx.fill();
     ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hx, yf, r, a0, a1); ctx.stroke();
-    const open = { x: hrt ? hx - t : hx, y: yf - r, w: t, h: r }; ctx.fillStyle = 'rgba(255,255,255,.66)'; ctx.fillRect(open.x, open.y, open.w, open.h); ctx.strokeRect(open.x, open.y, open.w, open.h); ctx.restore(); }
+    const open = { x: hrt ? hx - t : hx, y: afuera ? yf : yf - r, w: t, h: r }; ctx.fillStyle = 'rgba(255,255,255,.66)'; ctx.fillRect(open.x, open.y, open.w, open.h); ctx.strokeRect(open.x, open.y, open.w, open.h); ctx.restore(); }
     ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(leaf.x, leaf.y, leaf.w, leaf.h); outline(leaf, C.line, 1);
-    const zone = { x: leaf.x, y: Math.min(wallY, yf - r), w: leaf.w, h: yf - Math.min(wallY, yf - r) }, key = 'door:' + d.id;
+    const zone = afuera ? { x: leaf.x, y: wallY, w: leaf.w, h: yf + r - wallY } : { x: leaf.x, y: Math.min(wallY, yf - r), w: leaf.w, h: yf - Math.min(wallY, yf - r) }, key = 'door:' + d.id;
     partHits.push({ rect: zone, key, active: true });
     if (selectedPart === key) post.push(() => outline(zone, C.select, 2)); else if (hover === 'part:' + key) post.push(() => outline(zone, C.hoverPart, 1.5));
     ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText('Puerta oculta', leaf.x + 4, yf - t - 18); ctx.textBaseline = 'alphabetic';
@@ -4962,7 +4988,9 @@ function doorPanel(key){
     + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div><div class="note-sm">La misma altura de la tapeta superior de la cocina.</div>`) + back;
   const leaf = hdLeafTop(d) - hdBottom(d);
   let html = head('Puerta oculta', 'fuera de la cota del muro');
-  html += section('Lado', radios('hdLado', [['izq', 'A la izquierda'], ['der', 'A la derecha']], d.derecha ? 'der' : 'izq'));
+  /* A73 (usuario, 04/10): en lugar del lado (que se elige al agregarla con el + de cada extremo), hacia donde abre la hoja.
+     Hacia adentro (al vano, como Revit) o hacia afuera (a la cocina) */
+  html += section('Abre', radios('hdAbre', [['adentro', 'Hacia adentro'], ['afuera', 'Hacia afuera']], d.abre === 'afuera' ? 'afuera' : 'adentro'));
   html += section('Hoja', `<div class="grid-2">${num('hdAncho', 'Ancho de la hoja', d.ancho, 'cm', 60, 120, 1)}${num('hdFondo', 'Paño desde el muro', d.fondo, 'cm', 35, 70)}</div>`
     + chk('hdInv', d.invertir, 'Invertir abatimiento') + chk('hdZoc', d.zoclo, 'Zoclo pegado a la hoja (abre con ella)')
     + `<div class="info-card" style="margin-top:10px"><div class="info-row">Hoja <b>${fmt(d.ancho)} × ${fmt(leaf)}${uS()}</b></div></div>`);
@@ -5025,6 +5053,7 @@ function partPanel(key){
     html += section('Backsplash', chk('genBs', cfg.backsplash, 'Generar backsplash') + chk('bsComp', cfg.backsplashCompleto, 'Completo hasta los gabinetes altos')
       + `<div class="grid-2" style="margin-top:10px">${cfg.backsplashCompleto ? '' : num('bsAlto', 'Altura', cfg.altoBacksplash, 'cm', 5, 100)}${num('bsEsp', 'Espesor', cfg.espesorBacksplash, 'cm', .5, 5)}</div>`);
     html += section('Iluminación', chk('led', cfg.led, 'Iluminación LED bajo gabinetes altos') + (cfg.led ? `<div style="margin-top:8px">${radios('ledPos', [['frente', 'Al frente'], ['centro', 'Al centro'], ['atras', 'Atrás']], cfg.ledCentro ? 'centro' : cfg.ledFrente ? 'frente' : 'atras')}</div>`
+      + `<div style="margin-top:8px">${chk('ledLuz', cfg.ledLuz !== false, 'Simular la luz en el muro (SketchUp)')}</div>`
       + (cfg.ledCentro ? '' : `<div class="grid-2" style="margin-top:10px;align-items:end">${num('ledRet', 'Distancia del borde', cfg.ledRetiro ?? PLAN_LED.retiro, 'cm', 0, 30)}<button class="btn" data-act="ledPano" type="button">Al paño</button></div>`
         + `<div class="note">Del ${cfg.ledFrente ? 'frente' : 'fondo'} del gabinete al canal de la tira. De fábrica ${fmt(PLAN_LED.retiro)}${uS()}; «Al paño» la pone en 0.</div>`) : ''));
   } else if (key === 'fillerI' || key === 'fillerD') {
@@ -5052,6 +5081,7 @@ const ACT = {
       if (ANCHO_TIPO[m.tipo] && m.tipo !== v) { m.fijo = false; if (l.length === h.length) h[l.indexOf(m)].fijo = false; }
       /* A52 (usuario): un bajo de puertas o de cajones que pasa a Especiero lo lleva con su puerta o sus cajones y su ancho */
       if (v === 'Especiero' && m.tipo !== 'Especiero') m.especieroCon = m.tipo === 'Cajones' ? 'Cajones' : m.tipo === 'Puertas' || m.tipo === 'C' ? 'Puerta' : 'Nada';
+      if ((v === 'Especiero' || v === 'EspecieroTorre') && m.tipo !== 'Especiero' && m.tipo !== 'EspecieroTorre') m.extraible = true;   /* A74: extraible (cajon) de fabrica */
       m.tipo = v; m.frenteSup = m.frenteMed = 0; m.frentes = []; m.inferiorAbierto = false;
       if (cfg.closet && v === 'Repisas' && m.repisasEspecial < 3) m.repisasEspecial = 5;
       if (ANCHO_TIPO[v]) { if (l.length === h.length) h[l.indexOf(m)].fijo = false; m.ancho = ANCHO_TIPO[v](Object.assign({}, m, { tipo: v })); m.fijo = true; }
@@ -5143,7 +5173,7 @@ const ACT = {
   centrar: (v, m) => centrarIsla(m.id),
   iAlto: v => change(c => c.altoBajos = v, 'Revisar altura'), iFondo: (v, m) => change(() => byId(m.id).fondo = v),
   /* puerta oculta */
-  hdLado: v => change(() => hdSel().derecha = v === 'der'), hdAncho: v => change(() => hdSel().ancho = Math.round(v)), hdFondo: v => change(() => hdSel().fondo = v),
+  hdLado: v => change(() => hdSel().derecha = v === 'der'), hdAbre: v => change(() => hdSel().abre = v === 'afuera' ? 'afuera' : 'adentro'), hdAncho: v => change(() => hdSel().ancho = Math.round(v)), hdFondo: v => change(() => hdSel().fondo = v),
   hdInv: v => change(() => hdSel().invertir = v), hdZoc: v => change(() => hdSel().zoclo = v),
   hdPist: v => change(() => hdSel().piston = v), hdAltP: v => change(() => hdSel().altoPiston = v),
   hdTapL: v => change(() => hdSel().tapetaLateral = v), hdTapLW: v => change(() => hdSel().anchoTapeta = v), hdTapS: v => change(() => hdSel().tapetaSuperior = v),
@@ -5186,7 +5216,7 @@ const ACT = {
   cerrI: v => change(c => c.cerrarZocloIzq = v), cerrD: v => change(c => c.cerrarZocloDer = v),
   genBs: v => change(c => c.backsplash = v), bsComp: v => change(c => c.backsplashCompleto = v), bsAlto: v => change(c => c.altoBacksplash = v), bsEsp: v => change(c => c.espesorBacksplash = v),
   led: v => change(c => c.led = v), ledPos: v => change(c => { c.ledCentro = v === 'centro'; if (v !== 'centro') c.ledFrente = v === 'frente'; }),
-  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0),
+  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0), ledLuz: v => change(c => c.ledLuz = v),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
@@ -6005,6 +6035,10 @@ const EN = {
   'Revisar ancho': 'Check width',
   'Exportar vistas': 'Export views',
   'Marco shaker': 'Shaker frame',
+  'Abre': 'Opens',
+  'Hacia adentro': 'Inward',
+  'Hacia afuera': 'Outward',
+  'Simular la luz en el muro (SketchUp)': 'Simulate the light on the wall (SketchUp)',
   'Al frente': 'Front',
   'Al centro': 'Center',
   'Distancia del borde': 'Distance from the edge',
