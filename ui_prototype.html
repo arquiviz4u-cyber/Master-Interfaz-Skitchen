@@ -160,6 +160,14 @@
        Cocina n / Isla 0n. Revit: ya es asi.
    A69. Pestana estable (04/10): la pestana elegida se recuerda y se restaura
        al recargar la pagina (SketchUp) y al cerrar Guardado o Ajustes.
+   A75. Jaladera al centro del marco (04/10, usuario; pasa tambien en Revit): en
+       Clasica la perilla o barra de la puerta va al centro del ancho del
+       montante (marcoShaker/2 del canto) y la del elevable al centro del riel
+       inferior; Simple sigue a 5 cm. Revit: HandleAt con el mismo canto.
+   A76. Shaker en elevables de piston (04/10, usuario): el frente del modulo
+       superior del alto doble (piston o dos puertas) y el del gabinete de
+       piston de la puerta oculta llevan marco shaker en Clasica (2D y 3D).
+       Revit: aplicar Estilo_Shaker a esos frentes.
    A73. Puerta oculta: Abre (04/10, usuario): la opcion Lado se cambia por Abre:
        hacia adentro (al vano, de fabrica, como Revit) o hacia afuera (a la
        cocina); el lado se elige al agregarla. Planta e Interactuar siguen el
@@ -1986,6 +1994,9 @@ const PLAN_GOLA = { fondo: 2.6, traslape: 2.2, lamina: .2, melamina: 1.8 };
    solo se reduce si el frente es tan chico que el tablero rehundido quedaria de menos de 2 cm. Antes: min(6, lado menor / 3.5) de
    Revit, que dejaba el marco del cajon chico mas angosto que el de los demas */
 const marcoShaker = (w, h) => Math.max(.5, Math.min(cfg.anchoShaker || 5, (Math.min(w, h) - 2)/2));
+/* A75 (usuario, 04/10): en Clasica la perilla o la barra va al centro del ancho del marco (montante de la puerta, riel inferior del
+   elevable); en Simple, a 5 cm del canto como antes */
+const cantoJaladera = (w, h) => cfg.style === 'Clasica' ? marcoShaker(w, h)/2 : 5;
 const golaHondo = () => PLAN_GOLA.fondo + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina - PLAN_GOLA.lamina : 0);   /* melamina: mas hondo, mismo canal libre */
 /* LED bajo los altos (usuario, 03/10): la cama corrida es el piso de los altos (laterales y trasero apoyan sobre ella y las puertas
    alinean con su cara inferior); el perfil LED de 1.7 x 0.7 cm va embutido en una ranura por debajo de la cama */
@@ -2097,8 +2108,9 @@ function planDePiezas(c = cfg){
     const jaladera = (m, f, x0, base) => {
       if (cfg.style === 'Moderna' || f.fijo || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
       const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', J = PLAN_JALADERA, boton = cfg.jaladera === 'Boton';
-      const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + 5 : (f.z0 + f.z1)/2;
-      const cx = x0 + (vertical ? (f.hingeRight ? f.x0 + 5 : f.x1 - 5) : (f.x0 + f.x1)/2);
+      const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
+      const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : (f.z0 + f.z1)/2;
+      const cx = x0 + (vertical ? (f.hingeRight ? f.x0 + ck : f.x1 - ck) : (f.x0 + f.x1)/2);
       const [w, h] = boton ? [J.boton, J.boton] : vertical ? [J.grueso, L] : [L, J.grueso];
       add({ id: base + ':jaladera', rol: 'herraje', modulo: m.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: sep + m.fondo + t, z: cz - h/2, ancho: w, fondo: boton ? J.boton : J.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' });
     };
@@ -2269,8 +2281,9 @@ function planDePiezas(c = cfg){
           const capMat = m.materialSuperior || cfg.materialGeneral || null, fondo = Math.max(...cap.members.map(q => q.fondo));
           const h = carcasa(m, m.id + ':superior', cx0, cx1, cz0, cz1, fondo, capMat, 'cap');
           interior(m, m.id + ':superior', h, m.repisasSuperior || 0, m.divisionSuperior ? Math.max(1, m.divisionesSuperior || 1) : 0, 'cap');
+          /* A76: con tablero, para llevar marco shaker en estilo Clasica como los demas frentes */
           const capFront = (k, kind, a, b, hingeRight) => { const base = m.id + ':superior:frente:' + k;
-            add({ id: base, rol: 'frente', modulo: m.id, tipo: kind, x: a, y: sep + fondo, z: cz0 + hol, ancho: b - a, fondo: t, alto: cz1 - cz0 - 2*hol, material: capMat, etiqueta: 'frentes', bisagraDerecha: hingeRight, fijo: false });
+            tablero(m.id, base, kind, a, b, cz0 + hol, cz1 - hol, sep + fondo, capMat, hingeRight, false);
             if (kind === 'Puerta') bisagras(m, base, a, b, cz0 + hol, cz1 - hol, hingeRight, sep + fondo); };
           if (m.tipoSuperior === 'Puertas') { const xm = (cx0 + cx1)/2; capFront(0, 'Puerta', cx0 + hol, xm - hol, false); capFront(1, 'Puerta', xm + hol, cx1 - hol, true); }
           else if (m.tipoSuperior !== 'Repisas') capFront(0, 'Elevable', cx0 + hol, cx1 - hol, false);
@@ -2419,11 +2432,11 @@ function planDePiezas(c = cfg){
       juntas.forEach((jz, i) => add({ id: base + ':junta:' + i, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: a, y: yF + t, z: jz - J.ancho/2, ancho: c - a, fondo: J.salida, alto: J.ancho, material: d.materialJuntas || null, etiqueta: 'herrajes' }));
       if (d.juntaVertical) [z0, ...juntas.flatMap(j => [j - J.ancho/2, j + J.ancho/2]), z1].forEach((z, i, l) => { if (i % 2) return;
         add({ id: base + ':junta:v:' + i/2, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: (s0 + s1)/2 - J.ancho/2, y: yF + t, z, ancho: J.ancho, fondo: J.salida, alto: l[i + 1] - z, material: d.materialJuntas || null, etiqueta: 'herrajes' }); });
-      if (cfg.style !== 'Moderna') { const Jl = PLAN_JALADERA, boton = cfg.jaladera === 'Boton', cx = hr ? s0 + 5 : s1 - 5, [w, h] = boton ? [Jl.boton, Jl.boton] : [Jl.grueso, cfg.largoJaladera];
+      if (cfg.style !== 'Moderna') { const Jl = PLAN_JALADERA, boton = cfg.jaladera === 'Boton', ck = .2 + cantoJaladera(c - a, z1 - z0), cx = hr ? s0 + ck : s1 - ck, [w, h] = boton ? [Jl.boton, Jl.boton] : [Jl.grueso, cfg.largoJaladera];
         add({ id: base + ':jaladera', rol: 'herraje', modulo: d.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: yF + t + J.salida, z: 100 - h/2, ancho: w, fondo: boton ? Jl.boton : Jl.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' }); }
       if (d.piston) {
         carcasa(dm, d.id + ':piston', s0, s1, zc, top, yF - sep, capMat, 'cap');
-        add({ id: d.id + ':piston:frente', rol: 'frente', modulo: d.id, tipo: 'Elevable', x: a, y: yF, z: zc + hol, ancho: c - a, fondo: t, alto: top - zc - 2*hol, material: capMat, etiqueta: 'frentes', bisagraDerecha: false, fijo: false });
+        tablero(d.id, d.id + ':piston:frente', 'Elevable', a, c, zc + hol, top - hol, yF, capMat, false, false);   /* A76: con marco shaker en Clasica */
       }
       const [f0, f1] = d.tapetaLateral ? hdFiller(d) : [s0, s0];
       if (d.tapetaLateral) add({ id: d.id + ':tapeta:lateral', rol: 'tapeta', modulo: d.id, x: f0, y: 0, z: 0, ancho: f1 - f0, fondo: d.fondo, alto: top, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
@@ -2451,6 +2464,7 @@ function planDePiezas(c = cfg){
        recorrido. Todo en cm del plan; Ruby solo gira o desliza */
     const duenoDe = q => { if (q.frente) return q.frente; const h = /^(.*?:hoja)(:|$)/.exec(q.id); if (h) return h[1];
       const f = /^(.*?:frente:\d+)(:|$)/.exec(q.id); if (f) return f[1];
+      const pf = /^(.*?:piston:frente)(:|$)/.exec(q.id); if (pf) return pf[1];   /* A76: marcos del elevable de la puerta oculta */
       return q.rol === 'frente' && ['Puerta', 'Cajon', 'Elevable'].includes(q.tipo) ? q.id : null; };
     const movibles = new Map();
     piezas.forEach(q => { const d = duenoDe(q); if (d) { if (!movibles.has(d)) movibles.set(d, []); movibles.get(d).push(q); } });
@@ -3710,6 +3724,7 @@ function drawHiddenDoors(X, Z, RX, scale, post){
         const q = RX(s0 + f.x0, s0 + f.x1, f.z0, f.z1);
         if (f.panel === 'zoclo') fillMat(q.x, q.y, q.w, q.h, groupMaterial('Zoclo'), C.zocalo);
         else fillMat(q.x, q.y, q.w, q.h, f.kind === 'Elevable' ? capMat : dmat, C.front);
+        if (f.kind === 'Elevable' && cfg.style === 'Clasica') { const fw = marcoShaker(f.x1 - f.x0, f.z1 - f.z0)*scale; ctx.save(); ctx.strokeStyle = C.shaker; ctx.lineWidth = 1; if (q.w > 2*fw + 2 && q.h > 2*fw + 2) ctx.strokeRect(q.x + fw, q.y + fw, q.w - 2*fw, q.h - 2*fw); ctx.restore(); }   /* A76 */
         if (f.kind === 'Elevable') { materialHits.push({ rect: q, key: 'doorcap:' + d.id }); if (proyOn()) { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing; line(q.x, q.y + q.h, q.x + q.w/2, q.y); line(q.x + q.w, q.y + q.h, q.x + q.w/2, q.y); ctx.restore(); } }
         outline(q, C.line, 1);
       }
@@ -3717,7 +3732,7 @@ function drawHiddenDoors(X, Z, RX, scale, post){
       if (cfg.style !== 'Moderna') {   /* clasica: marco shaker por tablero; jaladera junto al canto libre a 100 cm */
         if (cfg.style === 'Clasica') { ctx.strokeStyle = C.shaker; ctx.lineWidth = 1;
           hdPanels(d).forEach(([a, b, c0, c1]) => { const fw = marcoShaker(b - a, c1 - c0)*scale, q = RX(s0 + a, s0 + b, c0, c1); if (q.w > 2*fw + 2 && q.h > 2*fw + 2) ctx.strokeRect(q.x + fw, q.y + fw, q.w - 2*fw, q.h - 2*fw); }); }
-        const hx = hr ? lr.x + 5*scale : lr.x + lr.w - 5*scale, hy = Z(100), half = cfg.largoJaladera/2*scale;
+        const ck = .2 + cantoJaladera(s1 - s0 - .4, zc - bottom - .4), hx = hr ? lr.x + ck*scale : lr.x + lr.w - ck*scale, hy = Z(100), half = cfg.largoJaladera/2*scale;
         ctx.fillStyle = ctx.strokeStyle = colorJaladera(); destinoJaladera(hx, hy - half, hx, hy + half);
         if (cfg.jaladera === 'Boton') { ctx.beginPath(); ctx.arc(hx, hy, 2.5, 0, Math.PI*2); ctx.fill(); }
         else { ctx.lineWidth = Math.max(2, 1.2*scale); ctx.lineCap = 'round'; line(hx, hy - half, hx, hy + half); ctx.lineCap = 'butt'; }
@@ -3897,6 +3912,9 @@ function drawCap(g, RX, post){
     if (proyOn()) { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing;
     line(cr.x, cr.y, mx, my); line(cr.x, cr.y + cr.h, mx, my); line(cr.x + cr.w, cr.y, mx, my); line(cr.x + cr.w, cr.y + cr.h, mx, my); ctx.restore(); }
   } else if (showDoors && !box && m.mostrarPuertaSuperior && proyOn()) { line(cr.x, cr.y + cr.h, mx, cr.y); line(cr.x + cr.w, cr.y + cr.h, mx, cr.y); }
+  /* A76: marco shaker tambien en el modulo superior (dos puertas o elevable) en estilo Clasica */
+  if (showDoors && !box && cfg.style === 'Clasica') { const s = frame.scale, n = m.tipoSuperior === 'Puertas' ? 2 : 1, w = cr.w/n; ctx.strokeStyle = C.shaker; ctx.lineWidth = 1;
+    for (let i = 0; i < n; i++) { const fw = marcoShaker(w/s, cr.h/s)*s; if (w > 2*fw + 2 && cr.h > 2*fw + 2) ctx.strokeRect(cr.x + i*w + fw, cr.y + fw, w - 2*fw, cr.h - 2*fw); } }
   if (picked) post.push(() => outline(cr, C.focus, 3));
   else if (hover === 'part:' + key) post.push(() => outline(cr, C.hoverPart, 1.5));
 }
@@ -4069,8 +4087,9 @@ function drawHandle(f, r, scale){
   if (cfg.style === 'Clasica') { const fw = marcoShaker(f.x1 - f.x0, f.z1 - f.z0)*scale; ctx.strokeStyle = C.shaker; ctx.lineWidth = 1; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
   /* HandleAt: altos, abajo; puertas altas (mas de 110 cm hasta sobre 160), a 95 cm del lecho; resto, arriba. Elevable: abajo */
   const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', Zs = frame.Z;
-  const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + 5 : (f.z0 + f.z1)/2;
-  const cx = vertical ? (f.hingeRight ? r.x + 5*scale : r.x + r.w - 5*scale) : r.x + r.w/2, cy = Zs(cz);
+  const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
+  const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : (f.z0 + f.z1)/2;
+  const cx = vertical ? (f.hingeRight ? r.x + ck*scale : r.x + r.w - ck*scale) : r.x + r.w/2, cy = Zs(cz);
   ctx.fillStyle = ctx.strokeStyle = colorJaladera();
   if (cfg.jaladera === 'Boton') { const rb = Math.max(2.5, 1.1*scale); ctx.beginPath(); ctx.arc(cx, cy, rb, 0, Math.PI*2); ctx.fill(); destinoJaladera(cx - rb, cy - rb, cx + rb, cy + rb); return; }
   const h = L/2*scale; ctx.lineWidth = Math.max(2, Math.min(4, 1.2*scale)); ctx.lineCap = 'round';
