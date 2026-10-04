@@ -287,6 +287,15 @@
        del frente de arriba). Ahora la caja empieza sobre la aleta de abajo y
        termina bajo la de arriba, con 0.5 cm de holgura. Revit: revisar la caja
        de sus familias de cajon con gola.
+   B19. [SketchUp OK 03/10] Herrajes de detalle intermedio (pocas caras): el plan
+       trae forma (cilindro o perfil extruido dentro de la caja de la pieza) y
+       estado (pieza de un solo estado, cerrado o abierto). Bisagra: cazoleta
+       redonda en la puerta + brazo y placa en el lateral (si la placa cae en una
+       repisa, la bisagra se corre lo minimo dentro de su puerta: Revit no lo
+       hace). Correderas: par por cajon, fija en C en el lateral y movil en la
+       caja, largo de 5 en 5 (15-60) que cabe en la caja (Revit: (fondo - 8)
+       redondeado a 5; unificar). Pistones: regla PistonMount de Revit, cuerpo y
+       vastago, cerrados y abiertos.
    B16. [SketchUp OK 03/10] Isla (Line-Island) en el plan de piezas: gabinetes con
        frentes alineados, costados o cascadas, paneles posteriores (reparto y
        shaker hacia los bancos), zoclo frontal con cierres, zoclo posterior con
@@ -1781,7 +1790,10 @@ const golaHondo = () => PLAN_GOLA.fondo + (cfg.gola === 'Melamina' ? PLAN_GOLA.m
 /* LED bajo los altos (usuario, 03/10): la cama corrida es el piso de los altos (laterales y trasero apoyan sobre ella y las puertas
    alinean con su cara inferior); el perfil LED de 1.7 x 0.7 cm va embutido en una ranura por debajo de la cama */
 const PLAN_LED = { ancho: 1.7, hondo: .7, retiro: 8 }, PLAN_JUNTA = { ancho: .4, salida: .2 };   /* retiro: del borde del mueble al inicio del canal */
-const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 1.8 };                       /* cazoleta de 35 mm a 1.8 cm del canto (Revit) */
+const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 1.8,                        /* cazoleta de 35 mm a 1.8 cm del canto (Revit) */
+  brazo: 4.5, brazoAlto: 1.6, brazoPaso: .6, placa: 3, placaAlto: 4, placaGrueso: .8 };   /* B19: brazo y placa en el lateral */
+const PLAN_CORREDERA = { fija: .6, movil: .5, alto: 4.5, centro: 2.6, pared: .15 };   /* B19: en la holgura de la caja (PLAN_CAJA.holgura) */
+const PLAN_PISTON = { cuerpo: 1.8, vastago: .8, largoCuerpo: .6 };                    /* B19: el cuerpo es el 60 % del piston cerrado (Revit) */
 const PLAN_TARJA = { lamina: .8, ceja: 2.5, cejaAlto: .6 }, PLAN_PLACA = .6, PLAN_SHAKER_REHUNDIDO = .6;
 const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes', 'tapetas', 'backsplash', 'equipos'];
 const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo'];
@@ -1876,7 +1888,8 @@ function planDePiezas(c = cfg){
       if (!cfg.bisagras) return;
       const B = PLAN_BISAGRA, h = z1 - z0, n = h <= 90 ? 2 : h <= 160 ? 3 : h <= 200 ? 4 : 5, borde = Math.min(10, h*.25), paso = (h - 2*borde)/(n - 1);
       const cx = derecha ? b - B.canto : a + B.canto;
-      for (let k = 0; k < n; k++) add({ id: base + ':bisagra:' + k, rol: 'herraje', modulo: m.id, tipo: 'Bisagra', x: cx - B.cazoleta/2, y, z: z0 + borde + paso*k - B.cazoleta/2, ancho: B.cazoleta, fondo: B.hondo, alto: B.cazoleta, material: null, etiqueta: 'herrajes' });
+      for (let k = 0; k < n; k++) add({ id: base + ':bisagra:' + k, rol: 'herraje', modulo: m.id, tipo: 'Bisagra', x: cx - B.cazoleta/2, y, z: z0 + borde + paso*k - B.cazoleta/2, ancho: B.cazoleta, fondo: B.hondo, alto: B.cazoleta, material: null, etiqueta: 'herrajes',
+        forma: { tipo: 'cilindro', de: [B.cazoleta/2, 0, B.cazoleta/2], a: [B.cazoleta/2, B.hondo, B.cazoleta/2], diametro: B.cazoleta, lados: 12 } });
     };
     /* frente: liso, o en estilo Clasica con marco shaker (como drawHandle: frentes de 8 cm o mas que no son fijos): tablero
        rehundido con el id del frente y cuatro piezas de marco del ancho de Revit (Ancho_Marco = min(6, lado menor / 3.5)) */
@@ -2230,6 +2243,85 @@ function planDePiezas(c = cfg){
         : principal.tipo === 'Elevable' ? { tipo: 'Elevable', z: r2(z1), y: r2(y) }
         : { tipo: 'Cajon', recorrido: r2(cajas.length ? Math.max(...cajas.map(q => q.fondo))*.8 : 40) };
     });
+    /* B19 herrajes de detalle intermedio (usuario, 03/10: reconocibles y con pocas caras; los de la competencia pesan demasiado).
+       forma: la geometria dentro de la caja de la pieza, en cm desde su esquina menor y en ejes del plan: cilindro (de, a, diametro,
+       lados) o perfil (puntos del poligono en el plano normal a eje, extruido a todo el largo de la caja). Ruby solo la construye.
+       estado: pieza de un solo estado del frente (cerrado o abierto); Ruby muestra la del estado actual al Interactuar */
+    const seCruzan = (a, b) => ['x', 'y', 'z'].every((e, i) => { const w = ['ancho', 'fondo', 'alto'][i]; return a[e] + a[w] > b[e] + .01 && b[e] + b[w] > a[e] + .01; });
+    const barra = (datos, de, a, d, lados) => {   /* cilindro de de a a (cm del plan): la caja lo envuelve */
+      const r = d/2, lo = [0, 1, 2].map(i => Math.min(de[i], a[i]) - r), hi = [0, 1, 2].map(i => Math.max(de[i], a[i]) + r);
+      const q = Object.assign(datos, { x: lo[0], y: lo[1], z: lo[2], ancho: hi[0] - lo[0], fondo: hi[1] - lo[1], alto: hi[2] - lo[2] });
+      add(q);
+      const local = v => [r2(Math.min(Math.max(v[0] - q.x, 0), q.ancho)), r2(Math.min(Math.max(v[1] - q.y, 0), q.fondo)), r2(Math.min(Math.max(v[2] - q.z, 0), q.alto))];
+      q.forma = { tipo: 'cilindro', de: local(de), a: local(a), diametro: d, lados };
+    };
+    /* bisagra: brazo y placa en la cara del lateral del lado de la bisagra (se quedan al abrir; la cazoleta se va con la puerta). Si
+       la placa cae en una repisa, la bisagra se corre lo minimo para librarla dentro de su puerta, como en obra */
+    const B9 = PLAN_BISAGRA;
+    if (cfg.bisagras) piezas.filter(q => q.tipo === 'Bisagra' && q.frente).forEach(q => {
+      const g = movibles.get(q.frente), pr = g && g.find(r => r.abre); if (!pr || pr.abre.tipo !== 'Puerta') return;
+      const der = pr.abre.lado === 'derecha', cx = q.x + q.ancho/2, yb = q.y, z0 = q.z + q.alto/2, largo = B9.brazo + B9.placa;
+      const fr = g.filter(r => r.rol === 'frente'), f0 = Math.min(...fr.map(r => r.z)), f1 = Math.max(...fr.map(r => r.z + r.alto));
+      const caras = piezas.filter(r => r.modulo === q.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.y <= yb - largo + .01 && r.y + r.fondo >= yb - .01 && r.z < z0 && r.z + r.alto > z0)
+        .map(r => der ? r.x : r.x + r.ancho).filter(c => der ? c >= cx - .01 && c - cx < 6 : c <= cx + .01 && cx - c < 6);
+      if (!caras.length) return;
+      const cara = der ? Math.min(...caras) : Math.max(...caras);
+      const bx = der ? [cx - B9.brazoPaso, cara] : [cara, cx + B9.brazoPaso], px = der ? [cara - B9.placaGrueso, cara] : [cara, cara + B9.placaGrueso];
+      const cajas = z => [{ x: bx[0], y: yb - B9.brazo, z: z - B9.brazoAlto/2, ancho: bx[1] - bx[0], fondo: B9.brazo, alto: B9.brazoAlto },
+                          { x: px[0], y: yb - largo, z: z - B9.placaAlto/2, ancho: px[1] - px[0], fondo: B9.placa, alto: B9.placaAlto }];
+      const estorban = piezas.filter(r => r.modulo === q.modulo && ['repisa', 'panel', 'division', 'caja'].includes(r.rol));
+      const libre = z => z - B9.placaAlto/2 >= f0 - .01 && z + B9.placaAlto/2 <= f1 + .01 && cajas(z).every(b => estorban.every(r => !seCruzan(b, r)));
+      const z = [z0, ...estorban.flatMap(r => [r.z + r.alto + B9.placaAlto/2 + .1, r.z - B9.placaAlto/2 - .1])].sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0)).find(libre);
+      if (z === undefined || bx[1] - bx[0] < .1) return;
+      q.z = r2(q.z + z - z0);
+      const [brazo, placa] = cajas(z), dato = { rol: 'herraje', modulo: q.modulo, material: null, etiqueta: 'herrajes' };
+      add(Object.assign({ id: q.id.replace(':bisagra:', ':brazo:'), tipo: 'Brazo' }, dato, brazo));
+      add(Object.assign({ id: q.id.replace(':bisagra:', ':placa:'), tipo: 'Placa' }, dato, placa));
+    });
+    /* correderas: un par por cajon, en la holgura entre el lateral y la caja. Fija (perfil en C abierto hacia la caja) en el lateral;
+       movil (barra) en la caja, sale con ella. Largo comercial de 5 en 5 cm (15 a 60) que cabe en la caja */
+    const C9 = PLAN_CORREDERA, hueco = PLAN_CAJA.holgura;
+    cajasPorFrente.forEach((qs, d) => {
+      const iz = qs.find(r => r.id.endsWith(':lado:izq')), dr = qs.find(r => r.id.endsWith(':lado:der')); if (!iz || !dr) return;
+      const largo = Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), y = iz.y + iz.fondo - largo;
+      const H = Math.min(C9.alto, iz.alto - .2), z = iz.z + Math.min(C9.centro, iz.alto/2) - H/2, w = C9.pared;
+      const perfil = [[0, 0], [C9.fija, 0], [C9.fija, w], [w, w], [w, H - w], [C9.fija, H - w], [C9.fija, H], [0, H]];
+      [['izq', iz.x], ['der', dr.x + dr.ancho]].forEach(([lado, cara]) => {
+        const izq = lado === 'izq', dato = { rol: 'herraje', modulo: iz.modulo, material: null, etiqueta: 'herrajes', y, fondo: largo };
+        const fija = Object.assign({ id: d + ':corredera:' + lado, tipo: 'Corredera', x: izq ? cara - hueco : cara + hueco - C9.fija, z, ancho: C9.fija, alto: H }, dato);
+        add(fija);
+        fija.forma = { tipo: 'perfil', eje: 'y', puntos: (izq ? perfil : perfil.map(([u, v]) => [C9.fija - u, v])).map(([u, v]) => [r2(Math.min(u, fija.ancho)), r2(Math.min(v, fija.alto))]) };
+        add(Object.assign({ frente: d, id: d + ':corredera:' + lado + ':movil', tipo: 'CorrederaMovil', x: izq ? cara - .1 - C9.movil : cara + .1, z: z + .5, ancho: C9.movil, alto: H - 1 }, dato));
+      });
+    });
+    /* pistones (regla de Revit, PistonMount): dos por elevable a min(4, ancho/4) de sus cantos; ancla en el lateral, a min(16, 45 %
+       del fondo) del frente y a min(alto - 3, 72 % del alto) bajo su canto superior; punta en la puerta: cerrada, 1.8 tras el frente y
+       a min(20, 35 % del alto) bajo el canto; abierta, a esa distancia delante del frente, bajo la puerta levantada. Una pieza por
+       estado: Ruby muestra la cerrada o la abierta */
+    const P9 = PLAN_PISTON;
+    movibles.forEach((qs, d) => {
+      const pr = qs.find(r => r.abre && r.abre.tipo === 'Elevable'); if (!pr) return;
+      const fr = qs.filter(r => r.rol === 'frente'), x0 = Math.min(...fr.map(r => r.x)), x1 = Math.max(...fr.map(r => r.x + r.ancho));
+      const yF = Math.min(...fr.map(r => r.y)), z0 = Math.min(...fr.map(r => r.z)), z1 = Math.max(...fr.map(r => r.z + r.alto)), h = z1 - z0;
+      const lat = piezas.filter(r => r.modulo === pr.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.z < z1 && r.z + r.alto > z0 && r.y < yF && r.y + r.fondo >= yF - .01);
+      const hondo = lat.length ? Math.max(...lat.map(r => r.fondo)) : 0;
+      if (h <= 6 || hondo <= 4) return;
+      const caida = Math.min(20, h*.35), fijo = Math.min(h - 3, h*.72), dentro = Math.min(16, hondo*.45), inset = Math.min(4, (x1 - x0)/4), t9 = PLAN_ESPESOR_FRENTE;
+      const cerrada = [yF - t9, z1 - caida];
+      [x0 + inset, x1 - inset].forEach((sx, i) => {
+        /* una repisa entre el ancla y la punta: el ancla sube sobre ella (en obra el piston se monta arriba de la repisa) */
+        const r9 = P9.cuerpo/2, sobre = piezas.filter(r => r.modulo === pr.modulo && r.rol === 'repisa' && r.x < sx + r9 && r.x + r.ancho > sx - r9 && r.y < yF && r.z + r.alto > z1 - fijo - r9 && r.z < cerrada[1]);
+        const ancla = [yF - dentro, Math.max(z1 - fijo, ...sobre.map(r => r.z + r.alto + r9 + .2))];
+        if (ancla[1] > cerrada[1] - 2) return;
+        const cuerpo = P9.largoCuerpo*Math.hypot(cerrada[0] - ancla[0], cerrada[1] - ancla[1]);
+        [['cerrado', cerrada], ['abierto', [yF + caida, z1 - t9]]].forEach(([estado, punta]) => {
+        const dy = punta[0] - ancla[0], dz = punta[1] - ancla[1], k = Math.min(1, cuerpo/Math.hypot(dy, dz)), medio = [sx, ancla[0] + dy*k, ancla[1] + dz*k];
+        const id = d + ':piston:' + i + ':' + estado, dato = { rol: 'herraje', modulo: pr.modulo, material: null, etiqueta: 'herrajes', frente: d, estado };
+        barra(Object.assign({ id: id + ':cuerpo', tipo: 'Piston' }, dato), [sx, ancla[0], ancla[1]], medio, P9.cuerpo, 10);
+        barra(Object.assign({ id: id + ':vastago', tipo: 'Vastago' }, dato), medio, [sx, punta[0], punta[1]], P9.vastago, 8);
+      });
+      });
+    });
     /* muescas de la gola: los laterales se parten (a todo fondo fuera del canal, rebajados dentro); techo, lechos, repisas y
        divisiones del modulo que entran en el canal se acortan hasta su fondo */
     for (let i = piezas.length - 1; i >= 0; i--) {
@@ -2340,9 +2432,10 @@ function pruebasPlanDePiezas(){
     const solidos = q => !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
       Object.assign({}, q, { y: q.y + q.ranura.y, fondo: q.ranura.ancho, z: q.z + q.ranura.hondo, alto: q.alto - q.ranura.hondo }),
       Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
-    const choca = (a, b) => solidos(a).some(u => solidos(b).some(v => cruza(u, v)));
+    const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado */
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
-    const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]);
+    const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) ||
+      a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago');   /* B19: el vastago entra en su cuerpo */
     p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !choca(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
     /* bisagras: las de la regla de Revit en cada puerta (2 hasta 90 cm, 3 hasta 160, 4 hasta 200, 5 mas) */
     const ocultas = new Set((c.puertasOcultas || []).map(d => d.id));
@@ -2376,6 +2469,14 @@ function pruebasPlanDePiezas(){
         ok(Math.abs(borde - PLAN_LED.retiro) < .01, nombre + ': el canal del LED queda a ' + borde + ' cm del borde en ' + m.id);
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
         ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
+    /* B19: la forma de cada pieza cabe en su caja; cada cajon lleva su par de correderas y cada elevable sus pistones */
+    const dentro = (q, v) => v.every((c, i) => c >= -.001 && c <= [q.ancho, q.fondo, q.alto][i] + .001);
+    p.piezas.filter(q => q.forma).forEach(q => ok(q.forma.tipo === 'cilindro' ? dentro(q, q.forma.de) && dentro(q, q.forma.a) && q.forma.diametro > 0 && q.forma.lados >= 6
+      : q.forma.tipo === 'perfil' && ['x', 'y', 'z'].includes(q.forma.eje) && q.forma.puntos.length >= 3 && q.forma.puntos.every(([u, v]) => {
+        const [du, dv] = { x: [q.fondo, q.alto], y: [q.ancho, q.alto], z: [q.ancho, q.fondo] }[q.forma.eje]; return u >= -.001 && v >= -.001 && u <= du + .001 && v <= dv + .001; }),
+      nombre + ': forma fuera de su caja en ' + q.id));
+    p.piezas.filter(q => q.abre && q.abre.tipo === 'Cajon').forEach(q => { const n = p.piezas.filter(r => r.frente === q.frente && r.tipo === 'CorrederaMovil').length;
+      ok(!p.piezas.some(r => r.frente === q.frente && r.rol === 'caja') || n === 2, nombre + ': ' + n + ' correderas en ' + q.frente); });
     /* B18: la caja de cajon sale por y: ninguna cruza en x y z la gola de su modulo */
     p.piezas.filter(q => q.rol === 'caja').forEach(q => p.piezas.filter(g => g.rol === 'herraje' && ['Gola', 'Perfil'].includes(g.tipo) && g.modulo === q.modulo)
       .forEach(g => ok(!(q.x < g.x + g.ancho - .01 && q.x + q.ancho > g.x + .01 && q.z < g.z + g.alto - .01 && q.z + q.alto > g.z + .01), nombre + ': la caja ' + q.id + ' choca al abrir con ' + g.id)));
