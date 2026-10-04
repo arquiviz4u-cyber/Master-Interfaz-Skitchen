@@ -357,13 +357,6 @@
        nueva (bisagras) quedaba indefinida y apagaba la opcion. Ruby recarga la
        ventana del generador si el master cambio (antes generaba con la pagina
        vieja). Revit: completar igual la configuracion guardada al editar.
-   B23. [Solo SketchUp 04/10] Pintar desde el modelo: cada pieza del plan lleva
-       pinta (la clave de material del arrastre 2D: mod:, cap:, panel:...,
-       doorleaf:, Cubierta, Zoclo...). Una muestra soltada fuera de la ventana
-       del editor (o clic derecho) activa en SketchUp la herramienta Pintar: las
-       piezas de la clave bajo el cursor se resaltan y un clic aplica el
-       material (ponerMaterial, sin seleccion multiple); con LiveSync se ve al
-       instante. Revit: no aplica.
    B22. [Solo SketchUp 04/10] LiveSync: tras el primer Generar (o al abrir una
        cocina ya generada) aparece el interruptor LiveSync encendido y Generar
        se oculta; cada cambio valido se genera solo 400 ms despues del ultimo
@@ -1997,18 +1990,15 @@ function planDePiezas(c = cfg){
        Devuelve el hueco interior. Sin travesaños por ahora: el techo es completo (PLAN_PENDIENTE) */
     /* canal del LED en la cama: su borde mas cercano a PLAN_LED.retiro del canto frontal del alto, o de su cara trasera si va atras */
     const ranuraLed = y1 => cfg.ledFrente ? y1 - PLAN_LED.retiro - PLAN_LED.ancho : sep + PLAN_LED.retiro;
-    /* B23 pinta: la clave de material de la pieza (la misma del arrastre 2D: mod:, cap:, panel:, doorleaf:, Cubierta...), para pintarla
-       desde el modelo. pinta = el cuerpo (mod:, cap: o doorcap:); el fondo de su zona, si la tiñe (A64), o el trasero */
-    const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false, pinta = 'mod:' + dueno.id) => {
+    const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false) => {
       const e = PLAN_CUERPO.lateral, ef = PLAN_CUERPO.fondo, y0 = sep, y1 = sep + fondo;
       const propio = (dueno.materialesPaneles || {})[zona + '.fondo'];   /* A64: el canto de la caja sigue al fondo de su zona */
-      const fondoKey = cfg.modulos.some(q => q.id === dueno.id) ? 'panel:' + dueno.id + ':' + zona + '.fondo' : 'Interior';
-      const panel = (k, tipo, a, b, c0, c1, d0, d1, material = propio || mat, clave = propio ? fondoKey : pinta) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, pinta: clave, etiqueta: 'gabinetes' });
+      const panel = (k, tipo, a, b, c0, c1, d0, d1, material = propio || mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       /* con LED, la cama corrida (ver mas abajo) es el piso: laterales y trasero apoyan sobre ella y el gabinete no lleva piso propio */
       const zl = led ? z0 + e : z0;
       panel('lateral:izq', 'Lateral', x0, x0 + e, y0, y1, zl, z1);
       panel('lateral:der', 'Lateral', x1 - e, x1, y0, y1, zl, z1);
-      panel('trasero', 'Trasero', x0 + e, x1 - e, y0, y0 + ef, zl, z1, matPanel(dueno, zona, 'fondo', 'Interior'), fondoKey);
+      panel('trasero', 'Trasero', x0 + e, x1 - e, y0, y0 + ef, zl, z1, matPanel(dueno, zona, 'fondo', 'Interior'));
       if (!led) panel('piso', 'Piso', x0 + e, x1 - e, y0 + ef, y1, z0, z0 + e);
       if (techo) panel('techo', 'Techo', x0 + e, x1 - e, y0 + ef, y1, z1 - e, z1);
       return { x0: x0 + e, x1: x1 - e, y0: y0 + ef, y1, z0: z0 + e, z1: z1 - e };
@@ -2019,20 +2009,20 @@ function planDePiezas(c = cfg){
       const e = PLAN_CUERPO.lateral, xs = [h.x0];
       for (let d = 1; d <= nDiv; d++) {
         const xc = h.x0 + (h.x1 - h.x0)*d/(nDiv + 1);
-        add({ id: base + ':division:' + d, rol: 'division', modulo: dueno.id, tipo: 'Division', x: xc - e/2, y: h.y0, z: h.z0, ancho: e, fondo: h.y1 - h.y0, alto: h.z1 - h.z0, material: matPanel(dueno, zona, d === 1 ? 'division' : 'division.' + d, 'Repisas'), pinta: 'panel:' + dueno.id + ':' + zona + '.' + (d === 1 ? 'division' : 'division.' + d), etiqueta: 'gabinetes' });
+        add({ id: base + ':division:' + d, rol: 'division', modulo: dueno.id, tipo: 'Division', x: xc - e/2, y: h.y0, z: h.z0, ancho: e, fondo: h.y1 - h.y0, alto: h.z1 - h.z0, material: matPanel(dueno, zona, d === 1 ? 'division' : 'division.' + d, 'Repisas'), etiqueta: 'gabinetes' });
         xs.push(xc - e/2, xc + e/2);
       }
       xs.push(h.x1);
       for (let i = 1; i <= nRep; i++) {
         const zc = h.z0 + (h.z1 - h.z0)*i/(nRep + 1);
-        for (let b = 0; b < xs.length; b += 2) add({ id: base + ':repisa:' + i + (nDiv ? ':' + b/2 : ''), rol: 'repisa', modulo: dueno.id, tipo: 'Repisa', x: xs[b], y: h.y0, z: zc - e/2, ancho: xs[b + 1] - xs[b], fondo: h.y1 - h.y0, alto: e, material: matPanel(dueno, zona, 'repisa.' + i, 'Repisas'), pinta: 'panel:' + dueno.id + ':' + zona + '.repisa.' + i, etiqueta: 'gabinetes' });
+        for (let b = 0; b < xs.length; b += 2) add({ id: base + ':repisa:' + i + (nDiv ? ':' + b/2 : ''), rol: 'repisa', modulo: dueno.id, tipo: 'Repisa', x: xs[b], y: h.y0, z: zc - e/2, ancho: xs[b + 1] - xs[b], fondo: h.y1 - h.y0, alto: e, material: matPanel(dueno, zona, 'repisa.' + i, 'Repisas'), etiqueta: 'gabinetes' });
       }
     };
     /* caja de cajon tras cada frente de cajon movil: lados, frente, trasera y piso, con holgura de correderas */
     const cajaCajon = (m, base, h, f, frenteId) => {   /* frenteId: la caja se mueve con su frente (Interactuar) */   /* con gola, la caja termina detras del canal */
       const c = PLAN_CAJA, x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, y0 = h.y0 + c.retiro, y1 = h.y1 - (golaStrips(m).length ? golaHondo() : 0);
       const z0 = Math.max(f.z0, h.z0 + .5), z1 = Math.min(Math.max(z0 + 4, f.z1 - c.libreArriba), h.z1 - .5), mat = matPanel(m, 'cuerpo', 'caja', 'Interior');
-      const lado = (k, tipo, a, b, p0, p1, q0, q1) => add({ frente: frenteId, id: base + ':' + k, rol: 'caja', modulo: m.id, tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, pinta: 'panel:' + m.id + ':cuerpo.caja', etiqueta: 'gabinetes' });
+      const lado = (k, tipo, a, b, p0, p1, q0, q1) => add({ frente: frenteId, id: base + ':' + k, rol: 'caja', modulo: m.id, tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, etiqueta: 'gabinetes' });
       lado('lado:izq', 'Lado', x0, x0 + c.lado, y0, y1, z0, z1);
       lado('lado:der', 'Lado', x1 - c.lado, x1, y0, y1, z0, z1);
       lado('frente', 'Frente', x0 + c.lado, x1 - c.lado, y1 - c.lado, y1, z0, z1);
@@ -2059,8 +2049,8 @@ function planDePiezas(c = cfg){
     };
     /* frente: liso, o en estilo Clasica con marco shaker (como drawHandle: frentes de 8 cm o mas que no son fijos): tablero
        rehundido con el id del frente y cuatro piezas de marco del ancho de Revit (Ancho_Marco = min(6, lado menor / 3.5)) */
-    const tablero = (modulo, base, kind, a, b, z0, z1, y, mat, hingeRight, fijo, atras = false, pinta = 'mod:' + modulo) => {
-      const w = b - a, h = z1 - z0, datos = { rol: 'frente', modulo, material: mat, pinta, etiqueta: 'frentes' };
+    const tablero = (modulo, base, kind, a, b, z0, z1, y, mat, hingeRight, fijo, atras = false) => {
+      const w = b - a, h = z1 - z0, datos = { rol: 'frente', modulo, material: mat, etiqueta: 'frentes' };
       if (cfg.style === 'Clasica' && !fijo && w >= 8 && h >= 8) {
         const fw = Math.max(1, Math.min(6, Math.min(w, h)/3.5)), r = PLAN_SHAKER_REHUNDIDO;   /* atras: la cara vista mira hacia y = 0 */
         add(Object.assign({ id: base, tipo: kind, x: a + fw, y: atras ? y + r : y, z: z0 + fw, ancho: w - 2*fw, fondo: t - r, alto: h - 2*fw, bisagraDerecha: !!hingeRight, fijo: false }, datos));
@@ -2114,13 +2104,13 @@ function planDePiezas(c = cfg){
       }
       const refri = isRefri(m), top = altoEsp(m), e = m.espesorLaterales, ef = PLAN_CUERPO.fondo, lat = !refri || m.lateralesRefri;
       const xi0 = lat ? x + e : x, xi1 = lat ? x1 - e : x1, yl = y1 + (isTower(m) || refri ? t : 0), zonas = [];
-      const tab = (k, tipo, a, b, c0, c1, d0, d1, material = mat, pinta = 'mod:' + m.id) => add({ id: m.id + ':' + k, rol: 'panel', modulo: m.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, pinta, etiqueta: 'gabinetes' });
+      const tab = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: m.id + ':' + k, rol: 'panel', modulo: m.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       const piso = (k, z) => tab(k, 'Piso', xi0, xi1, y0 + ef, y1, z, z + e);
       const zona = (lo, hi) => { const h = { x0: xi0, x1: xi1, y0: y0 + ef, y1, z0: lo, z1: hi }; if (hi - lo > 2) zonas.push(h); return h; };
       const repisas = (h, base, n, zonaId) => { if (h.z1 - h.z0 > 2*e) interior(m, base, h, n, 0, zonaId); };
       if (lat) { tab('lateral:izq', 'Lateral', x, x + e, y0, yl, refri ? 0 : zb, top); tab('lateral:der', 'Lateral', x1 - e, x1, y0, yl, refri ? 0 : zb, top); }
       if (isTower(m)) {
-        tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'inferior', 'fondo', 'Interior'), 'panel:' + m.id + ':inferior.fondo');
+        tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'inferior', 'fondo', 'Interior'));
         piso('piso', zb); tab('techo', 'Techo', xi0, xi1, y0 + ef, y1, top - e, top);
         const zh = zb + m.baseHorno, lift = towerLift(m), lh = lift ? towerLiftHeight(m) : 0;
         piso('lecho:horno', zh - e);
@@ -2132,7 +2122,7 @@ function planDePiezas(c = cfg){
         if (m.microondas) {
           const mg = microGap(m);
           if (mg > 0) {   /* hueco intermedio: tapa al frente y lecho del microondas */
-            add({ id: m.id + ':intermedio', rol: 'tapeta', modulo: m.id, tipo: 'Intermedio', x: xi0, y: y1, z, ancho: xi1 - xi0, fondo: t, alto: mg, material: (m.materialesPaneles || {}).intermedio || mat, pinta: 'panel:' + m.id + ':intermedio', etiqueta: 'frentes' });
+            add({ id: m.id + ':intermedio', rol: 'tapeta', modulo: m.id, tipo: 'Intermedio', x: xi0, y: y1, z, ancho: xi1 - xi0, fondo: t, alto: mg, material: (m.materialesPaneles || {}).intermedio || mat, etiqueta: 'frentes' });
             z += mg; if (mg > e) piso('lecho:micro', z - e);
           }
           const sob = m.microSobreponer, mw = sob ? Math.min(m.microAncho, xi1 - xi0 - 1) : xi1 - xi0, mx = (xi0 + xi1)/2 - mw/2;
@@ -2143,7 +2133,7 @@ function planDePiezas(c = cfg){
         repisas(zona(z, top - e - (lift ? lh : 0)), m.id + ':superior', zoneShelves(m, 'superior'), 'superior');
         if (lift) zona(top - lh, top - e);
       } else if (isPantry(m)) {
-        tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'cuerpo1', 'fondo', 'Interior'), 'panel:' + m.id + ':cuerpo1.fondo');
+        tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'cuerpo1', 'fondo', 'Interior'));
         piso('piso', zb); tab('techo', 'Techo', xi0, xi1, y0 + ef, y1, top - e, top);
         const hs = pantryHeights(m), n = hs.length, ps = pantryStart(m);
         if (m.cajonesAlacena) { piso('lecho:cuerpos', ps - e); zona(zb + e, ps - e); }
@@ -2161,7 +2151,7 @@ function planDePiezas(c = cfg){
         if (m.superiorRefri && top - hr > 2*e) {
           const lt = lat ? 0 : PLAN_CUERPO.lateral, sx0 = xi0 + lt, sx1 = xi1 - lt;   /* sin laterales del refrigerador, el gabinete lleva los suyos */
           if (!lat) { tab('superior:lateral:izq', 'Lateral', x, x + lt, y0, y1, hr, top); tab('superior:lateral:der', 'Lateral', x1 - lt, x1, y0, y1, hr, top); }
-          tab('superior:trasero', 'Trasero', sx0, sx1, y0, y0 + ef, hr, top, matPanel(m, 'superior', 'fondo', 'Interior'), 'panel:' + m.id + ':superior.fondo');
+          tab('superior:trasero', 'Trasero', sx0, sx1, y0, y0 + ef, hr, top, matPanel(m, 'superior', 'fondo', 'Interior'));
           tab('superior:piso', 'Piso', sx0, sx1, y0 + ef, y1, hr, hr + e); tab('superior:techo', 'Techo', sx0, sx1, y0 + ef, y1, top - e, top);
           const hz = { x0: sx0, x1: sx1, y0: y0 + ef, y1, z0: hr + e, z1: top - e };
           repisas(hz, m.id + ':superior', zoneShelves(m, 'superior'), 'superior');
@@ -2193,7 +2183,7 @@ function planDePiezas(c = cfg){
           if (basura) add({ id: m.id + ':tapeta', rol: 'tapeta', modulo: m.id, tipo: 'Compensacion', x: x + m.anchoBasura, y: sep + m.fondo, z: cfg.baseBajos, ancho: m.ancho - m.anchoBasura, fondo: t, alto: cfg.altoBajos, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
           if (espCon(m) !== 'Nada') {   /* A51: division entre el especiero y el resto; cada parte con su interior y sus cajas */
             const [e0, e1, r0, r1] = espPartes(m), e = PLAN_CUERPO.lateral, xd = x + (espIzq(m) ? e1 : r1);
-            add({ id: m.id + ':cuerpo:division:especiero', rol: 'division', modulo: m.id, tipo: 'Division', x: xd - e/2, y: h.y0, z: h.z0, ancho: e, fondo: h.y1 - h.y0, alto: h.z1 - h.z0, material: matPanel(m, 'cuerpo', 'division', 'Repisas'), pinta: 'panel:' + m.id + ':cuerpo.division', etiqueta: 'gabinetes' });
+            add({ id: m.id + ':cuerpo:division:especiero', rol: 'division', modulo: m.id, tipo: 'Division', x: xd - e/2, y: h.y0, z: h.z0, ancho: e, fondo: h.y1 - h.y0, alto: h.z1 - h.z0, material: matPanel(m, 'cuerpo', 'division', 'Repisas'), etiqueta: 'gabinetes' });
             const hI = Object.assign({}, h, { x1: xd - e/2 }), hD = Object.assign({}, h, { x0: xd + e/2 }), hEsp = espIzq(m) ? hI : hD, hResto = espIzq(m) ? hD : hI;
             if (!m.extraible) interior(m, m.id + ':especiero', hEsp, 5, 0, 'cuerpo');
             if (espCon(m) === 'Puerta' && m.repisaBajo) interior(m, m.id + ':resto', hResto, 1, 0, 'resto');
@@ -2213,10 +2203,10 @@ function planDePiezas(c = cfg){
         if (cap && cap.lead === m) {
           const cz0 = topeAltos() - m.altoSuperior, cz1 = topeAltos(), cx0 = cap.x0, cx1 = cap.x0 + cap.width, hol = .2;
           const capMat = m.materialSuperior || cfg.materialGeneral || null, fondo = Math.max(...cap.members.map(q => q.fondo));
-          const h = carcasa(m, m.id + ':superior', cx0, cx1, cz0, cz1, fondo, capMat, 'cap', true, false, 'cap:' + m.id);
+          const h = carcasa(m, m.id + ':superior', cx0, cx1, cz0, cz1, fondo, capMat, 'cap');
           interior(m, m.id + ':superior', h, m.repisasSuperior || 0, m.divisionSuperior ? Math.max(1, m.divisionesSuperior || 1) : 0, 'cap');
           const capFront = (k, kind, a, b, hingeRight) => { const base = m.id + ':superior:frente:' + k;
-            add({ id: base, rol: 'frente', modulo: m.id, tipo: kind, x: a, y: sep + fondo, z: cz0 + hol, ancho: b - a, fondo: t, alto: cz1 - cz0 - 2*hol, material: capMat, pinta: 'cap:' + m.id, etiqueta: 'frentes', bisagraDerecha: hingeRight, fijo: false });
+            add({ id: base, rol: 'frente', modulo: m.id, tipo: kind, x: a, y: sep + fondo, z: cz0 + hol, ancho: b - a, fondo: t, alto: cz1 - cz0 - 2*hol, material: capMat, etiqueta: 'frentes', bisagraDerecha: hingeRight, fijo: false });
             if (kind === 'Puerta') bisagras(m, base, a, b, cz0 + hol, cz1 - hol, hingeRight, sep + fondo); };
           if (m.tipoSuperior === 'Puertas') { const xm = (cx0 + cx1)/2; capFront(0, 'Puerta', cx0 + hol, xm - hol, false); capFront(1, 'Puerta', xm + hol, cx1 - hol, true); }
           else if (m.tipoSuperior !== 'Repisas') capFront(0, 'Elevable', cx0 + hol, cx1 - hol, false);
@@ -2235,7 +2225,7 @@ function planDePiezas(c = cfg){
         xc += m.ancho; }
       tramosCama.forEach((q, k) => { const L = PLAN_LED, y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + L.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
-        add({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), pinta: 'mod:' + q.m.id, etiqueta: 'gabinetes',
+        add({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes',
           ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } });
         add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: null, etiqueta: 'herrajes' }); }); }
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
@@ -2330,7 +2320,7 @@ function planDePiezas(c = cfg){
           if (k === tramosZ.length - 1 && cfg.cerrarZocloDer) pieza('zoclo:' + k + ':cierre:der', 'zoclo', 'Cierre', b - t, b, yAtras, yz, 0, zb, groupMaterial('Zoclo'), 'zoclo');
         }); }
       let px = b0;
-      cfg.islaPaneles.forEach((q, k) => { tablero(null, 'respaldo:' + k, 'Respaldo', px, px + q.ancho, pz, pt, V, q.material || cfg.materialGeneral || null, false, false, true, 'backpanel:' + q.id); px += q.ancho; });
+      cfg.islaPaneles.forEach((q, k) => { tablero(null, 'respaldo:' + k, 'Respaldo', px, px + q.ancho, pz, pt, V, q.material || cfg.materialGeneral || null, false, false, true); px += q.ancho; });
       if (zp) { pieza('zoclo:posterior', 'zoclo', 'Posterior', b0, b1, zFace, zFace + t, 0, pz, groupMaterial('Zoclo'), 'zoclo');
         if (zFace - V > .2) pieza('zoclo:posterior:tapa', 'zoclo', 'Tapa', b0, b1, V + t, zFace + t, pz, pz + t, groupMaterial('Zoclo'), 'zoclo'); }
       if (cfg.islaLedPosterior && V > 2.5) pieza('led:posterior', 'herraje', 'LED', b0, b1, V - 2, V - 1, pt - 1.2, pt - .2, null, 'herrajes');
@@ -2358,17 +2348,17 @@ function planDePiezas(c = cfg){
       const dm = { id: d.id, fondo: yF - sep, materialesPaneles: {} }, dmat = d.material || cfg.materialGeneral || null, capMat = d.materialPiston || dmat;
       const base = d.id + ':hoja', a = s0 + hol, c = s1 - hol, z0 = b + hol, z1 = zc - hol, J = PLAN_JUNTA, juntas = hdJoints(d);
       if (b > 0) add({ frente: d.id + ':hoja', id: d.id + ':zoclo', rol: 'zoclo', tipo: 'Hoja', modulo: d.id, x: a, y: yF, z: hol, ancho: c - a, fondo: t, alto: b - 2*hol, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
-      if (cfg.style === 'Clasica') hdPanels(d).forEach(([p0, p1, q0, q1], i) => tablero(d.id, base + ':tablero:' + i, 'Puerta', s0 + p0, s0 + p1, q0, q1, yF, dmat, hr, false, false, 'doorleaf:' + d.id));
-      else tablero(d.id, base, 'Puerta', a, c, z0, z1, yF, dmat, hr, false, false, 'doorleaf:' + d.id);
+      if (cfg.style === 'Clasica') hdPanels(d).forEach(([p0, p1, q0, q1], i) => tablero(d.id, base + ':tablero:' + i, 'Puerta', s0 + p0, s0 + p1, q0, q1, yF, dmat, hr, false));
+      else tablero(d.id, base, 'Puerta', a, c, z0, z1, yF, dmat, hr, false);
       bisagras(dm, base, a, c, z0, z1, hr, yF);
-      juntas.forEach((jz, i) => add({ id: base + ':junta:' + i, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: a, y: yF + t, z: jz - J.ancho/2, ancho: c - a, fondo: J.salida, alto: J.ancho, material: d.materialJuntas || null, pinta: 'doorjoint:' + d.id, etiqueta: 'herrajes' }));
+      juntas.forEach((jz, i) => add({ id: base + ':junta:' + i, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: a, y: yF + t, z: jz - J.ancho/2, ancho: c - a, fondo: J.salida, alto: J.ancho, material: d.materialJuntas || null, etiqueta: 'herrajes' }));
       if (d.juntaVertical) [z0, ...juntas.flatMap(j => [j - J.ancho/2, j + J.ancho/2]), z1].forEach((z, i, l) => { if (i % 2) return;
-        add({ id: base + ':junta:v:' + i/2, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: (s0 + s1)/2 - J.ancho/2, y: yF + t, z, ancho: J.ancho, fondo: J.salida, alto: l[i + 1] - z, material: d.materialJuntas || null, pinta: 'doorjoint:' + d.id, etiqueta: 'herrajes' }); });
+        add({ id: base + ':junta:v:' + i/2, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: (s0 + s1)/2 - J.ancho/2, y: yF + t, z, ancho: J.ancho, fondo: J.salida, alto: l[i + 1] - z, material: d.materialJuntas || null, etiqueta: 'herrajes' }); });
       if (cfg.style !== 'Moderna') { const Jl = PLAN_JALADERA, boton = cfg.jaladera === 'Boton', cx = hr ? s0 + 5 : s1 - 5, [w, h] = boton ? [Jl.boton, Jl.boton] : [Jl.grueso, cfg.largoJaladera];
         add({ id: base + ':jaladera', rol: 'herraje', modulo: d.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: yF + t + J.salida, z: 100 - h/2, ancho: w, fondo: boton ? Jl.boton : Jl.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' }); }
       if (d.piston) {
-        carcasa(dm, d.id + ':piston', s0, s1, zc, top, yF - sep, capMat, 'cap', true, false, 'doorcap:' + d.id);
-        add({ id: d.id + ':piston:frente', rol: 'frente', modulo: d.id, tipo: 'Elevable', x: a, y: yF, z: zc + hol, ancho: c - a, fondo: t, alto: top - zc - 2*hol, material: capMat, pinta: 'doorcap:' + d.id, etiqueta: 'frentes', bisagraDerecha: false, fijo: false });
+        carcasa(dm, d.id + ':piston', s0, s1, zc, top, yF - sep, capMat, 'cap');
+        add({ id: d.id + ':piston:frente', rol: 'frente', modulo: d.id, tipo: 'Elevable', x: a, y: yF, z: zc + hol, ancho: c - a, fondo: t, alto: top - zc - 2*hol, material: capMat, etiqueta: 'frentes', bisagraDerecha: false, fijo: false });
       }
       const [f0, f1] = d.tapetaLateral ? hdFiller(d) : [s0, s0];
       if (d.tapetaLateral) add({ id: d.id + ':tapeta:lateral', rol: 'tapeta', modulo: d.id, x: f0, y: 0, z: 0, ancho: f1 - f0, fondo: d.fondo, alto: top, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
@@ -2506,13 +2496,6 @@ function planDePiezas(c = cfg){
       if (p.z + p.alto > z + .01) tramos.push([z, p.z + p.alto, p.fondo]);
       piezas.splice(i, 1, ...tramos.map(([a, b, f], k) => Object.assign({}, p, { id: k ? p.id + ':' + k : p.id, z: r2(a), alto: r2(r2(b) - r2(a)), fondo: f })));
     }
-    /* B23: las piezas de grupo (cubierta, barra, zoclo, backsplash, tapetas, gola y jaladeras) se pintan por su clave de grupo; el
-       costado de la isla lleva el material del gabinete de su extremo. Herrajes y equipos sin clave: no se pintan desde el modelo */
-    const pintaGrupo = q => q.rol === 'cubierta' ? (q.id === 'barra:peralte' ? 'BarraPeralte' : q.id.startsWith('barra') ? 'BarraElevada' : 'Cubierta')
-      : q.rol === 'zoclo' ? 'Zoclo' : q.rol === 'backsplash' ? 'Backsplash'
-      : q.rol === 'tapeta' ? (q.tipo !== 'Costado' ? 'Tapetas' : lows.length ? 'mod:' + lows[q.id.endsWith(':izq') ? 0 : lows.length - 1].id : null)
-      : q.rol === 'herraje' ? ({ Gola: 'Gola', Perfil: 'Gola', Jaladera: 'Jaladeras', Boton: 'Jaladeras' }[q.tipo] || null) : null;
-    piezas.forEach(q => { if (q.pinta === undefined) { const k = pintaGrupo(q); if (k) q.pinta = k; } });
     /* (A61) la pieza sin material lleva el tono con que la dibuja el editor (paleta clara): asi la primera generacion se ve
        como el dibujo y no con el material por omision de SketchUp. Herrajes y equipos conservan el suyo */
     const usados = new Set();
@@ -2647,12 +2630,6 @@ function pruebasPlanDePiezas(){
         ok(Math.abs(borde - PLAN_LED.retiro) < .01, nombre + ': el canal del LED queda a ' + borde + ' cm del borde en ' + m.id);
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
         ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
-    /* B23: cada pieza con material tiene su clave de pintura y pintar esa clave cambia el material de todas sus piezas */
-    p.piezas.filter(q => ['panel', 'frente', 'repisa', 'division', 'caja', 'cubierta', 'zoclo', 'tapeta', 'backsplash'].includes(q.rol))
-      .forEach(q => ok(typeof q.pinta === 'string' && q.pinta, nombre + ': pieza sin clave de pintura ' + q.id));
-    const claves = [...new Set(p.piezas.map(q => q.pinta).filter(Boolean))], muestra = (c.catalogo.find(q => q.categoria !== 'Color') || c.catalogo[0]).id;
-    claves.forEach(k => { const c2 = JSON.parse(JSON.stringify(c)); ponerMaterial(c2, muestra, k, false); const p2 = planDePiezas(c2), mat2 = new Map(p2.piezas.map(q => [q.id, q.material]));
-      p.piezas.filter(q => q.pinta === k && mat2.has(q.id)).forEach(q => ok(mat2.get(q.id) === muestra, nombre + ': pintar ' + k + ' no cambia ' + q.id)); });
     /* B19: la forma de cada pieza cabe en su caja; cada cajon lleva su par de correderas y cada elevable sus pistones */
     const dentro = (q, v) => v.every((c, i) => c >= -.001 && c <= [q.ancho, q.fondo, q.alto][i] + .001);
     p.piezas.filter(q => q.forma).forEach(q => ok(q.forma.tipo === 'cilindro' ? dentro(q, q.forma.de) && dentro(q, q.forma.a) && q.forma.diametro > 0 && q.forma.lados >= 6
@@ -4305,27 +4282,24 @@ function drawMaterialDrag(){
   const sw = mat(matDrag.id);
   label((sw ? sw.nombre : 'Original') + ' → ' + etiqueta(t.key) + (t.multi && t.count > 1 ? ` (${t.count})` : ''), Math.min(cssW - 180, matDrag.x + 14), matDrag.y - 18, C.ink, "500 12px 'Inter'");
 }
-/* B23: pone el material en la configuracion c. multi: sobre un gabinete o una pieza elegidos, a toda la seleccion (arrastre 2D);
-   desde el modelo solo a la pieza que se pinto */
-function ponerMaterial(c, value, key, multi = true){
-    if (key === null) { c.materialGeneral = value; if (!value) { c.materiales = {}; c.modulos.forEach(m => { m.material = null; m.materialSuperior = null; m.materialesPaneles = {}; }); (c.puertasOcultas || []).forEach(d => { d.material = d.materialJuntas = d.materialPiston = null; }); (c.islaPaneles || []).forEach(q => q.material = null); } }
-    else if (key.startsWith('mod:')) { const target = key.slice(4); const ids = multi && selection.has(target) ? [...selection] : [target]; c.modulos.forEach(m => { if (ids.includes(m.id)) m.material = value; }); }
+function applyMaterial(id, key){
+  const value = id === '__original__' ? null : id;
+  change(c => {
+    if (key === null) { c.materialGeneral = value; if (!value) { c.materiales = {}; c.modulos.forEach(m => { m.material = null; m.materialSuperior = null; m.materialesPaneles = {}; }); doors().forEach(d => { d.material = d.materialJuntas = d.materialPiston = null; }); (c.islaPaneles || []).forEach(q => q.material = null); } }
+    else if (key.startsWith('mod:')) { const target = key.slice(4); const ids = selection.has(target) ? [...selection] : [target]; c.modulos.forEach(m => { if (ids.includes(m.id)) m.material = value; }); }
     else if (key.startsWith('cap:')) { const m = c.modulos.find(q => q.id === key.slice(4)); if (m) m.materialSuperior = value; }
     else if (key.startsWith('backpanel:')) { const q = (c.islaPaneles || []).find(q => q.id === key.slice(10)); if (q) q.material = value; }
     else if (key === 'mods:all') c.modulos.forEach(m => { if (!m.upper) m.material = value; });
-    else if (/^door(leaf|joint|cap):/.test(key)) { const kind = key.slice(0, key.indexOf(':')), d = (c.puertasOcultas || []).find(q => q.id === key.slice(kind.length + 1));   /* de c, no del editor */
+    else if (/^door(leaf|joint|cap):/.test(key)) { const kind = key.slice(0, key.indexOf(':')), d = doorById(key.slice(kind.length + 1));
       if (d) d[kind === 'doorleaf' ? 'material' : kind === 'doorjoint' ? 'materialJuntas' : 'materialPiston'] = value; }
     else if (key.startsWith('panel:')) {   /* sobre una pieza elegida el material va a todas las piezas de la seleccion */
-      const keys = multi && pieceSelected('piece:' + key.slice(6)) ? [...pieces].map(pc => 'panel:' + pc.slice(6)) : [key];
+      const keys = pieceSelected('piece:' + key.slice(6)) ? [...pieces].map(pc => 'panel:' + pc.slice(6)) : [key];
       keys.forEach(k2 => { const [, id, panel] = k2.split(':'), m = c.modulos.find(q => q.id === id); if (!m) return; if (value) m.materialesPaneles[panel] = value; else delete m.materialesPaneles[panel];
         /* A64: el fondo pinta por igual las repisas y divisiones de su zona (solo de ese gabinete); despues cada una admite el suyo */
         if (panel.endsWith('.fondo')) { const z = panel.slice(0, -6); Object.keys(m.materialesPaneles).forEach(k => { if (k.startsWith(z + '.repisa.') || k === z + '.division' || k.startsWith(z + '.division.')) delete m.materialesPaneles[k]; }); } });
     }
     else if (value) c.materiales[key] = value; else delete c.materiales[key];
-}
-function applyMaterial(id, key){
-  const value = id === '__original__' ? null : id;
-  change(c => ponerMaterial(c, value, key));
+  });
   const sw = mat(id);
   setStatus((sw ? sw.nombre : 'Original') + ' → ' + etiqueta(key) + '.');
 }
@@ -5188,7 +5162,7 @@ function renderGallery(){
   const el = document.getElementById('gallery');
   const cats = CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash');
   let html = `<div class="mat-agregar"><span class="t">Agregar</span>${cats.map(cat => `<button type="button" data-addcat="${cat}">+ ${cat}</button>`).join('')}</div>`
-    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección.${enSketchUp() ? ' En SketchUp, <b>arrástrala fuera</b> de esta ventana (o <b>clic derecho</b>) y haz clic en la pieza del modelo.' : ''} <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
+    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
   CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash').forEach(cat => {
     html += `<div class="p-section"><div class="p-label">${cat}</div><div class="mat-grid">`;
     cfg.catalogo.filter(m => m.categoria === cat).forEach(m => {
@@ -6329,8 +6303,6 @@ function offerSave(action, proceed){
    sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
    sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida), sketchupNuevaIsla(longitud, ancho) (isla nueva
    con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual.
-   B23: pintar desde el modelo. sketchup.pintar(texto {id, nombre}) (muestra soltada fuera de la ventana o clic derecho) activa la
-   herramienta Pintar; con un clic en una pieza Ruby llama sketchupPintar(clave, id) con la clave pinta de esa pieza.
    B22: LiveSync. sketchup.generar lleva vivo: true en las generaciones automaticas (Ruby no mueve la ventana).
    B21: sketchup.listo(texto) lleva {x, y, ancho, alto} del area util de la pantalla; sketchup.ventana('maxima') vuelve a pantalla
    completa (Ruby la pasa al 37.5 % derecho al Generar).
@@ -6479,25 +6451,6 @@ function exportViews(){
   showDialog('Exportar vistas', `Vistas exportadas:<div class="file-list">${list}</div><div style="margin-top:10px">Sube el alzado (y la planta como referencia) a tu herramienta de IA y pega el texto del archivo «prompt».</div><img class="export-preview" src="${files[0].url}" alt="Alzado exportado">`,
     [{ text: 'Descargar todo', action: downloadAll, keepOpen: true }, { text: 'Listo', primary: true, cancel: true }], 'info', true);
 }
-/* B23 (solo SketchUp): pintar desde el modelo. Una muestra soltada fuera de esta ventana (o con clic derecho) activa en SketchUp la
-   herramienta Pintar: resalta las piezas que pinta cada clave y un clic aplica el material como si se hubiera soltado en el 2D */
-function pintarEnModelo(id){
-  const sw = mat(id); if (!enSketchUp() || (!sw && id !== '__original__')) return;
-  sketchup.pintar(JSON.stringify({ id, nombre: sw ? sw.nombre : 'Original' }));
-  setStatus(`Pintar en el modelo: ${sw ? sw.nombre : 'Original'} · haz clic en una pieza de la cocina en SketchUp (Esc termina).`);
-}
-function sketchupPintar(clave, id){
-  const value = id === '__original__' ? null : id, sw = mat(id);
-  change(c => ponerMaterial(c, value, clave, false));
-  setStatus((sw ? sw.nombre : 'Original') + ' → ' + etiqueta(clave) + (enVivo ? '.' : ' · pulsa Generar para verlo en el modelo.'));
-}
-(() => {
-  const gal = document.getElementById('gallery');
-  /* soltada fuera de la ventana: el navegador termina el arrastre sin destino y con el cursor afuera */
-  gal.addEventListener('dragend', e => { const n = e.target.closest('.swatch[draggable]');
-    if (n && e.dataTransfer.dropEffect === 'none' && (e.clientX < 0 || e.clientY < 0 || e.clientX > innerWidth || e.clientY > innerHeight)) pintarEnModelo(n.dataset.id); });
-  gal.addEventListener('contextmenu', e => { const n = e.target.closest('.swatch[draggable]'); if (!n || !enSketchUp()) return; e.preventDefault(); pintarEnModelo(n.dataset.id); });
-})();
 /* B2: exportar dentro de SketchUp. Los archivos (data URL en base64) se mandan uno por uno, para no pasar decenas de MB de golpe */
 let porExportar = [];
 function exportarEnSketchUp(files){ porExportar = files; setStatus('Elige la carpeta para las vistas…'); sketchup.exportar_inicio(files.length); }
