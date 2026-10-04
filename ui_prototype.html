@@ -153,6 +153,9 @@
        los gabinetes (los bancos quedan del lado opuesto; un lado corto no se
        acepta). Revit: Generator.cs pide hoy 3 puntos (largo y ancho); cambiar
        a rectangulo + lado de los gabinetes.
+   A68. Posicion de la tira LED (04/10, usuario): al frente, al centro o atras;
+       al frente o atras con Distancia del borde editable (8 cm de fabrica,
+       ledRetiro) y boton Al pano (0). Revit: mismos controles.
    A67. Cama del LED por columna (04/10, usuario): antes corria a lo largo de los
        altos con el mismo fondo; ahora cada columna lleva la suya (y su tira),
        con el material de su gabinete, para poder darle un material distinto
@@ -1325,7 +1328,7 @@ function defaultConfig(length){
     baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, vuelo: 0,
     tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5,
     generarCubierta: true, generarZoclos: true, retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
-    backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 2, led: false, ledFrente: true,
+    backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 2, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
     style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, anchoShaker: 5, bisagras: true, cubiertaAPano: false,
     narizCubierta: false, alturaNariz: 5, puertasOcultas: [],
@@ -2011,7 +2014,9 @@ function planDePiezas(c = cfg){
     /* carcasa (drawInterior): laterales a todo el alto, trasero entre laterales, piso y techo delante del trasero.
        Devuelve el hueco interior. Sin travesaños por ahora: el techo es completo (PLAN_PENDIENTE) */
     /* canal del LED en la cama: su borde mas cercano a PLAN_LED.retiro del canto frontal del alto, o de su cara trasera si va atras */
-    const ranuraLed = y1 => cfg.ledFrente ? y1 - PLAN_LED.retiro - PLAN_LED.ancho : sep + PLAN_LED.retiro;
+    /* A68 (usuario, 04/10): al frente o atras a cfg.ledRetiro del borde (8 cm de fabrica; 0 = al pano), o al centro del fondo */
+    const ranuraLed = y1 => { const L = PLAN_LED, hueco = y1 - sep - L.ancho, ret = Math.max(0, Math.min(hueco, cfg.ledRetiro ?? L.retiro));
+      return cfg.ledCentro ? sep + hueco/2 : cfg.ledFrente ? y1 - ret - L.ancho : sep + ret; };
     const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false) => {
       const e = PLAN_CUERPO.lateral, ef = PLAN_CUERPO.fondo, y0 = sep, y1 = sep + fondo;
       const propio = (dueno.materialesPaneles || {})[zona + '.fondo'];   /* A64: el canto de la caja sigue al fondo de su zona */
@@ -2554,11 +2559,11 @@ function pruebasPlanDePiezas(){
       c.narizCubierta = true; c.alturaNariz = 5; c.altoBajos -= 2; c.moduloTarja = l[1].id; c.tipoTarja = 2; l[3].parrilla = true; u[3].campana = true; return c; }],
     ['muro con decimales y solo tapeta izquierda', c => { c.longitud = 312.37; c.tapetaDer = false; return c; }],
     ['gola de aluminio en C, LED al frente y puerta oculta lisa con junta vertical', c => { const l = c.modulos.filter(m => !m.upper);
-      c.perfil = 'C'; c.led = true; c.ledFrente = true; c.vuelo = 2; l[2].tipo = 'Cajones';
+      c.perfil = 'C'; c.led = true; c.ledFrente = true; c.ledRetiro = 0; c.vuelo = 2; l[2].tipo = 'Cajones';
       c.puertasOcultas = [Object.assign(newDoor(true), { juntaVertical: true, juntasHorizontales: [85, 145] })]; return c; }],
     ['moderna con gola de melamina y cajonera', c => { c.gola = 'Melamina'; c.modulos.filter(m => !m.upper)[1].tipo = 'Cajones'; return c; }],
     ['clasica con puertas ocultas a los dos lados (piston, juntas) y LED atras', c => {
-      c.style = 'Clasica'; c.led = true; c.ledFrente = false;
+      c.style = 'Clasica'; c.led = true; c.ledFrente = false; c.ledCentro = true;
       c.puertasOcultas = [Object.assign(newDoor(false), { piston: true, altoPiston: 40, juntasHorizontales: [120] }), Object.assign(newDoor(true), { tapetaLateral: false, zoclo: false })]; return c; }],
     ['especiero con cajones a la derecha y especiero extraible con puerta a la izquierda', c => { const l = c.modulos.filter(m => !m.upper);
       Object.assign(l[1], { tipo: 'Especiero', especieroCon: 'Cajones', especieroLado: 'Derecha', ancho: 60, fijo: true });
@@ -2645,8 +2650,9 @@ function pruebasPlanDePiezas(){
       if (camas.length && camas[0].ranura && led) { const cm = camas[0], zb = cm.z, zc = cm.z + cm.alto, rr = cm.ranura;
         ok(Math.abs(z0 - zc) < .01, nombre + ': los laterales de ' + m.id + ' no apoyan sobre la cama');
         ok(Math.abs(led.z - zb) < .01 && Math.abs(led.y - cm.y - rr.y) < .01 && Math.abs(led.fondo - rr.ancho) < .01 && Math.abs(led.alto - rr.hondo) < .01, nombre + ': el LED no va embutido a ras en la ranura de ' + m.id);
-        const borde = c.ledFrente ? cm.y + cm.fondo - (led.y + led.fondo) : led.y - cm.y;   /* del borde del mueble al inicio del canal */
-        ok(Math.abs(borde - PLAN_LED.retiro) < .01, nombre + ': el canal del LED queda a ' + borde + ' cm del borde en ' + m.id);
+        const frente = cm.y + cm.fondo - (led.y + led.fondo), atras = led.y - cm.y, borde = c.ledFrente ? frente : atras;   /* del borde del mueble al inicio del canal */
+        if (c.ledCentro) ok(Math.abs(frente - atras) < .01, nombre + ': el canal del LED no queda al centro en ' + m.id);
+        else ok(Math.abs(borde - Math.min(c.ledRetiro ?? PLAN_LED.retiro, cm.fondo - led.fondo)) < .01, nombre + ': el canal del LED queda a ' + borde + ' cm del borde en ' + m.id);
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
         ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
     /* B19: la forma de cada pieza cabe en su caja; cada cajon lleva su par de correderas y cada elevable sus pistones */
@@ -4996,7 +5002,9 @@ function partPanel(key){
   } else if (key === 'backsplash') {
     html += section('Backsplash', chk('genBs', cfg.backsplash, 'Generar backsplash') + chk('bsComp', cfg.backsplashCompleto, 'Completo hasta los gabinetes altos')
       + `<div class="grid-2" style="margin-top:10px">${cfg.backsplashCompleto ? '' : num('bsAlto', 'Altura', cfg.altoBacksplash, 'cm', 5, 100)}${num('bsEsp', 'Espesor', cfg.espesorBacksplash, 'cm', .5, 5)}</div>`);
-    html += section('Iluminación', chk('led', cfg.led, 'Iluminación LED bajo gabinetes altos') + (cfg.led ? `<div style="margin-top:8px">${radios('ledPos', [['frente', 'LED al frente'], ['atras', 'LED atrás']], cfg.ledFrente ? 'frente' : 'atras')}</div>` : ''));
+    html += section('Iluminación', chk('led', cfg.led, 'Iluminación LED bajo gabinetes altos') + (cfg.led ? `<div style="margin-top:8px">${radios('ledPos', [['frente', 'Al frente'], ['centro', 'Al centro'], ['atras', 'Atrás']], cfg.ledCentro ? 'centro' : cfg.ledFrente ? 'frente' : 'atras')}</div>`
+      + (cfg.ledCentro ? '' : `<div class="grid-2" style="margin-top:10px;align-items:end">${num('ledRet', 'Distancia del borde', cfg.ledRetiro ?? PLAN_LED.retiro, 'cm', 0, 30)}<button class="btn" data-act="ledPano" type="button">Al paño</button></div>`
+        + `<div class="note">Del ${cfg.ledFrente ? 'frente' : 'fondo'} del gabinete al canal de la tira. De fábrica ${fmt(PLAN_LED.retiro)}${uS()}; «Al paño» la pone en 0.</div>`) : ''));
   } else if (key === 'fillerI' || key === 'fillerD') {
     const L = key === 'fillerI', on = L ? cfg.tapetaIzq : cfg.tapetaDer, w = L ? ajusteIzq() : ajusteDer();
     html += section('Tapeta', chk(L ? 'tapI' : 'tapD', on, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num(L ? 'tapIW' : 'tapDW', 'Ancho', Math.max(1, w), 'cm', 1, 35)}</div>`
@@ -5155,7 +5163,8 @@ const ACT = {
   altoZoc: v => change(c => { const bar = altoBarra(); c.baseBajos = v; c.altoBajos = bar - v - paquete(); }, 'Revisar altura'),
   cerrI: v => change(c => c.cerrarZocloIzq = v), cerrD: v => change(c => c.cerrarZocloDer = v),
   genBs: v => change(c => c.backsplash = v), bsComp: v => change(c => c.backsplashCompleto = v), bsAlto: v => change(c => c.altoBacksplash = v), bsEsp: v => change(c => c.espesorBacksplash = v),
-  led: v => change(c => c.led = v), ledPos: v => change(c => c.ledFrente = v === 'frente'),
+  led: v => change(c => c.led = v), ledPos: v => change(c => { c.ledCentro = v === 'centro'; if (v !== 'centro') c.ledFrente = v === 'frente'; }),
+  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
@@ -5973,6 +5982,10 @@ const EN = {
   'Revisar ancho': 'Check width',
   'Exportar vistas': 'Export views',
   'Marco shaker': 'Shaker frame',
+  'Al frente': 'Front',
+  'Al centro': 'Center',
+  'Distancia del borde': 'Distance from the edge',
+  'Al paño': 'Flush',
   'Jaladeras': 'Handles',
   'Arrastra aquí una muestra: se aplica a todas las jaladeras.': 'Drop a swatch here: it applies to every handle.',
   'Quitar': 'Remove',
