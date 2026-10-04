@@ -281,6 +281,11 @@
        plan marca con frente las piezas que se mueven juntas y con abre como
        abre cada frente (puerta: lado y eje vertical; elevable: eje arriba;
        cajon: recorrido); Ruby abre o cierra todos los frentes del modulo.
+   B18. [SketchUp OK 03/10] Cajas de cajon libres de la gola: al abrir (Interactuar)
+       la caja atravesaba la aleta de la C entre cajones (sube el traslape detras
+       del frente de arriba). Ahora la caja empieza sobre la aleta de abajo y
+       termina bajo la de arriba, con 0.5 cm de holgura. Revit: revisar la caja
+       de sus familias de cajon con gola.
    B16. [SketchUp OK 03/10] Isla (Line-Island) en el plan de piezas: gabinetes con
        frentes alineados, costados o cascadas, paneles posteriores (reparto y
        shaker hacia los bancos), zoclo frontal con cierres, zoclo posterior con
@@ -1749,7 +1754,7 @@ const boxTargets = m => { const g = currentBox() || (m ? bodyGroupOf(byId(m.id))
 const PLAN_ESQUEMA = 1, PLAN_ESPESOR_FRENTE = 1.8;
 /* medidas de construccion que el editor no dibuja (en Revit viven dentro de las familias: Espesor_Cuerpo...). Ajustar aqui */
 const PLAN_CUERPO = { lateral: 1.8, fondo: 1.8 };                                    /* carcasa: laterales, piso y techo; trasero */
-const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3 };   /* caja de cajon dentro de la carcasa */
+const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3, libreGola: .5 };   /* caja de cajon dentro de la carcasa */
 const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                     /* jaladera de barra o boton */
 /* gola empotrada (referencia de construccion del usuario, 03/10): el canal entra 2.6 cm en el gabinete desde su canto y el perfil
    pasa 2.2 cm por detras de los frentes vecinos (C de 7.4 cm para un hueco de 3.0); los laterales van rebajados en esa zona */
@@ -2174,8 +2179,20 @@ function planDePiezas(c = cfg){
         add({ id: d.id + ':tapeta:superior', rol: 'tapeta', modulo: d.id, x: x0, y: 0, z: top, ancho: x1 - x0, fondo: d.fondo, alto: cfg.alturaMuro - top, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' }); }
     });
     if (highs.length && cfg.tapetaSuperior) add({ id: 'tapeta:superior', rol: 'tapeta', x: run0, y: 0, z: zTop, ancho: run1 - run0, fondo: dAlto, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
-    /* muescas de la gola: los laterales se parten (a todo fondo fuera del canal, rebajados dentro); techo, lechos, repisas y
-       divisiones del modulo que entran en el canal se acortan hasta su fondo */
+    /* B18 (usuario, 03/10): la caja de cajon sale hacia la habitacion; su alto deja libre cada perfil de gola del modulo que cruza
+       (la C entre cajones sube PLAN_GOLA.traslape detras del frente de arriba): la caja empieza sobre la aleta de abajo y termina
+       bajo la de arriba, con PLAN_CAJA.libreGola */
+    const cajasPorFrente = new Map();
+    piezas.forEach(q => { if (q.rol === 'caja' && q.frente) { if (!cajasPorFrente.has(q.frente)) cajasPorFrente.set(q.frente, []); cajasPorFrente.get(q.frente).push(q); } });
+    cajasPorFrente.forEach(qs => {
+      const x0 = Math.min(...qs.map(q => q.x)), x1 = Math.max(...qs.map(q => q.x + q.ancho)), z0 = Math.min(...qs.map(q => q.z)), z1 = Math.max(...qs.map(q => q.z + q.alto));
+      let a = z0, b = z1;
+      muescas.filter(g => g.modulo === qs[0].modulo && g.x0 < x1 - .01 && g.x1 > x0 + .01 && g.z0 < z1 - .01 && g.z1 > z0 + .01).forEach(g => {
+        if ((g.z0 + g.z1)/2 < (z0 + z1)/2) a = Math.max(a, g.z1 + PLAN_CAJA.libreGola); else b = Math.min(b, g.z0 - PLAN_CAJA.libreGola); });
+      if (a === z0 && b === z1) return;
+      if (b - a < 4) b = a + 4;
+      qs.forEach(q => { if (q.tipo === 'Piso') q.z = r2(a); else { q.z = r2(a); q.alto = r2(b - a); } });
+    });
     /* B17 Interactuar (como en Revit): cada frente que abre (puerta, cajon o elevable, no fijo) junta sus piezas (tablero o marcos,
        jaladera, bisagras, juntas, zoclo de puerta oculta, caja de cajon) con frente = id del frente; la pieza principal lleva abre:
        puerta = lado de la bisagra y eje vertical (x, y de su cara vista); elevable = eje horizontal en el canto superior de la cara vista (z, y); cajon =
@@ -2195,6 +2212,8 @@ function planDePiezas(c = cfg){
         : principal.tipo === 'Elevable' ? { tipo: 'Elevable', z: r2(z1), y: r2(y) }
         : { tipo: 'Cajon', recorrido: r2(cajas.length ? Math.max(...cajas.map(q => q.fondo))*.8 : 40) };
     });
+    /* muescas de la gola: los laterales se parten (a todo fondo fuera del canal, rebajados dentro); techo, lechos, repisas y
+       divisiones del modulo que entran en el canal se acortan hasta su fondo */
     for (let i = piezas.length - 1; i >= 0; i--) {
       const p = piezas[i];
       if (!['panel', 'repisa', 'division'].includes(p.rol)) continue;
@@ -2339,6 +2358,9 @@ function pruebasPlanDePiezas(){
         ok(Math.abs(borde - PLAN_LED.retiro) < .01, nombre + ': el canal del LED queda a ' + borde + ' cm del borde en ' + m.id);
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
         ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
+    /* B18: la caja de cajon sale por y: ninguna cruza en x y z la gola de su modulo */
+    p.piezas.filter(q => q.rol === 'caja').forEach(q => p.piezas.filter(g => g.rol === 'herraje' && ['Gola', 'Perfil'].includes(g.tipo) && g.modulo === q.modulo)
+      .forEach(g => ok(!(q.x < g.x + g.ancho - .01 && q.x + q.ancho > g.x + .01 && q.z < g.z + g.alto - .01 && q.z + q.alto > g.z + .01), nombre + ': la caja ' + q.id + ' choca al abrir con ' + g.id)));
     /* B17: cada frente que abre forma un grupo con una sola pieza abre; cada caja de cajon va con un frente que abre como cajon */
     const grupos = {}; p.piezas.filter(q => q.frente).forEach(q => (grupos[q.frente] = grupos[q.frente] || []).push(q));
     Object.entries(grupos).forEach(([d, qs]) => ok(qs.filter(q => q.abre).length === 1, nombre + ': el frente ' + d + ' no tiene una sola pieza que abra'));
