@@ -160,6 +160,10 @@
        Cocina n / Isla 0n. Revit: ya es asi.
    A69. Pestana estable (04/10): la pestana elegida se recuerda y se restaura
        al recargar la pagina (SketchUp) y al cerrar Guardado o Ajustes.
+   B26. [SketchUp 04/10] Luz del LED: temperatura de color en Iluminacion
+       (2700 a 6500 K, 3000 K de fabrica, con muestra del tono) y plano de luz
+       corrido por tramo de camas seguidas (antes uno por columna). Revit: no
+       aplica (la temperatura podria ir a la familia de la tira).
    A78. Juntas de la puerta oculta (04/10, usuario): horizontales sin el tope de
        4 (hasta 4 en sus posiciones de diseño; desde 5, parejas en la hoja;
        limite: tableros de 20 cm) y numero de juntas verticales (0 a N
@@ -832,6 +836,9 @@
   #gallery { flex: 1; }
   .mat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
   .swatch { cursor: grab; min-width: 0; }
+  .temp-led { display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; }
+  .temp-led .field { flex: 1; margin: 0; }
+  .temp-muestra { width: 34px; height: 34px; flex: none; border-radius: 6px; border: 1px solid var(--line); }
   .drop-jal { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 8px; border: 1.5px dashed var(--line); border-radius: 6px; font-size: 12px; color: #5A6570; }
   .drop-jal.con { border-style: solid; color: var(--text); }
   .drop-jal.sobre { border-color: var(--ink); background: rgba(38,96,150,.08); }
@@ -1384,7 +1391,7 @@ function defaultConfig(length){
     baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, vuelo: 0,
     tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5,
     generarCubierta: true, generarZoclos: true, retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
-    backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 2, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true,
+    backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 2, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true, ledTemp: 3000,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
     style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, anchoShaker: 5, bisagras: true, cubiertaAPano: false,
     narizCubierta: false, alturaNariz: 5, puertasOcultas: [],
@@ -2037,9 +2044,20 @@ const PLAN_ETIQUETAS = ['gabinetes', 'frentes', 'cubierta', 'zoclo', 'herrajes',
 const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', 'cubierta', 'zoclo', 'tapeta', 'backsplash', 'herraje', 'equipo', 'luz'];
 /* B25 (usuario, 04/10): luz del LED simulada. Plano contra el muro (o el backsplash) entre la cubierta y los altos, con un mosaico PNG
    de luz calida que se desvanece hacia abajo (canal alfa); un mosaico a lo alto del plano y de 10 cm a lo ancho */
-const PLAN_LUZ = { id: 'LUZ_LED', nombre: 'Luz LED', rgb: [255, 228, 180], mosaico: 10, alfa: .75 };
+const PLAN_LUZ = { id: 'LUZ_LED', nombre: 'Luz LED', mosaico: 10, alfa: .75 };
+/* B26 (usuario, 04/10): tono de la luz por temperatura de color (cfg.ledTemp, 3000 K de fabrica). Kelvin a RGB (aproximacion de
+   Tanner Helland, buena entre 1000 y 40000 K) */
+const TEMPERATURAS_LED = [[2700, 'Cálida'], [3000, 'Cálida suave'], [3500, 'Blanco cálido'], [4000, 'Neutra'], [5000, 'Día'], [6500, 'Fría']];
+function rgbKelvin(k){
+  const t = k/100, c = v => Math.round(Math.max(0, Math.min(255, v)));
+  const r = t <= 66 ? 255 : 329.698727446*Math.pow(t - 60, -.1332047592);
+  const g = t <= 66 ? 99.4708025861*Math.log(t) - 161.1195681661 : 288.1221695283*Math.pow(t - 60, -.0755148492);
+  const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231*Math.log(t - 10) - 305.0447927307;
+  return [c(r), c(g), c(b)];
+}
+const rgbLuz = () => rgbKelvin(cfg.ledTemp || 3000);
 function texturaLuz(alto){
-  const c = document.createElement('canvas'); c.width = 8; c.height = 256; const g = c.getContext('2d'), [r, v, b] = PLAN_LUZ.rgb;
+  const c = document.createElement('canvas'); c.width = 8; c.height = 256; const g = c.getContext('2d'), [r, v, b] = rgbLuz();
   for (let i = 0; i < c.height; i++) { const t = i/(c.height - 1); g.fillStyle = `rgba(${r},${v},${b},${(PLAN_LUZ.alfa*Math.pow(1 - t, 2.2)).toFixed(3)})`; g.fillRect(0, i, c.width, 1); }
   return { png: c.toDataURL('image/png'), ancho: PLAN_LUZ.mosaico, alto };
 }
@@ -2329,10 +2347,13 @@ function planDePiezas(c = cfg){
         add({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes',
           ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } });
         add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: null, etiqueta: 'herrajes' });
-        /* B25: la luz en el muro, de la cubierta a la cama; delante del backsplash si lo hay */
-        const yl = (cfg.backsplash && lows.length ? cfg.espesorBacksplash : 0) + .05, zl = altoBarra();
-        if (cfg.ledLuz !== false && z0 - zl > 5) add({ id: 'cama:' + k + ':luz', rol: 'luz', modulo: q.m.id, tipo: 'Luz', x: q.x0, y: yl, z: zl, ancho: q.x1 - q.x0, fondo: .1, alto: z0 - zl,
-          material: PLAN_LUZ.id, etiqueta: 'luz', forma: { tipo: 'plano', eje: 'y' } }); }); }
+        });
+      /* B25: la luz en el muro, de la cubierta a las camas, delante del backsplash si lo hay. B26 (usuario): corrida, una por tramo de
+         camas seguidas (se corta solo donde no hay cama: columna reservada o alto con campana) */
+      const yl = (cfg.backsplash && lows.length ? cfg.espesorBacksplash : 0) + .05, zl = altoBarra(), zc = baseAltos(), tramosLuz = [];
+      tramosCama.forEach(q => { const u = tramosLuz[tramosLuz.length - 1]; if (u && Math.abs(u.x1 - q.x0) < .01) u.x1 = q.x1; else tramosLuz.push({ x0: q.x0, x1: q.x1, m: q.m }); });
+      if (cfg.ledLuz !== false && zc - zl > 5) tramosLuz.forEach(q => add({ id: 'luz:' + q.m.id, rol: 'luz', modulo: q.m.id, tipo: 'Luz', x: q.x0, y: yl, z: zl, ancho: q.x1 - q.x0, fondo: .1, alto: zc - zl,
+        material: PLAN_LUZ.id, etiqueta: 'luz', forma: { tipo: 'plano', eje: 'y' } })); }
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
        a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
     const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
@@ -2615,7 +2636,7 @@ function planDePiezas(c = cfg){
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
       materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); })
         .concat([...usados].map(k => ({ id: k, nombre: PREDETERMINADOS[k].nombre, rgb: PREDETERMINADOS[k].rgb.slice() })))
-        .concat(piezas.filter(q => q.rol === 'luz').slice(0, 1).map(q => ({ id: PLAN_LUZ.id, nombre: PLAN_LUZ.nombre, rgb: PLAN_LUZ.rgb.slice(), textura: texturaLuz(q.alto) }))),
+        .concat(piezas.filter(q => q.rol === 'luz').slice(0, 1).map(q => ({ id: PLAN_LUZ.id, nombre: PLAN_LUZ.nombre, rgb: rgbLuz(), textura: texturaLuz(q.alto) }))),
       piezas, pendiente: PLAN_PENDIENTE.slice() };
   } finally { cfg = previo; }
 }
@@ -5105,6 +5126,8 @@ function partPanel(key){
       + `<div class="grid-2" style="margin-top:10px">${cfg.backsplashCompleto ? '' : num('bsAlto', 'Altura', cfg.altoBacksplash, 'cm', 5, 100)}${num('bsEsp', 'Espesor', cfg.espesorBacksplash, 'cm', .5, 5)}</div>`);
     html += section('Iluminación', chk('led', cfg.led, 'Iluminación LED bajo gabinetes altos') + (cfg.led ? `<div style="margin-top:8px">${radios('ledPos', [['frente', 'Al frente'], ['centro', 'Al centro'], ['atras', 'Atrás']], cfg.ledCentro ? 'centro' : cfg.ledFrente ? 'frente' : 'atras')}</div>`
       + `<div style="margin-top:8px">${chk('ledLuz', cfg.ledLuz !== false, 'Simular la luz en el muro (SketchUp)')}</div>`
+      + `<div class="temp-led"><label class="field"><span>Temperatura de color</span><select data-act="ledTemp">${TEMPERATURAS_LED.map(([k, t]) => `<option value="${k}" ${k === (cfg.ledTemp || 3000) ? 'selected' : ''}>${k} K · ${t}</option>`).join('')}</select></label>`
+        + `<span class="temp-muestra" style="background:linear-gradient(rgb(${rgbLuz().join(',')}), rgba(${rgbLuz().join(',')},0))" title="Tono de la luz"></span></div>`
       + (cfg.ledCentro ? '' : `<div class="grid-2" style="margin-top:10px;align-items:end">${num('ledRet', 'Distancia del borde', cfg.ledRetiro ?? PLAN_LED.retiro, 'cm', 0, 30)}<button class="btn" data-act="ledPano" type="button">Al paño</button></div>`
         + `<div class="note">Del ${cfg.ledFrente ? 'frente' : 'fondo'} del gabinete al canal de la tira. De fábrica ${fmt(PLAN_LED.retiro)}${uS()}; «Al paño» la pone en 0.</div>`) : ''));
   } else if (key === 'fillerI' || key === 'fillerD') {
@@ -5267,7 +5290,7 @@ const ACT = {
   cerrI: v => change(c => c.cerrarZocloIzq = v), cerrD: v => change(c => c.cerrarZocloDer = v),
   genBs: v => change(c => c.backsplash = v), bsComp: v => change(c => c.backsplashCompleto = v), bsAlto: v => change(c => c.altoBacksplash = v), bsEsp: v => change(c => c.espesorBacksplash = v),
   led: v => change(c => c.led = v), ledPos: v => change(c => { c.ledCentro = v === 'centro'; if (v !== 'centro') c.ledFrente = v === 'frente'; }),
-  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0), ledLuz: v => change(c => c.ledLuz = v),
+  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0), ledLuz: v => change(c => c.ledLuz = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
@@ -6091,6 +6114,7 @@ const EN = {
   'Hacia adentro': 'Inward',
   'Hacia afuera': 'Outward',
   'Simular la luz en el muro (SketchUp)': 'Simulate the light on the wall (SketchUp)',
+  'Temperatura de color': 'Color temperature', 'Tono de la luz': 'Light tone',
   'Al frente': 'Front',
   'Al centro': 'Center',
   'Distancia del borde': 'Distance from the edge',
