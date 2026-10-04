@@ -165,6 +165,10 @@
        con muestra del tono; la tira toma el mismo tono) y plano de luz
        corrido por tramo de camas seguidas (antes uno por columna). Revit: no
        aplica (la temperatura podria ir a la familia de la tira).
+   A80. Tapetas laterales en planta (04/10, usuario): no se dibujaban; ahora van
+       rellenas del muro al frente de los bajos, punteadas para activarlas y
+       seleccionables, con prioridad sobre la cubierta. Revit: dibujarlas en
+       la planta del editor.
    A79. Material de jaladeras (04/10, usuario): los metales (A77) no son una
        categoria general; se eligen con un clic en la seccion «Material de
        jaladeras» de la pestana Materiales, que solo aparece con estilos con
@@ -4369,6 +4373,12 @@ function drawPlan(){
     else if (hov && !selection.has(m.id)) post.push(() => outline(r, C.hoverMod, 1.5));
     x += m.ancho;
   });
+  /* A80 (usuario, 04/10): tapetas laterales en planta, como en el alzado: rellenas con su material del muro al frente de los bajos,
+     punteadas para activarlas y seleccionables (en planta van sobre la cubierta para verse y elegirse) */
+  if (!cfg.isla && lows.length) [true, false].forEach(left => {
+    const on = left ? cfg.tapetaIzq : cfg.tapetaDer, w = on ? (left ? ajusteIzq() : ajusteDer()) : 3, x0 = left ? 0 : W - w;
+    part(left ? 'fillerI' : 'fillerD', on, [{ x: X(x0), y: wallY, w: w*scale, h: dLow*scale }], r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Tapetas'), C.tapeta); outline(r, C.line, 1); }, post);
+  });
   /* puertas ocultas (DrawHiddenDoorsPlan): hoja cerrada a pano, abatimiento hacia el muro con hoja abierta y arco punteados */
   for (const d of doors()) {
     const [s0] = hdSpan(d), yf = Y(d.fondo), t = 1.8*scale, r = d.ancho*scale, leaf = { x: X(s0), y: yf - t, w: r, h: t };
@@ -4463,7 +4473,7 @@ function applyMaterial(id, key){
 /* =======================================================================
  * INTERACCION: prioridad del clic como en el real: cotas, grips, partes, modulos, muro
  * ======================================================================= */
-const PART_ORDER = ['sink', 'tap', 'gola', 'raisedbar', 'riser', 'cover', 'plinth', 'backsplash', 'fillerI', 'fillerD', 'fillerTop'];
+const PART_ORDER = ['sink', 'tap', 'gola', 'raisedbar', 'riser', 'fillerI', 'fillerD', 'cover', 'plinth', 'backsplash', 'fillerTop'];   /* A80: tapetas antes que la cubierta (en planta van debajo de ella) */
 const HINTS = {
   dim: 'Cota editable · haz clic, escribe la medida y pulsa Enter.',
   grip: 'División entre frentes · arrástrala para cambiar las alturas, o haz clic en su cota.',
