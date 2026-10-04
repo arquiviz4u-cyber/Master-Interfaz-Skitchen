@@ -153,6 +153,10 @@
        los gabinetes (los bancos quedan del lado opuesto; un lado corto no se
        acepta). Revit: Generator.cs pide hoy 3 puntos (largo y ancho); cambiar
        a rectangulo + lado de los gabinetes.
+   A67. Cama del LED por columna (04/10, usuario): antes corria a lo largo de los
+       altos con el mismo fondo; ahora cada columna lleva la suya (y su tira),
+       con el material de su gabinete, para poder darle un material distinto
+       por seccion. Revit: cortar la cama por columna.
    A66. Material de jaladeras (04/10, usuario): seccion Jaladeras en la pestana
        Materiales (soltar una muestra o Quitar) y cada jaladera del dibujo es
        destino del arrastre; el material (materiales.Jaladeras) es el mismo
@@ -2233,15 +2237,12 @@ function planDePiezas(c = cfg){
       }
     }
     sep = sepMuro;
-    /* cama del LED (B14): piso corrido bajo los altos con LED, de todo el fondo, con la ranura por debajo (tabla delgada encima del
-       perfil) y el perfil embutido a ras; se corta en las columnas reservadas, en los altos con campana y donde cambia el fondo */
-    if (cfg.led) { let xc = ajusteIzq(), tramo = null; const tramosCama = [];
-      for (const m of row(true)) { const con = !m.reserved && !hasCampana(m);
-        if (con && tramo && tramo.fondo === m.fondo) tramo.x1 = xc + m.ancho;
-        else if (con) { tramo = { x0: xc, x1: xc + m.ancho, fondo: m.fondo, m }; tramosCama.push(tramo); }
-        else tramo = null;
-        xc += m.ancho; }
-      tramosCama.forEach((q, k) => { const L = PLAN_LED, y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + L.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
+    /* cama del LED (B14): piso bajo los altos con LED, de todo el fondo, con la ranura por debajo (tabla delgada encima del perfil) y
+       el perfil embutido a ras. A67 (usuario, 04/10): una cama por columna (antes corrida), con el material de su gabinete, para que
+       cada seccion admita un material distinto; no la llevan las columnas reservadas ni los altos con campana */
+    if (cfg.led) { let xc = ajusteIzq(); const tramosCama = [];
+      for (const m of row(true)) { if (!m.reserved && !hasCampana(m)) tramosCama.push({ x0: xc, x1: xc + m.ancho, fondo: m.fondo, m }); xc += m.ancho; }
+      tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + L.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
         add({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes',
           ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } });
