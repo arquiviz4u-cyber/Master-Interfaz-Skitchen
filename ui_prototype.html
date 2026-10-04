@@ -382,6 +382,10 @@
        nueva (bisagras) quedaba indefinida y apagaba la opcion. Ruby recarga la
        ventana del generador si el master cambio (antes generaba con la pagina
        vieja). Revit: completar igual la configuracion guardada al editar.
+   B24. [Solo SketchUp 04/10] Con LiveSync encendido, apagar Puertas oculta
+       tambien en el modelo los frentes, jaladeras, cazoletas, juntas y el zoclo
+       de la puerta oculta (ocultaSinPuertas en el plan); al apagar LiveSync o
+       cerrar el editor se vuelven a mostrar. Revit: no aplica.
    B22. [Solo SketchUp 04/10] LiveSync: tras el primer Generar (o al abrir una
        cocina ya generada) aparece el interruptor LiveSync encendido y Generar
        se oculta; cada cambio valido se genera solo 400 ms despues del ultimo
@@ -2529,6 +2533,9 @@ function planDePiezas(c = cfg){
       if (p.z + p.alto > z + .01) tramos.push([z, p.z + p.alto, p.fondo]);
       piezas.splice(i, 1, ...tramos.map(([a, b, f], k) => Object.assign({}, p, { id: k ? p.id + ':' + k : p.id, z: r2(a), alto: r2(r2(b) - r2(a)), fondo: f })));
     }
+    /* B24 (solo SketchUp): con LiveSync, apagar «Puertas» oculta tambien en el modelo los frentes y lo que va sobre ellos (jaladeras,
+       cazoletas, juntas y el zoclo de la puerta oculta), como el boton en el 2D; el interior queda a la vista */
+    piezas.forEach(q => { if (q.rol === 'frente' || (q.rol === 'herraje' && ['Jaladera', 'Boton', 'Bisagra', 'Junta'].includes(q.tipo)) || (q.rol === 'zoclo' && q.tipo === 'Hoja')) q.ocultaSinPuertas = true; });
     /* (A61) la pieza sin material lleva el tono con que la dibuja el editor (paleta clara): asi la primera generacion se ve
        como el dibujo y no con el material por omision de SketchUp. Herrajes y equipos conservan el suyo */
     const usados = new Set();
@@ -6201,7 +6208,7 @@ function openViewMenu(){
   document.addEventListener('mousedown', e => { if (!e.target.closest('.menu') && !e.target.closest('#btnView')) closeMenu(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 })();
-document.getElementById('btnDoors').addEventListener('click', () => { showDoors = !showDoors; document.getElementById('btnDoors').classList.toggle('active', showDoors); document.getElementById('doorsLabel').textContent = showDoors ? 'Puertas' : 'Interior'; drawCanvas(); trUI(); });
+document.getElementById('btnDoors').addEventListener('click', () => { showDoors = !showDoors; document.getElementById('btnDoors').classList.toggle('active', showDoors); document.getElementById('doorsLabel').textContent = showDoors ? 'Puertas' : 'Interior'; drawCanvas(); trUI(); if (typeof liveUI === 'function') liveUI(); });
 document.getElementById('btnFlat').addEventListener('click', () => { flat = !flat; document.getElementById('btnFlat').classList.toggle('active', flat); drawCanvas(); });
 document.getElementById('btnMeasure').addEventListener('click', () => { measure = !measure; document.getElementById('btnMeasure').classList.toggle('active', measure); drawCanvas(); });
 /* comando que abre el editor (en los plugins lo decide el boton de la cinta; aqui se simula) */
@@ -6392,6 +6399,7 @@ function offerSave(action, proceed){
    con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual.
    A70: configuraciones del proyecto. Ruby manda sketchupConfiguraciones(texto con la lista) al cargar y el master guarda la lista
    completa con sketchup.guardar_configuraciones(texto) en el modelo.
+   B24: sketchup.puertas(visibles) con LiveSync: el boton Puertas oculta o muestra en el modelo las piezas ocultaSinPuertas.
    B22: LiveSync. sketchup.generar lleva vivo: true en las generaciones automaticas (Ruby no mueve la ventana).
    B21: sketchup.listo(texto) lleva {x, y, ancho, alto} del area util de la pantalla; sketchup.ventana('maxima') vuelve a pantalla
    completa (Ruby la pasa al 37.5 % derecho al Generar).
@@ -6451,7 +6459,15 @@ function sketchupResultado(ok, mensaje){
    Deshacer en SketchUp. Una cocina ya generada (abierta desde SketchUp) lo tiene disponible desde el inicio */
 let enVivo = false, liveDisponible = false, enviadoEnVivo = false, temporizadorVivo = null;
 const liveSync = document.getElementById('liveSync'), liveChk = document.getElementById('liveChk');
+/* B24: con LiveSync, el modelo sigue al boton Puertas; apagado LiveSync, las puertas se vuelven a mostrar. Solo se avisa si cambia */
+let puertasEnModelo = true;
+function sincronizarPuertas(){
+  const visibles = !(enVivo && liveDisponible && !showDoors);
+  if (!enSketchUp() || visibles === puertasEnModelo) return;
+  puertasEnModelo = visibles; sketchup.puertas(visibles);
+}
 function liveUI(){
+  sincronizarPuertas();
   liveSync.classList.toggle('visible', enSketchUp() && liveDisponible);
   liveSync.classList.toggle('on', enVivo); liveChk.checked = enVivo;
   liveSync.classList.toggle('ocupado', enVivo && firmaEnviada !== null);
