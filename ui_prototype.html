@@ -296,6 +296,11 @@
        caja, largo de 5 en 5 (15-60) que cabe en la caja (Revit: (fondo - 8)
        redondeado a 5; unificar). Pistones: regla PistonMount de Revit, cuerpo y
        vastago, cerrados y abiertos.
+   B20. [SketchUp OK 03/10] Abrir una cocina guardada (sketchupCargar) completa
+       las opciones que no trae con las de fabrica de su tipo; antes una clave
+       nueva (bisagras) quedaba indefinida y apagaba la opcion. Ruby recarga la
+       ventana del generador si el master cambio (antes generaba con la pagina
+       vieja). Revit: completar igual la configuracion guardada al editar.
    B16. [SketchUp OK 03/10] Isla (Line-Island) en el plan de piezas: gabinetes con
        frentes alineados, costados o cascadas, paneles posteriores (reparto y
        shaker hacia los bancos), zoclo frontal con cierres, zoclo posterior con
@@ -6095,7 +6100,10 @@ function sketchupAbrir(crear, error, estado){
   syncCommandUI(); render(); setStatus(estado);
 }
 function sketchupCargar(texto){
-  sketchupAbrir(() => { const c = JSON.parse(texto); if (!c.catalogo) c.catalogo = cfg.catalogo; return c; },
+  /* B20: una cocina guardada con un master anterior no trae las opciones nuevas: se completan con las de fabrica de su tipo (sin
+     ellas, una clave como bisagras quedaba indefinida y apagaba las bisagras sin aviso) */
+  sketchupAbrir(() => { const c = JSON.parse(texto), base = c.isla ? defaultIsland(240, 90) : c.closet ? defaultCloset(240) : defaultConfig(300);
+    Object.keys(base).forEach(k => { if (!(k in c)) c[k] = base[k]; }); if (!c.catalogo) c.catalogo = cfg.catalogo; return c; },
     'No se pudo abrir la cocina guardada: ', 'Cocina cargada desde SketchUp: los cambios actualizan solo las piezas que cambian.');
 }
 /* cocina nueva en la cara de muro elegida: el largo se redondea al cm como al escribirlo en la cota (k === 'length') */
