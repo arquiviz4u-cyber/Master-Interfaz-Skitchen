@@ -158,10 +158,15 @@
        perdia o mezclaba proyectos). Guardar actualiza la de la sesion y un
        nombre existente la reemplaza (PresetCatalog.Save); nombre por omision
        Cocina n / Isla 0n. Revit: ya es asi.
-   A69. Pestana estable (04/10, usuario): en Materiales, al seleccionar un modulo
-       volvia a Distribucion (la pagina se recargaba en SketchUp). La pestana
-       elegida se recuerda y se restaura al recargar y al cerrar Guardado o
-       Ajustes. Revit: no cambiar de pestana al seleccionar.
+   A69. Pestana estable (04/10): la pestana elegida se recuerda y se restaura
+       al recargar la pagina (SketchUp) y al cerrar Guardado o Ajustes.
+   A72. Elegir lleva a Distribucion (04/10, usuario): desde Materiales o
+       Estilo, elegir un componente en el dibujo (clic, doble clic o recuadro)
+       cambia a Distribucion, donde se editan sus opciones; arrastrar una
+       muestra no. Revit: igual.
+   A71. Funcion plegada con primera fila (04/10, usuario): plegada mostraba
+       solo el tipo elegido; ahora deja a la vista la primera fila (3 tipos) y
+       el elegido, y las demas aparecen debajo al pasar el mouse. Revit: igual.
    A68. Posicion de la tira LED (04/10, usuario): al frente, al centro o atras;
        al frente o atras con Distancia del borde editable (8 cm de fabrica,
        ledRetiro) y boton Al pano (0). Revit: mismos controles.
@@ -857,9 +862,10 @@
   .opt.compact { padding: 8px 11px; }
   /* FUNCION en tarjetas con icono (A33) */
   .ftiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-  /* A48: la Funcion queda plegada en el tipo elegido y se despliega al pasar el mouse, para tener cerca las opciones del mueble */
-  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on) .ftile:not(.on) { display: none; }
-  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on) .p-label::after { content: ' · pasa el mouse para cambiar'; font-weight: 400; text-transform: none; letter-spacing: 0; color: #8A949E; }
+  /* A48: la Funcion queda plegada y se despliega al pasar el mouse, para tener cerca las opciones del mueble. A71 (usuario, 04/10):
+     plegada deja a la vista la primera fila (3 tarjetas) y la elegida; las demas aparecen debajo al pasar el mouse */
+  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on) .ftile:not(.on):nth-child(n+4) { display: none; }
+  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on):has(.ftile:nth-child(4)) .p-label::after { content: ' · pasa el mouse para ver todas'; font-weight: 400; text-transform: none; letter-spacing: 0; color: #8A949E; }
   .ftile { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 3px 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; color: #5A6570; font: 500 11px/1.2 'Inter', sans-serif; text-align: center; transition: border-color .12s, background .12s; }
   .ftile:hover { border-color: #B8C0C8; }
   .ftile.on { border-color: var(--ink); background: var(--ink-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
@@ -5798,6 +5804,7 @@ const EN = {
   'Frigobar': 'Wine fridge',
   'Frigobar de vinos': 'Wine fridge',
   'Función': 'Function',
+  ' · pasa el mouse para ver todas': ' · hover to see all',
   'Gabinete de pistón': 'Lift-up cabinet',
   'Gabinete de pistón arriba': 'Lift-up cabinet on top',
   'Gabinete de pistón de la puerta oculta': 'Hidden door lift-up cabinet',
@@ -6174,6 +6181,10 @@ function setStatus(t){ t = t == null ? '' : String(t); document.getElementById('
 /* A69 (usuario, 04/10): la pestana elegida (Distribucion, Materiales o Estilo) se recuerda en la sesion: si la pagina se recarga
    (en SketchUp, al cambiar el master o al volver a abrir el editor) vuelve a la misma y no salta a Distribucion */
 const PESTANAS = ['layout', 'materials', 'style'];
+/* A72 (usuario, 04/10): desde Materiales o Estilo, elegir un componente en el dibujo (clic, doble clic o recuadro; tambien el que ya
+   estaba elegido) lleva a Distribucion, donde se editan sus opciones; un clic en vacio, arrastrar una muestra o pasar el mouse no */
+let antesDeElegir = null;
+const fotoSeleccion = () => JSON.stringify([[...selection].sort(), selectedPart, [...pieces].sort(), focusPanel, upperFocus]);
 function mostrarPestana(tab){
   document.querySelectorAll('.tab-heads button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-page').forEach(p => p.classList.toggle('active', p.id === 'page-' + tab));
@@ -6183,6 +6194,16 @@ document.querySelectorAll('.tab-heads button').forEach(btn => btn.addEventListen
   if (PESTANAS.includes(btn.dataset.tab)) try { sessionStorage.setItem('cabynetry.pestana', btn.dataset.tab); } catch (e) { /* sin almacenamiento */ }
 }));
 try { const t = sessionStorage.getItem('cabynetry.pestana'); if (PESTANAS.includes(t) && t !== 'layout') mostrarPestana(t); } catch (e) { /* sin almacenamiento */ }
+canvas.addEventListener('mousedown', e => { antesDeElegir = e.button === 0 ? fotoSeleccion() : null; }, true);
+window.addEventListener('mouseup', () => {
+  const antes = antesDeElegir; antesDeElegir = null; if (antes === null) return;
+  setTimeout(() => {
+    const activa = document.querySelector('.tab-heads button.active'), tab = activa && activa.dataset.tab;
+    if ((tab === 'materials' || tab === 'style') && (selection.size || selectedPart || fotoSeleccion() !== antes)) {
+      mostrarPestana('layout'); try { sessionStorage.setItem('cabynetry.pestana', 'layout'); } catch (e) { /* sin almacenamiento */ }
+    }
+  }, 0);
+});
 /* boton de vistas (Layout.cs): clic = siguiente vista; mantener pulsado 380 ms = menu para elegirla */
 /* vistas: cocina Alzado/Planta; isla Alzado frontal, Planta, Vista posterior y Sección */
 const viewList = () => cfg.isla ? [['Alzado', 'Alzado frontal'], ['Planta', 'Planta'], ['Posterior', 'Vista posterior'], ['Seccion', 'Sección']] : [['Alzado', 'Alzado'], ['Planta', 'Planta']];
