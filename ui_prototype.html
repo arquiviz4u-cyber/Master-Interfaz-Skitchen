@@ -153,6 +153,11 @@
        los gabinetes (los bancos quedan del lado opuesto; un lado corto no se
        acepta). Revit: Generator.cs pide hoy 3 puntos (largo y ancho); cambiar
        a rectangulo + lado de los gabinetes.
+   A70. Guardado como Revit (04/10, usuario): las configuraciones son del
+       proyecto (SketchUp: atributos del modelo; antes el navegador, que se
+       perdia o mezclaba proyectos). Guardar actualiza la de la sesion y un
+       nombre existente la reemplaza (PresetCatalog.Save); nombre por omision
+       Cocina n / Isla 0n. Revit: ya es asi.
    A69. Pestana estable (04/10, usuario): en Materiales, al seleccionar un modulo
        volvia a Distribucion (la pagina se recargaba en SketchUp). La pestana
        elegida se recuerda y se restaura al recargar y al cerrar Guardado o
@@ -6233,15 +6238,29 @@ document.getElementById('btnRedo').addEventListener('click', redo);
 /* ---------------- Pestaña Guardado (OpenSettings / RenderPresets) ----------------
    Configuraciones del proyecto: en Revit viven en el RVT (Extensible Storage), en SketchUp en los atributos del modelo.
    Aqui se guardan en memoria y, como comodidad del prototipo, en el navegador. */
+/* A70 (usuario, 04/10): como Revit. Las configuraciones son del proyecto: en SketchUp viven en el modelo (Ruby las manda al cargar con
+   sketchupConfiguraciones y las guarda con sketchup.guardar_configuraciones), no en el navegador. Guardar actualiza la de esta
+   sesion (guardadoId) y un nombre que ya existe (sin distinguir mayusculas) la reemplaza (PresetCatalog.Save de Revit) */
+const enModeloSU = () => typeof window.sketchup === 'object' && window.sketchup !== null;
 let catalog = [];
-try { catalog = JSON.parse(localStorage.getItem('cabynetry.catalogo') || '[]'); } catch (e) { catalog = []; }
-function persistCatalog(){ try { localStorage.setItem('cabynetry.catalogo', JSON.stringify(catalog)); } catch (e) { /* sin almacenamiento: queda en memoria */ } }
-function nextName(){ let n = 1; while (catalog.some(p => p.name === 'Cocina ' + n)) n++; return 'Cocina ' + n; }
+if (!enModeloSU()) try { catalog = JSON.parse(localStorage.getItem('cabynetry.catalogo') || '[]'); } catch (e) { catalog = []; }
+function persistCatalog(){
+  if (enModeloSU()) { sketchup.guardar_configuraciones(JSON.stringify(catalog)); return; }
+  try { localStorage.setItem('cabynetry.catalogo', JSON.stringify(catalog)); } catch (e) { /* sin almacenamiento: queda en memoria */ }
+}
+function sketchupConfiguraciones(texto){
+  try { const l = JSON.parse(texto); catalog = Array.isArray(l) ? l : []; } catch (e) { catalog = []; }
+  if (settingsOpen) renderPresets();
+}
+/* NextName de Revit: Cocina 1, 2...; Isla 01, 02... */
+function nextName(){ const isla = !!cfg.isla, nombre = n => isla ? 'Isla ' + String(n).padStart(2, '0') : 'Cocina ' + n; let n = 1; while (catalog.some(p => p.name === nombre(n))) n++; return nombre(n); }
 function saveConfig(name, asNew){
   name = (name || '').trim() || cfg.nombre || nextName();
+  const same = catalog.find(p => p.name.toLowerCase() === name.toLowerCase());
   let item = !asNew && catalog.find(p => p.id === cfg.guardadoId);
+  if (same && same !== item) item = same;   /* el mismo nombre reemplaza a la existente */
   if (!item) { item = { id: uid() }; catalog.push(item); }
-  cfg.guardadoId = item.id; cfg.nombre = name; item.name = name; item.layout = JSON.parse(JSON.stringify(cfg));
+  cfg.guardadoId = item.id; cfg.nombre = name; item.name = name; item.actualizada = new Date().toISOString(); item.layout = JSON.parse(JSON.stringify(cfg));
   persistCatalog(); return item;
 }
 /* Adapt: carga una configuracion en el muro actual; los anchos pasan a pesos y se reparten de nuevo */
@@ -6371,6 +6390,8 @@ function offerSave(action, proceed){
    sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
    sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida), sketchupNuevaIsla(longitud, ancho) (isla nueva
    con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual.
+   A70: configuraciones del proyecto. Ruby manda sketchupConfiguraciones(texto con la lista) al cargar y el master guarda la lista
+   completa con sketchup.guardar_configuraciones(texto) en el modelo.
    B22: LiveSync. sketchup.generar lleva vivo: true en las generaciones automaticas (Ruby no mueve la ventana).
    B21: sketchup.listo(texto) lleva {x, y, ancho, alto} del area util de la pantalla; sketchup.ventana('maxima') vuelve a pantalla
    completa (Ruby la pasa al 37.5 % derecho al Generar).
