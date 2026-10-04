@@ -161,7 +161,8 @@
    A69. Pestana estable (04/10): la pestana elegida se recuerda y se restaura
        al recargar la pagina (SketchUp) y al cerrar Guardado o Ajustes.
    B26. [SketchUp 04/10] Luz del LED: temperatura de color en Iluminacion
-       (2700 a 6500 K, 3000 K de fabrica, con muestra del tono) y plano de luz
+       (2700 a 6500 K, 3000 K de fabrica, tonos representativos amarillentos,
+       con muestra del tono) y plano de luz
        corrido por tramo de camas seguidas (antes uno por columna). Revit: no
        aplica (la temperatura podria ir a la familia de la tira).
    A79. Material de jaladeras (04/10, usuario): los metales (A77) no son una
@@ -2054,16 +2055,11 @@ const PLAN_ROLES = ['modulo', 'panel', 'frente', 'repisa', 'division', 'caja', '
 /* B25 (usuario, 04/10): luz del LED simulada. Plano contra el muro (o el backsplash) entre la cubierta y los altos, con un mosaico PNG
    de luz calida que se desvanece hacia abajo (canal alfa); un mosaico a lo alto del plano y de 10 cm a lo ancho */
 const PLAN_LUZ = { id: 'LUZ_LED', nombre: 'Luz LED', mosaico: 10, alfa: .75 };
-/* B26 (usuario, 04/10): tono de la luz por temperatura de color (cfg.ledTemp, 3000 K de fabrica). Kelvin a RGB (aproximacion de
-   Tanner Helland, buena entre 1000 y 40000 K) */
-const TEMPERATURAS_LED = [[2700, 'Cálida'], [3000, 'Cálida suave'], [3500, 'Blanco cálido'], [4000, 'Neutra'], [5000, 'Día'], [6500, 'Fría']];
-function rgbKelvin(k){
-  const t = k/100, c = v => Math.round(Math.max(0, Math.min(255, v)));
-  const r = t <= 66 ? 255 : 329.698727446*Math.pow(t - 60, -.1332047592);
-  const g = t <= 66 ? 99.4708025861*Math.log(t) - 161.1195681661 : 288.1221695283*Math.pow(t - 60, -.0755148492);
-  const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231*Math.log(t - 10) - 305.0447927307;
-  return [c(r), c(g), c(b)];
-}
+/* B26 (usuario, 04/10): tono de la luz por temperatura de color (cfg.ledTemp, 3000 K de fabrica). Tonos representativos, no fisicos
+   (usuario: mas amarillentos, sin el rojizo de la conversion de Kelvin): calidos amarillos que pasan a blanco neutro y a blanco frio */
+const TEMPERATURAS_LED = [[2700, 'Cálida', [255, 212, 120]], [3000, 'Cálida suave', [255, 222, 145]], [3500, 'Blanco cálido', [255, 232, 175]],
+  [4000, 'Neutra', [255, 242, 208]], [5000, 'Día', [250, 249, 238]], [6500, 'Fría', [238, 245, 255]]];
+const rgbKelvin = k => (TEMPERATURAS_LED.find(q => q[0] === k) || TEMPERATURAS_LED[1])[2].slice();
 const rgbLuz = () => rgbKelvin(cfg.ledTemp || 3000);
 function texturaLuz(alto){
   const c = document.createElement('canvas'); c.width = 8; c.height = 256; const g = c.getContext('2d'), [r, v, b] = rgbLuz();
@@ -5135,7 +5131,7 @@ function partPanel(key){
       + `<div class="grid-2" style="margin-top:10px">${cfg.backsplashCompleto ? '' : num('bsAlto', 'Altura', cfg.altoBacksplash, 'cm', 5, 100)}${num('bsEsp', 'Espesor', cfg.espesorBacksplash, 'cm', .5, 5)}</div>`);
     html += section('Iluminación', chk('led', cfg.led, 'Iluminación LED bajo gabinetes altos') + (cfg.led ? `<div style="margin-top:8px">${radios('ledPos', [['frente', 'Al frente'], ['centro', 'Al centro'], ['atras', 'Atrás']], cfg.ledCentro ? 'centro' : cfg.ledFrente ? 'frente' : 'atras')}</div>`
       + `<div style="margin-top:8px">${chk('ledLuz', cfg.ledLuz !== false, 'Simular la luz en el muro (SketchUp)')}</div>`
-      + `<div class="temp-led"><label class="field"><span>Temperatura de color</span><select data-act="ledTemp">${TEMPERATURAS_LED.map(([k, t]) => `<option value="${k}" ${k === (cfg.ledTemp || 3000) ? 'selected' : ''}>${k} K · ${t}</option>`).join('')}</select></label>`
+      + `<div class="temp-led"><label class="field"><span>Temperatura de color</span><select data-act="ledTemp">${TEMPERATURAS_LED.map(([k, t, _]) => `<option value="${k}" ${k === (cfg.ledTemp || 3000) ? 'selected' : ''}>${k} K · ${t}</option>`).join('')}</select></label>`
         + `<span class="temp-muestra" style="background:linear-gradient(rgb(${rgbLuz().join(',')}), rgba(${rgbLuz().join(',')},0))" title="Tono de la luz"></span></div>`
       + (cfg.ledCentro ? '' : `<div class="grid-2" style="margin-top:10px;align-items:end">${num('ledRet', 'Distancia del borde', cfg.ledRetiro ?? PLAN_LED.retiro, 'cm', 0, 30)}<button class="btn" data-act="ledPano" type="button">Al paño</button></div>`
         + `<div class="note">Del ${cfg.ledFrente ? 'frente' : 'fondo'} del gabinete al canal de la tira. De fábrica ${fmt(PLAN_LED.retiro)}${uS()}; «Al paño» la pone en 0.</div>`) : ''));
