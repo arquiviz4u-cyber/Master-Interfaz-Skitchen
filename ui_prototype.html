@@ -160,6 +160,11 @@
        Cocina n / Isla 0n. Revit: ya es asi.
    A69. Pestana estable (04/10): la pestana elegida se recuerda y se restaura
        al recargar la pagina (SketchUp) y al cerrar Guardado o Ajustes.
+   A78. Juntas de la puerta oculta (04/10, usuario): horizontales sin el tope de
+       4 (hasta 4 en sus posiciones de diseño; desde 5, parejas en la hoja;
+       limite: tableros de 20 cm) y numero de juntas verticales (0 a N
+       parejas, columnas de 15 cm) en lugar de la junta central; la antigua
+       juntaVertical cuenta como 1. Revit: mismos controles.
    A77. Categoria Metal (04/10, usuario): seis metales de fabrica (Niquel
        satinado, Antracita, Cromo, Laton, Bronce, Acero inoxidable), color liso,
        para jaladeras y lo que se quiera; colores rapidos en el editor. Revit:
@@ -1396,7 +1401,7 @@ function defaultConfig(length){
 }
 /* Puerta oculta: hoja de piso a techo que parece gabinete, fuera de la cota del muro (una por lado como maximo) */
 const newDoor = derecha => ({ id: 'd' + Math.random().toString(36).slice(2, 9), derecha, ancho: 90, invertir: false, abre: 'adentro', piston: false, altoPiston: 40,
-  tapetaLateral: true, anchoTapeta: 5, tapetaSuperior: true, zoclo: true, fondo: 60, juntaVertical: false, juntasHorizontales: [],
+  tapetaLateral: true, anchoTapeta: 5, tapetaSuperior: true, zoclo: true, fondo: 60, juntasVerticales: 0, juntasHorizontales: [],
   material: null, materialJuntas: null, materialPiston: null });
 const doors = () => cfg.puertasOcultas || [];
 const doorById = id => doors().find(d => d.id === id);
@@ -1410,8 +1415,16 @@ const hdHingeRight = d => d.invertir ? !d.derecha : d.derecha;   /* abre hacia s
 const hdExtra = right => Math.max(0, ...doors().filter(d => d.derecha === right).map(d => d.ancho + (d.tapetaLateral ? d.anchoTapeta : 0)));
 /* juntas horizontales utiles: entre 20 cm sobre el arranque de la hoja y 20 cm bajo su tope */
 const hdJoints = d => (d.juntasHorizontales || []).filter(j => j > hdBottom(d) + 20 && j < hdLeafTop(d) - 20).sort((a, b) => a - b);
-/* juntas por defecto al pedir n: barra, lecho de los altos, media altura de los bajos y media de los altos */
-const hdDefaultJoints = n => [altoBarra(), baseAltos(), cfg.baseBajos + cfg.altoBajos/2, (baseAltos() + topeAltos())/2].slice(0, Math.max(0, Math.min(4, n))).sort((a, b) => a - b);
+/* juntas por defecto al pedir n: barra, lecho de los altos, media altura de los bajos y media de los altos. A78 (usuario, 04/10): sin el
+   tope de 4: desde 5 se reparten parejo en la hoja; el limite lo da la hoja (tableros de al menos 20 cm). Verticales: 0 a N repartidas
+   parejo (columnas de al menos 15 cm); la antigua junta vertical central cuenta como 1 */
+const hdMaxHoriz = d => Math.max(0, Math.floor((hdLeafTop(d) - hdBottom(d))/20) - 1);
+const hdMaxVert = d => Math.max(0, Math.floor(d.ancho/15) - 1);
+const hdNumVert = d => Math.max(0, Math.min(hdMaxVert(d), d.juntasVerticales ?? (d.juntaVertical ? 1 : 0)));
+const hdVerticales = d => { const n = hdNumVert(d); return Array.from({ length: n }, (_, k) => d.ancho*(k + 1)/(n + 1)); };
+const hdDefaultJoints = (n, d) => { n = Math.max(0, n);
+  if (n <= 4) return [altoBarra(), baseAltos(), cfg.baseBajos + cfg.altoBajos/2, (baseAltos() + topeAltos())/2].slice(0, n).sort((a, b) => a - b);
+  const b = hdBottom(d), h = hdLeafTop(d) - b; return Array.from({ length: n }, (_, k) => Math.round((b + h*(k + 1)/(n + 1))*10)/10); };
 const hdLevels = d => { const b = hdBottom(d), l = [0]; if (b > 0) l.push(b); return l.concat(hdJoints(d), [hdLeafTop(d)]); };
 function hdSetSegment(d, k, value){
   const lv = hdLevels(d); if (k < 0 || k + 1 >= lv.length) return;
@@ -1430,7 +1443,7 @@ function hdFronts(d){
 }
 /* tableros entre juntas (estilo clasico: un marco shaker por tablero) */
 function hdPanels(d){
-  const hol = .2, zs = [hdBottom(d), ...hdJoints(d), hdLeafTop(d)], xs = d.juntaVertical ? [0, d.ancho/2, d.ancho] : [0, d.ancho], r = [];
+  const hol = .2, zs = [hdBottom(d), ...hdJoints(d), hdLeafTop(d)], xs = [0, ...hdVerticales(d), d.ancho], r = [];
   for (let i = 0; i + 1 < zs.length; i++) for (let j = 0; j + 1 < xs.length; j++) r.push([xs[j] + hol, xs[j+1] - hol, zs[i] + hol, zs[i+1] - hol]);
   return r;
 }
@@ -2444,8 +2457,8 @@ function planDePiezas(c = cfg){
       else tablero(d.id, base, 'Puerta', a, c, z0, z1, yF, dmat, hr, false);
       bisagras(dm, base, a, c, z0, z1, hr, yF);
       juntas.forEach((jz, i) => add({ id: base + ':junta:' + i, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: a, y: yF + t, z: jz - J.ancho/2, ancho: c - a, fondo: J.salida, alto: J.ancho, material: d.materialJuntas || null, etiqueta: 'herrajes' }));
-      if (d.juntaVertical) [z0, ...juntas.flatMap(j => [j - J.ancho/2, j + J.ancho/2]), z1].forEach((z, i, l) => { if (i % 2) return;
-        add({ id: base + ':junta:v:' + i/2, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: (s0 + s1)/2 - J.ancho/2, y: yF + t, z, ancho: J.ancho, fondo: J.salida, alto: l[i + 1] - z, material: d.materialJuntas || null, etiqueta: 'herrajes' }); });
+      hdVerticales(d).forEach((vx, k) => [z0, ...juntas.flatMap(j => [j - J.ancho/2, j + J.ancho/2]), z1].forEach((z, i, l) => { if (i % 2) return;   /* A78: N verticales */
+        add({ id: base + ':junta:v:' + (k ? k + ':' : '') + i/2, rol: 'herraje', modulo: d.id, tipo: 'Junta', x: s0 + vx - J.ancho/2, y: yF + t, z, ancho: J.ancho, fondo: J.salida, alto: l[i + 1] - z, material: d.materialJuntas || null, etiqueta: 'herrajes' }); }));
       if (cfg.style !== 'Moderna') { const Jl = PLAN_JALADERA, boton = cfg.jaladera === 'Boton', ck = .2 + cantoJaladera(c - a, z1 - z0), cx = hr ? s0 + ck : s1 - ck, [w, h] = boton ? [Jl.boton, Jl.boton] : [Jl.grueso, cfg.largoJaladera];
         add({ id: base + ':jaladera', rol: 'herraje', modulo: d.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: yF + t + J.salida, z: 100 - h/2, ancho: w, fondo: boton ? Jl.boton : Jl.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' }); }
       if (d.piston) {
@@ -2635,7 +2648,7 @@ function pruebasPlanDePiezas(){
     ['muro con decimales y solo tapeta izquierda', c => { c.longitud = 312.37; c.tapetaDer = false; return c; }],
     ['gola de aluminio en C, LED al frente y puerta oculta lisa con junta vertical', c => { const l = c.modulos.filter(m => !m.upper);
       c.perfil = 'C'; c.led = true; c.ledFrente = true; c.ledRetiro = 0; c.vuelo = 2; l[2].tipo = 'Cajones';
-      c.puertasOcultas = [Object.assign(newDoor(true), { juntaVertical: true, juntasHorizontales: [85, 145] })]; return c; }],
+      c.puertasOcultas = [Object.assign(newDoor(true), { juntasVerticales: 2, juntasHorizontales: [85, 145] })]; return c; }],
     ['moderna con gola de melamina y cajonera', c => { c.gola = 'Melamina'; c.modulos.filter(m => !m.upper)[1].tipo = 'Cajones'; return c; }],
     ['clasica con puertas ocultas a los dos lados (piston, juntas) y LED atras', c => {
       c.style = 'Clasica'; c.led = true; c.ledFrente = false; c.ledCentro = true;
@@ -2655,6 +2668,8 @@ function pruebasPlanDePiezas(){
       d.modulos[2].parrilla = true; d.modulos[0].tipo = 'Cajones'; return d; }],
     ['zoclo cerrado en los dos extremos y cortado por el refrigerador', c => { const l = c.modulos.filter(m => !m.upper);
       c.cerrarZocloIzq = c.cerrarZocloDer = true; l[2].tipo = 'Refri'; return c; }],
+    ['puerta oculta con 6 juntas horizontales y 3 verticales (A78)', c => { const d = newDoor(false); c.puertasOcultas = [d]; const prev = cfg; cfg = c;
+      d.juntasHorizontales = hdDefaultJoints(6, d); d.juntasVerticales = 3; cfg = prev; return c; }],
     ['tarja bajo cubierta, shaker y puertas dobles', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       c.style = 'Clasica'; c.moduloTarja = l[2].id; c.tipoTarja = 1; c.tarjaBajoCubierta = true; l[2].dosPuertas = true; u[1].dosPuertas = true;
       u[2].tipo = 'Doble'; u[2].tipoSuperior = 'Puertas'; return c; }]];
@@ -2730,6 +2745,9 @@ function pruebasPlanDePiezas(){
         else ok(Math.abs(borde - Math.min(c.ledRetiro ?? PLAN_LED.retiro, cm.fondo - led.fondo)) < .01, nombre + ': el canal del LED queda a ' + borde + ' cm del borde en ' + m.id);
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
         ok(p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.z < zc).every(q => Math.abs(q.z - zb) < .01), nombre + ': las puertas de ' + m.id + ' no alinean con la cama'); } });
+    /* A78: cada puerta oculta lleva sus juntas: horizontales a todo el ancho y verticales cortadas entre ellas */
+    (c.puertasOcultas || []).forEach(d => { const prev = cfg; cfg = c; const nh = hdJoints(d).length, nv = hdNumVert(d); cfg = prev;
+      const n = p.piezas.filter(q => q.modulo === d.id && q.tipo === 'Junta').length; ok(n === nh + nv*(nh + 1), nombre + ': ' + n + ' juntas en la puerta oculta ' + d.id); });
     /* B19: la forma de cada pieza cabe en su caja; cada cajon lleva su par de correderas y cada elevable sus pistones */
     const dentro = (q, v) => v.every((c, i) => c >= -.001 && c <= [q.ancho, q.fondo, q.alto][i] + .001);
     p.piezas.filter(q => q.forma).forEach(q => ok(q.forma.tipo === 'plano' ? ['x', 'y', 'z'].includes(q.forma.eje) : q.forma.tipo === 'cilindro' ? dentro(q, q.forma.de) && dentro(q, q.forma.a) && q.forma.diametro > 0 && q.forma.lados >= 6
@@ -3757,7 +3775,7 @@ function drawHiddenDoors(X, Z, RX, scale, post){
       /* juntas: tiras con su material; la hoja y cada junta admiten un material arrastrado */
       materialHits.push({ rect: lr, key: 'doorleaf:' + d.id });
       const jm = mat(d.materialJuntas); ctx.strokeStyle = jm ? rgbOf(jm) : C.grille; ctx.lineWidth = Math.max(2, .4*scale);
-      if (d.juntaVertical) { const vx = leaf.x + leaf.w/2; line(vx, leaf.y + 2, vx, lr.y + lr.h - 2); materialHits.push({ rect: { x: vx - 6, y: leaf.y, w: 12, h: lr.y + lr.h - leaf.y }, key: 'doorjoint:' + d.id }); }
+      hdVerticales(d).forEach(v => { const vx = leaf.x + v*scale; line(vx, leaf.y + 2, vx, lr.y + lr.h - 2); materialHits.push({ rect: { x: vx - 6, y: leaf.y, w: 12, h: lr.y + lr.h - leaf.y }, key: 'doorjoint:' + d.id }); });
       hdJoints(d).forEach(jz => { line(leaf.x + 1, Z(jz), leaf.x + leaf.w - 1, Z(jz)); materialHits.push({ rect: { x: leaf.x, y: Z(jz) - 6, w: leaf.w, h: 12 }, key: 'doorjoint:' + d.id }); });
       ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText('Puerta oculta', body.x + 4, body.y + body.h - 17);
     }
@@ -3782,7 +3800,7 @@ function drawHiddenDoors(X, Z, RX, scale, post){
           const lv = hdLevels(d), mx = leaf.x + leaf.w - 14;
           for (let k = 0; k + 1 < lv.length; k++) dim(mx, Z(lv[k]), mx, Z(lv[k+1]), fmt(lv[k+1] - lv[k]), k + 1 < lv.length - 1 || d.piston || d.tapetaSuperior ? 'doorseg:' + d.id + ':' + k : null);
           if (d.piston) dim(mx, leaf.y, mx, Z(top), fmt(d.altoPiston), 'doorp:' + d.id);
-          if (d.juntaVertical) { const ym = Z(bottom) - 14; dim(leaf.x, ym, leaf.x + leaf.w/2, ym, fmt(d.ancho/2), 'doorhalf:' + d.id); dim(leaf.x + leaf.w/2, ym, leaf.x + leaf.w, ym, fmt(d.ancho/2), 'doorhalf:' + d.id); }
+          if (hdNumVert(d) === 1) { const ym = Z(bottom) - 14; dim(leaf.x, ym, leaf.x + leaf.w/2, ym, fmt(d.ancho/2), 'doorhalf:' + d.id); dim(leaf.x + leaf.w/2, ym, leaf.x + leaf.w, ym, fmt(d.ancho/2), 'doorhalf:' + d.id); }
         } });
     }
     /* la cota superior incluye la tapeta lateral */
@@ -5029,7 +5047,7 @@ function doorPanel(key){
     + `<div class="info-card" style="margin-top:10px"><div class="info-row">Hoja <b>${fmt(d.ancho)} × ${fmt(leaf)}${uS()}</b></div></div>`);
   html += section('Gabinete de pistón', chk('hdPist', d.piston, 'Gabinete de pistón arriba') + (d.piston ? `<div class="grid-2" style="margin-top:10px">${num('hdAltP', 'Alto del gabinete', d.altoPiston, 'cm', 25, 60)}</div>` : ''));
   html += section('Tapetas', chk('hdTapL', d.tapetaLateral, 'Tapeta lateral') + (d.tapetaLateral ? `<div class="sub"><div class="grid-2">${num('hdTapLW', 'Ancho de la tapeta lateral', d.anchoTapeta, 'cm', 2, 15)}</div></div>` : '') + chk('hdTapS', d.tapetaSuperior, 'Tapeta superior'));
-  html += section('Juntas', chk('hdJV', d.juntaVertical, 'Junta vertical central') + `<div class="grid-2" style="margin-top:10px">${num('hdJH', 'Juntas horizontales (0 a 4)', hdJoints(d).length, 'u', 0, 4, 1)}</div><div class="note-sm">Arrastra los puntos azules de la hoja para mover las juntas, o haz clic en su cota.</div>`);
+  html += section('Juntas', `<div class="grid-2">${num('hdJH', 'Juntas horizontales (0 a ' + hdMaxHoriz(d) + ')', hdJoints(d).length, 'u', 0, hdMaxHoriz(d), 1)}${num('hdJV', 'Juntas verticales (0 a ' + hdMaxVert(d) + ')', hdNumVert(d), 'u', 0, hdMaxVert(d), 1)}</div><div class="note-sm">Arrastra los puntos azules de la hoja para mover las juntas, o haz clic en su cota.</div>`);
   return html + `<div class="p-foot"><button class="btn btn-danger btn-block" data-act="hdQuitar">Quitar puerta oculta</button></div>`;
 }
 /* horno, microondas y rejilla de la torre */
@@ -5210,8 +5228,8 @@ const ACT = {
   hdInv: v => change(() => hdSel().invertir = v), hdZoc: v => change(() => hdSel().zoclo = v),
   hdPist: v => change(() => hdSel().piston = v), hdAltP: v => change(() => hdSel().altoPiston = v),
   hdTapL: v => change(() => hdSel().tapetaLateral = v), hdTapLW: v => change(() => hdSel().anchoTapeta = v), hdTapS: v => change(() => hdSel().tapetaSuperior = v),
-  hdJV: v => change(() => hdSel().juntaVertical = v),
-  hdJH: v => { const d = hdSel(), n = Math.round(v); if (n !== hdJoints(d).length) change(() => hdSel().juntasHorizontales = hdDefaultJoints(n)); },
+  hdJV: v => { const d = hdSel(), n = Math.max(0, Math.min(hdMaxVert(d), Math.round(v) || 0)); change(() => { const q = hdSel(); q.juntasVerticales = n; delete q.juntaVertical; }); },
+  hdJH: v => { const d = hdSel(), n = Math.max(0, Math.min(hdMaxHoriz(d), Math.round(v) || 0)); if (n !== hdJoints(d).length) change(() => hdSel().juntasHorizontales = hdDefaultJoints(n, d)); else render(); },
   hdQuitar: () => deletePart(selectedPart), hdEditar: () => selectPart('door:' + hdSel().id),
   /* piezas */
   pzRepisas: () => { const [, id, pk] = selectedPart.split(':'), zone = pk.slice(0, pk.indexOf('.')); pieceHits.filter(q => q.key.startsWith(`piece:${id}:${zone}.repisa.`)).forEach(q => pieces.add(q.key)); render(); },
