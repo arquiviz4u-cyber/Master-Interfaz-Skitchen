@@ -157,6 +157,23 @@
        mitades (fondo y linea del perfil eran destinos distintos); ahora un
        material arrastrado a cualquier franja va a toda la gola y en 3D el
        perfil usa el mismo. Revit: Material_Perfil_Gola aparte; unificar.
+   A55. Render con IA dentro del editor (04/10): boton «Render IA» junto a
+       Exportar. Panel: vista de partida (alzado limpio con puertas o interior),
+       ambiente (dia, atardecer, noche), espacio (neutro, calido, minimalista),
+       calidad (borrador 1 credito, final 4), indicaciones extra, creditos del
+       mes y el texto que se envia (el mismo de Exportar + las opciones). Al
+       generar: espera con cancelar; resultado con deslizador antes/despues,
+       historial de la sesion (6), Ajustar, Otra variante y Guardar imagen.
+       Contrato con el servidor de Drawlibri: POST /v1/render {licencia,
+       producto, vista PNG base64, prompt, calidad, ambiente, espacio} ->
+       {imagen, creditos_restantes}; la clave del proveedor de imagenes vive
+       solo en el servidor. SketchUp: sketchup.render(json) y
+       sketchupRenderListo(ok, imagen|mensaje, restantes). Revit: el mismo
+       contrato desde la DLL. En el prototipo la respuesta se simula.
+   A56. Idea aprobada, sin prototipo (04/10, usuario): asistente de soporte y
+       diseno con IA dentro del editor (preguntas sobre la herramienta, revisar
+       la cocina actual: ergonomia, holguras, piezas faltantes). Descartado:
+       generar la cocina desde texto (poco practico).
    A45. [Revit OK, no aplica] Cotas editables (03/10): el clic en una cota abria
        el campo y el mismo clic le quitaba el foco (lo tomaba el lienzo), asi
        que se cerraba al instante, en el navegador y en SketchUp. Corregido
@@ -748,6 +765,33 @@
   .bottom .btn { height: 40px; min-width: 112px; font-size: 13px; }
   .bottom .btn-primary { min-width: 140px; }
   .export-preview { display: block; width: 100%; margin-top: 10px; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
+  /* Render con IA (A55) */
+  .modal.wide { width: 780px; }
+  .rd-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .rd-shot { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #fff; line-height: 0; }
+  .rd-shot img { width: 100%; display: block; }
+  .rd-tag { position: absolute; left: 8px; top: 8px; font: 600 10.5px 'Inter', sans-serif; letter-spacing: .04em; padding: 3px 7px; border-radius: 10px; background: rgba(19,33,43,.72); color: #fff; line-height: 1.3; }
+  .rd-opts .field { margin-bottom: 10px; }
+  .rd-opts textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 54px; }
+  .rd-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .rd-seg button { padding: 7px 4px; border: 1px solid var(--line); border-radius: 6px; background: #fff; font: 500 11.5px 'Inter', sans-serif; color: #5A6570; cursor: pointer; }
+  .rd-seg button.on { border-color: var(--ink); background: var(--ink-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .rd-credits { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #5A6570; padding: 8px 10px; border-radius: 6px; background: #F4F7FA; border: 1px solid #E1E7ED; margin-top: 4px; }
+  .rd-credits b { font: 500 12px 'IBM Plex Mono', monospace; color: var(--text); }
+  .rd-prompt { margin-top: 8px; font-size: 11.5px; color: #5A6570; }
+  .rd-prompt pre { white-space: pre-wrap; font: 400 11px 'IBM Plex Mono', monospace; background: #F4F7FA; border: 1px solid #E1E7ED; border-radius: 6px; padding: 8px; max-height: 140px; overflow: auto; margin: 6px 0 0; }
+  .rd-busy { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 36px 0; color: #5A6570; font-size: 13px; }
+  .rd-spin { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--ink-soft); border-top-color: var(--ink); animation: rdspin .9s linear infinite; }
+  @keyframes rdspin { to { transform: rotate(360deg); } }
+  .rd-compare { position: relative; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; line-height: 0; user-select: none; }
+  .rd-compare img { width: 100%; display: block; }
+  .rd-compare .rd-after { position: absolute; inset: 0; overflow: hidden; }
+  .rd-compare .rd-after img { width: 100%; height: 100%; object-fit: cover; object-position: left; }
+  .rd-compare .rd-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); pointer-events: none; }
+  .rd-range { width: 100%; margin: 8px 0 2px; }
+  .rd-thumbs { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .rd-thumbs img { width: 64px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); cursor: pointer; }
+  .rd-thumbs img.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
 
   /* dimension inline editor over the canvas */
   #dimEdit {
@@ -811,6 +855,10 @@
   html[data-theme=dark] .bottom .status { color: #C9CED4; }
   html[data-theme=dark] .modal { background: #2C2F34; }
   html[data-theme=dark] .modal .m-bd { color: #B9C0C7; }
+  html[data-theme=dark] .rd-seg button { background: #2C2F34; border-color: #3A3E44; color: #B9C0C7; }
+  html[data-theme=dark] .rd-seg button.on { background: #22374A; border-color: #5C9BD1; color: #8DBBE3; box-shadow: inset 0 0 0 1px #5C9BD1; }
+  html[data-theme=dark] .rd-credits, html[data-theme=dark] .rd-prompt pre { background: #25272B; border-color: #3A3E44; color: #B9C0C7; }
+  html[data-theme=dark] .rd-credits b { color: #E2E5E9; }
   html[data-theme=dark] .modal .m-ft { background: #25272B; border-top-color: #3A3E44; }
   html[data-theme=dark] #dimEdit { background: #36393E; color: #8DBBE3; }
   /* iconos de trazo en tinta de marca: en oscuro se aclaran para conservar el contraste */
@@ -922,6 +970,10 @@
     <button class="btn" id="btnExport" title="Exportar vistas: guarda el alzado, el alzado interior y la planta como PNG limpios (sin cotas ni selecci&oacute;n) y un texto con estilo y materiales, para generar un render con IA">
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5" stroke="#266096" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 11v2.5h11V11" stroke="#266096" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Exportar
+    </button>
+    <button class="btn" id="btnRender" title="Render con IA: convierte el alzado en una imagen fotorrealista sin salir del editor (consume créditos del plan)">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M6 1.8 7.2 5 10.4 6.2 7.2 7.4 6 10.6 4.8 7.4 1.6 6.2 4.8 5Z" fill="#266096"/><path d="M12 8.8l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7Z" fill="#266096"/></svg>
+      Render IA
     </button>
     <button class="btn btn-icon" id="btnTheme" title="D&iacute;a / noche: lienzo e interfaz en oscuro"></button>
     <button class="btn btn-icon btn-toggle" id="btnPrefs" title="Ajustes: idioma, unidades, cotas, valores de inicio, comportamiento, exportar y licencia" aria-label="Ajustes">
@@ -2822,8 +2874,8 @@ const DIALOG_ICONS = {
   info: '<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8.3" fill="#E6F4EC" stroke="#2E8B57" stroke-width="1.4"/><path d="m6.5 10.2 2.3 2.3 4.7-4.8" stroke="#2E8B57" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 /* MessageBox del real: Enter activa el boton primario y Esc el de cancelar */
-function showDialog(title, message, buttons = [{ text: 'Aceptar', primary: true }], icon = 'warn', html = false){
-  const back = document.getElementById('modal');
+function showDialog(title, message, buttons = [{ text: 'Aceptar', primary: true }], icon = 'warn', html = false, wide = false){
+  const back = document.getElementById('modal'); back.querySelector('.modal').classList.toggle('wide', !!wide);   /* panel ancho: Render con IA */
   document.querySelector('#modal .m-hd svg').outerHTML = DIALOG_ICONS[icon];
   document.getElementById('modalTitle').textContent = title;
   const body = document.getElementById('modalBody'); if (html) body.innerHTML = message; else body.textContent = message;
@@ -5464,6 +5516,31 @@ const EN = {
   'Cubierta': 'Countertop',
   'Cubierta con nariz': 'Countertop with nosing',
   'Inferior + superior': 'Lower + upper',
+  'Render IA': 'AI render',
+  'Render con IA': 'AI render',
+  'Vista de partida': 'Starting view',
+  'Vista': 'View',
+  'Con puertas': 'With doors',
+  'Ambiente': 'Lighting',
+  'Día': 'Day',
+  'Atardecer': 'Sunset',
+  'Noche': 'Night',
+  'Espacio': 'Space',
+  'Neutro': 'Neutral',
+  'Cálido': 'Warm',
+  'Minimalista': 'Minimalist',
+  'Calidad': 'Quality',
+  'Borrador · 1': 'Draft · 1',
+  'Final · 4': 'Final · 4',
+  'Indicaciones extra (opcional)': 'Extra directions (optional)',
+  'Créditos del mes': 'Credits this month',
+  'Ver instrucciones que se envían': 'See the instructions sent',
+  'Suele tardar entre 10 y 30 segundos.': 'It usually takes 10 to 30 seconds.',
+  'Ajustar': 'Adjust',
+  'Otra variante': 'Another variant',
+  'Guardar imagen': 'Save image',
+  'No te quedan créditos suficientes este mes. Puedes comprar un paquete extra o esperar al siguiente mes.': 'You do not have enough credits left this month. You can buy an extra pack or wait for next month.',
+  'Volver': 'Back',
   'Ancho del refrigerador': 'Fridge width',
   'Repisas de la caja': 'Box shelves',
   'Repisas internas': 'Inner shelves',
@@ -6188,17 +6265,7 @@ function exportViews(){
     exporting = false; ctx = keep.ctx; view = keep.view; showDoors = keep.showDoors; measure = keep.measure; flat = keep.flat;
     selection = keep.selection; selectedPart = keep.selectedPart; hover = keep.hover; focusPanel = keep.focusPanel; upperFocus = keep.upperFocus; pieces = keep.pieces; render();
   }
-  const nm = id => (mat(id) || {}).nombre;
-  const estilo = cfg.style === 'Clasica' ? 'clásico con marco shaker y jaladeras' : cfg.style === 'Simple' ? 'frentes lisos con jaladeras' : 'moderno, liso, sin jaladeras (uñero gola)';
-  const lines = [cfg.closet ? 'Render fotorrealista de un closet a partir del alzado adjunto.' : cfg.isla ? 'Render fotorrealista de una isla de cocina a partir del alzado adjunto (la planta sirve de referencia de fondos y equipos).' : 'Render fotorrealista de una cocina a partir del alzado adjunto (la planta sirve de referencia de fondos y equipos).',
-    'Respeta exactamente la distribución, las proporciones y las divisiones de puertas y cajones del dibujo; no añadas ni quites módulos.',
-    `Largo del tramo: ${fmt(cfg.longitud)}${uS()}; altura del muro: ${fmt(cfg.alturaMuro)}${uS()}.`, `Estilo de frentes: ${estilo}.`];
-  if (prefs.exportPrompt.trim()) lines.splice(0, 1, prefs.exportPrompt.trim());   /* texto base propio (Ajustes) */
-  if (cfg.materialGeneral) lines.push(`Gabinetes: ${nm(cfg.materialGeneral)}.`);
-  [['Cubierta', 'Cubierta'], ['Backsplash', 'Backsplash'], ['Zoclo', 'Zoclo'], ['Tapetas', 'Tapetas'], ['Repisas', 'Repisas'], ['Interior', 'Interior de gabinetes abiertos']]
-    .forEach(([k, t]) => { if (cfg.materiales[k]) lines.push(`${t}: ${nm(cfg.materiales[k])}.`); });
-  if (cfg.modulos.some(m => m.material)) lines.push('Algunos gabinetes llevan un material distinto: respeta los colores del dibujo.');
-  lines.push('Iluminación natural suave, cámara frontal a la altura de los ojos, piso y muro neutros, sin personas, sin texto ni cotas.');
+  const lines = promptLineas(); lines.push('Iluminación natural suave, cámara frontal a la altura de los ojos, piso y muro neutros, sin personas, sin texto ni cotas.');
   const prompt = lines.map(l => prefs.idioma === 'en' ? trText(l, EN) : l).join('\r\n'), promptName = `${prefs.exportPrefijo.trim() || kind}_${stamp}_prompt.txt`;
   /* B2: en SketchUp, Ruby pide la carpeta, guarda los archivos y la abre (Revit: FolderBrowserDialog) */
   if (enSketchUp()) {
@@ -6227,6 +6294,138 @@ function sketchupExportado(ok, carpeta, nombres){
     '<div style="margin-top:10px">Sube el alzado (y la planta como referencia) a tu herramienta de IA y pega el texto del archivo «prompt».</div>', [{ text: 'Listo', primary: true, cancel: true }], 'info', true);
 }
 document.getElementById('btnExport').addEventListener('click', exportViews);
+
+/* ---------------- Texto base para la IA (Exportar y Render con IA) ---------------- */
+function promptLineas(){
+  const nm = id => (mat(id) || {}).nombre;
+  const estilo = cfg.style === 'Clasica' ? 'clásico con marco shaker y jaladeras' : cfg.style === 'Simple' ? 'frentes lisos con jaladeras' : 'moderno, liso, sin jaladeras (uñero gola)';
+  const lines = [cfg.closet ? 'Render fotorrealista de un closet a partir del alzado adjunto.' : cfg.isla ? 'Render fotorrealista de una isla de cocina a partir del alzado adjunto (la planta sirve de referencia de fondos y equipos).' : 'Render fotorrealista de una cocina a partir del alzado adjunto (la planta sirve de referencia de fondos y equipos).',
+    'Respeta exactamente la distribución, las proporciones y las divisiones de puertas y cajones del dibujo; no añadas ni quites módulos.',
+    `Largo del tramo: ${fmt(cfg.longitud)}${uS()}; altura del muro: ${fmt(cfg.alturaMuro)}${uS()}.`, `Estilo de frentes: ${estilo}.`];
+  if (prefs.exportPrompt.trim()) lines.splice(0, 1, prefs.exportPrompt.trim());   /* texto base propio (Ajustes) */
+  if (cfg.materialGeneral) lines.push(`Gabinetes: ${nm(cfg.materialGeneral)}.`);
+  [['Cubierta', 'Cubierta'], ['Backsplash', 'Backsplash'], ['Zoclo', 'Zoclo'], ['Tapetas', 'Tapetas'], ['Repisas', 'Repisas'], ['Interior', 'Interior de gabinetes abiertos']]
+    .forEach(([k, t]) => { if (cfg.materiales[k]) lines.push(`${t}: ${nm(cfg.materiales[k])}.`); });
+  if (cfg.modulos.some(m => m.material)) lines.push('Algunos gabinetes llevan un material distinto: respeta los colores del dibujo.');
+  return lines;
+}
+
+/* ---------------- Render con IA (A55) ----------------
+   El alzado limpio (como Exportar) + el texto del proyecto + las opciones van al servidor de Drawlibri, que verifica la licencia,
+   descuenta créditos y devuelve la imagen. Contrato (Revit y SketchUp): POST /v1/render con
+   { licencia, producto, vista: PNG en base64, prompt, calidad: 'borrador'|'final', ambiente, espacio }  ->  { imagen: PNG/JPG en base64,
+   creditos_restantes }. En SketchUp el JS llama sketchup.render(json) y Ruby responde con sketchupRenderListo(ok, imagen|mensaje, restantes).
+   En este prototipo la respuesta se simula sobre el mismo alzado (marcada «Simulación»). */
+const RENDER_CUOTA = 100, RENDER_COSTO = { borrador: 1, final: 4 };
+const RENDER_AMBIENTES = [['dia', 'Día'], ['tarde', 'Atardecer'], ['noche', 'Noche']];
+const RENDER_ESPACIOS = [['neutro', 'Neutro'], ['calido', 'Cálido'], ['minimal', 'Minimalista']];
+let renderOpc = { vista: 'puertas', ambiente: 'dia', espacio: 'neutro', calidad: 'borrador', extra: '' }, renderHist = [], renderVista = null, renderActual = -1, renderPendiente = null;
+function renderCreditos(){   /* maqueta: créditos del mes en el navegador; en los plugins los da el servidor */
+  const mes = new Date().toISOString().slice(0, 7);
+  try { const d = JSON.parse(localStorage.getItem('cabynetry.render') || '{}'); return d.mes === mes ? Math.max(0, RENDER_CUOTA - (d.usados || 0)) : RENDER_CUOTA; } catch (e) { return RENDER_CUOTA; }
+}
+function renderGastar(n){ const mes = new Date().toISOString().slice(0, 7); try { const d = JSON.parse(localStorage.getItem('cabynetry.render') || '{}'); const usados = (d.mes === mes ? d.usados || 0 : 0) + n; localStorage.setItem('cabynetry.render', JSON.stringify({ mes, usados })); } catch (e) {} }
+/* alzado limpio (sin cotas ni selección) a 1600 px, como la exportación */
+function capturaRender(doors){
+  const keep = { view, showDoors, measure, flat, selection: new Set(selection), selectedPart, hover, ctx, focusPanel, upperFocus, pieces: new Set(pieces) };
+  exporting = true; selection = new Set(); selectedPart = null; hover = null; measure = false; flat = false; focusPanel = null; upperFocus = null; pieces = new Set();
+  try { view = 'Alzado'; showDoors = doors; const k = 1600/cssW, off = document.createElement('canvas'); off.width = Math.round(cssW*k); off.height = Math.round(cssH*k);
+    ctx = off.getContext('2d'); ctx.setTransform(k, 0, 0, k, 0, 0); drawCanvas(); ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, cssW, cssH); return off.toDataURL('image/png'); }
+  finally { exporting = false; ctx = keep.ctx; view = keep.view; showDoors = keep.showDoors; measure = keep.measure; flat = keep.flat; selection = keep.selection; selectedPart = keep.selectedPart; hover = keep.hover; focusPanel = keep.focusPanel; upperFocus = keep.upperFocus; pieces = keep.pieces; render(); }
+}
+function promptRender(o){
+  const lines = promptLineas();
+  lines.push(o.ambiente === 'noche' ? 'Escena de noche con la iluminación de la cocina encendida (luz cálida bajo los gabinetes altos si los hay).' : o.ambiente === 'tarde' ? 'Luz cálida de atardecer entrando de lado, sombras suaves.' : 'Iluminación natural suave de día.');
+  lines.push(o.espacio === 'calido' ? 'Piso de madera clara y muro en tono cálido.' : o.espacio === 'minimal' ? 'Espacio minimalista: muro blanco, piso claro continuo, sin decoración.' : 'Piso y muro neutros.');
+  if (o.vista === 'interior') lines.push('Muestra el interior: gabinetes abiertos, repisas y cajones visibles como en el dibujo.');
+  lines.push('Cámara frontal a la altura de los ojos, sin personas, sin texto ni cotas.');
+  if (o.extra.trim()) lines.push('Indicaciones del diseñador: ' + o.extra.trim());
+  return lines.map(l => prefs.idioma === 'en' ? trText(l, EN) : l).join('\n');
+}
+function abrirRender(){
+  if (!row(false).length && !row(true).length) { showDialog('Render con IA', 'Añade al menos un módulo.'); return; }
+  renderVista = capturaRender(renderOpc.vista === 'puertas'); panelRender();
+}
+function panelRender(){
+  const seg = (key, opts) => `<div class="rd-seg">${opts.map(([v, t]) => `<button type="button" data-rd="${key}" data-v="${v}" class="${renderOpc[key] === v ? 'on' : ''}">${esc(t)}</button>`).join('')}</div>`;
+  const quedan = renderCreditos(), costo = RENDER_COSTO[renderOpc.calidad];
+  const body = `<div class="rd-grid"><div><div class="rd-shot"><img src="${renderVista}" alt="Vista de partida"><span class="rd-tag">Vista de partida</span></div>
+    ${renderHist.length ? `<div class="rd-thumbs">${renderHist.map((r, i) => `<img src="${r.imagen}" data-rdh="${i}" title="Render ${i + 1}">`).join('')}</div>` : ''}</div>
+    <div class="rd-opts">
+      <label class="field"><span>Vista</span></label>${seg('vista', [['puertas', 'Con puertas'], ['interior', 'Interior']].concat([]))}
+      <label class="field" style="margin-top:10px"><span>Ambiente</span></label>${seg('ambiente', RENDER_AMBIENTES)}
+      <label class="field" style="margin-top:10px"><span>Espacio</span></label>${seg('espacio', RENDER_ESPACIOS)}
+      <label class="field" style="margin-top:10px"><span>Calidad</span></label>${seg('calidad', [['borrador', 'Borrador · 1'], ['final', 'Final · 4']])}
+      <label class="field" style="margin-top:10px"><span>Indicaciones extra (opcional)</span><textarea id="rdExtra" rows="2" placeholder="Plantas sobre la cubierta, piso de madera clara…">${esc(renderOpc.extra)}</textarea></label>
+      <div class="rd-credits"><span>Créditos del mes</span><b>${quedan} de ${RENDER_CUOTA}</b></div>
+      <details class="rd-prompt"><summary>Ver instrucciones que se envían</summary><pre>${esc(promptRender(renderOpc))}</pre></details>
+    </div></div>`;
+  showDialog('Render con IA', body, [
+    { text: 'Cancelar', cancel: true },
+    { text: `Generar render (${costo} ${costo === 1 ? 'crédito' : 'créditos'})`, primary: true, keepOpen: true, action: generarRender },
+  ], 'info', true, true);
+  const box = document.getElementById('modalBody');
+  box.querySelectorAll('[data-rd]').forEach(b => b.addEventListener('click', () => {
+    renderOpc.extra = (document.getElementById('rdExtra') || {}).value || renderOpc.extra;
+    const k = b.dataset.rd, v = b.dataset.v; renderOpc[k] = v; if (k === 'vista') renderVista = capturaRender(v === 'puertas'); panelRender(); }));
+  box.querySelectorAll('[data-rdh]').forEach(t => t.addEventListener('click', () => { renderActual = +t.dataset.rdh; resultadoRender(); }));
+  const ta = document.getElementById('rdExtra'); if (ta) ta.addEventListener('input', () => { renderOpc.extra = ta.value; const pre = box.querySelector('.rd-prompt pre'); if (pre) pre.textContent = promptRender(renderOpc); });
+}
+function generarRender(){
+  const costo = RENDER_COSTO[renderOpc.calidad];
+  if (renderCreditos() < costo) { showDialog('Render con IA', 'No te quedan créditos suficientes este mes. Puedes comprar un paquete extra o esperar al siguiente mes.', [{ text: 'Volver', primary: true, action: panelRender }], 'warn'); return; }
+  const pedido = { vista: renderVista, prompt: promptRender(renderOpc), calidad: renderOpc.calidad, ambiente: renderOpc.ambiente, espacio: renderOpc.espacio, opciones: { ...renderOpc } };
+  renderPendiente = pedido;
+  showDialog('Render con IA', `<div class="rd-busy"><div class="rd-spin"></div><div>Generando render ${renderOpc.calidad === 'final' ? 'final' : 'borrador'}…</div><div style="font-size:11.5px">Suele tardar entre 10 y 30 segundos.</div></div>`,
+    [{ text: 'Cancelar', cancel: true, action: () => { renderPendiente = null; } }], 'info', true, true);
+  if (enSketchUp() && window.sketchup && sketchup.render) { sketchup.render(JSON.stringify({ vista: pedido.vista, prompt: pedido.prompt, calidad: pedido.calidad, ambiente: pedido.ambiente, espacio: pedido.espacio })); return; }
+  simularRender(pedido).then(img => { if (renderPendiente !== pedido) return; renderGastar(costo); sketchupRenderListo(true, img, renderCreditos()); });
+}
+/* respuesta del plugin (o de la simulación): imagen en data URL */
+function sketchupRenderListo(ok, imagen, restantes){
+  const pedido = renderPendiente; renderPendiente = null; if (!pedido) return;
+  if (!ok) { showDialog('Render con IA', imagen || 'No se pudo generar el render.', [{ text: 'Volver', primary: true, action: panelRender }]); return; }
+  renderHist.unshift({ imagen, vista: pedido.vista, opciones: pedido.opciones, fecha: new Date() }); if (renderHist.length > 6) renderHist.pop();
+  renderActual = 0; resultadoRender();
+}
+/* maqueta: «render» aproximado sobre el mismo alzado (tono, luz y viñeta según el ambiente), marcado como simulación */
+function simularRender(p){
+  return new Promise(resolve => { const img = new Image(); img.onload = () => {
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d');
+    g.filter = p.ambiente === 'noche' ? 'brightness(.62) contrast(1.15) saturate(1.1)' : p.ambiente === 'tarde' ? 'sepia(.25) saturate(1.25) contrast(1.05)' : 'contrast(1.06) saturate(1.08)';
+    g.drawImage(img, 0, 0); g.filter = 'none';
+    const tint = p.ambiente === 'noche' ? 'rgba(255,190,110,.18)' : p.ambiente === 'tarde' ? 'rgba(255,170,90,.16)' : p.espacio === 'calido' ? 'rgba(220,180,120,.10)' : 'rgba(255,255,255,0)';
+    g.fillStyle = tint; g.fillRect(0, 0, c.width, c.height);
+    const v = g.createRadialGradient(c.width/2, c.height/2, c.height*.3, c.width/2, c.height/2, c.width*.7); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, p.ambiente === 'noche' ? 'rgba(0,0,0,.55)' : 'rgba(0,0,0,.22)');
+    g.fillStyle = v; g.fillRect(0, 0, c.width, c.height);
+    g.font = `600 ${Math.round(c.width/48)}px Inter, sans-serif`; g.fillStyle = 'rgba(255,255,255,.92)'; g.fillText('SIMULACIÓN DEL PROTOTIPO', c.width*.03, c.height*.07);
+    setTimeout(() => resolve(c.toDataURL('image/jpeg', .9)), p.calidad === 'final' ? 2600 : 1600); };
+    img.src = p.vista; });
+}
+function resultadoRender(){
+  const r = renderHist[renderActual]; if (!r) { panelRender(); return; }
+  const body = `<div class="rd-compare" id="rdCmp"><img src="${r.vista}" alt="Vista de partida"><div class="rd-after" id="rdAfter" style="width:60%"><img src="${r.imagen}" alt="Render"></div><div class="rd-line" id="rdLine" style="left:60%"></div></div>
+    <input type="range" class="rd-range" id="rdRange" min="0" max="100" value="60" aria-label="Comparar antes y después">
+    <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#7A8590"><span>Render</span><span>Vista de partida</span></div>
+    ${renderHist.length > 1 ? `<div class="rd-thumbs">${renderHist.map((h, i) => `<img src="${h.imagen}" data-rdh="${i}" class="${i === renderActual ? 'on' : ''}">`).join('')}</div>` : ''}
+    <div class="rd-credits" style="margin-top:10px"><span>Créditos del mes</span><b>${renderCreditos()} de ${RENDER_CUOTA}</b></div>`;
+  showDialog('Render con IA', body, [
+    { text: 'Ajustar', keepOpen: true, action: () => { renderOpc = { ...r.opciones }; panelRender(); } },
+    { text: 'Otra variante', keepOpen: true, action: () => { renderOpc = { ...r.opciones }; generarRender(); } },
+    { text: 'Guardar imagen', keepOpen: true, action: () => guardarRender(r) },
+    { text: 'Listo', primary: true, cancel: true },
+  ], 'info', true, true);
+  const rg = document.getElementById('rdRange'), af = document.getElementById('rdAfter'), ln = document.getElementById('rdLine');
+  rg.addEventListener('input', () => { af.style.width = rg.value + '%'; ln.style.left = rg.value + '%'; });
+  document.querySelectorAll('#modalBody [data-rdh]').forEach(t => t.addEventListener('click', () => { renderActual = +t.dataset.rdh; resultadoRender(); }));
+}
+function guardarRender(r){
+  const now = new Date(), two = n => String(n).padStart(2, '0'), kind = cfg.isla ? 'isla' : cfg.closet ? 'closet' : 'cocina';
+  const name = `${prefs.exportPrefijo.trim() || kind}_${now.getFullYear()}${two(now.getMonth()+1)}${two(now.getDate())}_${two(now.getHours())}${two(now.getMinutes())}_render.jpg`;
+  if (enSketchUp()) { exportarEnSketchUp([{ name, url: r.imagen }]); return; }
+  const a = document.createElement('a'); a.href = r.imagen; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setStatus('Render guardado: ' + name);
+}
+document.getElementById('btnRender').addEventListener('click', abrirRender);
 
 /* ---------------- Día / noche: se recuerda en la sesión ---------------- */
 const MOON = '<svg width="17" height="17" viewBox="0 0 20 20"><path d="M16.6 12.7A7 7 0 0 1 7.3 3.4a7 7 0 1 0 9.3 9.3Z" fill="#266096"/></svg>';
