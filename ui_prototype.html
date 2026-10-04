@@ -162,7 +162,7 @@
        al recargar la pagina (SketchUp) y al cerrar Guardado o Ajustes.
    B26. [SketchUp 04/10] Luz del LED: temperatura de color en Iluminacion
        (2700 a 6500 K, 3000 K de fabrica, tonos representativos amarillentos,
-       con muestra del tono) y plano de luz
+       con muestra del tono; la tira toma el mismo tono) y plano de luz
        corrido por tramo de camas seguidas (antes uno por columna). Revit: no
        aplica (la temperatura podria ir a la familia de la tira).
    A79. Material de jaladeras (04/10, usuario): los metales (A77) no son una
@@ -2061,6 +2061,7 @@ const TEMPERATURAS_LED = [[2700, 'Cálida', [255, 212, 120]], [3000, 'Cálida su
   [4000, 'Neutra', [255, 242, 208]], [5000, 'Día', [250, 249, 238]], [6500, 'Fría', [238, 245, 255]]];
 const rgbKelvin = k => (TEMPERATURAS_LED.find(q => q[0] === k) || TEMPERATURAS_LED[1])[2].slice();
 const rgbLuz = () => rgbKelvin(cfg.ledTemp || 3000);
+const PLAN_TIRA = { id: 'LED_TIRA', nombre: 'Tira LED' };   /* B26: la tira con el tono de su temperatura, lisa */
 function texturaLuz(alto){
   const c = document.createElement('canvas'); c.width = 8; c.height = 256; const g = c.getContext('2d'), [r, v, b] = rgbLuz();
   for (let i = 0; i < c.height; i++) { const t = i/(c.height - 1); g.fillStyle = `rgba(${r},${v},${b},${(PLAN_LUZ.alfa*Math.pow(1 - t, 2.2)).toFixed(3)})`; g.fillRect(0, i, c.width, 1); }
@@ -2351,7 +2352,7 @@ function planDePiezas(c = cfg){
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
         add({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes',
           ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } });
-        add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: null, etiqueta: 'herrajes' });
+        add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: PLAN_TIRA.id, etiqueta: 'herrajes' });
         });
       /* B25: la luz en el muro, de la cubierta a las camas, delante del backsplash si lo hay. B26 (usuario): corrida, una por tramo de
          camas seguidas (se corta solo donde no hay cama: columna reservada o alto con campana) */
@@ -2454,7 +2455,7 @@ function planDePiezas(c = cfg){
       cfg.islaPaneles.forEach((q, k) => { tablero(null, 'respaldo:' + k, 'Respaldo', px, px + q.ancho, pz, pt, V, q.material || cfg.materialGeneral || null, false, false, true); px += q.ancho; });
       if (zp) { pieza('zoclo:posterior', 'zoclo', 'Posterior', b0, b1, zFace, zFace + t, 0, pz, groupMaterial('Zoclo'), 'zoclo');
         if (zFace - V > .2) pieza('zoclo:posterior:tapa', 'zoclo', 'Tapa', b0, b1, V + t, zFace + t, pz, pz + t, groupMaterial('Zoclo'), 'zoclo'); }
-      if (cfg.islaLedPosterior && V > 2.5) pieza('led:posterior', 'herraje', 'LED', b0, b1, V - 2, V - 1, pt - 1.2, pt - .2, null, 'herrajes');
+      if (cfg.islaLedPosterior && V > 2.5) pieza('led:posterior', 'herraje', 'LED', b0, b1, V - 2, V - 1, pt - 1.2, pt - .2, PLAN_TIRA.id, 'herrajes');
       if (cfg.islaBarraElevada) { const x0 = barraX0(), x1 = barraX1(), mb = groupMaterial('BarraElevada') || null;
         pieza('barra', 'cubierta', 'Barra', x0, x1, 0, bf, topH - be, topH, mb, 'cubierta');
         if (cfg.islaBarraCascadaIzq) pieza('barra:cascada:izq', 'cubierta', 'Cascada', x0, x0 + be, 0, bf, 0, topH - be, mb, 'cubierta');
@@ -2641,7 +2642,8 @@ function planDePiezas(c = cfg){
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
       materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); })
         .concat([...usados].map(k => ({ id: k, nombre: PREDETERMINADOS[k].nombre, rgb: PREDETERMINADOS[k].rgb.slice() })))
-        .concat(piezas.filter(q => q.rol === 'luz').slice(0, 1).map(q => ({ id: PLAN_LUZ.id, nombre: PLAN_LUZ.nombre, rgb: rgbLuz(), textura: texturaLuz(q.alto) }))),
+        .concat(piezas.filter(q => q.rol === 'luz').slice(0, 1).map(q => ({ id: PLAN_LUZ.id, nombre: PLAN_LUZ.nombre, rgb: rgbLuz(), textura: texturaLuz(q.alto) })))
+        .concat(piezas.some(q => q.material === PLAN_TIRA.id) ? [{ id: PLAN_TIRA.id, nombre: PLAN_TIRA.nombre, rgb: rgbLuz() }] : []),
       piezas, pendiente: PLAN_PENDIENTE.slice() };
   } finally { cfg = previo; }
 }
@@ -2705,7 +2707,7 @@ function pruebasPlanDePiezas(){
     ok(JSON.stringify(cfg) === editor, nombre + ': el plan cambio la configuracion del editor');
     ok(p.esquema === PLAN_ESQUEMA && p.unidad === 'cm', nombre + ': esquema o unidad');
     /* B5: cada material con patron lleva su mosaico (PNG y medida en cm); los colores lisos, no */
-    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id); if (!cat) { ok(q.id === PLAN_LUZ.id ? !!q.textura : !!PREDETERMINADOS[q.id] && !q.textura, nombre + ': material fuera del catalogo ' + q.id); return; } const conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
+    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id); if (!cat) { ok(q.id === PLAN_LUZ.id ? !!q.textura : (q.id === PLAN_TIRA.id || !!PREDETERMINADOS[q.id]) && !q.textura, nombre + ': material fuera del catalogo ' + q.id); return; } const conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
       ok(conPatron === !!q.textura, nombre + ': textura que no corresponde en ' + q.id);
       if (q.textura) ok(q.textura.png.startsWith('data:image/png;base64,') && q.textura.ancho > 0 && q.textura.alto > 0, nombre + ': textura invalida en ' + q.id); });
     ok(JSON.stringify(JSON.parse(JSON.stringify(p))) === JSON.stringify(p), nombre + ': no es JSON puro');
