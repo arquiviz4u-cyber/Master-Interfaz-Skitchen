@@ -160,6 +160,10 @@
        Cocina n / Isla 0n. Revit: ya es asi.
    A69. Pestana estable (04/10): la pestana elegida se recuerda y se restaura
        al recargar la pagina (SketchUp) y al cerrar Guardado o Ajustes.
+   A77. Categoria Metal (04/10, usuario): seis metales de fabrica (Niquel
+       satinado, Antracita, Cromo, Laton, Bronce, Acero inoxidable), color liso,
+       para jaladeras y lo que se quiera; colores rapidos en el editor. Revit:
+       misma categoria en el catalogo.
    A75. Jaladera al centro del marco (04/10, usuario; pasa tambien en Revit): en
        Clasica la perilla o barra de la puerta va al centro del ancho del
        montante (marcoShaker/2 del canto) y la del elevable al centro del riel
@@ -1231,13 +1235,20 @@ function newModule(upper){
  * MATERIALES (MaterialCatalog / MaterialPatterns / MaterialSwatches)
  * Catalogo dentro de la configuracion: 4 base (uno por categoria); "+ Agregar" suma mas.
  * ======================================================================= */
-const CATEGORIES = ['Madera', 'Color', 'Cubiertas', 'Backsplash'];
+const CATEGORIES = ['Madera', 'Color', 'Cubiertas', 'Backsplash', 'Metal'];
 const ESCALAS = [.5, 1, 2, 3];
 const CATALOGO_BASE = () => [
   { id:'MAD_ROBLE', nombre:'Roble claro', categoria:'Madera', r:211, g:176, b:128, patron:'MAD_RECTA', escala:1, base:true },
   { id:'COL_BLANCO', nombre:'Blanco mate', categoria:'Color', r:242, g:241, b:236, patron:null, escala:1, base:true },
   { id:'CUB_GRANITO', nombre:'Granito gris', categoria:'Cubiertas', r:148, g:150, b:148, patron:'CUB_GRANITO', escala:1, base:true },
   { id:'BS_SUBWAY_BLANCO', nombre:'Subway blanco', categoria:'Backsplash', r:236, g:236, b:232, patron:'BS_SUBWAY', escala:1, base:true },
+  /* A77 (usuario, 04/10): metales para jaladeras (y lo que se quiera), los seis mas comunes, color liso */
+  { id:'MET_NIQUEL', nombre:'Níquel satinado', categoria:'Metal', r:172, g:174, b:170, patron:null, escala:1, base:true },
+  { id:'MET_ANTRACITA', nombre:'Antracita', categoria:'Metal', r:62, g:64, b:67, patron:null, escala:1, base:true },
+  { id:'MET_CROMO', nombre:'Cromo', categoria:'Metal', r:206, g:210, b:215, patron:null, escala:1, base:true },
+  { id:'MET_LATON', nombre:'Latón', categoria:'Metal', r:181, g:150, b:84, patron:null, escala:1, base:true },
+  { id:'MET_BRONCE', nombre:'Bronce', categoria:'Metal', r:138, g:104, b:68, patron:null, escala:1, base:true },
+  { id:'MET_INOX', nombre:'Acero inoxidable', categoria:'Metal', r:190, g:192, b:194, patron:null, escala:1, base:true },
 ];
 /* colores rapidos por categoria (QuickColors) */
 const QUICK_COLORS = {
@@ -1245,16 +1256,19 @@ const QUICK_COLORS = {
   Color: [['Blanco',242,241,236],['Negro mate',38,38,40],['Grafito',96,98,102],['Beige',214,203,184],['Azul petróleo',48,84,96]],
   Cubiertas: [['Granito gris',148,150,148],['Cuarzo blanco',232,232,228],['Negro',44,44,46],['Travertino',204,190,166],['Concreto',160,160,156]],
   Backsplash: [['Blanco',236,236,232],['Gris claro',208,210,210],['Azul marino',44,62,96],['Verde salvia',150,168,150],['Negro',40,42,44]],
+  Metal: [['Níquel satinado',172,174,170],['Antracita',62,64,67],['Cromo',206,210,215],['Latón',181,150,84],['Bronce',138,104,68],['Acero inoxidable',190,192,194]],
 };
 function ensureCatalog(c){
   if (!c.catalogo) c.catalogo = [];
-  CATALOGO_BASE().forEach(d => { if (!c.catalogo.some(m => m.categoria === d.categoria)) c.catalogo.push(d); });
+  /* una categoria sin materiales recibe todos los suyos de fabrica (Metal trae seis; las demas, uno) */
+  const faltan = new Set(CATALOGO_BASE().map(d => d.categoria).filter(cat => !c.catalogo.some(m => m.categoria === cat)));
+  CATALOGO_BASE().forEach(d => { if (faltan.has(d.categoria)) c.catalogo.push(d); });
   c.catalogo.forEach(m => { if (m.categoria === 'Color') m.patron = null; if (!ESCALAS.includes(m.escala)) m.escala = 1; });
 }
 /* MaterialCatalog.Add: nombre «Categoria N», primer patron de la categoria y color de partida propio */
 function addMaterial(c, cat){
   const n = c.catalogo.filter(m => m.categoria === cat).length + 1, pat = PATTERNS.find(p => p.categoria === cat);
-  const rgb = { Madera:[196,150,96], Color:[200,205,210], Backsplash:[222,222,216], Cubiertas:[120,120,125] }[cat];
+  const rgb = { Madera:[196,150,96], Color:[200,205,210], Backsplash:[222,222,216], Cubiertas:[120,120,125], Metal:[172,174,170] }[cat];
   const m = { id: 'MAT_' + Math.random().toString(16).slice(2, 10), nombre: cat + ' ' + n, categoria: cat, r: rgb[0], g: rgb[1], b: rgb[2], patron: pat ? pat.id : null, escala: 1, base: false };
   c.catalogo.push(m); return m;
 }
@@ -6040,6 +6054,7 @@ const EN = {
   'Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo.': 'Select a cabinet, the countertop, a waterfall, the plinth or the raised bar in the drawing.',
   'Madera': 'Wood',
   'Cubiertas': 'Countertops',
+  'Metal': 'Metal', 'Níquel satinado': 'Satin nickel', 'Antracita': 'Anthracite', 'Cromo': 'Chrome', 'Latón': 'Brass', 'Bronce': 'Bronze', 'Acero inoxidable': 'Stainless steel',
   'Agregar': 'Add',
   'Restablecer': 'Reset',
   'Original': 'Original',
