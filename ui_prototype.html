@@ -164,6 +164,11 @@
        (2700 a 6500 K, 3000 K de fabrica, con muestra del tono) y plano de luz
        corrido por tramo de camas seguidas (antes uno por columna). Revit: no
        aplica (la temperatura podria ir a la familia de la tira).
+   A79. Material de jaladeras (04/10, usuario): los metales (A77) no son una
+       categoria general; se eligen con un clic en la seccion «Material de
+       jaladeras» de la pestana Materiales, que solo aparece con estilos con
+       jaladeras, y se aplican a todas. Reemplaza la zona de soltar de A66.
+       Revit: mismo control.
    A78. Juntas de la puerta oculta (04/10, usuario): horizontales sin el tope de
        4 (hasta 4 en sus posiciones de diseño; desde 5, parejas en la hoja;
        limite: tableros de 20 cm) y numero de juntas verticales (0 a N
@@ -839,6 +844,9 @@
   .temp-led { display: flex; align-items: flex-end; gap: 10px; margin-top: 10px; }
   .temp-led .field { flex: 1; margin: 0; }
   .temp-muestra { width: 34px; height: 34px; flex: none; border-radius: 6px; border: 1px solid var(--line); }
+  .swatch.jal { cursor: pointer; }
+  .swatch.jal.on .sw-chip { box-shadow: 0 0 0 2px var(--ink); }
+  .swatch.jal.on .sw-name { color: var(--ink); font-weight: 600; }
   .drop-jal { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 8px; border: 1.5px dashed var(--line); border-radius: 6px; font-size: 12px; color: #5A6570; }
   .drop-jal.con { border-style: solid; color: var(--text); }
   .drop-jal.sobre { border-color: var(--ink); background: rgba(38,96,150,.08); }
@@ -1247,7 +1255,8 @@ function newModule(upper){
  * MATERIALES (MaterialCatalog / MaterialPatterns / MaterialSwatches)
  * Catalogo dentro de la configuracion: 4 base (uno por categoria); "+ Agregar" suma mas.
  * ======================================================================= */
-const CATEGORIES = ['Madera', 'Color', 'Cubiertas', 'Backsplash', 'Metal'];
+const CATEGORIES = ['Madera', 'Color', 'Cubiertas', 'Backsplash'];
+/* A79: los metales (categoria Metal) no son una categoria general: solo se eligen en «Material de jaladeras» */
 const ESCALAS = [.5, 1, 2, 3];
 const CATALOGO_BASE = () => [
   { id:'MAD_ROBLE', nombre:'Roble claro', categoria:'Madera', r:211, g:176, b:128, patron:'MAD_RECTA', escala:1, base:true },
@@ -5321,11 +5330,12 @@ function renderGallery(){
   const cats = CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash');
   let html = `<div class="mat-agregar"><span class="t">Agregar</span>${cats.map(cat => `<button type="button" data-addcat="${cat}">+ ${cat}</button>`).join('')}</div>`
     + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
-  /* A66: material de todas las jaladeras (solo con jaladeras: estilos clasico y simple, o el vanity del closet) */
-  if (cfg.style !== 'Moderna' || cfg.closet) { const mj = mat(cfg.materiales.Jaladeras);
-    html += `<div class="p-section"><div class="p-label">Jaladeras</div><div class="drop-jal${mj ? ' con' : ''}" data-drop="Jaladeras">`
-      + (mj ? `<span class="sw-chip" style="background:url(${swatchURL(mj)}) center/cover"></span><span class="t">${esc(mj.nombre)}</span><button type="button" class="btn btn-sm" data-quitar="Jaladeras">Quitar</button>`
-            : '<span class="t">Arrastra aquí una muestra: se aplica a todas las jaladeras.</span>') + '</div></div>'; }
+  /* A79 (usuario, 04/10): Material de jaladeras, solo con jaladeras (estilos clasico y simple, o el vanity del closet): los metales se
+     eligen con un clic y se aplican a todas las jaladeras; no se arrastran a otras piezas */
+  if (cfg.style !== 'Moderna' || cfg.closet) { const actual = cfg.materiales.Jaladeras;
+    html += `<div class="p-section"><div class="p-label">Material de jaladeras</div><div class="mat-grid">`
+      + cfg.catalogo.filter(m => m.categoria === 'Metal').map(m => `<div class="swatch jal${m.id === actual ? ' on' : ''}" data-jal="${m.id}" title="${esc(m.nombre)}"><div class="sw-chip" style="background:url(${swatchURL(m)}) center/cover"></div><div class="sw-name">${esc(m.nombre)}</div></div>`).join('')
+      + `</div><div class="note-sm">Clic en un metal: se aplica a todas las jaladeras.${actual ? ' <button type="button" class="btn btn-sm" data-quitar="Jaladeras">Quitar</button>' : ''}</div></div>`; }
   CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash').forEach(cat => {
     html += `<div class="p-section"><div class="p-label">${cat}</div><div class="mat-grid">`;
     cfg.catalogo.filter(m => m.categoria === cat).forEach(m => {
@@ -5355,7 +5365,8 @@ function renderGallery(){
   el.addEventListener('dragover', e => { const z = e.target.closest('[data-drop]'); if (!z || !matDrag) return; e.preventDefault(); z.classList.add('sobre'); });
   el.addEventListener('dragleave', e => { const z = e.target.closest('[data-drop]'); if (z) z.classList.remove('sobre'); });
   el.addEventListener('drop', e => { const z = e.target.closest('[data-drop]'); if (!z) return; e.preventDefault(); const id = e.dataTransfer.getData('text/swatch'); matDrag = null; if (id) applyMaterial(id, z.dataset.drop); });
-  el.addEventListener('click', e => { const q = e.target.closest('[data-quitar]'); if (q) { e.stopPropagation(); applyMaterial('__original__', q.dataset.quitar); } }, true);
+  el.addEventListener('click', e => { const q = e.target.closest('[data-quitar]'); if (q) { e.stopPropagation(); applyMaterial('__original__', q.dataset.quitar); return; }
+    const j = e.target.closest('[data-jal]'); if (j) { e.stopPropagation(); applyMaterial(j.dataset.jal, 'Jaladeras'); } }, true);   /* A79 */
   el.addEventListener('click', e => {
     const ad = e.target.closest('[data-addcat]');   /* A47: barra fija para agregar */
     if (ad) { let created = null; change(c => created = addMaterial(c, ad.dataset.addcat)); if (created) { editingSwatch = created.id; renderGallery(); renderMatEditor(); } return; }
@@ -6120,6 +6131,8 @@ const EN = {
   'Distancia del borde': 'Distance from the edge',
   'Al paño': 'Flush',
   'Jaladeras': 'Handles',
+  'Material de jaladeras': 'Handle material',
+  'Clic en un metal: se aplica a todas las jaladeras.': 'Click a metal: it applies to every handle.',
   'Arrastra aquí una muestra: se aplica a todas las jaladeras.': 'Drop a swatch here: it applies to every handle.',
   'Quitar': 'Remove',
   'Ancho del marco': 'Frame width',
