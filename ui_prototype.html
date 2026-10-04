@@ -266,10 +266,13 @@
        dentro del .rbz (ui/) y sus fuentes son archivos locales en fuentes/
        (woff2 + OFL), sin Google Fonts ni red. Revit: PrivateFontCollection con
        los mismos archivos.
-   B2. [Parcial 03/10] Puentes JS - Ruby hechos: cara del muro (toda o entre
-       dos puntos, con aviso y cara resaltada), 3 puntos de la isla, generar,
-       guardar y cargar la configuracion en atributos del grupo. Falta:
-       exportar a una carpeta (UI.select_directory) y confirmar al cerrar.
+   B2. [SketchUp OK 03/10] Puentes JS - Ruby: cara del muro (toda o entre dos
+       puntos, con aviso y cara resaltada), 3 puntos de la isla, generar,
+       guardar y cargar la configuracion en atributos del grupo; exportar las
+       vistas a una carpeta elegida (UI.select_directory, se recuerda y se
+       abre al terminar) y confirmar al cerrar con cambios sin generar
+       (Generar y cerrar / Cerrar sin generar / Cancelar), tambien con la X de
+       la ventana. Revit: FolderBrowserDialog y la misma confirmacion.
    B3. [SketchUp OK 03/10] Motor Ruby: construye el plan de piezas (B6-B16) con
        definiciones por medida y regeneracion por diferencias. Falta:
        travesanos en lugar de techo en los bajos y la forma de los equipos.
@@ -5730,6 +5733,12 @@ const EN = {
   'Revisar altura': 'Check height',
   'Revisar ancho': 'Check width',
   'Exportar vistas': 'Export views',
+  'Cambios sin generar': 'Ungenerated changes',
+  'Hay cambios que todavía no están en el modelo de SketchUp. ¿Generar antes de cerrar?': 'Some changes are not in the SketchUp model yet. Generate before closing?',
+  'Generar y cerrar': 'Generate and close',
+  'Cerrar sin generar': 'Close without generating',
+  'Elige la carpeta para las vistas…': 'Choose the folder for the views…',
+  'Exportación cancelada.': 'Export cancelled.',
   'Configuraciones guardadas': 'Saved configurations',
   'Sin configuraciones guardadas': 'No saved configurations',
   'Volver al editor': 'Back to the editor',
@@ -6088,12 +6097,20 @@ function offerSave(action, proceed){
    window.sketchup. Llamadas a Ruby: sketchup.listo() al cargar, sketchup.generar(texto) con {config, plan} y
    sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
    sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida), sketchupNuevaIsla(longitud, ancho) (isla nueva
-   con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual. */
+   con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual.
+   B2: cerrar. Ruby retiene el cierre de la ventana y llama sketchupPedirCierre(); el master responde sketchup.cierre_visto() y, si hay
+   cambios sin generar, pregunta (generar y cerrar, cerrar sin generar o cancelar) antes de sketchup.cerrar().
+   B2: exportar. sketchup.exportar_inicio(n) (Ruby pide la carpeta) -> sketchupExportarEn(ok); luego sketchup.exportar_archivo(texto)
+   con {nombre, datos: data URL en base64} por archivo y sketchup.exportar_fin() -> sketchupExportado(ok, carpeta, nombres). */
 const enSketchUp = () => typeof window.sketchup === 'object' && window.sketchup !== null;
 if (enSketchUp()) document.documentElement.classList.add('sketchup');   /* B15: a todo el dialogo */
+/* B2: firma de la configuracion abierta o generada; si la actual es otra, hay cambios sin generar */
+let firmaGenerada = null, firmaEnviada = null, cerrarAlGenerar = false;
+const firmaCfg = () => JSON.stringify(cfg);
+const cambiosSinGenerar = () => firmaGenerada !== null && firmaCfg() !== firmaGenerada;
 function sketchupAbrir(crear, error, estado){
   const before = JSON.stringify(cfg);
-  try { cfg = crear(); recalculate(); validate(); }
+  try { cfg = crear(); recalculate(); validate(); firmaGenerada = firmaCfg(); }
   catch (err) { cfg = JSON.parse(before); recalculate(); showDialog('SketchUp', error + err.message); return; }
   undoStack = []; redoStack = []; sectionCut = NaN; view = 'Alzado';
   selection = new Set(row(false).length ? [row(false)[0].id] : []); selectedPart = null; focusPanel = null; upperFocus = null; pieces.clear();
@@ -6118,18 +6135,35 @@ function sketchupNuevaIsla(longitud, ancho){
   sketchupAbrir(() => { const c = defaultIsland(largo, an); c.catalogo = cfg.catalogo; return c; },
     `La isla elegida (${fmt(largo)} × ${fmt(an)}${uS()}) no admite gabinetes: `, `Isla de ${fmt(largo)} × ${fmt(an)}${uS()} tomada de SketchUp.`);
 }
-function sketchupResultado(ok, mensaje){ if (ok) setStatus(mensaje); else showDialog('SketchUp', mensaje); }
-document.getElementById('btnCancel').addEventListener('click', () => offerSave('salir', () => {
-  if (enSketchUp()) sketchup.cerrar(); else setStatus('Editor cerrado sin generar (prototipo).'); }));
-document.getElementById('btnGenerate').addEventListener('click', () => {
+function sketchupResultado(ok, mensaje){
+  if (ok && firmaEnviada !== null) firmaGenerada = firmaEnviada;   /* lo generado ya esta en el modelo */
+  firmaEnviada = null;
+  if (ok) setStatus(mensaje); else { cerrarAlGenerar = false; showDialog('SketchUp', mensaje); }
+  if (ok && cerrarAlGenerar) { cerrarAlGenerar = false; sketchup.cerrar(); }
+}
+/* cerrar el editor (Cancelar o la X de la ventana): con cambios sin generar, pregunta antes (B2) */
+function cerrarEditor(){
+  const salir = () => offerSave('salir', () => { if (enSketchUp()) sketchup.cerrar(); else setStatus('Editor cerrado sin generar (prototipo).'); });
+  if (!cambiosSinGenerar()) { salir(); return; }
+  showDialog('Cambios sin generar', 'Hay cambios que todavía no están en el modelo de SketchUp. ¿Generar antes de cerrar?', [
+    { text: 'Generar y cerrar', primary: true, action: () => generar(true) },
+    { text: 'Cerrar sin generar', action: () => { if (enSketchUp()) sketchup.cerrar(); else setStatus('Editor cerrado sin generar (prototipo).'); } },
+    { text: 'Cancelar', cancel: true },
+  ], 'question');
+}
+function sketchupPedirCierre(){ sketchup.cierre_visto(); cerrarEditor(); }
+document.getElementById('btnCancel').addEventListener('click', cerrarEditor);
+function generar(cerrar = false){
   try { validate(); } catch (err) { showDialog('Revisar distribución', err.message); return; }
   if (!row(false).length && !row(true).length) { showDialog('Revisar distribución', 'Añade al menos un módulo.'); return; }
   let plan; try { plan = planDePiezas(); } catch (err) { showDialog('Generar', err.message); return; }
   offerSave('generar', () => {
     if (!enSketchUp()) { setStatus(`Prototipo de interfaz: plan de ${plan.piezas.length} piezas listo; la generación 3D ocurre dentro de SketchUp.`); return; }
+    firmaEnviada = firmaCfg(); cerrarAlGenerar = cerrar;
     setStatus('Generando en SketchUp…'); sketchup.generar(JSON.stringify({ config: cfg, plan }));
   });
-});
+}
+document.getElementById('btnGenerate').addEventListener('click', () => generar());
 window.addEventListener('load', () => { if (enSketchUp()) sketchup.listo(); });   /* cuando el editor ya dibujo su estado inicial */
 
 /* ---------------- Exportar vistas (ExportViews / ExportTo) ----------------
@@ -6165,12 +6199,32 @@ function exportViews(){
     .forEach(([k, t]) => { if (cfg.materiales[k]) lines.push(`${t}: ${nm(cfg.materiales[k])}.`); });
   if (cfg.modulos.some(m => m.material)) lines.push('Algunos gabinetes llevan un material distinto: respeta los colores del dibujo.');
   lines.push('Iluminación natural suave, cámara frontal a la altura de los ojos, piso y muro neutros, sin personas, sin texto ni cotas.');
-  files.push({ name: `${prefs.exportPrefijo.trim() || kind}_${stamp}_prompt.txt`, url: URL.createObjectURL(new Blob([lines.map(l => prefs.idioma === 'en' ? trText(l, EN) : l).join('\r\n')], { type: 'text/plain;charset=utf-8' })) });
-  // TODO (plugins reales): elegir carpeta (FolderBrowserDialog en Revit, UI.select_directory en SketchUp), guardar y abrirla.
+  const prompt = lines.map(l => prefs.idioma === 'en' ? trText(l, EN) : l).join('\r\n'), promptName = `${prefs.exportPrefijo.trim() || kind}_${stamp}_prompt.txt`;
+  /* B2: en SketchUp, Ruby pide la carpeta, guarda los archivos y la abre (Revit: FolderBrowserDialog) */
+  if (enSketchUp()) {
+    const utf8 = new TextEncoder().encode('\uFEFF' + prompt); let bin = ''; utf8.forEach(b => { bin += String.fromCharCode(b); });
+    exportarEnSketchUp(files.concat([{ name: promptName, url: 'data:text/plain;base64,' + btoa(bin) }]));
+    return;
+  }
+  files.push({ name: promptName, url: URL.createObjectURL(new Blob([prompt], { type: 'text/plain;charset=utf-8' })) });
   const list = files.map(f => `<a href="${f.url}" download="${f.name}">${esc(f.name)}</a>`).join('');
   const downloadAll = () => files.forEach((f, i) => setTimeout(() => { const a = document.createElement('a'); a.href = f.url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); }, i*250));
   showDialog('Exportar vistas', `Vistas exportadas:<div class="file-list">${list}</div><div style="margin-top:10px">Sube el alzado (y la planta como referencia) a tu herramienta de IA y pega el texto del archivo «prompt».</div><img class="export-preview" src="${files[0].url}" alt="Alzado exportado">`,
     [{ text: 'Descargar todo', action: downloadAll, keepOpen: true }, { text: 'Listo', primary: true, cancel: true }], 'info', true);
+}
+/* B2: exportar dentro de SketchUp. Los archivos (data URL en base64) se mandan uno por uno, para no pasar decenas de MB de golpe */
+let porExportar = [];
+function exportarEnSketchUp(files){ porExportar = files; setStatus('Elige la carpeta para las vistas…'); sketchup.exportar_inicio(files.length); }
+function sketchupExportarEn(ok){
+  if (!ok) { porExportar = []; setStatus('Exportación cancelada.'); return; }
+  porExportar.forEach(f => sketchup.exportar_archivo(JSON.stringify({ nombre: f.name, datos: f.url })));
+  porExportar = []; sketchup.exportar_fin();
+}
+function sketchupExportado(ok, carpeta, nombres){
+  if (!ok) { showDialog('Exportar vistas', carpeta); return; }
+  setStatus(`${nombres.length} archivos guardados en ${carpeta}`);
+  showDialog('Exportar vistas', `Guardados en <b>${esc(carpeta)}</b> (se abrió la carpeta):<div class="file-list">${nombres.map(n => `<div>${esc(n)}</div>`).join('')}</div>` +
+    '<div style="margin-top:10px">Sube el alzado (y la planta como referencia) a tu herramienta de IA y pega el texto del archivo «prompt».</div>', [{ text: 'Listo', primary: true, cancel: true }], 'info', true);
 }
 document.getElementById('btnExport').addEventListener('click', exportViews);
 
