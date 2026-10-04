@@ -153,6 +153,10 @@
        los gabinetes (los bancos quedan del lado opuesto; un lado corto no se
        acepta). Revit: Generator.cs pide hoy 3 puntos (largo y ancho); cambiar
        a rectangulo + lado de los gabinetes.
+   A66. Material de jaladeras (04/10, usuario): seccion Jaladeras en la pestana
+       Materiales (soltar una muestra o Quitar) y cada jaladera del dibujo es
+       destino del arrastre; el material (materiales.Jaladeras) es el mismo
+       para todas y la jaladera se dibuja con su color. Revit: mismo control.
    A65. Marco shaker de ancho unico (04/10, usuario): el cajon chico salia con
        un marco mas angosto (Revit: Ancho_Marco = min(6, lado menor / 3.5)).
        Ahora todos los frentes usan cfg.anchoShaker (5 cm / 2" de fabrica,
@@ -776,6 +780,11 @@
   #gallery { flex: 1; }
   .mat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
   .swatch { cursor: grab; min-width: 0; }
+  .drop-jal { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 8px; border: 1.5px dashed var(--line); border-radius: 6px; font-size: 12px; color: #5A6570; }
+  .drop-jal.con { border-style: solid; color: var(--text); }
+  .drop-jal.sobre { border-color: var(--ink); background: rgba(38,96,150,.08); }
+  .drop-jal .sw-chip { width: 26px; height: 26px; flex: none; border-radius: 4px; }
+  .drop-jal .t { flex: 1; min-width: 0; }
   .swatch:active { cursor: grabbing; }
   .sw-chip {
     position: relative; height: 54px; border-radius: 6px;
@@ -3655,7 +3664,7 @@ function drawHiddenDoors(X, Z, RX, scale, post){
         if (cfg.style === 'Clasica') { ctx.strokeStyle = C.shaker; ctx.lineWidth = 1;
           hdPanels(d).forEach(([a, b, c0, c1]) => { const fw = marcoShaker(b - a, c1 - c0)*scale, q = RX(s0 + a, s0 + b, c0, c1); if (q.w > 2*fw + 2 && q.h > 2*fw + 2) ctx.strokeRect(q.x + fw, q.y + fw, q.w - 2*fw, q.h - 2*fw); }); }
         const hx = hr ? lr.x + 5*scale : lr.x + lr.w - 5*scale, hy = Z(100), half = cfg.largoJaladera/2*scale;
-        ctx.fillStyle = ctx.strokeStyle = C.handle;
+        ctx.fillStyle = ctx.strokeStyle = colorJaladera(); destinoJaladera(hx, hy - half, hx, hy + half);
         if (cfg.jaladera === 'Boton') { ctx.beginPath(); ctx.arc(hx, hy, 2.5, 0, Math.PI*2); ctx.fill(); }
         else { ctx.lineWidth = Math.max(2, 1.2*scale); ctx.lineCap = 'round'; line(hx, hy - half, hx, hy + half); ctx.lineCap = 'butt'; }
       }
@@ -3996,6 +4005,10 @@ function drawFront(f, x0, Z, scale){
   if (f.fijo) { ctx.fillStyle = C.ink; ctx.font = "500 11px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Fijo', r.x + r.w/2, r.y + r.h/2); ctx.textAlign = 'left'; return; }
   if (cfg.style !== 'Moderna') drawHandle(f, r, scale);
 }
+/* A66 (usuario, 04/10): material de jaladeras (cfg.materiales.Jaladeras), el mismo en todas. Se dibujan con su color y cada una es
+   destino del arrastre de una muestra (y la seccion Jaladeras de la pestana Materiales) */
+const colorJaladera = () => { const m = !flat && cfg.materiales.Jaladeras ? mat(cfg.materiales.Jaladeras) : null; return m ? rgbOf(m) : C.handle; };
+const destinoJaladera = (x0, y0, x1, y1) => { const pad = 5; materialHits.push({ rect: { x: Math.min(x0, x1) - pad, y: Math.min(y0, y1) - pad, w: Math.abs(x1 - x0) + 2*pad, h: Math.abs(y1 - y0) + 2*pad }, key: 'Jaladeras' }); };
 /* estilo clasico/simple (StyleTab.DrawStyle + HandleAt): marco shaker solo en clasica; jaladera en ambos */
 function drawHandle(f, r, scale){
   if (f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;   /* frentes de menos de 8 cm: sin marco ni jaladera */
@@ -4004,10 +4017,10 @@ function drawHandle(f, r, scale){
   const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', Zs = frame.Z;
   const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + 5 : (f.z0 + f.z1)/2;
   const cx = vertical ? (f.hingeRight ? r.x + 5*scale : r.x + r.w - 5*scale) : r.x + r.w/2, cy = Zs(cz);
-  ctx.fillStyle = ctx.strokeStyle = C.handle;
-  if (cfg.jaladera === 'Boton') { ctx.beginPath(); ctx.arc(cx, cy, Math.max(2.5, 1.1*scale), 0, Math.PI*2); ctx.fill(); return; }
+  ctx.fillStyle = ctx.strokeStyle = colorJaladera();
+  if (cfg.jaladera === 'Boton') { const rb = Math.max(2.5, 1.1*scale); ctx.beginPath(); ctx.arc(cx, cy, rb, 0, Math.PI*2); ctx.fill(); destinoJaladera(cx - rb, cy - rb, cx + rb, cy + rb); return; }
   const h = L/2*scale; ctx.lineWidth = Math.max(2, Math.min(4, 1.2*scale)); ctx.lineCap = 'round';
-  if (vertical) line(cx, cy - h, cx, cy + h); else line(cx - h, cy, cx + h, cy);
+  if (vertical) { line(cx, cy - h, cx, cy + h); destinoJaladera(cx, cy - h, cx, cy + h); } else { line(cx - h, cy, cx + h, cy); destinoJaladera(cx - h, cy, cx + h, cy); }
   ctx.lineCap = 'butt';
 }
 /* interior (boton Puertas apagado, o modulo abierto): caja, repisas, division, cajas de cajon punteadas y rotulo */
@@ -5172,6 +5185,11 @@ function renderGallery(){
   const cats = CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash');
   let html = `<div class="mat-agregar"><span class="t">Agregar</span>${cats.map(cat => `<button type="button" data-addcat="${cat}">+ ${cat}</button>`).join('')}</div>`
     + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
+  /* A66: material de todas las jaladeras (solo con jaladeras: estilos clasico y simple, o el vanity del closet) */
+  if (cfg.style !== 'Moderna' || cfg.closet) { const mj = mat(cfg.materiales.Jaladeras);
+    html += `<div class="p-section"><div class="p-label">Jaladeras</div><div class="drop-jal${mj ? ' con' : ''}" data-drop="Jaladeras">`
+      + (mj ? `<span class="sw-chip" style="background:url(${swatchURL(mj)}) center/cover"></span><span class="t">${esc(mj.nombre)}</span><button type="button" class="btn btn-sm" data-quitar="Jaladeras">Quitar</button>`
+            : '<span class="t">Arrastra aquí una muestra: se aplica a todas las jaladeras.</span>') + '</div></div>'; }
   CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash').forEach(cat => {
     html += `<div class="p-section"><div class="p-label">${cat}</div><div class="mat-grid">`;
     cfg.catalogo.filter(m => m.categoria === cat).forEach(m => {
@@ -5197,6 +5215,11 @@ function renderGallery(){
   const el = document.getElementById('gallery');
   el.addEventListener('dragstart', e => { const n = e.target.closest('.swatch[draggable]'); if (!n) return; e.dataTransfer.setData('text/swatch', n.dataset.id); matDrag = { id: n.dataset.id, x: -999, y: -999 }; });
   el.addEventListener('dragend', () => { if (matDrag) { matDrag = null; drawCanvas(); updateHint(); } });
+  /* A66: seccion Jaladeras: soltar una muestra la aplica a todas; Quitar vuelve al color de fabrica */
+  el.addEventListener('dragover', e => { const z = e.target.closest('[data-drop]'); if (!z || !matDrag) return; e.preventDefault(); z.classList.add('sobre'); });
+  el.addEventListener('dragleave', e => { const z = e.target.closest('[data-drop]'); if (z) z.classList.remove('sobre'); });
+  el.addEventListener('drop', e => { const z = e.target.closest('[data-drop]'); if (!z) return; e.preventDefault(); const id = e.dataTransfer.getData('text/swatch'); matDrag = null; if (id) applyMaterial(id, z.dataset.drop); });
+  el.addEventListener('click', e => { const q = e.target.closest('[data-quitar]'); if (q) { e.stopPropagation(); applyMaterial('__original__', q.dataset.quitar); } }, true);
   el.addEventListener('click', e => {
     const ad = e.target.closest('[data-addcat]');   /* A47: barra fija para agregar */
     if (ad) { let created = null; change(c => created = addMaterial(c, ad.dataset.addcat)); if (created) { editingSwatch = created.id; renderGallery(); renderMatEditor(); } return; }
@@ -5949,6 +5972,9 @@ const EN = {
   'Revisar ancho': 'Check width',
   'Exportar vistas': 'Export views',
   'Marco shaker': 'Shaker frame',
+  'Jaladeras': 'Handles',
+  'Arrastra aquí una muestra: se aplica a todas las jaladeras.': 'Drop a swatch here: it applies to every handle.',
+  'Quitar': 'Remove',
   'Ancho del marco': 'Frame width',
   'El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos 2 cm.': 'The same width on every door and drawer; on a very small front it shrinks so the recessed panel is at least 2 cm.',
   'Cambios sin generar': 'Ungenerated changes',
