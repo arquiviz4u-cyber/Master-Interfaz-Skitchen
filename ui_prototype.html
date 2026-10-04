@@ -262,9 +262,10 @@
 
 
   B. SketchUp: lo que el plugin necesita ademas de esta interfaz.
-   B1. [Parcial 03/10] Este HTML ya carga en UI::HtmlDialog (dialogo.rb). Falta:
-       fuentes como archivos locales (sin Google Fonts ni red) y empaquetar el
-       master dentro de la extension (ui/).
+   B1. [SketchUp OK 03/10] Este HTML carga en UI::HtmlDialog (dialogo.rb), va
+       dentro del .rbz (ui/) y sus fuentes son archivos locales en fuentes/
+       (woff2 + OFL), sin Google Fonts ni red. Revit: PrivateFontCollection con
+       los mismos archivos.
    B2. [Parcial 03/10] Puentes JS - Ruby hechos: cara del muro (toda o entre
        dos puntos, con aviso y cara resaltada), 3 puntos de la isla, generar,
        guardar y cargar la configuracion en atributos del grupo. Falta:
@@ -452,16 +453,33 @@
 <meta charset="UTF-8">
 <title>Skitchen · Cocina</title>
 <!--
-  PRUEBA DE TIPOGRAFIA: Inter (interfaz general) + IBM Plex Mono (cotas y
-  campos numericos). Cargadas de Google Fonts solo para esta vista previa
-  en el navegador -- en los plugins reales habria que embeber los archivos
-  de fuente (PrivateFontCollection en C#/WinForms, @font-face con archivo
-  local en el HtmlDialog de SketchUp) para que funcione sin internet y se
-  vea igual en Windows y Mac.
+  TIPOGRAFIA: Inter (interfaz general), Bricolage Grotesque (marca) e IBM Plex
+  Mono (cotas y campos numericos), como archivos locales en fuentes/ (woff2,
+  subconjuntos latin y latin-ext, licencia OFL junto a ellos): sin internet y
+  igual en Windows y Mac. Revit (WinForms) debe cargar los mismos archivos con
+  PrivateFontCollection.
 -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* B1: fuentes locales (fuentes/, licencia OFL): sin red en SketchUp ni en Revit */
+  /* latin-ext */ @font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 400; font-stretch: 100%; font-display: swap; src: url(fuentes/bricolage-grotesque-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 400; font-stretch: 100%; font-display: swap; src: url(fuentes/bricolage-grotesque-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  /* latin-ext */ @font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 800; font-stretch: 100%; font-display: swap; src: url(fuentes/bricolage-grotesque-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'Bricolage Grotesque'; font-style: normal; font-weight: 800; font-stretch: 100%; font-display: swap; src: url(fuentes/bricolage-grotesque-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  /* latin-ext */ @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url(fuentes/ibm-plex-mono-latin-ext-400.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url(fuentes/ibm-plex-mono-latin-400.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  /* latin-ext */ @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url(fuentes/ibm-plex-mono-latin-ext-500.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url(fuentes/ibm-plex-mono-latin-500.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  /* latin-ext */ @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 600; font-display: swap; src: url(fuentes/ibm-plex-mono-latin-ext-600.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'IBM Plex Mono'; font-style: normal; font-weight: 600; font-display: swap; src: url(fuentes/ibm-plex-mono-latin-600.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  /* latin-ext */ @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url(fuentes/inter-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url(fuentes/inter-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  /* latin-ext */ @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url(fuentes/inter-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url(fuentes/inter-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  /* latin-ext */ @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url(fuentes/inter-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url(fuentes/inter-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+  /* latin-ext */ @font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url(fuentes/inter-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+  /* latin */ @font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url(fuentes/inter-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+</style>
 <style>
   * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
   html,body { height: 100%; margin: 0; }
