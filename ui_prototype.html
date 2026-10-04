@@ -2178,7 +2178,7 @@ function planDePiezas(c = cfg){
        divisiones del modulo que entran en el canal se acortan hasta su fondo */
     /* B17 Interactuar (como en Revit): cada frente que abre (puerta, cajon o elevable, no fijo) junta sus piezas (tablero o marcos,
        jaladera, bisagras, juntas, zoclo de puerta oculta, caja de cajon) con frente = id del frente; la pieza principal lleva abre:
-       puerta = lado de la bisagra y eje vertical (x, y de su cara posterior); elevable = eje horizontal arriba (z, y); cajon =
+       puerta = lado de la bisagra y eje vertical (x, y de su cara vista); elevable = eje horizontal en el canto superior de la cara vista (z, y); cajon =
        recorrido. Todo en cm del plan; Ruby solo gira o desliza */
     const duenoDe = q => { if (q.frente) return q.frente; const h = /^(.*?:hoja)(:|$)/.exec(q.id); if (h) return h[1];
       const f = /^(.*?:frente:\d+)(:|$)/.exec(q.id); if (f) return f[1];
@@ -2188,7 +2188,7 @@ function planDePiezas(c = cfg){
     movibles.forEach((qs, d) => {
       const fr = qs.filter(q => q.rol === 'frente' && ['Puerta', 'Cajon', 'Elevable', 'Marco'].includes(q.tipo)), principal = fr.find(q => q.tipo !== 'Marco');
       if (!principal || principal.fijo) { qs.forEach(q => delete q.frente); return; }
-      const x0 = Math.min(...fr.map(q => q.x)), x1 = Math.max(...fr.map(q => q.x + q.ancho)), y = Math.min(...fr.map(q => q.y)), z1 = Math.max(...fr.map(q => q.z + q.alto));
+      const x0 = Math.min(...fr.map(q => q.x)), x1 = Math.max(...fr.map(q => q.x + q.ancho)), y = Math.max(...fr.map(q => q.y + q.fondo)), z1 = Math.max(...fr.map(q => q.z + q.alto));   /* eje en la cara vista: al abrir no invade al vecino */
       const cajas = qs.filter(q => q.rol === 'caja');
       qs.forEach(q => { q.frente = d; });
       principal.abre = principal.tipo === 'Puerta' ? { tipo: 'Puerta', lado: principal.bisagraDerecha ? 'derecha' : 'izquierda', x: r2(principal.bisagraDerecha ? x1 : x0), y: r2(y) }
