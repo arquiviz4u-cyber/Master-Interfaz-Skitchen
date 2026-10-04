@@ -153,6 +153,11 @@
        los gabinetes (los bancos quedan del lado opuesto; un lado corto no se
        acepta). Revit: Generator.cs pide hoy 3 puntos (largo y ancho); cambiar
        a rectangulo + lado de los gabinetes.
+   A65. Marco shaker de ancho unico (04/10, usuario): el cajon chico salia con
+       un marco mas angosto (Revit: Ancho_Marco = min(6, lado menor / 3.5)).
+       Ahora todos los frentes usan cfg.anchoShaker (5 cm / 2" de fabrica,
+       editable en Estilo > Marco shaker); solo se reduce si el tablero
+       rehundido quedaria de menos de 2 cm. Revit: mismo ancho y control.
    A54. Gola de un solo material (03/10, usuario): la franja se pintaba por
        mitades (fondo y linea del perfil eran destinos distintos); ahora un
        material arrastrado a cualquier franja va a toda la gola y en 3D el
@@ -1309,7 +1314,7 @@ function defaultConfig(length){
     generarCubierta: true, generarZoclos: true, retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
     backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 2, led: false, ledFrente: true,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
-    style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, bisagras: true, cubiertaAPano: false,
+    style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, anchoShaker: 5, bisagras: true, cubiertaAPano: false,
     narizCubierta: false, alturaNariz: 5, puertasOcultas: [],
     materialGeneral: null, materiales: {}, modulos: [] };
   const ini = prefs.inicio;   /* valores de inicio de Ajustes */
@@ -1932,6 +1937,10 @@ const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                 
 /* gola empotrada (referencia de construccion del usuario, 03/10): el canal entra 2.6 cm en el gabinete desde su canto y el perfil
    pasa 2.2 cm por detras de los frentes vecinos (C de 7.4 cm para un hueco de 3.0); los laterales van rebajados en esa zona */
 const PLAN_GOLA = { fondo: 2.6, traslape: 2.2, lamina: .2, melamina: 1.8 };
+/* A65 (usuario, 04/10): ancho del marco shaker igual en todos los frentes (cfg.anchoShaker, 5 cm / 2" de fabrica, en Estilo);
+   solo se reduce si el frente es tan chico que el tablero rehundido quedaria de menos de 2 cm. Antes: min(6, lado menor / 3.5) de
+   Revit, que dejaba el marco del cajon chico mas angosto que el de los demas */
+const marcoShaker = (w, h) => Math.max(.5, Math.min(cfg.anchoShaker || 5, (Math.min(w, h) - 2)/2));
 const golaHondo = () => PLAN_GOLA.fondo + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina - PLAN_GOLA.lamina : 0);   /* melamina: mas hondo, mismo canal libre */
 /* LED bajo los altos (usuario, 03/10): la cama corrida es el piso de los altos (laterales y trasero apoyan sobre ella y las puertas
    alinean con su cara inferior); el perfil LED de 1.7 x 0.7 cm va embutido en una ranura por debajo de la cama */
@@ -2048,11 +2057,11 @@ function planDePiezas(c = cfg){
         forma: { tipo: 'cilindro', de: [B.cazoleta/2, 0, B.cazoleta/2], a: [B.cazoleta/2, B.hondo, B.cazoleta/2], diametro: B.cazoleta, lados: 12 } });
     };
     /* frente: liso, o en estilo Clasica con marco shaker (como drawHandle: frentes de 8 cm o mas que no son fijos): tablero
-       rehundido con el id del frente y cuatro piezas de marco del ancho de Revit (Ancho_Marco = min(6, lado menor / 3.5)) */
+       rehundido con el id del frente y cuatro piezas de marco del ancho de Estilo (marcoShaker, A65) */
     const tablero = (modulo, base, kind, a, b, z0, z1, y, mat, hingeRight, fijo, atras = false) => {
       const w = b - a, h = z1 - z0, datos = { rol: 'frente', modulo, material: mat, etiqueta: 'frentes' };
       if (cfg.style === 'Clasica' && !fijo && w >= 8 && h >= 8) {
-        const fw = Math.max(1, Math.min(6, Math.min(w, h)/3.5)), r = PLAN_SHAKER_REHUNDIDO;   /* atras: la cara vista mira hacia y = 0 */
+        const fw = marcoShaker(w, h), r = PLAN_SHAKER_REHUNDIDO;   /* atras: la cara vista mira hacia y = 0 */
         add(Object.assign({ id: base, tipo: kind, x: a + fw, y: atras ? y + r : y, z: z0 + fw, ancho: w - 2*fw, fondo: t - r, alto: h - 2*fw, bisagraDerecha: !!hingeRight, fijo: false }, datos));
         add(Object.assign({ id: base + ':marco:izq', tipo: 'Marco', x: a, y, z: z0, ancho: fw, fondo: t, alto: h }, datos));
         add(Object.assign({ id: base + ':marco:der', tipo: 'Marco', x: b - fw, y, z: z0, ancho: fw, fondo: t, alto: h }, datos));
@@ -3523,7 +3532,7 @@ function drawIslandBack(){
   cfg.islaPaneles.forEach(q => {
     const r = RX(px, px + q.ancho, pz, pt);
     fillMat(r.x, r.y, r.w, r.h, q.material || cfg.materialGeneral, C.front); outline(r, C.line, 1);
-    if (cfg.style === 'Clasica') { const fw = Math.min(6, Math.min(q.ancho, pt - pz)/3.5)*s; ctx.strokeStyle = C.shaker; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
+    if (cfg.style === 'Clasica') { const fw = marcoShaker(q.ancho, pt - pz)*s; ctx.strokeStyle = C.shaker; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
     materialHits.push({ rect: r, key: 'backpanel:' + q.id }); ipart(r, 'backpanel:' + q.id);
     dim(X(px + q.ancho), chainY, X(px), chainY, fmt(q.ancho) + (q.fijo ? ' ·' : ''), 'bpw:' + q.id);
     px += q.ancho;
@@ -3644,7 +3653,7 @@ function drawHiddenDoors(X, Z, RX, scale, post){
       const lr = RX(s0, s1, bottom, zc), hr = hdHingeRight(d);
       if (cfg.style !== 'Moderna') {   /* clasica: marco shaker por tablero; jaladera junto al canto libre a 100 cm */
         if (cfg.style === 'Clasica') { ctx.strokeStyle = C.shaker; ctx.lineWidth = 1;
-          hdPanels(d).forEach(([a, b, c0, c1]) => { const fw = Math.max(1, Math.min(6, Math.min(b - a, c1 - c0)/3.5))*scale, q = RX(s0 + a, s0 + b, c0, c1); if (q.w > 2*fw + 2 && q.h > 2*fw + 2) ctx.strokeRect(q.x + fw, q.y + fw, q.w - 2*fw, q.h - 2*fw); }); }
+          hdPanels(d).forEach(([a, b, c0, c1]) => { const fw = marcoShaker(b - a, c1 - c0)*scale, q = RX(s0 + a, s0 + b, c0, c1); if (q.w > 2*fw + 2 && q.h > 2*fw + 2) ctx.strokeRect(q.x + fw, q.y + fw, q.w - 2*fw, q.h - 2*fw); }); }
         const hx = hr ? lr.x + 5*scale : lr.x + lr.w - 5*scale, hy = Z(100), half = cfg.largoJaladera/2*scale;
         ctx.fillStyle = ctx.strokeStyle = C.handle;
         if (cfg.jaladera === 'Boton') { ctx.beginPath(); ctx.arc(hx, hy, 2.5, 0, Math.PI*2); ctx.fill(); }
@@ -3990,7 +3999,7 @@ function drawFront(f, x0, Z, scale){
 /* estilo clasico/simple (StyleTab.DrawStyle + HandleAt): marco shaker solo en clasica; jaladera en ambos */
 function drawHandle(f, r, scale){
   if (f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;   /* frentes de menos de 8 cm: sin marco ni jaladera */
-  if (cfg.style === 'Clasica') { const fw = Math.min(6, Math.min(f.x1 - f.x0, f.z1 - f.z0)/3.5)*scale; ctx.strokeStyle = C.shaker; ctx.lineWidth = 1; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
+  if (cfg.style === 'Clasica') { const fw = marcoShaker(f.x1 - f.x0, f.z1 - f.z0)*scale; ctx.strokeStyle = C.shaker; ctx.lineWidth = 1; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
   /* HandleAt: altos, abajo; puertas altas (mas de 110 cm hasta sobre 160), a 95 cm del lecho; resto, arriba. Elevable: abajo */
   const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', Zs = frame.Z;
   const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + 5 : (f.z0 + f.z1)/2;
@@ -5245,6 +5254,8 @@ function renderStyle(){
   if (cfg.style !== 'Moderna' || cfg.closet) html += section(cfg.style === 'Moderna' ? 'Jaladera (puertas, elevables y cajón del vanity)' : 'Jaladera', opt('jal', 'Barra', cfg.jaladera, 'Barra tipo tubo', '') + opt('jal', 'Boton', cfg.jaladera, 'Botón / perilla', '')
     + (cfg.jaladera === 'Barra' ? `<div class="grid-2" style="margin-top:12px"><label class="field"><span>Largo de la barra</span><div class="unit" data-unit="cm"><input type="number" id="jalLargo" value="${cfg.largoJaladera}" min="8" max="40" step="0.8"></div></label></div>` : '')
     + `<div class="note">Puertas y cajones cierran a hueso${cfg.style === 'Clasica' ? ', con marco shaker' : ''} y jaladera.</div>`);
+  if (cfg.style === 'Clasica') html += section('Marco shaker', `<div class="grid-2">${lenField('id="shakerAncho"', 'Ancho del marco', cfg.anchoShaker || 5)}</div>`
+    + '<div class="note">El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos 2 cm.</div>');
   html += section('Herrajes', `<label class="check"><input type="checkbox" id="hinge" ${cfg.bisagras ? 'checked' : ''}>Bisagras de cazoleta en las puertas</label>`);
   if (cfg.closet) html = section('Puertas del closet', opt('pcl', 'Abatibles', cfg.puertasCloset, 'Abatibles por módulo', 'Dos hojas a partir de 60 cm.') + opt('pcl', 'Correderas', cfg.puertasCloset, 'Correderas para todo el tramo', '')
       + opt('pcl', 'Sin puertas', cfg.puertasCloset, 'Sin puertas', 'Closet abierto.')
@@ -5257,6 +5268,9 @@ function renderStyle(){
   el.querySelectorAll('input[name=gola]').forEach(r => r.addEventListener('change', e => change(c => c.gola = e.target.value)));
   el.querySelectorAll('input[name=jal]').forEach(r => r.addEventListener('change', e => change(c => c.jaladera = e.target.value)));
   const jl = document.getElementById('jalLargo'); if (jl) jl.addEventListener('change', e => change(c => c.largoJaladera = parseFloat(e.target.value) || c.largoJaladera));
+  const sh = document.getElementById('shakerAncho');
+  if (sh) { sh.addEventListener('change', e => { const v = parseLen(e.target.value); if (isNaN(v)) { renderStyle(); return; } change(c => c.anchoShaker = Math.max(1, Math.min(10, v))); });
+    sh.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }); }
   document.getElementById('hinge').addEventListener('change', e => change(c => c.bisagras = e.target.checked));
 }
 
@@ -5934,6 +5948,9 @@ const EN = {
   'Revisar altura': 'Check height',
   'Revisar ancho': 'Check width',
   'Exportar vistas': 'Export views',
+  'Marco shaker': 'Shaker frame',
+  'Ancho del marco': 'Frame width',
+  'El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos 2 cm.': 'The same width on every door and drawer; on a very small front it shrinks so the recessed panel is at least 2 cm.',
   'Cambios sin generar': 'Ungenerated changes',
   'Pantalla completa': 'Full screen',
   'LiveSync encendido: los cambios se generan solos en SketchUp.': 'LiveSync on: changes are generated in SketchUp automatically.',
