@@ -357,6 +357,12 @@
        nueva (bisagras) quedaba indefinida y apagaba la opcion. Ruby recarga la
        ventana del generador si el master cambio (antes generaba con la pagina
        vieja). Revit: completar igual la configuracion guardada al editar.
+   B22. [Solo SketchUp 04/10] LiveSync: tras el primer Generar (o al abrir una
+       cocina ya generada) aparece el interruptor LiveSync encendido y Generar
+       se oculta; cada cambio valido se genera solo 400 ms despues del ultimo
+       (al arrastrar, al soltar), una generacion a la vez, un paso de Deshacer
+       por ajuste. Interruptor a la izquierda: apagado y vuelve Generar.
+       Revit: no aplica (pedido del usuario).
    B21. [Solo SketchUp 04/10] El editor se abre maximizado al area util de la
        pantalla y al Generar pasa al 37.5 % derecho (0.75 de 2, todo el alto)
        para comparar con el modelo; angosto queda el modo comparar (dibujo,
@@ -585,6 +591,23 @@
      comparar con el modelo. Angosta queda el modo comparar: dibujo, vista, puertas, el panel de pestanas (para ajustar y ver el
      cambio en 3D), Generar y «Pantalla completa». Bajo 600 px las pestanas ya no caben y se ocultan */
   #btnAmpliar { display: none; }
+  /* B22 (solo SketchUp): LiveSync. Interruptor izquierda (apagado) / derecha (encendido); sombreado al encenderlo. Aparece tras el
+     primer Generar, encendido, y entonces Generar se oculta; apagado vuelve Generar */
+  .live { display: none; align-items: center; gap: 9px; height: 40px; padding: 0 14px 0 10px; border: 1px solid var(--line); border-radius: 6px;
+    font-size: 13px; font-weight: 600; color: #4A5560; cursor: pointer; user-select: none; transition: background .15s, border-color .15s, color .15s; }
+  .live.visible { display: inline-flex; }
+  .live input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .live .track { position: relative; width: 38px; height: 22px; border-radius: 11px; background: #C3CAD1; transition: background .15s; flex: none; }
+  .live .knob { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .15s; }
+  .live.on { background: var(--ink); border-color: var(--ink); color: #fff; box-shadow: 0 0 0 3px rgba(38,96,150,.22); }
+  .live.on .track { background: rgba(255,255,255,.35); }
+  .live.on .knob { left: 19px; }
+  .live input:focus-visible + .track { outline: 2px solid #2F75B5; outline-offset: 2px; }
+  .live .punto { width: 7px; height: 7px; border-radius: 50%; background: #9AA4AD; flex: none; }
+  .live.on .punto { background: #7CE0B0; }
+  .live.ocupado .punto { animation: latido .8s ease-in-out infinite; }
+  @keyframes latido { 50% { opacity: .25; } }
+  #btnGenerate.oculto { display: none; }
   @media (max-width: 599px) { html.sketchup .tabs { display: none; } }
   @media (max-width: 760px) {
     html.sketchup #winTitle, html.sketchup .brandbar .bsep { display: none; }
@@ -1093,6 +1116,9 @@
     <div class="status"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.6" stroke="#8A949E" stroke-width="1.3"/><path d="M8 7.2v3.8" stroke="#8A949E" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="5" r=".85" fill="#8A949E"/></svg><span id="status">Prototipo de interfaz. Hac&eacute; clic en un m&oacute;dulo o una cota.</span></div>
     <button class="btn" id="btnAmpliar" title="Volver a pantalla completa para editar">Pantalla completa</button>
     <button class="btn" id="btnCancel">Cancelar</button>
+    <label class="live" id="liveSync" title="LiveSync: cada cambio se genera solo en SketchUp. A la izquierda se apaga y vuelve el botón Generar">
+      <input type="checkbox" id="liveChk"><span class="track"><span class="knob"></span></span><span class="punto"></span><span>LiveSync</span>
+    </label>
     <button class="btn btn-primary" id="btnGenerate">
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1.6 14 5v6l-6 3.4L2 11V5l6-3.4Z" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/><path d="M2 5l6 3.4L14 5M8 8.4v6" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
       Generar
@@ -3105,7 +3131,7 @@ function part(key, active, rects, paint, post){
 }
 
 /* render(): canvas + paneles. El hover y los arrastres solo redibujan el canvas (drawCanvas). */
-function render(){ cleanSelection(); drawCanvas(); renderSide(); renderGallery(); renderMatEditor(); renderStyle(); syncUndo(); updateHint(); trUI(); }
+function render(){ cleanSelection(); drawCanvas(); renderSide(); renderGallery(); renderMatEditor(); renderStyle(); syncUndo(); updateHint(); trUI(); if (enVivo) programarVivo(); }
 function syncUndo(){ document.getElementById('btnUndo').disabled = !undoStack.length; document.getElementById('btnRedo').disabled = !redoStack.length; }
 
 /* resaltado al pasar el mouse (Ajustes): sin el, el hover solo cambia la ayuda de la barra inferior */
@@ -5910,6 +5936,8 @@ const EN = {
   'Exportar vistas': 'Export views',
   'Cambios sin generar': 'Ungenerated changes',
   'Pantalla completa': 'Full screen',
+  'LiveSync encendido: los cambios se generan solos en SketchUp.': 'LiveSync on: changes are generated in SketchUp automatically.',
+  'LiveSync apagado: usa Generar para llevar los cambios a SketchUp.': 'LiveSync off: use Generate to send the changes to SketchUp.',
   'Volver a pantalla completa para editar': 'Back to full screen to edit',
   'Hay cambios que todavía no están en el modelo de SketchUp. ¿Generar antes de cerrar?': 'Some changes are not in the SketchUp model yet. Generate before closing?',
   'Generar y cerrar': 'Generate and close',
@@ -6275,6 +6303,7 @@ function offerSave(action, proceed){
    sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
    sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida), sketchupNuevaIsla(longitud, ancho) (isla nueva
    con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual.
+   B22: LiveSync. sketchup.generar lleva vivo: true en las generaciones automaticas (Ruby no mueve la ventana).
    B21: sketchup.listo(texto) lleva {x, y, ancho, alto} del area util de la pantalla; sketchup.ventana('maxima') vuelve a pantalla
    completa (Ruby la pasa al 37.5 % derecho al Generar).
    B2: cerrar. Ruby retiene el cierre de la ventana y llama sketchupPedirCierre(); el master responde sketchup.cierre_visto() y, si hay
@@ -6293,9 +6322,10 @@ function sketchupAbrir(crear, error, estado){
   catch (err) { cfg = JSON.parse(before); recalculate(); showDialog('SketchUp', error + err.message); return; }
   undoStack = []; redoStack = []; sectionCut = NaN; view = 'Alzado';
   selection = new Set(row(false).length ? [row(false)[0].id] : []); selectedPart = null; focusPanel = null; upperFocus = null; pieces.clear();
-  syncCommandUI(); render(); setStatus(estado);
+  syncCommandUI(); render(); setStatus(estado); liveUI();
 }
 function sketchupCargar(texto){
+  liveDisponible = true; enVivo = true;   /* B22: ya esta generada en el modelo */
   /* B20: una cocina guardada con un master anterior no trae las opciones nuevas: se completan con las de fabrica de su tipo (sin
      ellas, una clave como bisagras quedaba indefinida y apagaba las bisagras sin aviso) */
   sketchupAbrir(() => { const c = JSON.parse(texto), base = c.isla ? defaultIsland(240, 90) : c.closet ? defaultCloset(240) : defaultConfig(300);
@@ -6304,22 +6334,59 @@ function sketchupCargar(texto){
 }
 /* cocina nueva en la cara de muro elegida: el largo se redondea al cm como al escribirlo en la cota (k === 'length') */
 function sketchupNueva(longitud, alturaMuro){
+  liveDisponible = false; enVivo = false;   /* B22: LiveSync tras el primer Generar */
   const largo = Math.round(longitud*100)/100;   /* D1: el decimal del muro lo absorben las tapetas */
   sketchupAbrir(() => { const c = defaultConfig(largo); c.catalogo = cfg.catalogo; c.alturaMuro = Math.round(alturaMuro*10)/10; return c; },
     `El muro elegido (${fmt(longitud)} × ${fmt(alturaMuro)}${uS()}) no admite una cocina: `, `Muro de ${fmt(largo)} × ${fmt(alturaMuro)}${uS()} tomado de SketchUp.`);
 }
 /* isla nueva con el largo y el ancho de los 3 puntos de Line-Island (canto frontal de la cubierta y lado de los bancos) */
 function sketchupNuevaIsla(longitud, ancho){
+  liveDisponible = false; enVivo = false;
   const largo = Math.round(longitud*100)/100, an = Math.round(ancho*10)/10;
   sketchupAbrir(() => { const c = defaultIsland(largo, an); c.catalogo = cfg.catalogo; return c; },
     `La isla elegida (${fmt(largo)} × ${fmt(an)}${uS()}) no admite gabinetes: `, `Isla de ${fmt(largo)} × ${fmt(an)}${uS()} tomada de SketchUp.`);
 }
 function sketchupResultado(ok, mensaje){
+  const vivo = enviadoEnVivo;
   if (ok && firmaEnviada !== null) firmaGenerada = firmaEnviada;   /* lo generado ya esta en el modelo */
-  firmaEnviada = null;
-  if (ok) setStatus(mensaje); else { cerrarAlGenerar = false; showDialog('SketchUp', mensaje); }
-  if (ok && cerrarAlGenerar) { cerrarAlGenerar = false; sketchup.cerrar(); }
+  firmaEnviada = null; enviadoEnVivo = false; liveUI();
+  if (ok) setStatus(vivo ? 'LiveSync · ' + mensaje : mensaje);
+  else if (vivo) setStatus('LiveSync: no se pudo actualizar el modelo. ' + mensaje);   /* en vivo no interrumpe con un dialogo */
+  else { cerrarAlGenerar = false; showDialog('SketchUp', mensaje); }
+  if (ok && cerrarAlGenerar) { cerrarAlGenerar = false; sketchup.cerrar(); return; }
+  if (ok && !vivo && !liveDisponible) { liveDisponible = true; enVivo = true; liveUI(); }   /* B22: tras el primer Generar, LiveSync encendido */
+  if (enVivo) programarVivo();   /* lo que cambio mientras se generaba */
 }
+/* B22 LiveSync (solo SketchUp): con el interruptor encendido, cada cambio valido se genera solo, 400 ms despues del ultimo (al
+   arrastrar, al soltar). Una generacion a la vez: lo que cambie mientras tanto sale en la siguiente. Cada ajuste es un paso de
+   Deshacer en SketchUp. Una cocina ya generada (abierta desde SketchUp) lo tiene disponible desde el inicio */
+let enVivo = false, liveDisponible = false, enviadoEnVivo = false, temporizadorVivo = null;
+const liveSync = document.getElementById('liveSync'), liveChk = document.getElementById('liveChk');
+function liveUI(){
+  liveSync.classList.toggle('visible', enSketchUp() && liveDisponible);
+  liveSync.classList.toggle('on', enVivo); liveChk.checked = enVivo;
+  liveSync.classList.toggle('ocupado', enVivo && firmaEnviada !== null);
+  document.getElementById('btnGenerate').classList.toggle('oculto', enSketchUp() && enVivo);
+}
+function programarVivo(){
+  clearTimeout(temporizadorVivo);
+  if (enVivo) temporizadorVivo = setTimeout(sincronizarVivo, 400);
+}
+function sincronizarVivo(){
+  if (!enVivo || !enSketchUp() || firmaEnviada !== null) return;   /* hay una en curso: al terminar se vuelve a revisar */
+  if (drag || matDrag) { programarVivo(); return; }                  /* arrastrando: se genera al soltar */
+  if (!cambiosSinGenerar()) return;
+  try { validate(); } catch (err) { setStatus('LiveSync en pausa: ' + err.message); return; }
+  if (!row(false).length && !row(true).length) return;
+  let plan; try { plan = planDePiezas(); } catch (err) { setStatus('LiveSync en pausa: ' + err.message); return; }
+  firmaEnviada = firmaCfg(); enviadoEnVivo = true; liveUI();
+  sketchup.generar(JSON.stringify({ config: cfg, plan, vivo: true }));
+}
+liveChk.addEventListener('change', () => {
+  enVivo = liveChk.checked; liveUI();
+  setStatus(enVivo ? 'LiveSync encendido: los cambios se generan solos en SketchUp.' : 'LiveSync apagado: usa Generar para llevar los cambios a SketchUp.');
+  if (enVivo) sincronizarVivo();
+});
 /* cerrar el editor (Cancelar o la X de la ventana): con cambios sin generar, pregunta antes (B2) */
 function cerrarEditor(){
   const salir = () => offerSave('salir', () => { if (enSketchUp()) sketchup.cerrar(); else setStatus('Editor cerrado sin generar (prototipo).'); });
