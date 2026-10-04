@@ -174,6 +174,42 @@
        diseno con IA dentro del editor (preguntas sobre la herramienta, revisar
        la cocina actual: ergonomia, holguras, piezas faltantes). Descartado:
        generar la cocina desde texto (poco practico).
+   A57. Los bajos mandan el ancho de la columna (04/10, usuario): al arrastrar
+       el alto de la columna de la tarja doble, la fila de bajos copiaba los
+       anchos de los altos y la tarja quedaba en 52 (Revit: en el minimo, 82)
+       y su ancho pasaba a la otra columna. Ahora, tras intercambiar, los altos
+       toman el ancho de los bajos: un alto movido adopta el de su nueva
+       columna. Revit: LayoutState.Swap (copiar siempre de bajos a altos).
+   A58. Modulo superior desde el panel (04/10, usuario): el alto doble muestra
+       en su panel el tipo del modulo superior con iconos (Piston, Dos
+       puertas, Repisas), sin entrar con doble clic. Revit: panel del alto
+       doble (hoy solo en el editor del modulo superior).
+   A59. Ancho fijo sin casilla (04/10, usuario): «Conservar este ancho» se
+       marcaba solo al escribir la medida, asi que la casilla sobraba. Ahora,
+       si el ancho esta fijo, una fila «Ancho fijo · Volver a automatico»;
+       si no, nada. Igual en closet, especiales y paneles posteriores.
+       Revit: fixedWidth -> etiqueta + boton.
+   A60. Campana extractora y Dos puertas con icono (04/10, usuario):
+       interruptores con icono, como las tarjetas de Funcion; «Invertir
+       abatimiento» sigue como casilla. Revit: FuncTiles en Opciones.
+   A61. Materiales predeterminados en la generacion (04/10, usuario): la pieza
+       sin material lleva el tono con que la dibuja el editor (DEF_FRENTE,
+       DEF_CUERPO, DEF_TAPETA, DEF_ZOCLO, DEF_CUBIERTA, DEF_BACKSPLASH,
+       DEF_GOLA en plan.materiales); antes SketchUp la dejaba con su material
+       por omision en la primera generacion. Herrajes y equipos sin cambio.
+       Revit: no aplica (las familias traen material).
+   A62. A paño solo en laterales (04/10, usuario): «A paño de gabinetes (solo
+       en laterales)» quita el vuelo de los costados y el frente conserva el
+       Vuelo (vueloLat / vueloEf). La isla arranca con vuelo 0 para seguir a
+       paño de las puertas. Revit: VueloEfectivo solo en costados.
+   A63. Editor de material sin Listo (04/10, usuario): los cambios ya se
+       aplicaban al momento; otro clic en la muestra cierra el editor.
+       Revit: MaterialTab sin boton Listo.
+   A64. El fondo pinta su caja (04/10, usuario): arrastrar un material al fondo
+       interior pinta por igual el canto de la caja, las repisas y las
+       divisiones de esa zona (solo ese gabinete) y borra los propios que
+       tuvieran; despues cada repisa o division admite el suyo. Revit:
+       MaterialTab.ApplyMaterial + PaintShelves.
    A45. [Revit OK, no aplica] Cotas editables (03/10): el clic en una cota abria
        el campo y el mismo clic le quitaba el foco (lo tomaba el lienzo), asi
        que se cerraba al instante, en el navegador y en SketchUp. Corregido
@@ -769,6 +805,8 @@
   .ftile.on { border-color: var(--ink); background: var(--ink-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
   .ftile svg, .ftile span { pointer-events: none; }
   .ftile svg { width: 30px; height: 36px; }
+  .otiles { margin: 2px 0 10px; }
+  .fijo-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #4A5560; margin-bottom: 10px; }
   .note { font-size: 11.5px; color: #6B7680; line-height: 1.45; margin-top: 10px; }
 
   /* ---- bottom bar ---- */
@@ -860,6 +898,7 @@
   html[data-theme=dark] .btn-danger:hover { background: #3A2624; border-color: #6B3A35; }
   html[data-theme=dark] .opt { background: #2C2F34; }
   html[data-theme=dark] .opt.on { background: #22374A; border-color: #5C9BD1; }
+  html[data-theme=dark] .fijo-row { color: #B9C0C7; }
   html[data-theme=dark] .ftile { background: #2C2F34; border-color: #3A3E44; color: #B9C0C7; }
   html[data-theme=dark] .ftile.on { background: #22374A; border-color: #5C9BD1; color: #8DBBE3; box-shadow: inset 0 0 0 1px #5C9BD1; }
   html[data-theme=dark] .opt .d, html[data-theme=dark] .note, html[data-theme=dark] .note-sm, html[data-theme=dark] .empty { color: #9AA3AD; }
@@ -1315,14 +1354,16 @@ const ISLA_DEF = { islaAncho: 90, cascadaIzq: false, cascadaDer: false, islaPane
 const ISLA_TIPOS = ['Puertas', 'Abierto', 'Cajones', 'C', 'Basura', 'Frigobar', 'Especiero'];
 function defaultIsland(length, width){
   const c = defaultConfig(length);
-  Object.assign(c, JSON.parse(JSON.stringify(ISLA_DEF)), { isla: true, islaAncho: width, cubiertaAPano: true, vuelo: 2, backsplash: false,
+  Object.assign(c, JSON.parse(JSON.stringify(ISLA_DEF)), { isla: true, islaAncho: width, cubiertaAPano: true, vuelo: 0, backsplash: false,
     tapetaIzq: true, tapetaDer: true, reservaIzq: 2, reservaDer: 2, cerrarZocloIzq: true, cerrarZocloDer: true, altoBajos: 90 - c.baseBajos - c.espesorCubierta });
   let n = 1, best = 1e9;   /* de 1 a 10 bajos con ancho entre 30 y 120, el mas cercano a 60 */
   for (let k = 1; k <= 10; k++) { const w = length/k; if (w >= 30 && w <= 120 && Math.abs(w - 60) < best) { best = Math.abs(w - 60); n = k; } }
   c.modulos = Array.from({ length: n }, () => Object.assign(newModule(false), { fondo: prefs.inicio.fondoBajos }));
   return c;
 }
-const vueloEf = () => cfg.cubiertaAPano ? 0 : cfg.vuelo;
+/* (A62) «A paño de gabinetes (solo en laterales)»: el vuelo frontal siempre es el del campo Vuelo; a paño solo quita el de los costados */
+const vueloEf = () => cfg.vuelo;
+const vueloLat = () => cfg.cubiertaAPano ? 0 : cfg.vuelo;
 const espesorCascada = () => cfg.narizCubierta ? cfg.alturaNariz : cfg.espesorCubierta;
 const espesorBarra = () => cfg.islaBarraEspesor > 0 ? cfg.islaBarraEspesor : cfg.espesorCubierta;
 const barraFondo = () => cfg.islaBarraAncho + espesorBarra();   /* del canto posterior al frente del peralte */
@@ -1332,8 +1373,8 @@ const islaSeparacion = () => Math.max(0, cfg.islaAncho - vueloEf() - islaFondoMa
 const islaEspMax = () => Math.max(0, Math.min(islaSeparacion(), cfg.islaBarraElevada ? cfg.islaBarraAncho : Infinity) - 1.8);
 const islaEspEf = () => Math.max(0, Math.min(Math.max(0, cfg.islaEspacioBancos), islaEspMax()));
 const islaZocloCara = () => Math.max(0, Math.min(islaSeparacion() - 1.8, barraConCascada() ? barraFondo() : cfg.islaRetiroZocloPosterior < 0 ? islaSeparacion() - 1.8 : islaEspEf() + cfg.islaRetiroZocloPosterior));
-const barraX0 = () => cfg.cascadaIzq ? (cfg.islaBarraCascadaIzq ? 0 : -cfg.islaBarraVueloIzq) : (cfg.islaBarraCascadaIzq ? -espesorBarra() : -vueloEf() - cfg.islaBarraVueloIzq);
-const barraX1 = () => cfg.longitud + (cfg.cascadaDer ? (cfg.islaBarraCascadaDer ? 0 : cfg.islaBarraVueloDer) : (cfg.islaBarraCascadaDer ? espesorBarra() : vueloEf() + cfg.islaBarraVueloDer));
+const barraX0 = () => cfg.cascadaIzq ? (cfg.islaBarraCascadaIzq ? 0 : -cfg.islaBarraVueloIzq) : (cfg.islaBarraCascadaIzq ? -espesorBarra() : -vueloLat() - cfg.islaBarraVueloIzq);
+const barraX1 = () => cfg.longitud + (cfg.cascadaDer ? (cfg.islaBarraCascadaDer ? 0 : cfg.islaBarraVueloDer) : (cfg.islaBarraCascadaDer ? espesorBarra() : vueloLat() + cfg.islaBarraVueloDer));
 const panelesX0 = () => cfg.islaBarraElevada && cfg.islaBarraCascadaIzq ? (cfg.cascadaIzq ? Math.max(ajusteIzq(), espesorBarra()) : 0) : ajusteIzq();
 const panelesX1 = () => cfg.longitud - (cfg.islaBarraElevada && cfg.islaBarraCascadaDer ? (cfg.cascadaDer ? Math.max(ajusteDer(), espesorBarra()) : 0) : ajusteDer());
 const panelTope = () => cfg.islaBarraElevada ? altoBarra() + cfg.islaBarraElevacion - espesorBarra() : cfg.baseBajos + cfg.altoBajos;
@@ -1889,6 +1930,15 @@ function texturaDe(m){
   paintPattern(g, 0, 0, c.width, c.height, spec, k*esc, lineColorOf(m));
   const tx = { png: c.toDataURL('image/png'), ancho: w, alto: h }; texturas.set(key, tx); return tx;
 }
+/* A61: tonos del editor (LIGHT) para las piezas sin material; ids DEF_ fuera del catalogo, sin textura */
+const PREDETERMINADOS = {
+  DEF_FRENTE: { nombre: 'Frente predeterminado', rgb: [255, 255, 255] }, DEF_CUERPO: { nombre: 'Cuerpo predeterminado', rgb: [250, 250, 248] },
+  DEF_TAPETA: { nombre: 'Tapeta predeterminada', rgb: [218, 190, 146] }, DEF_ZOCLO: { nombre: 'Zoclo predeterminado', rgb: [90, 90, 85] },
+  DEF_CUBIERTA: { nombre: 'Cubierta predeterminada', rgb: [180, 185, 186] }, DEF_BACKSPLASH: { nombre: 'Backsplash predeterminado', rgb: [229, 222, 211] },
+  DEF_GOLA: { nombre: 'Gola predeterminada', rgb: [75, 75, 72] } };
+const predeterminadoDe = q => q.rol === 'frente' ? 'DEF_FRENTE' : ['panel', 'repisa', 'division', 'caja'].includes(q.rol) ? 'DEF_CUERPO'
+  : q.rol === 'tapeta' ? (q.etiqueta === 'tapetas' ? 'DEF_TAPETA' : 'DEF_FRENTE') : q.rol === 'zoclo' ? 'DEF_ZOCLO' : q.rol === 'cubierta' ? 'DEF_CUBIERTA'
+  : q.rol === 'backsplash' ? 'DEF_BACKSPLASH' : q.rol === 'herraje' && (q.tipo === 'Gola' || q.tipo === 'Perfil') ? 'DEF_GOLA' : null;
 function planDePiezas(c = cfg){
   const previo = cfg; cfg = c;
   try {
@@ -1906,14 +1956,15 @@ function planDePiezas(c = cfg){
     const lows = row(false), highs = row(true);
     const fondoDe = list => Math.max(0, ...list.filter(m => !m.reserved).map(m => m.fondo));
     /* material de una pieza interior: el propio del modulo (materialesPaneles, como en drawShelves) o el de su grupo */
-    const matPanel = (dueno, zona, clave, grupo) => (dueno.materialesPaneles || {})[zona + '.' + clave] || groupMaterial(grupo) || null;
+    const matPanel = (dueno, zona, clave, grupo) => { const mp = dueno.materialesPaneles || {}; return mp[zona + '.' + clave] || (/^(repisa|division)/.test(clave) && mp[zona + '.fondo']) || groupMaterial(grupo) || null; };   /* A64 */
     /* carcasa (drawInterior): laterales a todo el alto, trasero entre laterales, piso y techo delante del trasero.
        Devuelve el hueco interior. Sin travesaños por ahora: el techo es completo (PLAN_PENDIENTE) */
     /* canal del LED en la cama: su borde mas cercano a PLAN_LED.retiro del canto frontal del alto, o de su cara trasera si va atras */
     const ranuraLed = y1 => cfg.ledFrente ? y1 - PLAN_LED.retiro - PLAN_LED.ancho : sep + PLAN_LED.retiro;
     const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false) => {
       const e = PLAN_CUERPO.lateral, ef = PLAN_CUERPO.fondo, y0 = sep, y1 = sep + fondo;
-      const panel = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
+      const propio = (dueno.materialesPaneles || {})[zona + '.fondo'];   /* A64: el canto de la caja sigue al fondo de su zona */
+      const panel = (k, tipo, a, b, c0, c1, d0, d1, material = propio || mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       /* con LED, la cama corrida (ver mas abajo) es el piso: laterales y trasero apoyan sobre ella y el gabinete no lleva piso propio */
       const zl = led ? z0 + e : z0;
       panel('lateral:izq', 'Lateral', x0, x0 + e, y0, y1, zl, z1);
@@ -2153,11 +2204,11 @@ function planDePiezas(c = cfg){
     const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
     /* largo de la cubierta de isla: entre cascadas o con el vuelo; una cascada propia de la barra la recorta por ese lado */
     const cubXIsla = () => { const barra = cfg.islaBarraElevada, be = espesorBarra();
-      return [Math.max(cfg.cascadaIzq ? ajusteIzq() : -vueloEf(), barra && cfg.islaBarraCascadaIzq ? barraX0() + be : -1e9),
-        Math.min(cfg.cascadaDer ? W - ajusteDer() : W + vueloEf(), barra && cfg.islaBarraCascadaDer ? barraX1() - be : 1e9)]; };
+      return [Math.max(cfg.cascadaIzq ? ajusteIzq() : -vueloLat(), barra && cfg.islaBarraCascadaIzq ? barraX0() + be : -1e9),
+        Math.min(cfg.cascadaDer ? W - ajusteDer() : W + vueloLat(), barra && cfg.islaBarraCascadaDer ? barraX1() - be : 1e9)]; };
     const dBajo = sep + fondoDe(lows) + t, dAlto = sep + fondoDe(highs) + t;
     const run0 = cfg.corridaIzq ? ajusteIzq() : 0, run1 = cfg.corridaDer ? W - ajusteDer() : W;
-    const vI = cfg.corridaIzq || hdExtra(false) > 0 ? 0 : vueloEf(), vD = cfg.corridaDer || hdExtra(true) > 0 ? 0 : vueloEf();   /* ni contra una puerta oculta */
+    const vI = cfg.corridaIzq || hdExtra(false) > 0 ? 0 : vueloLat(), vD = cfg.corridaDer || hdExtra(true) > 0 ? 0 : vueloLat();   /* ni contra una puerta oculta */
     if (lows.length) {
       /* en 3D el zoclo se detiene en una tapeta que llega al piso (corrida o junto a un especial); el alzado 2D lo pinta encima */
       const alPiso = left => { const lo = lows[left ? 0 : lows.length - 1]; return (left ? cfg.tapetaIzq : cfg.tapetaDer) && ((left ? cfg.corridaIzq : cfg.corridaDer) || isSpecial(lo) || cortaZoclo(lo)); };
@@ -2416,9 +2467,14 @@ function planDePiezas(c = cfg){
       if (p.z + p.alto > z + .01) tramos.push([z, p.z + p.alto, p.fondo]);
       piezas.splice(i, 1, ...tramos.map(([a, b, f], k) => Object.assign({}, p, { id: k ? p.id + ':' + k : p.id, z: r2(a), alto: r2(r2(b) - r2(a)), fondo: f })));
     }
+    /* (A61) la pieza sin material lleva el tono con que la dibuja el editor (paleta clara): asi la primera generacion se ve
+       como el dibujo y no con el material por omision de SketchUp. Herrajes y equipos conservan el suyo */
+    const usados = new Set();
+    piezas.forEach(q => { if (q.material) return; const k = predeterminadoDe(q); if (k) { q.material = k; usados.add(k); } });
     return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
-      materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); }),
+      materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); })
+        .concat([...usados].map(k => ({ id: k, nombre: PREDETERMINADOS[k].nombre, rgb: PREDETERMINADOS[k].rgb.slice() }))),
       piezas, pendiente: PLAN_PENDIENTE.slice() };
   } finally { cfg = previo; }
 }
@@ -2480,7 +2536,7 @@ function pruebasPlanDePiezas(){
     ok(JSON.stringify(cfg) === editor, nombre + ': el plan cambio la configuracion del editor');
     ok(p.esquema === PLAN_ESQUEMA && p.unidad === 'cm', nombre + ': esquema o unidad');
     /* B5: cada material con patron lleva su mosaico (PNG y medida en cm); los colores lisos, no */
-    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id), conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
+    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id); if (!cat) { ok(!!PREDETERMINADOS[q.id] && !q.textura, nombre + ': material fuera del catalogo ' + q.id); return; } const conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
       ok(conPatron === !!q.textura, nombre + ': textura que no corresponde en ' + q.id);
       if (q.textura) ok(q.textura.png.startsWith('data:image/png;base64,') && q.textura.ancho > 0 && q.textura.alto > 0, nombre + ': textura invalida en ' + q.id); });
     ok(JSON.stringify(JSON.parse(JSON.stringify(p))) === JSON.stringify(p), nombre + ': no es JSON puro');
@@ -2491,7 +2547,7 @@ function pruebasPlanDePiezas(){
       ok(PLAN_ROLES.includes(q.rol), nombre + ': rol desconocido ' + q.rol);
       ok(PLAN_ETIQUETAS.includes(q.etiqueta), nombre + ': etiqueta desconocida ' + q.etiqueta);
       ok(q.z >= -.01 && q.z + q.alto <= c.alturaMuro + .01, nombre + ': fuera de la altura del muro ' + q.id);
-      const v = q.rol === 'cubierta' ? (c.cubiertaAPano ? 0 : c.vuelo) + (c.isla ? Math.max(c.islaBarraVueloIzq || 0, c.islaBarraVueloDer || 0) + 10 : 0) : 0;   /* vuelos de cubierta y barra */
+      const v = q.rol === 'cubierta' ? c.vuelo + (c.isla ? Math.max(c.islaBarraVueloIzq || 0, c.islaBarraVueloDer || 0) + 10 : 0) : 0;   /* vuelos de cubierta y barra */
       const ext = derecha => Math.max(0, ...(c.puertasOcultas || []).filter(d => d.derecha === derecha).map(d => d.ancho + (d.tapetaLateral ? d.anchoTapeta : 0)));   /* puertas ocultas */
       ok(q.x >= -v - ext(false) - .01 && q.x + q.ancho <= c.longitud + v + ext(true) + .01, nombre + ': fuera del largo del tramo ' + q.id);
     });
@@ -2806,8 +2862,10 @@ function swap(sourceId, targetId){
     const o0 = row(!src.upper), mirror = o0.length === r.length && cfg.modulos.some(isSpecial);
     idx.forEach((a, n) => { const ia = cfg.modulos.indexOf(r[a]), ib = cfg.modulos.indexOf(r[dest[n]]); cfg.modulos[ia] = r[dest[n]]; cfg.modulos[ib] = r[a];
       if (mirror) { const ja = cfg.modulos.indexOf(o0[a]), jb = cfg.modulos.indexOf(o0[dest[n]]); cfg.modulos[ja] = o0[dest[n]]; cfg.modulos[jb] = o0[a]; } });
-    const nr = row(src.upper), o = row(!src.upper);
-    if (o.length === nr.length) nr.forEach((m, i) => { o[i].ancho = m.ancho; o[i].fijo = m.fijo; o[i].peso = m.peso; });
+    /* (A57) los bajos mandan el ancho de la columna: un alto arrastrado toma el de su nueva columna, asi la tarja doble,
+       la estufa o un ancho escrito en el bajo no cambian al mover el alto de encima */
+    const lw = row(false), up = row(true);
+    if (lw.length === up.length) lw.forEach((m, i) => { up[i].ancho = m.ancho; up[i].fijo = m.fijo; up[i].peso = m.peso; });
   }, 'Intercambiar módulos');
 }
 function addModule(upper){
@@ -3117,7 +3175,7 @@ function drawElevation(){
   drawSinkTap(RX, X, Z, scale, post);
   drawHiddenDoors(X, Z, RX, scale, post);
   /* cubierta y zoclo corridos a todo el tramo; la cubierta va delante de la gola */
-  const vueloI = cfg.corridaIzq ? 0 : vueloEf(), vueloD = cfg.corridaDer ? 0 : vueloEf();   /* A44: sin vuelo contra una tapeta de piso a techo ni a paño */
+  const vueloI = cfg.corridaIzq ? 0 : vueloLat(), vueloD = cfg.corridaDer ? 0 : vueloLat();   /* A44: sin vuelo contra una tapeta de piso a techo ni a paño */
   part('plinth', cfg.generarZoclos, cutRun(run0, run1, cortaZoclo).map(([a, b]) => RX(a, b, 0, zb)), r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Zoclo'), C.zocalo); }, post);
   part('cover', cfg.generarCubierta, cutRun(run0 - vueloI, run1 + vueloD, cortaCubierta).map(([a, b]) => RX(a, b, zBar - paquete(), zBar)), r => {
     fillMat(r.x, r.y, r.w, r.h, groupMaterial('Cubierta'), C.cubierta); outline(r, C.line, 1);
@@ -3345,7 +3403,7 @@ function drawIslandFront(){
   const X = x => ox + x*scale, Z = z => ground - z*scale;
   const RX = (x0, x1, z0, z1) => { edges.push({ z: z0, id: edgeOwner }, { z: z1, id: edgeOwner }); return { x: X(x0), y: Z(z1), w: (x1-x0)*scale, h: (z1-z0)*scale }; };
   frame = { scale, ox, ground, X, Z, W };
-  const zb = cfg.baseBajos, zBar = altoBarra(), lows = row(false), aI = ajusteIzq(), aD = ajusteDer(), v = vueloEf();
+  const zb = cfg.baseBajos, zBar = altoBarra(), lows = row(false), aI = ajusteIzq(), aD = ajusteDer(), v = vueloLat();
   post = []; wallRect = { x: X(0), y: Z(zBar), w: W*scale, h: zBar*scale };
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(X(0) - 20, ground, X(W) + 20, ground);
   centroLine(X(W/2), Z(zBar) - 46, ground + 8);
@@ -3377,7 +3435,7 @@ function drawIslandPlan(){
   const ox = (cssW - W*s)/2, top0 = Math.max(110, (cssH - A*s)/2), y0 = top0 + flight*s, bottom = top0 + A*s;
   const X = x => ox + x*s, Y = d => y0 + d*s;
   frame = { scale: s, ox, X, W, plan: true }; post = [];
-  const aI = ajusteIzq(), aD = ajusteDer(), v = flight;
+  const aI = ajusteIzq(), aD = ajusteDer(), v = vueloLat();
   part('cover', cfg.generarCubierta, cutRun(cfg.cascadaIzq ? aI : -v, cfg.cascadaDer ? W - aD : W + v, cortaCubierta).map(([a, b]) => ({ x: X(a), y: top0, w: (b - a)*s, h: A*s })),
     r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Cubierta'), C.planCover); outline(r, C.line, 1); }, post);
   for (const left of [true, false]) {
@@ -3427,7 +3485,7 @@ function drawIslandBack(){
   const X = x => ox + (W - x)*s, Z = z => ground - z*s;
   const RX = (x0, x1, z0, z1) => { edges.push({ z: z0, id: edgeOwner }, { z: z1, id: edgeOwner }); return { x: X(x1), y: Z(z1), w: (x1 - x0)*s, h: (z1 - z0)*s }; };
   frame = { scale: s, ox, ground, X, Z, W }; post = []; wallRect = null;
-  const zb = cfg.baseBajos, zBar = altoBarra(), topH = islaTopH(), aI = ajusteIzq(), aD = ajusteDer(), v = vueloEf(), lows = row(false), be = espesorBarra();
+  const zb = cfg.baseBajos, zBar = altoBarra(), topH = islaTopH(), aI = ajusteIzq(), aD = ajusteDer(), v = vueloLat(), lows = row(false), be = espesorBarra();
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(X(W) - 20, ground, X(0) + 20, ground);
   part('cover', cfg.generarCubierta, [RX(cfg.cascadaIzq ? aI : -v, W - (cfg.cascadaDer ? aD : -v), zBar - paquete(), zBar)], paintCover, post);
   const b0 = panelesX0(), b1 = panelesX1(), zp = cfg.islaZocloPosterior && cfg.generarZoclos, pz = zp ? zb : 0, pt = panelTope(), chainY = Z(topH) - 28;
@@ -3747,7 +3805,7 @@ function drawShelves(body, count, owner, zone, divider = false, sel = false){
   const t = 1.8*frame.scale, inner = { x: body.x + t, y: body.y + t, w: body.w - 2*t, h: body.h - 2*t };
   if (inner.w <= 0 || inner.h <= 0) return;
   const piece = (q, group, fallback, key) => {
-    const pk = zone + '.' + key, own = owner && owner.materialesPaneles[pk];
+    const pk = zone + '.' + key, own = owner && (owner.materialesPaneles[pk] || (key !== 'fondo' && owner.materialesPaneles[zone + '.fondo']));   /* A64: repisas y divisiones siguen al fondo de su zona */
     fillMat(q.x, q.y, q.w, q.h, own || groupMaterial(group), fallback);
     if (!owner) return;
     materialHits.push({ rect: q, key: 'panel:' + owner.id + ':' + pk });
@@ -3757,6 +3815,8 @@ function drawShelves(body, count, owner, zone, divider = false, sel = false){
     if (pieceSelected(pkey)) post.push(() => { ctx.fillStyle = C.pieceFill; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.select, 2); });
     else if (hover === pkey) post.push(() => outline(q, C.hoverPart, 1.5));
   };
+  const canto = owner && owner.materialesPaneles[zone + '.fondo'];   /* A64: el canto de la caja se pinta con el fondo de su zona */
+  if (canto && !flat) { fillMat(body.x, body.y, body.w, body.h, canto, C.front); outline(body, C.line, 1); }
   piece(inner, 'Interior', sel ? C.interiorSel : C.interior, 'fondo'); outline(inner, C.line, 1);
   ctx.strokeStyle = C.line; ctx.lineWidth = 1;
   for (let i = 1; i <= count; i++) {
@@ -4092,7 +4152,7 @@ function drawPlan(){
   ctx.restore(); ctx.strokeStyle = C.wallLine; ctx.lineWidth = 2; line(X(0) - 14, wallY, X(W) + 14, wallY);
   if (!lows.length) { ctx.fillStyle = C.empty; ctx.font = "400 13px 'Inter'"; ctx.textAlign = 'center'; ctx.fillText('Añade un bajo para ver la cubierta', X(W/2), Y(30)); ctx.textAlign = 'left'; }
   /* cubierta y tapetas */
-  if (lows.length && !cfg.closet) part('cover', cfg.generarCubierta, cutRun(cfg.corridaIzq ? ajusteIzq() : -vueloEf(), cfg.corridaDer ? W - ajusteDer() : W + vueloEf(), cortaCubierta).map(([a, b]) => ({ x: X(a), y: wallY, w: (b - a)*scale, h: dLow*scale })), r => {
+  if (lows.length && !cfg.closet) part('cover', cfg.generarCubierta, cutRun(cfg.corridaIzq ? ajusteIzq() : -vueloLat(), cfg.corridaDer ? W - ajusteDer() : W + vueloLat(), cortaCubierta).map(([a, b]) => ({ x: X(a), y: wallY, w: (b - a)*scale, h: dLow*scale })), r => {
     fillMat(r.x, r.y, r.w, r.h, groupMaterial('Cubierta'), C.planCover); outline(r, C.line, 1);
   }, post);
   let x = ajusteIzq();
@@ -4205,7 +4265,9 @@ function applyMaterial(id, key){
       if (d) d[kind === 'doorleaf' ? 'material' : kind === 'doorjoint' ? 'materialJuntas' : 'materialPiston'] = value; }
     else if (key.startsWith('panel:')) {   /* sobre una pieza elegida el material va a todas las piezas de la seleccion */
       const keys = pieceSelected('piece:' + key.slice(6)) ? [...pieces].map(pc => 'panel:' + pc.slice(6)) : [key];
-      keys.forEach(k2 => { const [, id, panel] = k2.split(':'), m = c.modulos.find(q => q.id === id); if (!m) return; if (value) m.materialesPaneles[panel] = value; else delete m.materialesPaneles[panel]; });
+      keys.forEach(k2 => { const [, id, panel] = k2.split(':'), m = c.modulos.find(q => q.id === id); if (!m) return; if (value) m.materialesPaneles[panel] = value; else delete m.materialesPaneles[panel];
+        /* A64: el fondo pinta por igual las repisas y divisiones de su zona (solo de ese gabinete); despues cada una admite el suyo */
+        if (panel.endsWith('.fondo')) { const z = panel.slice(0, -6); Object.keys(m.materialesPaneles).forEach(k => { if (k.startsWith(z + '.repisa.') || k === z + '.division' || k.startsWith(z + '.division.')) delete m.materialesPaneles[k]; }); } });
     }
     else if (value) c.materiales[key] = value; else delete c.materiales[key];
   });
@@ -4529,6 +4591,8 @@ function commitDimension(){
  * ======================================================================= */
 const side = document.getElementById('side');
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+/* (A59) ancho fijo: se fija solo al escribir la medida o al elegir un tipo de ancho propio; el panel solo ofrece liberarlo */
+const anchoFijo = (on, act) => on ? `<div class="fijo-row"><span>Ancho fijo</span><button type="button" class="btn btn-sm" data-act="${act}">Volver a automático</button></div>` : '';
 const chk = (act, on, text) => `<label class="check"><input type="checkbox" data-act="${act}" ${on ? 'checked' : ''}>${text}</label>`;
 const num = (act, text, v, unit, min, max, step = 'any') => unit === 'cm' ? lenField(`data-act="${act}" data-min="${min}" data-max="${max}"`, text, v)
   : `<label class="field"><span>${text}</span><div class="unit" data-unit="${unit}"><input type="number" data-act="${act}" value="${fmtNum(v)}" min="${min}" max="${max}" step="${step}"></div></label>`;
@@ -4558,6 +4622,11 @@ const FI = (() => {
     EspecieroTorre: R(15,2,10,44) + L(15,10,25,10) + L(15,18,25,18) + L(15,26,25,26) + L(15,34,25,34),
     Estufa: R(5,10,30,32) + C(13,16,2.5) + C(27,16,2.5) + R(9,24,22,14),
     Sencillo: R(5,6,30,36) + door(5,6,30,36),
+    DosPuertas: R(5,6,30,36) + L(20,6,20,42) + L(5,6,20,24,1) + L(5,42,20,24,1) + L(35,6,20,24,1) + L(35,42,20,24,1),
+    Campana: P('M16 3 h8 v8 l10 8 h-28 l10 -8 z') + R(5,24,30,18) + door(5,24,30,18),
+    SupPiston: R(5,14,30,20) + lift(5,14,30,20),
+    SupPuertas: R(5,14,30,20) + L(20,14,20,34) + L(5,14,20,24,1) + L(5,34,20,24,1) + L(35,14,20,24,1) + L(35,34,20,24,1),
+    SupRepisas: R(5,14,30,20) + L(5,20.7,35,20.7) + L(5,27.3,35,27.3),
     Doble: R(5,6,30,36) + L(5,17,35,17) + lift(5,6,30,11) + door(5,17,30,25),
     Colgado: R(4,4,32,40) + L(4,12,36,12) + L(8,16,32,16) + P('M20 16 v3 M14 25 L20 19 L26 25 Z'),
     ColgadoDoble: R(4,4,32,40) + L(8,12,32,12) + L(8,28,32,28),
@@ -4571,6 +4640,7 @@ const FI = (() => {
 })();
 const FI_CORTO = { 'Abierto / repisas': 'Abierto', 'Módulo inferior + módulo superior': 'Inferior + superior' };
 const tiles = (act, opts, cur) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span></button>`).join('')}</div>`;
+const toggles = list => `<div class="ftiles otiles">${list.map(([act, on, t, icon]) => `<button type="button" class="ftile${on ? ' on' : ''}" data-act="${act}" aria-pressed="${on ? 'true' : 'false'}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${icon}</svg><span>${esc(t)}</span></button>`).join('')}</div>`;
 const radios = (act, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${v === cur ? ' on' : ''}"><input type="radio" name="${act}" data-act="${act}" value="${v}" ${v === cur ? 'checked' : ''}><div><div class="t">${t}</div></div></label>`).join('')}</div>`;
 const section = (label, html, cls = '') => `<div class="p-section${cls ? ' ' + cls : ''}">${label ? `<div class="p-label">${label}</div>` : ''}${html}</div>`;
 const head = (titleText, chip) => `<div class="p-section"><div class="m-head"><div class="m-title">${titleText}</div>${chip ? `<span class="chip">${chip}</span>` : ''}</div></div>`;
@@ -4615,7 +4685,7 @@ function closetPanel(m){
   const col = row(false).indexOf(m) + 1, T = m.tipo, cj = T === 'Cajonera' || T === 'Completo';
   let html = head(nombreModulo(m), `Col. ${col} · ${fmt(m.ancho)}${uS()}`);
   html += section('Función', tiles('tipo', CLOSET_TIPOS, T), 'plegable');
-  html += section('Medidas', `<div class="grid-2">${num('cAlto', 'Alto del cuerpo del closet', cfg.altoBajos, 'cm', 150, 300)}${num('cFondo', 'Fondo', m.fondo, 'cm', 35, 80)}</div>` + chk('fijo', m.fijo, 'Conservar este ancho'));
+  html += section('Medidas', `<div class="grid-2">${num('cAlto', 'Alto del cuerpo del closet', cfg.altoBajos, 'cm', 150, 300)}${num('cFondo', 'Fondo', m.fondo, 'cm', 35, 80)}</div>` + anchoFijo(m.fijo, 'fijoLibre'));
   if (cj) html += section('Cajonera', `<div class="grid-2">${num('cCaj', 'Cajones', m.cajonesCloset, 'u', 1, 6, 1)}${num('cAltoCaj', 'Alto de cada cajón', m.altoCajonCloset, 'cm', 12, 40)}</div>` + `<label class="field"><span>Sobre la cajonera</span></label>` + sel('cSobre', [['Barra', 'Barra'], ['Repisas', 'Repisas']], m.sobreCajonera));
   if (T === 'Repisas' || cj && m.sobreCajonera === 'Repisas') html += section('Repisas', `<div class="grid-2">${num('cRep', 'Repisas', m.repisasEspecial, 'u', 0, 12, 1)}</div>`);
   if (T !== 'Vanity' && cfg.puertasCloset === 'Abatibles') html += section('Puertas', chk('cSinP', m.closetSinPuertas, 'Sin puertas en este módulo') + chk('inv', m.invertir, 'Bisagra a la derecha (puerta única)'));
@@ -4638,10 +4708,13 @@ function modulePanel(m){
   html += section('Función', tiles('tipo', m.upper ? TIPOS_ALTO : tilesBajo(), tileTipo(m.tipo)), 'plegable');
   if (cfg.isla) html += section('Medidas', `<div class="grid-2">${num('iAlto', 'Alto gabinete bajo', cfg.altoBajos, 'cm', 60, 100)}${num('iFondo', 'Fondo', m.fondo, 'cm', 50, 70)}</div>`
     + (view === 'Alzado' ? `<button class="btn btn-block" style="margin-top:10px" data-act="centrar">Centrar en la isla</button>` : ''));
-  let opts = chk('fijo', m.fijo, 'Conservar este ancho');
-  if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto) opts += chk('campana', m.campana, 'Campana extractora');
-  const twoVis = !sinPuertas(m) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C');
-  if (twoVis) { opts += chk('dos', m.dosPuertas, 'Dos puertas'); if (!m.dosPuertas) opts += `<div class="sub">${chk('inv', m.invertir, 'Invertir abatimiento')}</div>`; }
+  let opts = anchoFijo(m.fijo, 'fijoLibre');
+  /* (A60) campana extractora y dos puertas: interruptores con icono, como las tarjetas de Funcion */
+  const twoVis = !sinPuertas(m) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
+  if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);
+  if (twoVis) sw.push(['tgDos', m.dosPuertas, 'Dos puertas', FI.DosPuertas]);
+  if (sw.length) opts += toggles(sw);
+  if (twoVis && !m.dosPuertas) opts += chk('inv', m.invertir, 'Invertir abatimiento');
   /* con campana extractora la division se conserva aunque el modulo quede de una puerta (master; el real la oculta) */
   const divVis = !isDoble(m) && (m.upper ? (m.dosPuertas || sinPuertas(m) || hasCampana(m)) : m.dosPuertas && m.tipo === 'Puertas' && !m.preparadoTarja);   /* alto doble: en sus secciones (A38) */
   if (divVis) opts += chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, 4, 1)}</div></div>` : '');
@@ -4659,7 +4732,7 @@ function modulePanel(m){
       + chk('supDiv', cl.divisionSuperior, 'División vertical interna') + (cl.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', cl.divisionesSuperior || 1, 'u', 1, capJoined(cl) ? 99 : 4, 1)}</div></div>` : '')
       + `<div class="note-sm">${cl.tipoSuperior === 'Repisas' ? 'Caja de repisas abierta.' : 'Detrás de su puerta se ven en la vista Interior.'}</div>`);
   }
-  if (isDoble(m)) html += section('Módulo superior', `<div class="note-sm" style="margin-top:0">Es un elemento propio: doble clic sobre él en el dibujo para elegir pistón, dos puertas o caja de repisas, su alto y unirlo con la columna vecina.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
+  if (isDoble(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + `<div class="note-sm">Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
   if (m.upper && !hasCampana(m) && !isDoble(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
     html += section('Repisas', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete alto', n, 'u', 0, 12, 1)}</div>`
       + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los 25 cm recomendados. Se generan igual.</div>`
@@ -4695,7 +4768,7 @@ function specialPanel(m){
   if (valid) return focusPanelHtml(m, zone, chip);
   let html = head(nombreModulo(m), chip);
   html += section('Función', tiles('tipo', tilesBajo(), tileTipo(m.tipo)), 'plegable');
-  html += section('Medidas', (m.tipo === 'EspecieroTorre' ? '' : chk('fijo', m.fijo, 'Conservar este ancho'))
+  html += section('Medidas', (m.tipo === 'EspecieroTorre' ? '' : anchoFijo(m.fijo, 'fijoLibre'))
     + `<div class="grid-2" style="margin-top:10px">${num('topeEsp', 'Alto desde el piso', altoEsp(m), 'cm', 160, topeAltos())}${num('lat', 'Espesor laterales', m.espesorLaterales, 'cm', 1, 5)}</div>`);
   if (isTower(m)) html += section('Torre', `<div class="note-sm" style="margin-top:0">Doble clic en el gabinete inferior o superior del dibujo para elegir puertas, cajones o repisas. Clic en el horno, el microondas o la rejilla para editarlos.</div><div class="grid-2" style="margin-top:10px">${num('aire', 'Aire posterior', m.aireHornos, 'cm', 5, 15)}</div>`);
   else if (isRefri(m)) {
@@ -4778,7 +4851,7 @@ function islaPartPanel(key){
   let html = head('Cubierta', null);
   html += section('Cubierta', (cfg.islaBarraElevada ? `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Con barra elevada la cubierta usa un espesor único, sin nariz.</div>`
       : chk('nariz', cfg.narizCubierta, 'Cubierta con nariz') + (cfg.narizCubierta ? `<div class="grid-2" style="margin-top:10px">${num('altNariz', 'Altura total de nariz', cfg.alturaNariz, 'cm', cfg.espesorCubierta, 15)}</div><div class="note-sm" style="margin-bottom:8px">Cama automática: ${fmt(camaCubierta())}${uS()}. Conserva libre la gola.</div>` : ''))
-    + chk('genCub', cfg.generarCubierta, 'Generar cubierta') + chk('aPano', cfg.cubiertaAPano, 'A paño de gabinetes') + `<div class="grid-2" style="margin-top:10px">${num('espCub', 'Espesor', cfg.espesorCubierta, 'cm', 1, 10)}${num('vuelo', 'Vuelo', cfg.vuelo, 'cm', 0, 5)}</div>`);
+    + chk('genCub', cfg.generarCubierta, 'Generar cubierta') + chk('aPano', cfg.cubiertaAPano, 'A paño de gabinetes (solo en laterales)') + `<div class="grid-2" style="margin-top:10px">${num('espCub', 'Espesor', cfg.espesorCubierta, 'cm', 1, 10)}${num('vuelo', 'Vuelo', cfg.vuelo, 'cm', 0, 5)}</div>`);
   html += section('Isla', `<div class="grid-2">${num('islaW', 'Ancho total de la isla', cfg.islaAncho, 'cm', 40, 250)}${num('islaEsp', 'Espacio para bancos', cfg.islaEspacioBancos, 'cm', 0, 150)}</div>` + espNote()
     + chk('cascI', cfg.cascadaIzq, 'Cascada izquierda hasta el piso') + chk('cascD', cfg.cascadaDer, 'Cascada derecha hasta el piso')
     + zocPostBlock() + chk('ledPost', cfg.islaLedPosterior, 'Luz LED sobre los paneles posteriores')
@@ -4791,7 +4864,7 @@ function islaPartPanel(key){
 function backPanelHtml(id){
   const q = (cfg.islaPaneles || []).find(q => q.id === id); if (!q) { selectedPart = 'cover'; return islaPartPanel('cover'); }
   return head('Panel posterior', `${cfg.islaPaneles.indexOf(q) + 1} de ${cfg.islaPaneles.length}`)
-    + section('Panel', `<div class="grid-2">${num('bpAncho', 'Ancho del panel', q.ancho, 'cm', 10, 600)}</div>` + chk('bpFijo', q.fijo, 'Conservar este ancho')
+    + section('Panel', `<div class="grid-2">${num('bpAncho', 'Ancho del panel', q.ancho, 'cm', 10, 600)}</div>` + anchoFijo(q.fijo, 'bpLibre')
       + `<div class="grid-2" style="margin-top:10px"><button class="btn btn-block" data-act="bpAdd">+ Añadir panel</button><button class="btn btn-block" data-act="bpDel" ${cfg.islaPaneles.length < 2 ? 'disabled' : ''}>Eliminar panel</button></div>`
       + `<div class="note-sm">La distribución posterior es independiente de los gabinetes del frente. Arrastra un material de la pestaña Materiales sobre cada panel.</div>`)
     + section('Cara posterior', `<div class="grid-2">${num('islaEsp', 'Espacio para bancos', cfg.islaEspacioBancos, 'cm', 0, 150)}</div>` + espNote() + zocPostBlock() + chk('ledPost', cfg.islaLedPosterior, 'Luz LED sobre los paneles posteriores'))
@@ -4861,7 +4934,7 @@ function partPanel(key){
   } else if (key === 'cover' || key === 'sink' || key === 'tap') {
     html += section('Cubierta', chk('nariz', cfg.narizCubierta, 'Cubierta con nariz')
       + (cfg.narizCubierta ? `<div class="grid-2" style="margin-top:10px">${num('altNariz', 'Altura total de nariz', cfg.alturaNariz, 'cm', cfg.espesorCubierta, 15)}</div><div class="note-sm" style="margin-bottom:8px">Cama automática: ${fmt(camaCubierta())}${uS()}. Conserva libre la gola.</div>` : '')
-      + chk('genCub', cfg.generarCubierta, 'Generar cubierta') + chk('aPano', cfg.cubiertaAPano, 'A paño de gabinetes') + `<div class="grid-2" style="margin-top:10px">${num('espCub', 'Espesor', cfg.espesorCubierta, 'cm', 1, 10)}${num('vuelo', 'Vuelo', cfg.vuelo, 'cm', 0, 5)}</div>`);
+      + chk('genCub', cfg.generarCubierta, 'Generar cubierta') + chk('aPano', cfg.cubiertaAPano, 'A paño de gabinetes (solo en laterales)') + `<div class="grid-2" style="margin-top:10px">${num('espCub', 'Espesor', cfg.espesorCubierta, 'cm', 1, 10)}${num('vuelo', 'Vuelo', cfg.vuelo, 'cm', 0, 5)}</div>`);
     if (cfg.moduloTarja && cfg.tipoTarja > 0) html += section('Tarja', `<div class="grid-2">${num('tAncho', 'Ancho', cfg.tarjaAncho, 'cm', 40, 110)}${num('tFondo', 'Fondo', cfg.tarjaFondo, 'cm', 35, 60)}${num('tProf', 'Profundidad', cfg.tarjaProf, 'cm', 10, 30)}${num('tRetiro', 'Retiro frontal', cfg.retiroTarja, 'cm', 7, 15)}</div>`
       + chk('mono', cfg.monomando, 'Monomando') + chk('bajoCub', cfg.tarjaBajoCubierta, 'Bajo cubierta') + `<button class="btn btn-danger btn-block" style="margin-top:10px" data-act="quitarTarja">Quitar tarja</button>`);
     else html += section('', `<div class="note-sm" style="margin-top:0">La tarja y el monomando se configuran desde su gabinete, o haciendo clic sobre ellos en el dibujo.</div>`);
@@ -4981,7 +5054,7 @@ const ACT = {
   bCascI: v => change(c => c.islaBarraCascadaIzq = v), bCascD: v => change(c => c.islaBarraCascadaDer = v),
   quitarBarra: () => { selectedPart = 'cover'; change(c => c.islaBarraElevada = false); },
   bpAncho: v => change(c => { const q = c.islaPaneles.find(q => q.id === selectedPart.slice(10)); q.ancho = v; q.fijo = true; }),
-  bpFijo: v => change(c => c.islaPaneles.find(q => q.id === selectedPart.slice(10)).fijo = v),
+  bpFijo: v => change(c => c.islaPaneles.find(q => q.id === selectedPart.slice(10)).fijo = v), bpLibre: () => change(c => c.islaPaneles.find(q => q.id === selectedPart.slice(10)).fijo = false),
   bpAdd: () => { const id = selectedPart.slice(10), nq = newPanel(); change(c => { const i = c.islaPaneles.findIndex(q => q.id === id); nq.material = c.islaPaneles[i].material; c.islaPaneles.splice(i + 1, 0, nq); c.islaPaneles.forEach(q => q.fijo = false); }); selectPart('backpanel:' + nq.id); },
   bpDel: () => deletePart(selectedPart),
   addPanel: () => change(c => { c.islaPaneles.push(newPanel()); c.islaPaneles.forEach(q => q.fijo = false); }),
@@ -5003,8 +5076,9 @@ const ACT = {
   },
   pzReset: () => deletePart(selectedPart),
   pzEditar: () => { const id = selectedPart.split(':')[1]; selectedPart = null; pieces.clear(); selection = new Set([id]); render(); },
-  fijo: (v, m) => setFixed(m.id, v),
-  dos: (v, m) => change(() => byId(m.id).dosPuertas = v),
+  fijo: (v, m) => setFixed(m.id, v), fijoLibre: (v, m) => setFixed(m.id, false),
+  dos: (v, m) => change(() => byId(m.id).dosPuertas = v), tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m),
+  supTipo: (v, m) => change(() => { const l = capLead(byId(m.id)); l.tipoSuperior = v; if (v === 'Repisas' && l.repisasSuperior < 1) l.repisasSuperior = 1; }),
   inv: (v, m) => change(() => byId(m.id).invertir = v),
   div: (v, m) => change(() => boxTargets(m).forEach(id => byId(id).division = v)),
   nDiv: (v, m) => change(() => { const t = boxTargets(m), mx = t.length > 1 ? 99 : 4; t.forEach(id => byId(id).divisiones = Math.max(1, Math.min(mx, Math.round(v)))); }),
@@ -5059,7 +5133,7 @@ function renderGallery(){
   const el = document.getElementById('gallery');
   const cats = CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash');
   let html = `<div class="mat-agregar"><span class="t">Agregar</span>${cats.map(cat => `<button type="button" data-addcat="${cat}">+ ${cat}</button>`).join('')}</div>`
-    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla.</div></div>`;
+    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
   CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash').forEach(cat => {
     html += `<div class="p-section"><div class="p-label">${cat}</div><div class="mat-grid">`;
     cfg.catalogo.filter(m => m.categoria === cat).forEach(m => {
@@ -5091,14 +5165,14 @@ function renderGallery(){
     const n = e.target.closest('.swatch'); if (!n) return;
     if (n.classList.contains('add')) { let created = null; change(c => created = addMaterial(c, n.dataset.add)); if (created) { editingSwatch = created.id; renderGallery(); renderMatEditor(); } return; }
     if (n.classList.contains('reset') || e.detail > 1) return;
-    editingSwatch = n.dataset.id; renderGallery(); renderMatEditor();
+    editingSwatch = editingSwatch === n.dataset.id ? null : n.dataset.id; renderGallery(); renderMatEditor();   /* A63: sin Listo; otro clic en la muestra cierra el editor */
   });
   el.addEventListener('dblclick', e => {
     const n = e.target.closest('.swatch[draggable]'); if (!n) return;
     applyMaterial(n.dataset.id, currentMaterialTarget());
   });
 })();
-/* editor de muestra (MaterialTab.BuildMaterialTab): nombre, Color…, gotero, colores rapidos, patron, escala, Listo y Eliminar */
+/* editor de muestra (MaterialTab.BuildMaterialTab): nombre, Color…, gotero, colores rapidos, patron, escala y Eliminar; sin Listo (A63) */
 function renderMatEditor(){
   const el = document.getElementById('matEditor'), m = mat(editingSwatch);
   if (!m) { editingSwatch = null; el.classList.remove('open'); el.innerHTML = ''; return; }
@@ -5115,7 +5189,7 @@ function renderMatEditor(){
     <div class="field"><span>Colores rápidos</span><div class="row" id="matColors">${quick.map(q => `<div class="colorchip${q[1] === m.r && q[2] === m.g && q[3] === m.b ? ' on' : ''}" data-rgb="${q[1]},${q[2]},${q[3]}" style="background:rgb(${q[1]},${q[2]},${q[3]})" title="${esc(q[0])}"></div>`).join('')}</div></div>
     ${patterns.length ? `<div class="field"><span>Patrón</span><div class="pat-grid" id="matPatterns">${patterns.map(p => `<div class="pat${p.id === m.patron ? ' on' : ''}" data-pat="${p.id}" title="${esc(p.nombre)}" style="background-image:url(${swatchURL(m, 42, 42, p.id)})"></div>`).join('')}</div></div>
     <div class="field"><span>Escala del patrón</span><div class="seg">${ESCALAS.map(k => `<button class="btn btn-sm${k === m.escala ? ' on' : ''}" data-scale="${k}">×${k}</button>`).join('')}</div></div>` : ''}
-    <div class="actions"><button class="btn btn-danger btn-sm" id="matDelete" ${m.base ? 'disabled title="Los materiales base no se eliminan"' : ''}>Eliminar</button><button class="btn btn-primary btn-sm" id="matDone">Listo</button></div></div>`;
+    <div class="actions"><button class="btn btn-danger btn-sm" id="matDelete" ${m.base ? 'disabled title="Los materiales base no se eliminan"' : ''}>Eliminar</button></div></div>`;
   const edit = (fn, msg) => { const id = m.id; change(c => fn(c.catalogo.find(q => q.id === id))); renderMatEditor(); if (msg) setStatus(msg); };
   const setRGB = (r, g, b) => edit(q => { q.r = r; q.g = g; q.b = b; });
   document.getElementById('matName').addEventListener('change', e => { const v = e.target.value.trim(); if (v) edit(q => q.nombre = v); });
@@ -5129,7 +5203,6 @@ function renderMatEditor(){
   el.querySelectorAll('#matColors .colorchip').forEach(c => c.addEventListener('click', () => { const [r, g, b] = c.dataset.rgb.split(',').map(Number); setRGB(r, g, b); }));
   el.querySelectorAll('#matPatterns .pat').forEach(t => t.addEventListener('click', () => edit(q => q.patron = t.dataset.pat)));
   el.querySelectorAll('[data-scale]').forEach(b => b.addEventListener('click', () => edit(q => q.escala = Number(b.dataset.scale))));
-  document.getElementById('matDone').addEventListener('click', () => { editingSwatch = null; renderGallery(); renderMatEditor(); });
   document.getElementById('matDelete').addEventListener('click', () => { if (m.base) return; const id = m.id, name = m.nombre; editingSwatch = null; change(c => removeMaterial(c, id)); renderMatEditor(); setStatus('Material «' + name + '» eliminado.'); });
 }
 
@@ -5408,6 +5481,7 @@ const EN = {
   'la aplica a la selección.': 'applies it to the selection.',
   'Clic': 'Click',
   'para editarla.': 'to edit it.',
+  'para editarla (otro clic la cierra); los cambios se aplican al momento.': 'to edit it (click again to close); changes apply right away.',
   'Jaladera (puertas, elevables y cajón del vanity)': 'Handle (doors, lift-ups and vanity drawer)',
   'Puertas y cajones cierran a hueso y jaladera.': 'Doors and drawers close flush, with handles.',
   'Con abatibles el cuerpo retrocede el espesor de la hoja. Correderas: sistema Ducasse D52 al piso dentro de vano (riel inferior, guía superior bajo una tapeta de 8 cm, hojas casi a tope con 3 cm de traslape), sin zoclo. En estilo moderno los cajones llevan perfiles gola de aluminio (L superior con hueco de 35 mm, C intermedio con hueco de 30 mm); en clásico, jaladeras.': 'With hinged doors the body sets back by the leaf thickness. Sliding: Ducasse D52 floor system inside the opening (bottom rail, top guide under an 8 cm filler, leaves almost touching with 3 cm overlap), no plinth. In the modern style drawers get aluminum gola profiles (L on top with a 35 mm gap, C in between with a 30 mm gap); in classic, handles.',
@@ -5526,6 +5600,11 @@ const EN = {
   'Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.': 'With 0 the bar is flush with the waterfall’s outer face (or the countertop edge if that side has no waterfall); a larger value pushes it out. Left and right are those of the front elevation.',
   'Con barra elevada la cubierta usa un espesor único, sin nariz.': 'With a raised bar the countertop uses a single thickness, no nosing.',
   'Conservar este ancho': 'Keep this width',
+  'Ancho fijo': 'Fixed width',
+  'Volver a automático': 'Back to automatic',
+  'A paño de gabinetes (solo en laterales)': 'Flush with cabinets (sides only)',
+  'Pistón': 'Lift-up',
+  'Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.': 'Double-click it in the drawing for its height, material and joining it to the next column.',
   'Continuar': 'Continue',
   'Correderas para todo el tramo': 'Sliding for the whole run',
   'Ctrl + clic: selección · Arrastrar: mover · Supr: borrar': 'Ctrl + click: select · Drag: move · Del: delete',
