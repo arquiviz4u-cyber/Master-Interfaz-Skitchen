@@ -321,6 +321,10 @@
        nueva (bisagras) quedaba indefinida y apagaba la opcion. Ruby recarga la
        ventana del generador si el master cambio (antes generaba con la pagina
        vieja). Revit: completar igual la configuracion guardada al editar.
+   B21. [Solo SketchUp 04/10] El editor se abre maximizado al area util de la
+       pantalla y al Generar pasa al cuarto derecho (todo el alto) para comparar
+       con el modelo; angosto queda el modo comparar (dibujo, vista, puertas,
+       Generar y Pantalla completa). Revit: no aplica (pedido del usuario).
    B16. [SketchUp OK 03/10] Isla (Line-Island) en el plan de piezas: gabinetes con
        frentes alineados, costados o cascadas, paneles posteriores (reparto y
        shaker hacia los bancos), zoclo frontal con cierres, zoclo posterior con
@@ -540,6 +544,17 @@
   html.sketchup body { padding: 0; display: block; height: 100vh; overflow: hidden; }
   html.sketchup .window { width: 100%; max-width: none; height: 100vh; box-shadow: none; }
   html.sketchup .cmdsel, html.sketchup .proto { display: none; }
+  /* B21 (solo SketchUp): al Generar, Ruby pasa la ventana al cuarto derecho de la pantalla para comparar con el modelo. Angosta,
+     queda el modo comparar: dibujo, vista, puertas, Generar y «Pantalla completa» para volver a editar (las pestanas no caben) */
+  #btnAmpliar { display: none; }
+  @media (max-width: 760px) {
+    html.sketchup .tabs, html.sketchup #winTitle, html.sketchup .brandbar .bsep { display: none; }
+    html.sketchup .toolbar > :not(#btnView):not(#btnDoors) { display: none; }
+    html.sketchup .bottom { flex-wrap: wrap; }
+    html.sketchup .bottom .status { flex-basis: 100%; }
+    html.sketchup .bottom .btn { flex: 1; min-width: 0; }
+    html.sketchup #btnAmpliar { display: inline-flex; }
+  }
   .titlebar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
     background: linear-gradient(#E9EEF3,#DCE3E9);
     border-bottom: 1px solid #B9C2C9;
@@ -1034,6 +1049,7 @@
 
   <div class="bottom">
     <div class="status"><svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.6" stroke="#8A949E" stroke-width="1.3"/><path d="M8 7.2v3.8" stroke="#8A949E" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="5" r=".85" fill="#8A949E"/></svg><span id="status">Prototipo de interfaz. Hac&eacute; clic en un m&oacute;dulo o una cota.</span></div>
+    <button class="btn" id="btnAmpliar" title="Volver a pantalla completa para editar">Pantalla completa</button>
     <button class="btn" id="btnCancel">Cancelar</button>
     <button class="btn btn-primary" id="btnGenerate">
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 1.6 14 5v6l-6 3.4L2 11V5l6-3.4Z" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/><path d="M2 5l6 3.4L14 5M8 8.4v6" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
@@ -5811,6 +5827,8 @@ const EN = {
   'Revisar ancho': 'Check width',
   'Exportar vistas': 'Export views',
   'Cambios sin generar': 'Ungenerated changes',
+  'Pantalla completa': 'Full screen',
+  'Volver a pantalla completa para editar': 'Back to full screen to edit',
   'Hay cambios que todavía no están en el modelo de SketchUp. ¿Generar antes de cerrar?': 'Some changes are not in the SketchUp model yet. Generate before closing?',
   'Generar y cerrar': 'Generate and close',
   'Cerrar sin generar': 'Close without generating',
@@ -6175,6 +6193,8 @@ function offerSave(action, proceed){
    sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
    sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida), sketchupNuevaIsla(longitud, ancho) (isla nueva
    con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual.
+   B21: sketchup.listo(texto) lleva {x, y, ancho, alto} del area util de la pantalla; sketchup.ventana('maxima') vuelve a pantalla
+   completa (Ruby la pasa al cuarto derecho al Generar).
    B2: cerrar. Ruby retiene el cierre de la ventana y llama sketchupPedirCierre(); el master responde sketchup.cierre_visto() y, si hay
    cambios sin generar, pregunta (generar y cerrar, cerrar sin generar o cancelar) antes de sketchup.cerrar().
    B2: exportar. sketchup.exportar_inicio(n) (Ruby pide la carpeta) -> sketchupExportarEn(ok); luego sketchup.exportar_archivo(texto)
@@ -6241,7 +6261,10 @@ function generar(cerrar = false){
   });
 }
 document.getElementById('btnGenerate').addEventListener('click', () => generar());
-window.addEventListener('load', () => { if (enSketchUp()) sketchup.listo(); });   /* cuando el editor ya dibujo su estado inicial */
+/* B21: al cargar, el area util de la pantalla (para que Ruby maximice la ventana y despues la lleve al cuarto derecho) */
+window.addEventListener('load', () => { if (enSketchUp()) sketchup.listo(JSON.stringify({ x: screen.availLeft || 0, y: screen.availTop || 0,
+  ancho: screen.availWidth, alto: screen.availHeight })); });   /* cuando el editor ya dibujo su estado inicial */
+document.getElementById('btnAmpliar').addEventListener('click', () => { if (enSketchUp()) sketchup.ventana('maxima'); });
 
 /* ---------------- Exportar vistas (ExportViews / ExportTo) ----------------
    PNG limpios a 3x (alzado, alzado interior, planta: sin cotas ni seleccion) y un texto para render con IA. */
