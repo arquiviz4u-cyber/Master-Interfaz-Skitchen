@@ -552,6 +552,60 @@
    D5. Revisar en el real: al activar "Cajones bajos" de la alacena el
        master conserva la altura de sus divisiones desde el piso.
 
+  E. Mercado EE. UU. (version en ingles). Informe «reports/Convenciones EE UU
+     version ingles.md» (04/10/2026). Hechos en el master; faltan Revit y,
+     donde se dice, SketchUp. Lo demas entra con el HTML.
+   E1. Region MX | US (prefs.region), independiente del idioma, en Ajustes;
+       cada configuracion guarda la suya (cfg.region, cfg.pasoReparto; lo
+       guardado sin region es MX). Al elegirla se proponen unidad, redondeo,
+       iman y valores de inicio; «Aplicar a la distribucion actual».
+       Revit: Ajustes.cs/AjustesTab.cs + Config.Region.
+   E2. Valores de EE. UU. (INICIO_REGION, COCINA_US, MODULO_US, ISLA_US,
+       CLOSET_US): 96/4 1/2/30/1 1/2/18/24/12, tapetas 1 1/2", vuelo 3/4",
+       isla 36" con bancos de 15" y barra 6"/12", closet con barras 66/80/40".
+       Comandos del prototipo: 120", isla 96" x 42", closet 96". Revit:
+       defaults de LayoutState/ClosetState por region.
+   E3. Limites por region (REGIONES): ancho 12-48" (MX 30-120), estufa
+       20-48", parrilla 12-48", puerta oculta 24-48" con hoja de 72", closet
+       18-48", especial 18", tarja doble 36", holgura del refri 1".
+       Revit: LayoutState.Validate y constantes de AjustesTab.
+   E4. Reparto en pasos de la region: US modular 3", por pulgada o a medida
+       1/16" (panel del muro); lo que no llena un paso va a las tapetas (en US
+       mitad y mitad, en 1/16"); tapetas de 1/2" a 3". WidthFit en pasos.
+       Revit: WidthFit.cs y LayoutState.Compensacion.
+   E5. Rejilla de 1/16" en lo que se escribe o arrastra con la region US
+       (rd, anchoEscrito, techoAncho). Revit: Math.Round por region.
+   E6. Tipo Lavavajillas (60/45 cm; US 24"/18" compacto) del piso a la
+       cubierta, corta el zoclo, tambien en isla; aviso NKBA a 36" de la tarja.
+       Revit: familia DLB_ nueva. SketchUp: equipo «Lavavajillas» en el plan.
+   E7. Aviso de coccion (NKBA): campana a 24" o mas (MX 60 cm) y gabinete sin
+       campana a 30" (MX 75 cm) de la estufa o parrilla, con boton para subir
+       el libre sobre cubierta. Revit: panel del alto y de la estufa.
+   E8. Vocabulario EN-US del diccionario (toe kick, pull, stacker, gray, back
+       panel, section, cabinet, oven cabinet, trash pull-out, wine cooler,
+       rear elevation, tick...) y textos de la seccion D. Revit: Idioma.cs.
+   E9. Mensajes con medidas en la unidad de Ajustes (medida()) y sus
+       plantillas EN; aviso del alto doble; largo de jaladera por medidas de
+       fabrica en mm; ejemplo de Ajustes por region. Revit: mensajes.
+   E10. Unidad «Pulgadas, con pies en las totales» (inft) y ft-in con guion
+       (10'-0"). Revit: Ajustes.cs (FraccionIn) y cotas.
+   E11. Mosaicos de backsplash en pulgadas (3x6, 8x8, 2x4, 12x24) para la
+       region US. Revit: MaterialPatterns. SketchUp: textura del plan.
+   E12. «Dos puertas desde» por configuracion (US 24"; MX a mano); elegirlas a
+       mano manda (dosPuertasManual). Revit: LayoutState.
+   E13. Closet: barra sencilla (US 66") separada de la alta del colgado doble
+       (80/40"). Pendiente: torres de repisas de 14" de fondo. Revit:
+       ClosetState. SketchUp: Drawdrobe.
+   E14. Trasera de 1/2" y correderas de 9 a 21" de 3 en 3 con la region US.
+       Revit: familias (Espesor_Cuerpo). SketchUp: plan de piezas.
+   E15. Bisagra con la cazoleta a 22.5 mm del canto (antes 18 mm, fuera del
+       rango de Blum); vale tambien para MX. Revit: familias de puerta.
+   E16. Codigo de gabinete de EE. UU. en el panel (B30, SB36, DB18, W3042,
+       W361524, T2484, OC, REF, DW, R...). Revit: etiquetas de familia.
+   E17-E20 (despues del lanzamiento): microondas sobre la estufa (OTR), lista
+       de corte en 1/16" con cubrecanto y hojas de 4x8, avisos NKBA de zonas
+       de apoyo y pasillo, face frame (no: decision de producto).
+
   CONTENIDO ACTUAL DEL MASTER
   ===========================
   Modelo (LayoutState/Config): muro 240, tramo con largo propio, tapetas que
@@ -1259,7 +1313,7 @@ const MODULO_US = { ancho: inch(24), anchoEspeciero: inch(9), huecoRefri: inch(7
   huecoCampana: inch(6), fondoCampana: inch(20), espesorLaterales: inch(.75), baseHorno: inch(24), altoHorno: inch(28.5), microAncho: inch(24), microAlto: inch(14),
   altoCajonCloset: inch(8), altoMaletero: inch(16), altoZapatera: inch(24), altoEscritorio: inch(30), repisaAltaVanity: inch(80) };
 const ISLA_US = { islaEspacioBancos: inch(15), islaBarraAncho: inch(12), islaBarraElevacion: inch(6), islaBarraEspesor: inch(1.5) }, ISLA_ALTO = { MX: 90, US: inch(36) };
-const CLOSET_US = { barraAlta: inch(80), barraBaja: inch(40), pasoZapatera: inch(7), espesorCloset: inch(.75) };
+const CLOSET_US = { barraSencilla: inch(66), barraAlta: inch(80), barraBaja: inch(40), pasoZapatera: inch(7), espesorCloset: inch(.75) };
 const regionDe = c => REGIONES[c && c.region] || REGIONES.MX;
 const reg = () => regionDe(cfg);
 const pasoAncho = () => reg().pasos[cfg.pasoReparto] || reg().pasos[reg().pasoDef];
@@ -1421,6 +1475,10 @@ const PATTERNS = (() => {
   list.push(build('BS_CESTERIA', 'Cestería 10×5', 'Backsplash', 20, 20, [L(0, 0, 20, 0), L(0, 10, 20, 10), L(0, 0, 0, 20), L(10, 0, 10, 20), L(0, 5, 10, 5), L(15, 0, 15, 10), L(5, 10, 5, 20), L(10, 15, 20, 15)]));
   list.push(build('BS_VERTICAL', 'Subway vertical 7.5×15', 'Backsplash', 15, 30, [L(0, 0, 0, 30), L(7.5, 0, 7.5, 30), L(0, 0, 7.5, 0), L(7.5, 15, 15, 15)]));
   list.push(build('BS_GRANDE', 'Gran formato 30×60', 'Backsplash', 60, 60, [L(0, 0, 60, 0), L(0, 30, 60, 30), L(0, 0, 0, 30), L(30, 30, 30, 60)]));
+  /* E11: los mismos mosaicos en pulgadas para la region US (15 cm ~ 6", 20 ~ 8", 30 ~ 12": factor 1.016); el editor muestra los de la region */
+  const US_BS = { BS_SUBWAY: 'Subway 3×6"', BS_ALINEADO: 'Ladrillo alineado 3×6"', BS_CUADRO20: 'Cuadro 8×8"', BS_HEXAGONAL: 'Hexagonal 8"', BS_DIAGONAL: 'Diagonal 8×8"',
+    BS_CESTERIA: 'Cestería 2×4"', BS_VERTICAL: 'Subway vertical 3×6"', BS_GRANDE: 'Gran formato 12×24"' };
+  list.filter(q => US_BS[q.id]).forEach(q => { const k = 1.016; q.region = 'MX'; list.push({ id: q.id + '_US', nombre: US_BS[q.id], categoria: q.categoria, w: q.w*k, h: q.h*k, trazos: q.trazos.map(t => t.map(v => v*k)), region: 'US' }); });
   return list;
 })();
 const patternOf = id => PATTERNS.find(p => p.id === id);
@@ -1614,7 +1672,7 @@ function centrarIsla(id){
 /* ---- CLOSET (comando Wall-closet) ---- */
 const CLOSET_TIPOS = [['Colgado','Colgado'],['ColgadoDoble','Colgado doble'],['Repisas','Repisas'],['Cajonera','Cajonera'],['Zapatera','Zapatera'],['ZapateraBaja','Zapatera baja'],['Completo','Completo'],['Vanity','Vanity']];
 const closetLabel = m => (CLOSET_TIPOS.find(q => q[0] === m.tipo) || ['', m.tipo])[1];
-const CLOSET_DEF = { closetLed: false, puertasCloset: 'Abatibles', hojasCorredera: 0, barraAlta: 175, barraBaja: 95, pasoZapatera: 18, espesorCloset: 1.8 };
+const CLOSET_DEF = { closetLed: false, puertasCloset: 'Abatibles', hojasCorredera: 0, barraSencilla: 175, barraAlta: 175, barraBaja: 95, pasoZapatera: 18, espesorCloset: 1.8 };
 function defaultCloset(length){
   const c = defaultConfig(length), K = regionDe(c).closet;
   Object.assign(c, CLOSET_DEF, c.region === 'US' ? CLOSET_US : {}, { closet: true, alturaMuro: prefs.inicio.alturaMuro, altoBajos: prefs.inicio.alturaMuro - c.baseBajos, tapetaIzq: true, tapetaDer: true, reservaIzq: K.reserva, reservaDer: K.reserva, cerrarZocloIzq: true, cerrarZocloDer: true,
@@ -1637,15 +1695,16 @@ function closetItems(m){
   const rod = z => { if (z >= t + 5 && z + 2.5 <= top - 2) out.push({ kind: 'Barra', z0: z, z1: z + 2.5 }); };
   const tray = (z, index) => out.push({ kind: 'Cajon', tray: true, z0: z, z1: z + 8, index });
   const rodHigh = Math.min(cfg.barraAlta - zc, top - 30), rodLow = cfg.barraBaja - zc;
-  const above = z => { if (m.sobreCajonera === 'Barra') { const rz = Math.max(z + t + 60, rodHigh); if (rz + 2.5 <= top - 2) { rod(rz); shelf(rz + 12); } }
+  const rodSingle = Math.min((cfg.barraSencilla || cfg.barraAlta) - zc, top - 30);   /* E13: colgado sencillo (MX igual a la alta) */
+  const above = z => { if (m.sobreCajonera === 'Barra') { const rz = Math.max(z + t + 60, rodSingle); if (rz + 2.5 <= top - 2) { rod(rz); shelf(rz + 12); } }
     else { const n = Math.max(0, Math.min(8, m.repisasEspecial)), sp = top - (z + t), step = (sp - n*t)/(n + 1); for (let k = 1; k <= n; k++) shelf(z + t + k*step + (k - 1)*t); } };
   switch (m.tipo) {
-    case 'Colgado': rod(rodHigh); shelf(rodHigh + 12); break;
+    case 'Colgado': rod(rodSingle); shelf(rodSingle + 12); break;
     case 'ColgadoDoble': rod(rodLow); rod(rodHigh); shelf(rodHigh + 12); break;
     case 'Repisas': { const n = Math.max(1, Math.min(12, m.repisasEspecial)), step = (h - n*t)/(n + 1); for (let k = 1; k <= n; k++) shelf(t + k*step + (k - 1)*t); break; }
     case 'Zapatera': { let z = t, k = 0; while (z + paso <= top - 8 && k < 12) { if (k < 8) tray(z, k + 1); else shelf(z, 'Zapatera'); z += paso; k++; } break; }
     case 'ZapateraBaja': { const lim = closetShoeTop(m); let z = t, k = 0; while (z + 8 <= lim - t && k < 10) { if (k < 8) tray(z, k + 1); else shelf(z, 'Zapatera'); z += paso; k++; }
-      shelf(lim); const rz = Math.max(lim + t + 60, rodHigh); if (rz + 2.5 <= top - 2) { rod(rz); shelf(rz + 12); } break; }
+      shelf(lim); const rz = Math.max(lim + t + 60, rodSingle); if (rz + 2.5 <= top - 2) { rod(rz); shelf(rz + 12); } break; }
     case 'Cajonera': case 'Completo': {
       const n = m.cajonesCloset, hc = m.altoCajonCloset; let z = t, trays = 0;
       if (m.tipo === 'Completo') { const lim = closetShoeTop(m); let k = 0;
@@ -1829,6 +1888,18 @@ function joinRight(id){ const ups = row(true), i = ups.findIndex(q => q.id === i
 const hasCampana = m => m.upper && !!m.campana && m.tipo !== 'Abierto' && !m.inferiorAbierto;
 const sinPuertas = m => m.tipo === 'Abierto' || m.tipo === 'Doble' && m.inferiorAbierto;
 const NOMBRES = { EspecieroTorre: 'Especiero torre', Hornos: 'Hornos', Alacena: 'Alacena', Refri: 'Refrigerador', Estufa: 'Estufa', Basura: 'Cesto de basura', Frigobar: 'Frigobar de vinos', Especiero: 'Especiero', Lavavajillas: 'Lavavajillas' };
+/* E16: codigo de gabinete de EE. UU. (estimado del oficio): B30, SB36, DB18, W3042, W361524, T2484, OC3384... Solo en el panel con la region US */
+const pulgEnteras = v => Math.round(v/PULG);
+function codigoUS(m){
+  const w = pulgEnteras(m.ancho);
+  if (m.upper) { if (m.reserved) return ''; return 'W' + w + pulgEnteras(bodyH(m)) + (m.fondo > inch(13) ? pulgEnteras(m.fondo) : ''); }
+  if (isRefri(m)) return 'REF' + w;
+  if (isTower(m)) return 'OC' + w + pulgEnteras(altoEsp(m));
+  if (isPantry(m)) return 'T' + w + pulgEnteras(altoEsp(m)) + (m.tipo === 'EspecieroTorre' ? 'PO' : '');
+  const pre = { Estufa: 'R', Lavavajillas: 'DW', Frigobar: 'WC', Basura: 'BWB', Especiero: 'BPO', Cajones: 'DB', Abierto: 'OB' }[m.tipo];
+  return (pre || (m.preparadoTarja || tarjaDe(m) !== 'Sin tarja' ? 'SB' : 'B')) + w;
+}
+const chipCodigo = m => cfg.region === 'US' && !cfg.closet ? ' · ' + codigoUS(m) : '';
 const nombreModulo = m => cfg.closet ? 'Closet · ' + closetLabel(m) : !m.upper && NOMBRES[m.tipo] || (m.upper ? 'Gabinete alto' : 'Gabinete bajo');
 function ponerDoble(m){ if (!isDoble(m)) { m.inferiorAbierto = m.tipo === 'Abierto'; m.tipo = 'Doble'; } }
 function quitarDoble(m){ m.tipo = m.inferiorAbierto ? 'Abierto' : 'Sencillo'; m.inferiorAbierto = false; }
@@ -2098,7 +2169,8 @@ const boxTargets = m => { const g = currentBox() || (m ? bodyGroupOf(byId(m.id))
    material (id del catalogo o null) y etiqueta (clave de Nombres::ETIQUETAS de Ruby). */
 const PLAN_ESQUEMA = 1, PLAN_ESPESOR_FRENTE = 1.8;
 /* medidas de construccion que el editor no dibuja (en Revit viven dentro de las familias: Espesor_Cuerpo...). Ajustar aqui */
-const PLAN_CUERPO = { lateral: 1.8, fondo: 1.8 };                                    /* carcasa: laterales, piso y techo; trasero */
+const PLAN_CUERPO = { lateral: 1.8, fondo: 1.8 };
+const cuerpoFondo = () => cfg.region === 'US' ? inch(.5) : PLAN_CUERPO.fondo;   /* E14: trasera de 1/2" en EE. UU. */                                    /* carcasa: laterales, piso y techo; trasero */
 const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3, libreGola: .5 };   /* caja de cajon dentro de la carcasa */
 const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                     /* jaladera de barra o boton */
 /* gola empotrada (referencia de construccion del usuario, 03/10): el canal entra 2.6 cm en el gabinete desde su canto y el perfil
@@ -2196,7 +2268,7 @@ function planDePiezas(c = cfg){
     const ranuraLed = y1 => { const L = PLAN_LED, hueco = y1 - sep - L.ancho, ret = Math.max(0, Math.min(hueco, cfg.ledRetiro ?? L.retiro));
       return cfg.ledCentro ? sep + hueco/2 : cfg.ledFrente ? y1 - ret - L.ancho : sep + ret; };
     const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false) => {
-      const e = PLAN_CUERPO.lateral, ef = PLAN_CUERPO.fondo, y0 = sep, y1 = sep + fondo;
+      const e = PLAN_CUERPO.lateral, ef = cuerpoFondo(), y0 = sep, y1 = sep + fondo;
       const propio = (dueno.materialesPaneles || {})[zona + '.fondo'];   /* A64: el canto de la caja sigue al fondo de su zona */
       const panel = (k, tipo, a, b, c0, c1, d0, d1, material = propio || mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       /* con LED, la cama corrida (ver mas abajo) es el piso: laterales y trasero apoyan sobre ella y el gabinete no lleva piso propio */
@@ -2309,7 +2381,7 @@ function planDePiezas(c = cfg){
         if (fh < A && m.tapetaFrigobar) add({ id: m.id + ':tapeta', rol: 'tapeta', modulo: m.id, tipo: 'Frigobar', x, y: y1, z: zb + fh, ancho: m.ancho, fondo: t, alto: A - fh, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
         return;
       }
-      const refri = isRefri(m), top = altoEsp(m), e = m.espesorLaterales, ef = PLAN_CUERPO.fondo, lat = !refri || m.lateralesRefri;
+      const refri = isRefri(m), top = altoEsp(m), e = m.espesorLaterales, ef = cuerpoFondo(), lat = !refri || m.lateralesRefri;
       const xi0 = lat ? x + e : x, xi1 = lat ? x1 - e : x1, yl = y1 + (isTower(m) || refri ? t : 0), zonas = [];
       const tab = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: m.id + ':' + k, rol: 'panel', modulo: m.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       const piso = (k, z) => tab(k, 'Piso', xi0, xi1, y0 + ef, y1, z, z + e);
@@ -2657,7 +2729,8 @@ function planDePiezas(c = cfg){
     const C9 = PLAN_CORREDERA, hueco = PLAN_CAJA.holgura;
     cajasPorFrente.forEach((qs, d) => {
       const iz = qs.find(r => r.id.endsWith(':lado:izq')), dr = qs.find(r => r.id.endsWith(':lado:der')); if (!iz || !dr) return;
-      const largo = Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), y = iz.y + iz.fondo - largo;
+      const largo = cfg.region === 'US' ? Math.min(iz.fondo, Math.max(inch(9), Math.min(inch(21), Math.floor(iz.fondo/inch(3) + 1e-6)*inch(3))))   /* E14: 9-21" de 3 en 3 */
+        : Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), y = iz.y + iz.fondo - largo;
       const H = Math.min(C9.alto, iz.alto - .2), z = iz.z + Math.min(C9.centro, iz.alto/2) - H/2, w = C9.pared;
       const perfil = [[0, 0], [C9.fija, 0], [C9.fija, w], [w, w], [w, H - w], [C9.fija, H - w], [C9.fija, H], [0, H]];
       [['izq', iz.x], ['der', dr.x + dr.ancho]].forEach(([lado, cara]) => {
@@ -5026,7 +5099,7 @@ function modulePanel(m){
   const bx = selectedBox();
   let html = bx ? head('Caja de repisas corrida', `${bx.members.length} columnas · ${fmt(bx.width)}${uS()}`)
     + section('Caja', `<button class="btn btn-block" data-act="sepBox">Separar la caja</button>${extBoxBtn(currentBox())}`)
-    : head(nombreModulo(m), `Col. ${col} · ${fmt(m.ancho)}${uS()}`);
+    : head(nombreModulo(m), `Col. ${col} · ${fmt(m.ancho)}${uS()}${chipCodigo(m)}`);
   html += section('Función', tiles('tipo', m.upper ? TIPOS_ALTO : tilesBajo(), tileTipo(m.tipo)), 'plegable');
   if (cfg.isla) html += section('Medidas', `<div class="grid-2">${num('iAlto', 'Alto gabinete bajo', cfg.altoBajos, 'cm', 60, 100)}${num('iFondo', 'Fondo', m.fondo, 'cm', 50, 70)}</div>`
     + (view === 'Alzado' ? `<button class="btn btn-block" style="margin-top:10px" data-act="centrar">Centrar en la isla</button>` : ''));
@@ -5089,7 +5162,7 @@ function modulePanel(m){
 }
 /* especial elegido: torre de hornos, alacena o especiero torre; con un cuerpo en foco, su propio panel */
 function specialPanel(m){
-  const col = row(false).indexOf(m) + 1, chip = `Col. ${col} · ${fmt(m.ancho)}${uS()}`;
+  const col = row(false).indexOf(m) + 1, chip = `Col. ${col} · ${fmt(m.ancho)}${uS()}${chipCodigo(m)}`;
   const zone = focusPanel && focusPanel.startsWith('panel:' + m.id + ':') ? focusPanel.split(':')[2] : null;
   const valid = zone && (isTower(m) ? zone === 'inferior' || zone === 'superior' : zone === 'cajones' ? m.cajonesAlacena : +zone.slice(6) <= m.cuerposAlacena);
   if (valid) return focusPanelHtml(m, zone, chip);
@@ -5529,7 +5602,7 @@ function renderGallery(){
 function renderMatEditor(){
   const el = document.getElementById('matEditor'), m = mat(editingSwatch);
   if (!m) { editingSwatch = null; el.classList.remove('open'); el.innerHTML = ''; return; }
-  const patterns = m.categoria === 'Color' ? [] : PATTERNS.filter(p => p.categoria === m.categoria);
+  const patterns = m.categoria === 'Color' ? [] : PATTERNS.filter(p => p.categoria === m.categoria && (!p.region || p.region === (cfg.region || 'MX') || p.id === m.patron));   /* E11 */
   const quick = QUICK_COLORS[m.categoria] || [];
   el.classList.add('open');
   el.innerHTML = `<div class="p-section">
@@ -5960,6 +6033,14 @@ const EN = {
   'Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.': 'With 0 the bar is flush with the waterfall’s outer face (or the countertop edge if that side has no waterfall); a larger value pushes it out. Left and right are those of the front elevation.',
   'Con barra elevada la cubierta usa un espesor único, sin nariz.': 'With a raised bar the countertop uses a single thickness, no built-up edge.',
   'Conservar este ancho': 'Keep this width',
+  'Subway 3×6"': '3×6" subway',
+  'Ladrillo alineado 3×6"': '3×6" stacked',
+  'Cuadro 8×8"': '8×8" square',
+  'Hexagonal 8"': '8" hexagon',
+  'Diagonal 8×8"': '8×8" diagonal',
+  'Cestería 2×4"': '2×4" basketweave',
+  'Subway vertical 3×6"': 'Vertical 3×6" subway',
+  'Gran formato 12×24"': '12×24" large format',
   'Lavavajillas': 'Dishwasher',
   'Seguridad': 'Safety',
   'Dos puertas desde (0 = a mano)': 'Two doors from (0 = manual)',
