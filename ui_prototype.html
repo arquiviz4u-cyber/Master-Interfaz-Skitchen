@@ -1232,7 +1232,43 @@
  * AJUSTES DEL USUARIO (boton del engrane). Son del usuario, no del proyecto:
  * en Revit van en AppData; en SketchUp en Sketchup.write_default; aqui en el navegador.
  * ======================================================================= */
-const PREFS_DEF = { idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, ftin: 16 },
+/* =======================================================================
+ * REGION / MERCADO (E1-E5, informe «Convenciones EE. UU.», 04/10). Independiente del idioma: pone los valores de inicio, la
+ * unidad, el paso del reparto de anchos, los limites y los anchos de equipos. Cada configuracion guarda la suya (cfg.region):
+ * una cocina MX abierta con la region US se ve en pulgadas pero conserva sus reglas. El modelo sigue en cm.
+ * ======================================================================= */
+const PULG = 2.54, DIECISEISAVO = PULG/16, inch = v => Math.round(v*PULG*1e6)/1e6;
+const REGIONES = {
+  MX: { ancho: { min: 30, max: 120, objetivo: 60 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 5, tapetaMin: 4, tapetaMax: 8, especialMin: 45,
+    closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90 },
+    tarjaDoble: 85, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20 },
+  US: { ancho: { min: inch(12), max: inch(48), objetivo: inch(30) }, pasos: { modular: inch(3), pulgada: inch(1), medida: DIECISEISAVO }, pasoDef: 'modular',
+    tapetaCorta: inch(1), tapetaMin: inch(.5), tapetaMax: inch(3), especialMin: inch(18),
+    closet: { min: inch(18), max: inch(48), objetivo: inch(36), reserva: inch(2) }, estufa: { cuatro: inch(30), seis: inch(36), min: inch(20), max: inch(48) },
+    parrilla: { min: inch(12), max: inch(48) }, tarjaDoble: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
+    especieroTorre: inch(12), especiero: inch(9) } };
+/* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
+const INICIO_REGION = {
+  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 7, style: 'Moderna', materialGeneral: null },
+  US: { alturaMuro: inch(96), baseBajos: inch(4.5), altoBajos: inch(30), espesorCubierta: inch(1.5), separacionAltos: inch(18), fondoBajos: inch(24), fondoAltos: inch(12), tapeta: inch(1.5), style: 'Moderna', materialGeneral: null } };
+/* cocina, modulo, isla y closet de EE. UU.: lo que no esta en los valores de inicio (secciones B1-B4) */
+const COCINA_US = { vuelo: inch(.75), alturaTapetaSuperior: inch(3), retiroZoclo: inch(3), altoBacksplash: inch(4), espesorBacksplash: inch(.75), ledRetiro: inch(3),
+  tarjaAncho: inch(27), tarjaFondo: inch(18), tarjaProf: inch(9), retiroTarja: inch(3), anchoShaker: inch(2.25), alturaNariz: inch(2.25) };
+const MODULO_US = { ancho: inch(24), anchoEspeciero: inch(9), huecoRefri: inch(70), altoFrigobar: inch(34), anchoBasura: inch(18), parrillaAncho: inch(30), altoSuperior: inch(12),
+  huecoCampana: inch(6), fondoCampana: inch(20), espesorLaterales: inch(.75), baseHorno: inch(24), altoHorno: inch(28.5), microAncho: inch(24), microAlto: inch(14),
+  altoCajonCloset: inch(8), altoMaletero: inch(16), altoZapatera: inch(24), altoEscritorio: inch(30), repisaAltaVanity: inch(80) };
+const ISLA_US = { islaEspacioBancos: inch(15), islaBarraAncho: inch(12), islaBarraElevacion: inch(6), islaBarraEspesor: inch(1.5) }, ISLA_ALTO = { MX: 90, US: inch(36) };
+const CLOSET_US = { barraAlta: inch(80), barraBaja: inch(40), pasoZapatera: inch(7), espesorCloset: inch(.75) };
+const regionDe = c => REGIONES[c && c.region] || REGIONES.MX;
+const reg = () => regionDe(cfg);
+const pasoAncho = () => reg().pasos[cfg.pasoReparto] || reg().pasos[reg().pasoDef];
+/* E5: medida guardada; en US a la rejilla de 1/16" (en cm) para que las sumas cuadren con las cotas; en MX a la centesima */
+const rd = v => cfg.region === 'US' ? Math.round(Math.round(v/DIECISEISAVO)*DIECISEISAVO*1e6)/1e6 : Math.round(v*100)/100;
+/* ancho escrito (cota, campo o tipo): MX en cm enteros (LayoutState.SetWidth); US a 1/16" */
+const anchoEscrito = v => cfg.region === 'US' ? rd(v) : Math.round(v);
+const techoAncho = v => cfg.region === 'US' ? Math.ceil(v/DIECISEISAVO - 1e-6)*DIECISEISAVO : Math.ceil(v - 1e-6);
+const medida = v => fmt(v) + uS();
+const PREFS_DEF = { region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, ftin: 16 },
   cotaRemate: 'oblicuo', cotaTexto: 11.5, cotaUnidad: 'totales', cotaColor: 'producto',
   inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 7, style: 'Moderna', materialGeneral: null },
   iman: true, imanTol: 1.5, resaltado: true, preguntarGuardar: true,
@@ -1242,8 +1278,8 @@ let prefs = JSON.parse(JSON.stringify(PREFS_DEF));
 try { const saved = JSON.parse(localStorage.getItem('cabynetry.ajustes') || 'null'); if (saved) mergePrefs(prefs, saved); } catch (e) { /* sin almacenamiento: valores de fabrica */ }
 function savePrefs(){ try { localStorage.setItem('cabynetry.ajustes', JSON.stringify(prefs)); } catch (e) { /* queda en memoria */ } }
 const uid = () => 'm' + Math.random().toString(36).slice(2, 9);
-function newModule(upper){
-  return { id: uid(), upper, tipo: upper ? 'Sencillo' : 'Puertas', ancho: 60, fijo: false, fondo: upper ? 35 : 60,
+function newModule(upper, region = cfg.region){
+  const m = { id: uid(), upper, tipo: upper ? 'Sencillo' : 'Puertas', ancho: 60, fijo: false, fondo: upper ? 35 : 60,
     dosPuertas: false, invertir: false, preparadoTarja: false, repisaBajo: true, division: false, repisas: 2,
     frenteSup: 0, frenteMed: 0, material: null, unirCuerpo: false, materialesPaneles: {},
     numCajones: 3, cajonesIguales: true, frentes: [], campana: false, repisasZona: {},   /* A46: iguales por defecto */
@@ -1261,6 +1297,8 @@ function newModule(upper){
     baseHorno: 60, altoHorno: 60, rejillaHorno: true, altoRejilla: 5, microondas: true, altoMicro: 45, elevacionMicro: 0,
     microSobreponer: false, microAncho: 48.8, microAlto: 34.2, mostrarEquipos: true, torreInferior: 'Puertas', torreSuperior: 'Puertas',
     cuerposAlacena: 2, divisionesAlacena: null, cuerposTipos: [], cajonesAlacena: false, altoCajonesAlacena: 72, cajonesDobles: false, repisasElevable: 0 };
+  if (region === 'US') Object.assign(m, MODULO_US);   /* E2 */
+  return m;
 }
 /* =======================================================================
  * MATERIALES (MaterialCatalog / MaterialPatterns / MaterialSwatches)
@@ -1416,12 +1454,16 @@ function defaultConfig(length){
     style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, anchoShaker: 5, bisagras: true, cubiertaAPano: false,
     narizCubierta: false, alturaNariz: 5, puertasOcultas: [],
     materialGeneral: null, materiales: {}, modulos: [] };
+  /* E1: la cocina nueva toma la region de Ajustes y la guarda; sus reglas ya no cambian aunque cambie la preferencia */
+  const region = prefs.region === 'US' ? 'US' : 'MX', R = REGIONES[region];
+  c.region = region; c.pasoReparto = region === 'US' ? prefs.pasoReparto : 'entero';
+  if (region === 'US') Object.assign(c, COCINA_US);
   const ini = prefs.inicio;   /* valores de inicio de Ajustes */
   Object.assign(c, { alturaMuro: ini.alturaMuro, baseBajos: ini.baseBajos, altoBajos: ini.altoBajos, espesorCubierta: ini.espesorCubierta, separacionAltos: ini.separacionAltos, style: ini.style });
-  const reserve = length - 2*ini.tapeta >= 30 ? ini.tapeta : 5; c.reservaIzq = c.reservaDer = reserve;
+  const reserve = length - 2*ini.tapeta >= R.ancho.min ? ini.tapeta : R.tapetaCorta; c.reservaIzq = c.reservaDer = reserve;
   const usable = length - 2*reserve; let n = 1, best = 1e9;
-  for (let k = 1; k <= 10; k++) { const w = usable/k; if (w >= 30 && w <= 120 && Math.abs(w-60) < best) { best = Math.abs(w-60); n = k; } }
-  for (const upper of [false, true]) for (let k = 0; k < n; k++) c.modulos.push(Object.assign(newModule(upper), { fondo: upper ? ini.fondoAltos : ini.fondoBajos }));
+  for (let k = 1; k <= 10; k++) { const w = usable/k; if (w >= R.ancho.min && w <= R.ancho.max && Math.abs(w - R.ancho.objetivo) < best) { best = Math.abs(w - R.ancho.objetivo); n = k; } }
+  for (const upper of [false, true]) for (let k = 0; k < n; k++) c.modulos.push(Object.assign(newModule(upper, region), { fondo: upper ? ini.fondoAltos : ini.fondoBajos }));
   ensureCatalog(c);
   if (ini.materialGeneral && c.catalogo.some(m => m.id === ini.materialGeneral)) c.materialGeneral = ini.materialGeneral;
   return c;
@@ -1455,8 +1497,8 @@ const hdDefaultJoints = (n, d) => { n = Math.max(0, n);
 const hdLevels = d => { const b = hdBottom(d), l = [0]; if (b > 0) l.push(b); return l.concat(hdJoints(d), [hdLeafTop(d)]); };
 function hdSetSegment(d, k, value){
   const lv = hdLevels(d); if (k < 0 || k + 1 >= lv.length) return;
-  const upper = Math.round((lv[k] + value)*100)/100, b = hdBottom(d);
-  if (k + 1 === lv.length - 1) { if (d.piston) d.altoPiston = Math.round(Math.max(25, Math.min(60, hdTop(d) - upper))*100)/100; else if (d.tapetaSuperior) cfg.alturaTapetaSuperior = Math.round(Math.max(2, cfg.alturaMuro - upper)*100)/100; return; }
+  const upper = rd((lv[k] + value)), b = hdBottom(d);
+  if (k + 1 === lv.length - 1) { if (d.piston) d.altoPiston = rd(Math.max(25, Math.min(60, hdTop(d) - upper))); else if (d.tapetaSuperior) cfg.alturaTapetaSuperior = Math.round(Math.max(2, cfg.alturaMuro - upper)*100)/100; return; }
   if (b > 0 && k + 1 === 1) { const total = altoBarra(); cfg.baseBajos = upper; cfg.altoBajos = total - upper - paquete(); return; }
   const js = hdJoints(d), j = k + 1 - (b > 0 ? 2 : 1); if (j >= 0 && j < js.length) { js[j] = upper; d.juntasHorizontales = js; }
 }
@@ -1478,12 +1520,13 @@ function validateDoors(){
   const ds = doors();
   if (ds.filter(d => d.derecha).length > 1 || ds.filter(d => !d.derecha).length > 1) throw new Error('Solo cabe una puerta oculta por lado.');
   for (const d of ds) {
-    if (d.ancho < 60 || d.ancho > 120) throw new Error('La puerta oculta mide de 60 a 120 cm de ancho.');
+    const PO = reg().puertaOculta;   /* E3 */
+    if (d.ancho < PO.min - .01 || d.ancho > PO.max + .01) throw new Error(`La puerta oculta mide de ${medida(PO.min)} a ${medida(PO.max)} de ancho.`);
     if (d.piston && (d.altoPiston < 25 || d.altoPiston > 60)) throw new Error('El gabinete de pistón sobre la puerta oculta mide de 25 a 60 cm.');
     if (d.tapetaLateral && (d.anchoTapeta < 2 || d.anchoTapeta > 15)) throw new Error('La tapeta lateral de la puerta oculta mide de 2 a 15 cm.');
     if (d.fondo < 35 || d.fondo > 70) throw new Error('El paño de la puerta oculta va de 35 a 70 cm desde el muro.');
     const leaf = hdLeafTop(d) - hdBottom(d);
-    if (leaf < 180) throw new Error(`La hoja de la puerta oculta quedaría de ${fmt(leaf)}${uS()}: necesita al menos 180 cm (reduce el gabinete de pistón o quita el zoclo).`);
+    if (leaf < PO.hoja - .01) throw new Error(`La hoja de la puerta oculta quedaría de ${fmt(leaf)}${uS()}: necesita al menos ${medida(PO.hoja)} (reduce el gabinete de pistón o quita el zoclo).`);
   }
 }
 /* ---- ISLA (comando Line-Island): cubierta con cascadas, cara posterior de paneles, barra elevada ---- */
@@ -1494,12 +1537,12 @@ const ISLA_DEF = { islaAncho: 90, cascadaIzq: false, cascadaDer: false, islaPane
 /* la isla solo admite bajos (IslandKinds): sin refrigerador, torre, alacena, especiero torre ni estufa */
 const ISLA_TIPOS = ['Puertas', 'Abierto', 'Cajones', 'C', 'Basura', 'Frigobar', 'Especiero'];
 function defaultIsland(length, width){
-  const c = defaultConfig(length);
-  Object.assign(c, JSON.parse(JSON.stringify(ISLA_DEF)), { isla: true, islaAncho: width, cubiertaAPano: true, vuelo: 0, backsplash: false,
-    tapetaIzq: true, tapetaDer: true, reservaIzq: 2, reservaDer: 2, cerrarZocloIzq: true, cerrarZocloDer: true, altoBajos: 90 - c.baseBajos - c.espesorCubierta });
-  let n = 1, best = 1e9;   /* de 1 a 10 bajos con ancho entre 30 y 120, el mas cercano a 60 */
-  for (let k = 1; k <= 10; k++) { const w = length/k; if (w >= 30 && w <= 120 && Math.abs(w - 60) < best) { best = Math.abs(w - 60); n = k; } }
-  c.modulos = Array.from({ length: n }, () => Object.assign(newModule(false), { fondo: prefs.inicio.fondoBajos }));
+  const c = defaultConfig(length), R = regionDe(c), us = c.region === 'US', res = us ? inch(.75) : 2;
+  Object.assign(c, JSON.parse(JSON.stringify(ISLA_DEF)), us ? ISLA_US : {}, { isla: true, islaAncho: width, cubiertaAPano: true, vuelo: 0, backsplash: false,
+    tapetaIzq: true, tapetaDer: true, reservaIzq: res, reservaDer: res, cerrarZocloIzq: true, cerrarZocloDer: true, altoBajos: ISLA_ALTO[c.region] - c.baseBajos - c.espesorCubierta });
+  let n = 1, best = 1e9;   /* de 1 a 10 bajos con ancho entre el minimo y el maximo de la region, el mas cercano al objetivo (MX 60, US 30") */
+  for (let k = 1; k <= 10; k++) { const w = length/k; if (w >= R.ancho.min && w <= R.ancho.max && Math.abs(w - R.ancho.objetivo) < best) { best = Math.abs(w - R.ancho.objetivo); n = k; } }
+  c.modulos = Array.from({ length: n }, () => Object.assign(newModule(false, c.region), { fondo: prefs.inicio.fondoBajos }));
   return c;
 }
 /* (A62) «A paño de gabinetes (solo en laterales)»: el vuelo frontal siempre es el del campo Vuelo; a paño solo quita el de los costados */
@@ -1540,8 +1583,8 @@ function islandPanels(){
   if (P.every(q => q.fijo)) P[P.length - 1].fijo = false;
   const flex = P.filter(q => !q.fijo), fixed = P.filter(q => q.fijo).reduce((a, q) => a + q.ancho, 0);
   if (total - fixed < 10*flex.length) throw new Error('Los paneles posteriores de ancho fijo no dejan al menos 10 cm para los demás.');
-  const each = Math.round((total - fixed)/flex.length*100)/100; flex.forEach(q => q.ancho = each);
-  flex[flex.length - 1].ancho = Math.round((total - fixed - each*(flex.length - 1))*100)/100;
+  const each = rd((total - fixed)/flex.length); flex.forEach(q => q.ancho = each);
+  flex[flex.length - 1].ancho = rd((total - fixed - each*(flex.length - 1)));
 }
 function islandValidate(){
   if (row(false).some(m => !ISLA_TIPOS.includes(m.tipo))) throw new Error('La isla solo admite gabinetes bajos (sin refrigerador, torre ni alacena).');
@@ -1559,11 +1602,11 @@ function centrarIsla(id){
   change(() => {
     const l = row(false), i = l.findIndex(m => m.id === id), m = l[i], izq = l.slice(0, i), der = l.slice(i + 1);
     if (!izq.length || !der.length) throw new Error('Para centrar hacen falta módulos a ambos lados.');
-    const avail = cfg.longitud - ajusteIzq() - ajusteDer(), target = Math.round((avail - m.ancho)/2), cur = izq.reduce((a, q) => a + q.ancho, 0);
-    let acc = 0; const nw = izq.map((q, k) => { const w = k === izq.length - 1 ? target - acc : Math.round(q.ancho*target/cur); acc += w; return w; });
-    if (nw.some((w, k) => w < minWidth(izq[k]) || w > 120)) throw new Error('No hay espacio para centrar este módulo con los anchos mínimos de sus vecinos.');
+    const avail = cfg.longitud - ajusteIzq() - ajusteDer(), target = anchoEscrito((avail - m.ancho)/2), cur = izq.reduce((a, q) => a + q.ancho, 0);
+    let acc = 0; const nw = izq.map((q, k) => { const w = k === izq.length - 1 ? rd(target - acc) : anchoEscrito(q.ancho*target/cur); acc += w; return w; });
+    if (nw.some((w, k) => w < minWidth(izq[k]) || w > reg().ancho.max)) throw new Error('No hay espacio para centrar este módulo con los anchos mínimos de sus vecinos.');
     const resto = avail - target - m.ancho;
-    if (resto < der.reduce((a, q) => a + minWidth(q), 0) || resto > 120*der.length) throw new Error('Los módulos de la derecha no caben al centrar.');
+    if (resto < der.reduce((a, q) => a + minWidth(q), 0) || resto > reg().ancho.max*der.length) throw new Error('Los módulos de la derecha no caben al centrar.');
     izq.forEach((q, k) => { q.ancho = nw[k]; q.fijo = true; }); m.fijo = true; der.forEach(q => q.fijo = false);
   }, 'Centrar módulo');
 }
@@ -1572,12 +1615,12 @@ const CLOSET_TIPOS = [['Colgado','Colgado'],['ColgadoDoble','Colgado doble'],['R
 const closetLabel = m => (CLOSET_TIPOS.find(q => q[0] === m.tipo) || ['', m.tipo])[1];
 const CLOSET_DEF = { closetLed: false, puertasCloset: 'Abatibles', hojasCorredera: 0, barraAlta: 175, barraBaja: 95, pasoZapatera: 18, espesorCloset: 1.8 };
 function defaultCloset(length){
-  const c = defaultConfig(length);
-  Object.assign(c, CLOSET_DEF, { closet: true, alturaMuro: prefs.inicio.alturaMuro, altoBajos: prefs.inicio.alturaMuro - c.baseBajos, tapetaIzq: true, tapetaDer: true, reservaIzq: 5, reservaDer: 5, cerrarZocloIzq: true, cerrarZocloDer: true,
+  const c = defaultConfig(length), K = regionDe(c).closet;
+  Object.assign(c, CLOSET_DEF, c.region === 'US' ? CLOSET_US : {}, { closet: true, alturaMuro: prefs.inicio.alturaMuro, altoBajos: prefs.inicio.alturaMuro - c.baseBajos, tapetaIzq: true, tapetaDer: true, reservaIzq: K.reserva, reservaDer: K.reserva, cerrarZocloIzq: true, cerrarZocloDer: true,
     generarCubierta: false, backsplash: false, bisagras: true });
-  let n = 1, best = 1e9;   /* de 1 a 12 modulos de 40 a 120 cm, el mas cercano a 90 */
-  for (let k = 1; k <= 12; k++) { const w = (length - 10)/k; if (w >= 40 && w <= 120 && Math.abs(w - 90) < best) { best = Math.abs(w - 90); n = k; } }
-  c.modulos = Array.from({ length: n }, (_, k) => Object.assign(newModule(false), { tipo: CLOSET_TIPOS[k % CLOSET_TIPOS.length][0], repisasEspecial: 5 }));
+  let n = 1, best = 1e9;   /* de 1 a 12 modulos entre el minimo y el maximo de closet de la region, el mas cercano al objetivo (MX 90, US 36") */
+  for (let k = 1; k <= 12; k++) { const w = (length - 2*K.reserva)/k; if (w >= K.min && w <= K.max && Math.abs(w - K.objetivo) < best) { best = Math.abs(w - K.objetivo); n = k; } }
+  c.modulos = Array.from({ length: n }, (_, k) => Object.assign(newModule(false, c.region), { tipo: CLOSET_TIPOS[k % CLOSET_TIPOS.length][0], repisasEspecial: 5 }));
   return c;
 }
 const closetSliding = () => cfg.puertasCloset === 'Correderas';
@@ -1635,7 +1678,7 @@ function closetLevel(m, i){ const zc = closetZoclo();
   return i === 501 ? zc + closetBody(m) : i === 502 ? zc + closetShoeTop(m) : i === 503 ? zc + m.altoEscritorio : zc + (closetDrawers(m)[i - 511] || { z1: 0 }).z1; }
 function setClosetLevel(m, i, zAbs){
   const z = zAbs - closetZoclo(), cl = (a, b, v) => Math.max(a, Math.min(b, v));
-  if (i === 501) m.altoMaletero = Math.round(cl(25, 80, closetAltoCuerpo() - z)*100)/100;
+  if (i === 501) m.altoMaletero = rd(cl(25, 80, closetAltoCuerpo() - z));
   else if (i === 502) m.altoZapatera = cl(40, 200, z);
   else if (i === 503) m.altoEscritorio = cl(65, 95, z);
   else { const k = i - 510, d0 = closetDrawers(m)[0]; if (d0) m.altoCajonCloset = Math.round(cl(12, 40, (z - d0.z0)/k)*2)/2; }
@@ -1668,7 +1711,7 @@ function closetValidate(){
   if (cfg.espesorCloset < 1.5 || cfg.espesorCloset > 2.5) throw new Error('El espesor de tableros del closet va de 1.5 a 2.5 cm.');
   if (closetSliding() && cfg.longitud < 80) throw new Error('Las puertas correderas necesitan un tramo de al menos 80 cm.');
   for (const m of row(false)) {
-    if (m.ancho > 120) throw new Error(`Cada módulo de closet admite hasta 120 cm (${closetLabel(m)}): divide el tramo en más módulos.`);
+    if (m.ancho > reg().closet.max + .01) throw new Error(`Cada módulo de closet admite hasta ${medida(reg().closet.max)} (${closetLabel(m)}): divide el tramo en más módulos.`);
     if (m.fondo < 35 || m.fondo > 80) throw new Error('El fondo del closet va de 35 a 80 cm.');
     const body = cfg.altoBajos - (m.maletero ? m.altoMaletero : 0);
     if ((m.tipo === 'Cajonera' || m.tipo === 'Completo') && m.cajonesCloset*m.altoCajonCloset > body - 2*cfg.espesorCloset - 20) throw new Error(`La cajonera no cabe: ${m.cajonesCloset} cajones de ${fmt(m.altoCajonCloset)}${uS()}.`);
@@ -1688,9 +1731,11 @@ const altoBarra = () => cfg.baseBajos + cfg.altoBajos + paquete();
 const baseAltos = () => altoBarra() + cfg.separacionAltos;
 const topeAltos = () => cfg.alturaMuro - (cfg.tapetaSuperior ? cfg.alturaTapetaSuperior : 0);
 const altoAltos = () => topeAltos() - baseAltos();
-/* D1: el sobrante decimal del muro (compensacion, LayoutState de Revit) va a la tapeta derecha, o a la izquierda si es la unica */
-const ajusteIzq = () => cfg.tapetaIzq ? cfg.reservaIzq + (!cfg.tapetaDer ? cfg.compensacion || 0 : 0) : 0;
-const ajusteDer = () => cfg.tapetaDer ? cfg.reservaDer + (cfg.compensacion || 0) : 0;
+/* D1: el sobrante decimal del muro (compensacion, LayoutState de Revit) va a la tapeta derecha, o a la izquierda si es la unica.
+   E4: en US el sobrante del paso (hasta 3") se reparte entre las dos tapetas: la izquierda toma la mitad en 1/16" */
+const compIzq = () => cfg.region === 'US' && cfg.tapetaIzq && cfg.tapetaDer ? Math.floor((cfg.compensacion || 0)/2/DIECISEISAVO + 1e-6)*DIECISEISAVO : 0;
+const ajusteIzq = () => cfg.tapetaIzq ? cfg.reservaIzq + (!cfg.tapetaDer ? cfg.compensacion || 0 : compIzq()) : 0;
+const ajusteDer = () => cfg.tapetaDer ? cfg.reservaDer + (cfg.compensacion || 0) - compIzq() : 0;
 /* medidas en la unidad de Ajustes (el modelo siempre en cm): fmt da el numero y uS() el sufijo */
 const fmtNum = v => String(Math.round(v*10)/10);
 const UNIDADES = { cm: ' cm', mm: ' mm', in: '"', ftin: '' };
@@ -1740,12 +1785,12 @@ function avisoDoble(m){
 }
 /* A51: especiero bajo combinado: anchoEspeciero a un lado (especieroLado) y una puerta o cajones iguales en el resto (especieroCon) */
 const espCon = m => m.tipo === 'Especiero' && ['Puerta', 'Cajones'].includes(m.especieroCon) ? m.especieroCon : 'Nada';
-const espAncho = m => m.anchoEspeciero > 0 ? m.anchoEspeciero : 20;
+const espAncho = m => m.anchoEspeciero > 0 ? m.anchoEspeciero : reg().especiero;
 const espIzq = m => m.especieroLado !== 'Derecha';
 /* [especiero x0, x1, resto x0, x1] relativos al modulo; sin combinar, el especiero ocupa todo el ancho */
 const espPartes = m => { const A = espAncho(m); if (espCon(m) === 'Nada') return [0, m.ancho, 0, 0];
   return espIzq(m) ? [0, A, A, m.ancho] : [m.ancho - A, m.ancho, 0, m.ancho - A]; };
-const ANCHO_TIPO = { EspecieroTorre: () => 20, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + 30) : 20,   /* A52: combinado, conserva el ancho del modulo */ Basura: m => m.anchoBasura, Estufa: () => 60 };
+const ANCHO_TIPO = { EspecieroTorre: () => reg().especieroTorre, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + reg().ancho.min) : reg().especiero,   /* A52: combinado, conserva el ancho del modulo */ Basura: m => m.anchoBasura, Estufa: () => reg().estufa.cuatro };   /* E3: anchos de la region */
 /* la campana es una casilla de los altos (Campana extractora): sobre Sencillo = espacio para campana; sobre el doble = doble con campana */
 const TIPOS_ALTO = [['Sencillo','Sencillo'],['Abierto','Abierto / repisas'],['Doble','Módulo inferior + módulo superior']];
 /* especiales (Module.Special): de piso a su tope, reservan la columna de altos */
@@ -1775,7 +1820,7 @@ function quitarDoble(m){ m.tipo = m.inferiorAbierto ? 'Abierto' : 'Sencillo'; m.
 /* MinimumWidth: el alto toma el minimo de su bajo emparejado; alacena 20, especial 45, resto 30 */
 function minWidth(m){
   if (m.upper) { const r = row(true), l = row(false); if (l.length === r.length) m = l[r.indexOf(m)]; }
-  return isPantry(m) ? 20 : m.tipo === 'Especiero' ? (espCon(m) !== 'Nada' ? espAncho(m) + 30 : 15) : isSpecial(m) ? 45 : 30;
+  return isPantry(m) ? 20 : m.tipo === 'Especiero' ? (espCon(m) !== 'Nada' ? espAncho(m) + reg().ancho.min : 15) : isSpecial(m) ? reg().especialMin : reg().ancho.min;   /* E3 */
 }
 
 /* ---- especiales: torre de hornos (FrontLayout) y alacena (SpecialSplits) ---- */
@@ -1783,7 +1828,7 @@ const altoEsp = m => Math.min(m.topeEspecial > 0 ? m.topeEspecial : topeAltos(),
 const grille = m => isTower(m) && m.rejillaHorno ? m.altoRejilla : 0;
 const microGap = m => m.microondas ? Math.max(0, m.elevacionMicro) : 0;
 const microBottom = m => cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales + microGap(m);
-function setMicroBottom(m, z){ const gap = z - (cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales); m.elevacionMicro = gap < 2.5 ? 0 : Math.round(Math.max(5, gap)*100)/100; }
+function setMicroBottom(m, z){ const gap = z - (cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales); m.elevacionMicro = gap < 2.5 ? 0 : rd(Math.max(5, gap)); }
 const towerLift = m => isTower(m) && m.torreSuperior === 'Pistón + repisas';
 const towerTopStart = m => cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales + (m.microondas ? m.altoMicro + m.espesorLaterales + microGap(m) : 0);
 const towerLiftHeight = m => Math.max(0, Math.min(Math.min(60, Math.max(25, m.altoSuperior)), altoEsp(m) - towerTopStart(m) - 20));
@@ -1796,7 +1841,7 @@ function pantryHeights(m){
 function pantryMove(m, index, z){
   const h = pantryHeights(m), edges = [];
   for (let i = 1; i < m.cuerposAlacena; i++) edges.push(h.slice(0, i).reduce((a, b) => a + b, 0));
-  edges[index - 1] = Math.round((z - pantryStart(m))*100)/100; m.divisionesAlacena = edges;
+  edges[index - 1] = rd((z - pantryStart(m))); m.divisionesAlacena = edges;
 }
 /* BodyType: 1 puerta, 2 puertas, Repisas, Especiero, Especiero extraible o Elevable (solo el ultimo cuerpo) */
 function bodyType(m, index, n){
@@ -1869,7 +1914,7 @@ const split = (m, i) => { const h = heights(m); let z = bodyH(m) - topGap(m); fo
 const splitIndexes = m => m.tipo === 'Cajones' ? Array.from({ length: m.numCajones - 1 }, (_, k) => k + 1) : count(m) === 1 || two(m) ? [1] : [1, 2];
 function setSplit(m, i, z){
   const top = i === 1 ? bodyH(m) - topGap(m) : split(m, i - 1) - agarreEntre();
-  const v = Math.round((top - z)*100)/100;
+  const v = rd((top - z));
   if (!isFinite(v) || v < 8) throw new Error('La división deja un frente menor de 8 cm.');
   if (m.tipo === 'Cajones') { const f = (m.frentes || []).slice(); while (f.length < m.numCajones - 1) f.push(0); f[i - 1] = v; m.frentes = f; }
   else if (i === 1) m.frenteSup = v; else m.frenteMed = v;
@@ -1988,18 +2033,18 @@ function shelvesOf(m){
   return 0;
 }
 
-/* WidthFit.Fit: reparte el total en cm enteros proporcional a los pesos, respetando minimos y 120 cm */
-function widthFit(weights, minimum, total){
-  const sumMin = minimum.reduce((a, b) => a + b, 0);
-  if (total < sumMin || total > 120*weights.length) throw new Error('La nueva distancia no admite estos módulos entre sus anchos mínimos y 120 cm. Ajusta la cantidad o el equipo.');
-  const r = minimum.map(Math.ceil), sum = weights.reduce((a, b) => a + b, 0);
+/* WidthFit.Fit: reparte el total (en pasos u: MX cm enteros; US 3", 1" o 1/16") proporcional a los pesos, respetando los minimos
+   y el maximo de la region. total va en pasos; devuelve cm */
+function widthFit(weights, minimum, total, u = 1){
+  const max = Math.floor(reg().ancho.max/u + 1e-6), r = minimum.map(v => Math.ceil(v/u - 1e-6)), sum = weights.reduce((a, b) => a + b, 0);
+  if (total < r.reduce((a, b) => a + b, 0) || total > max*weights.length) throw new Error(`La nueva distancia no admite estos módulos entre sus anchos mínimos y ${medida(reg().ancho.max)}. Ajusta la cantidad o el equipo.`);
   for (let rem = total - r.reduce((a, b) => a + b, 0); rem > 0; rem--) {
     let best = -1, score = -Infinity;
-    for (let i = 0; i < r.length; i++) if (r[i] < 120) { const need = total*weights[i]/sum - r[i]; if (need > score) { score = need; best = i; } }
+    for (let i = 0; i < r.length; i++) if (r[i] < max) { const need = total*weights[i]/sum - r[i]; if (need > score) { score = need; best = i; } }
     if (best < 0) throw new Error('No se pudo adaptar el ancho.');
     r[best]++;
   }
-  return r;
+  return r.map(k => k*u);
 }
 /* UpperCaps.BodyGroups: altos abiertos seguidos marcados «Unir con la columna derecha» forman una sola caja corrida
    (solo cuerpos de la misma altura) */
@@ -2670,7 +2715,12 @@ function planDePiezas(c = cfg){
   } finally { cfg = previo; }
 }
 /* pruebas del plan (se corren en el navegador o desde SketchUp): devuelve la lista de fallas, vacia si todo esta bien */
+/* E1: los casos estan escritos para la region MX (cocina de 300 cm): corren con ella aunque Ajustes este en US */
 function pruebasPlanDePiezas(){
+  const pr = prefs.region, pi = prefs.inicio; prefs.region = 'MX'; prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION.MX));
+  try { return pruebasPlanMX(); } finally { prefs.region = pr; prefs.inicio = pi; }
+}
+function pruebasPlanMX(){
   const fallas = [], ok = (cond, txt) => { if (!cond) fallas.push(txt); };
   /* base fija (cocina de 300 cm de inicio): los casos no dependen de lo que este abierto en el editor */
   const editor = JSON.stringify(cfg), base = (() => { const c = defaultConfig(300); c.catalogo = JSON.parse(JSON.stringify(cfg.catalogo)); return c; })();
@@ -2847,6 +2897,7 @@ const capGroupOf = m => capGroups().find(g => g.members.includes(m));
 /* ---- Recalculate + Validate (LayoutState) ---- */
 function recalculate(){
   ensureCatalog(cfg);
+  if (!cfg.region) cfg.region = 'MX';   /* E1: lo guardado antes de la region es metrico */
   /* configuraciones guardadas antes de un campo nuevo: lo completan con su valor por defecto */
   if (!cfg.puertasOcultas) cfg.puertasOcultas = [];
   /* «Laterales piso a techo» por tapeta (antes una sola opcion para las dos) */
@@ -2892,24 +2943,29 @@ function recalculate(){
     if (m.tipo === 'Cajones' || m.tipo === 'Abierto') m.dosPuertas = false;
   }
   for (const m of cfg.modulos) if (sinPuertas(m)) m.dosPuertas = false;
-  /* D1 (Revit: LayoutState.Compensacion): los modulos se reparten en cm enteros y el decimal del largo lo absorben las tapetas */
-  { let raw = cfg.longitud - (cfg.tapetaIzq ? cfg.reservaIzq : 0) - (cfg.tapetaDer ? cfg.reservaDer : 0);
-    if (Math.abs(raw - Math.round(raw)) < 1e-7) raw = Math.round(raw);
-    const residual = Math.max(0, Math.round((raw - Math.floor(raw + 1e-7))*100)/100);
-    if (!cfg.tapetaIzq && !cfg.tapetaDer && residual > .001) throw new Error('Activa una tapeta para absorber los decimales del muro.');
-    cfg.compensacion = residual; }
   const lows = row(false), highs = row(true);
   if (lows.length === highs.length) lows.forEach((a, i) => { const b = highs[i];
     if (a.fijo && b.fijo && Math.abs(a.ancho-b.ancho) > .011) throw new Error('Los anchos fijos de la misma columna no coinciden. Libera uno antes de reorganizar.');
     if (a.fijo) { b.ancho = a.ancho; b.fijo = true; } else if (b.fijo) { a.ancho = b.ancho; a.fijo = true; } });
+  /* D1 (Revit: LayoutState.Compensacion) + E4: los modulos automaticos se reparten en pasos de la region (MX cm enteros; US 3",
+     1" o 1/16") y lo que no llena un paso lo absorben las tapetas. Cuenta la fila de bajos (o la de altos si no hay bajos) */
+  const u = pasoAncho();
+  { const base = lows.length ? lows : highs;
+    const raw = cfg.longitud - (cfg.tapetaIzq ? cfg.reservaIzq : 0) - (cfg.tapetaDer ? cfg.reservaDer : 0) - base.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0);
+    let residual = Math.round((raw - Math.floor(raw/u + 1e-7)*u)*1e4)/1e4; if (residual < 1e-4 || u - residual < 1e-4) residual = 0;
+    if (!cfg.tapetaIzq && !cfg.tapetaDer && residual > .001) throw new Error(u === 1 ? 'Activa una tapeta para absorber los decimales del muro.' : `Activa una tapeta para absorber el sobrante del reparto en pasos de ${medida(u)} (o elige «A medida» en el muro).`);
+    cfg.compensacion = Math.max(0, residual); }
   for (const upper of [false, true]) {
     const r = row(upper); if (!r.length) continue;
     const flex = r.filter(m => !m.fijo);
-    const available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((s, m) => s + m.ancho, 0);
+    const available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0);
     if (!flex.length) { if (Math.abs(available) > .011) throw new Error('No queda ningún ancho automático en la fila. Libera uno para repartir el espacio.'); continue; }
-    if (cfg.repartoAdaptado) { const alloc = widthFit(flex.map(m => m.peso > 0 ? m.peso : m.ancho), flex.map(minWidth), Math.round(available)); flex.forEach((m, n) => m.ancho = alloc[n]); continue; }
-    const w = Math.floor(available/flex.length + 1e-7), extra = Math.round(available - w*flex.length);
-    flex.forEach((m, n) => m.ancho = w + (n < extra ? 1 : 0));
+    const n = Math.floor(available/u + 1e-6), sobra = Math.round((available - n*u)*1e4)/1e4;   /* sobra: solo en la fila que no es la base */
+    let alloc;
+    if (cfg.repartoAdaptado) alloc = widthFit(flex.map(m => m.peso > 0 ? m.peso : m.ancho), flex.map(minWidth), n, u);
+    else { const w = Math.floor(n/flex.length), extra = n - w*flex.length; alloc = flex.map((m, k) => (w + (k < extra ? 1 : 0))*u); }
+    if (sobra > 1e-4) alloc[alloc.length - 1] += sobra;
+    flex.forEach((m, k) => m.ancho = Math.round(alloc[k]*1e4)/1e4);
   }
   if (cfg.isla) islandPanels();
 }
@@ -2919,9 +2975,9 @@ function validate(){
   for (const m of cfg.modulos) {
     if (m.reserved) continue;
     const what = m.upper ? 'Un gabinete alto' : 'Un gabinete bajo';
-    if (isSpecial(m)) { if (m.ancho < minWidth(m) || m.espesorLaterales < 1 || m.espesorLaterales > 5) throw new Error('Especial: ancho minimo 45 cm, fondo 50–80 cm y laterales 1–5 cm.'); }
-    else if (m.ancho < minWidth(m)) throw new Error(`${what} quedaría de ${fmt(m.ancho)}${uS()} y el mínimo es ${minWidth(m)} cm. Quita un módulo, libera un ancho fijo o alarga el tramo.`);
-    if (m.ancho > 120) throw new Error(`${what} quedaría de ${fmt(m.ancho)}${uS()} y el máximo es 120 cm. Añade un módulo o fija otros anchos.`);
+    if (isSpecial(m)) { if (m.ancho < minWidth(m) - .01 || m.espesorLaterales < 1 || m.espesorLaterales > 5) throw new Error(`Especial: ancho mínimo ${medida(reg().especialMin)}, fondo ${medida(50)}–${medida(80)} y laterales ${medida(1)}–${medida(5)}.`); }
+    else if (m.ancho < minWidth(m) - .01) throw new Error(`${what} quedaría de ${fmt(m.ancho)}${uS()} y el mínimo es ${medida(minWidth(m))}. Quita un módulo, libera un ancho fijo o alarga el tramo.`);
+    if (m.ancho > reg().ancho.max + .01) throw new Error(`${what} quedaría de ${fmt(m.ancho)}${uS()} y el máximo es ${medida(reg().ancho.max)}. Añade un módulo o fija otros anchos.`);
     if (hasDrawers(m)) {
       const h = heights(m).slice(0, count(m)); if (m.tipo === 'C') h.push(split(m, 1) - agarreEntre() - .2);
       if (h.some(v => v < 8)) throw new Error('La división deja un frente menor de 8 cm.');
@@ -2954,10 +3010,11 @@ function validate(){
     if (m.repisasEspecial < 0 || m.repisasEspecial > MAX_REPISAS) throw new Error('Elige de 0 a 12 repisas por cuerpo.');
   }
   for (const m of row(false)) {
-    if (m.tipo === 'Estufa' && (m.ancho < 50 || m.ancho > 92)) throw new Error('La estufa mide de 50 a 92 cm de ancho (60 con 4 quemadores, 75 a 80 con 6).');
+    const E = reg().estufa;   /* E3: la de 48" profesional cabe en US */
+    if (m.tipo === 'Estufa' && (m.ancho < E.min - .01 || m.ancho > E.max + .01)) throw new Error(`La estufa mide de ${medida(E.min)} a ${medida(E.max)} de ancho (${medida(E.cuatro)} con 4 quemadores, ${medida(E.seis)} con 6).`);
     if (m.parrilla) {
       if (m.id === cfg.moduloTarja && cfg.tipoTarja > 0) throw new Error('La parrilla no puede ir sobre el gabinete de la tarja.');
-      if (m.parrillaAncho < 30 || m.parrillaAncho > 90) throw new Error('La parrilla mide de 30 a 90 cm de ancho.');
+      if (m.parrillaAncho < reg().parrilla.min - .01 || m.parrillaAncho > reg().parrilla.max + .01) throw new Error(`La parrilla mide de ${medida(reg().parrilla.min)} a ${medida(reg().parrilla.max)} de ancho.`);
     }
   }
   if (cfg.generarCubierta && cfg.narizCubierta && (cfg.alturaNariz < cfg.espesorCubierta || cfg.alturaNariz > 15)) throw new Error('La nariz total debe medir entre el espesor de cubierta y 15 cm.');
@@ -2969,13 +3026,13 @@ function validate(){
       if (m.huecoCampana < 5 || m.huecoCampana > 40 || body < -.01 || body > .01 && body < 25) throw new Error('Campana: la canopy visible mide de 5 a 40 cm y el gabinete que la cubre necesita al menos 25 cm (o 0 para usar todo el hueco).');
       if (m.fondoCampana < 30 || m.fondoCampana > 70) throw new Error('Campana: el fondo debe estar entre 30 y 70 cm.');
     }
-    if (espCon(m) !== 'Nada' && m.ancho < espAncho(m) + 30 - .01) throw new Error(`Especiero con ${espCon(m) === 'Puerta' ? 'puerta' : 'cajones'}: la columna necesita al menos ${fmt(espAncho(m) + 30)}${uS()}.`);
+    if (espCon(m) !== 'Nada' && m.ancho < espAncho(m) + reg().ancho.min - .01) throw new Error(`Especiero con ${espCon(m) === 'Puerta' ? 'puerta' : 'cajones'}: la columna necesita al menos ${fmt(espAncho(m) + reg().ancho.min)}${uS()}.`);
     /* A50 (usuario): la regla de 25 cm (15 en caja de repisas abierta) y 60 cm es solo aviso (avisoDoble); bloquea lo que no cabe */
     if (isDoble(m) && (m.altoSuperior < DOBLE_MIN || altoAltos() - m.altoSuperior < DOBLE_MIN || m.altoSuperior > DOBLE_MAX))
       throw new Error(`Módulo inferior + superior: no caben (cada uno necesita al menos ${fmt(DOBLE_MIN)}${uS()} y el superior mide hasta ${fmt(DOBLE_MAX)}${uS()}).`);
   }
-  for (const g of capGroups()) if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : g.members.length > 1 && g.width > 120.01)
-    throw new Error(g.lead.tipoSuperior === 'Repisas' ? 'Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.' : 'Módulo superior unido: con puertas no puede pasar de 120 cm; separa columnas o usa caja de repisas.');
+  for (const g of capGroups()) if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : g.members.length > 1 && g.width > reg().ancho.max + .01)
+    throw new Error(g.lead.tipoSuperior === 'Repisas' ? 'Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.' : `Módulo superior unido: con puertas no puede pasar de ${medida(reg().ancho.max)}; separa columnas o usa caja de repisas.`);
   /* (A39) la caja de repisas corrida ya no tiene limite de columnas: Unir con la columna derecha sigue mientras haya columnas normales */
   if (cfg.altoBajos < 50) throw new Error('Los gabinetes bajos quedarían de menos de 50 cm.');
   if (row(true).length && altoAltos() < 30) throw new Error(`Los gabinetes altos quedarían de ${fmt(altoAltos())}${uS()}. Baja la cubierta o el libre sobre cubierta, o sube la altura del muro.`);
@@ -3000,22 +3057,24 @@ function cleanSelection(){
   if (selectedPart && /^door(filler|top|cap)?:/.test(selectedPart) && !doorById(selectedPart.slice(selectedPart.indexOf(':') + 1))) selectedPart = null;
 }
 
-/* AbsorbInFillers: al ensanchar un modulo se resta primero a las tapetas (min 4) y al estrecharlo se les suma (max 8) */
+/* AbsorbInFillers: al ensanchar un modulo se resta primero a las tapetas (min 4) y al estrecharlo se les suma (max 8).
+   E4: en US el rango es de 1/2" a 3" y el paso 1/16" */
 function absorbInFillers(delta){
-  for (let g = 0; g < 40 && Math.abs(delta) >= 1; g++) {
+  const R = reg(), q = cfg.region === 'US' ? DIECISEISAVO : 1;
+  for (let g = 0; g < 400 && Math.abs(delta) >= q - 1e-9; g++) {
     const s = Math.sign(delta);
-    const rl = !cfg.tapetaIzq ? 0 : s > 0 ? cfg.reservaIzq - 4 : 8 - cfg.reservaIzq;
-    const rr = !cfg.tapetaDer ? 0 : s > 0 ? cfg.reservaDer - 4 : 8 - cfg.reservaDer;
-    if (rl < 1 && rr < 1) break;
-    if (rl >= rr) cfg.reservaIzq -= s; else cfg.reservaDer -= s;
-    delta -= s;
+    const rl = !cfg.tapetaIzq ? 0 : s > 0 ? cfg.reservaIzq - R.tapetaMin : R.tapetaMax - cfg.reservaIzq;
+    const rr = !cfg.tapetaDer ? 0 : s > 0 ? cfg.reservaDer - R.tapetaMin : R.tapetaMax - cfg.reservaDer;
+    if (rl < q - 1e-9 && rr < q - 1e-9) break;
+    if (rl >= rr) cfg.reservaIzq = rd(cfg.reservaIzq - s*q); else cfg.reservaDer = rd(cfg.reservaDer - s*q);
+    delta -= s*q;
   }
 }
 /* SetFillerWidth: con las dos tapetas activas, la otra compensa y los modulos no cambian */
 function setFillerWidth(left, value){
   change(c => {
     if (c.tapetaIzq && c.tapetaDer) {
-      value = Math.round(value*100)/100; const other = Math.round((ajusteIzq() + ajusteDer() - value)*100)/100;
+      value = rd(value); const other = rd((ajusteIzq() + ajusteDer() - value));
       if (value < 1 || other < 1) throw new Error('Cada tapeta debe conservar al menos 1 cm.');
       if (left) { c.reservaIzq = value; c.reservaDer = other; } else { c.reservaDer = value; c.reservaIzq = other; }
       c.repartoAdaptado = true; c.modulos.forEach(m => m.peso = m.ancho);
@@ -3026,19 +3085,19 @@ function setFillerWidth(left, value){
   });
 }
 /* refrigerador: su ancho sigue a la cota de la columna con 5 cm de holgura; escribirlo cambia la columna (A34) */
-const HOLGURA_REFRI = 5;
+const holguraRefri = () => reg().holguraRefri;   /* E3: MX 5 cm; US 1" */
 const anchoLibreRefri = m => m.ancho - (m.lateralesRefri ? 2*m.espesorLaterales : 0);
-const anchoRefri = m => Math.max(0, Math.floor(anchoLibreRefri(m) - HOLGURA_REFRI + 1e-6));   /* cm enteros: la holgura queda de 5 cm o un poco mas */
+const anchoRefri = m => { const v = anchoLibreRefri(m) - holguraRefri(); return Math.max(0, cfg.region === 'US' ? Math.floor(v/DIECISEISAVO + 1e-6)*DIECISEISAVO : Math.floor(v + 1e-6)); };   /* MX cm enteros; US 1/16" */
 /* ancho fijo de una columna (cota, campo o tipo): fila de altos y de bajos a la vez */
 function applyWidth(id, value){
     const m = byId(id), r = row(m.upper), o = row(!m.upper), i = r.indexOf(m);
     if (o.length > 0 && o.length !== r.length) throw new Error('Para vincular anchos, ambas filas necesitan el mismo número de módulos. Añade o elimina módulos para emparejarlas.');
-    value = Math.round(value); if (!cfg.isla) absorbInFillers(value - m.ancho);   /* en isla no se absorbe en las tapetas */
+    value = anchoEscrito(value); if (!cfg.isla) absorbInFillers(value - m.ancho);   /* en isla no se absorbe en las tapetas */
     m.ancho = value; m.fijo = true; if (o.length) { o[i].ancho = value; o[i].fijo = true; }
 }
 function setWidth(id, value){ change(() => applyWidth(id, value), 'Revisar ancho'); }
 /* tarja doble: la columna toma 85 cm al elegirla (A35) */
-const ANCHO_TARJA_DOBLE = 85;
+const anchoTarjaDoble = () => reg().tarjaDoble;   /* E3: MX 85 cm; US 36" */
 /* quita la tarja si esta en ese modulo (A36) */
 const quitarTarja = (c, id) => { if (c.moduloTarja === id) { c.moduloTarja = null; c.tipoTarja = 0; } };
 function setFixed(id, value){
@@ -4215,16 +4274,16 @@ function gripZ(m, i){
   return zb + m.altoCajonesAlacena;
 }
 function setGripZ(m, i, z){
-  const zb = cfg.baseBajos; z = Math.round(z*100)/100;
+  const zb = cfg.baseBajos; z = rd(z);
   if (cfg.closet) { setClosetLevel(m, i, z); return; }
   if (i < 100) setSplit(m, i, z - zb);
   else if (i < 200) pantryMove(m, i - 100, z);
-  else if (i === 201) m.baseHorno = Math.round((z - zb + grille(m))*100)/100;
-  else if (i === 211) m.altoSuperior = Math.max(25, Math.min(60, Math.round((altoEsp(m) - z)*100)/100));
+  else if (i === 201) m.baseHorno = rd((z - zb + grille(m)));
+  else if (i === 211) m.altoSuperior = Math.max(25, Math.min(60, rd((altoEsp(m) - z))));
   else if (i === 212) setMicroBottom(m, z);
-  else if (i === 301) { const v = Math.round((topeAltos() - z)*100)/100, bg = bodyGroupOf(m), all = new Set();   /* A41: la caja unida y sus modulos superiores se mueven juntos */
+  else if (i === 301) { const v = rd((topeAltos() - z)), bg = bodyGroupOf(m), all = new Set();   /* A41: la caja unida y sus modulos superiores se mueven juntos */
     (bg ? bg.members : [m]).forEach(q => { const cg = capGroupOf(q); (cg ? cg.members : [q]).forEach(x => all.add(x)); }); all.forEach(x => x.altoSuperior = v); }
-  else if (i === 401) m.altoCajonesAlacena = Math.round((z - zb)*100)/100;
+  else if (i === 401) m.altoCajonesAlacena = rd((z - zb));
 }
 function gripList(){
   const out = [];
@@ -4681,7 +4740,7 @@ window.addEventListener('mouseup', () => {
   }
   if (d.kind === 'split') {
     const hd = doorById(d.id);
-    if (hd) { change(() => { const h = doorById(d.id); if (d.i === 650) h.altoPiston = Math.round(Math.max(25, Math.min(60, hdTop(h) - d.z))*100)/100; else { const js = hdJoints(h); js[d.i - 600] = Math.round(d.z*100)/100; h.juntasHorizontales = js; } }); return; }
+    if (hd) { change(() => { const h = doorById(d.id); if (d.i === 650) h.altoPiston = rd(Math.max(25, Math.min(60, hdTop(h) - d.z))); else { const js = hdJoints(h); js[d.i - 600] = Math.round(d.z*100)/100; h.juntasHorizontales = js; } }); return; }
     change(() => setGripZ(byId(d.id), d.i, d.z)); return;
   }
   if (d.kind === 'box') {
@@ -4724,7 +4783,7 @@ const maxFondo = upper => Math.max(...row(upper).map(m => m.fondo), upper ? 25 :
 function dimSpec(key){
   const [k, id, i] = key.split(':'), m = byId(id);
   switch (k) {
-    case 'width': return { v: m.ancho, min: 30, max: 120 };
+    case 'width': return { v: m.ancho, min: reg().ancho.min, max: reg().ancho.max };
     case 'wall': return { v: cfg.alturaMuro, min: 150, max: 360 };
     case 'length': return { v: cfg.longitud, min: 40, max: cfg.isla ? 1210 : 1200 };
     case 'cseg': { const seg = closetSegments(m).find(q => q[2] === i) || [0, 0];
@@ -4739,10 +4798,10 @@ function dimSpec(key){
     case 'barraElev': return { v: cfg.islaBarraElevacion, min: 5, max: 40 };
     case 'barraAlto': return { v: altoBarra() + cfg.islaBarraElevacion, min: altoBarra() + 5, max: altoBarra() + 40 };
     case 'bar': { const b = cfg.baseBajos + paquete(); return { v: altoBarra(), min: b + 60, max: b + 100 }; }
-    case 'doorw': { const d = doorById(id); return { v: d.ancho + (d.tapetaLateral ? d.anchoTapeta : 0), min: 60, max: 135 }; }
+    case 'doorw': { const d = doorById(id); return { v: d.ancho + (d.tapetaLateral ? d.anchoTapeta : 0), min: reg().puertaOculta.min, max: reg().puertaOculta.max + 15 }; }
     case 'doorj': { const d = doorById(id); return { v: hdJoints(d)[+i], min: hdBottom(d) + 20, max: hdLeafTop(d) - 20 }; }
     case 'doorp': return { v: doorById(id).altoPiston, min: 25, max: 60 };
-    case 'doorhalf': return { v: doorById(id).ancho/2, min: 30, max: 60 };
+    case 'doorhalf': return { v: doorById(id).ancho/2, min: reg().puertaOculta.min/2, max: reg().puertaOculta.max/2 };
     case 'doorseg': { const lv = hdLevels(doorById(id)); return { v: lv[+i+1] - lv[+i], min: 2, max: 300 }; }
     case 'refri': return { v: m.huecoRefri, min: 120, max: m.superiorRefri ? altoEsp(m) - 25 : altoEsp(m) };
     case 'gap': return { v: cfg.separacionAltos, min: 30, max: 100 };
@@ -4753,7 +4812,7 @@ function dimSpec(key){
     case 'mlift': return { v: m.altoSuperior, min: DOBLE_MIN, max: Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN) };   /* A50: aviso, no tope */
     case 'upperBody': { const hs = Math.max(...row(true).filter(q => !q.reserved && isDoble(q)).map(q => q.altoSuperior)); return { v: altoAltos() - hs, min: DOBLE_MIN, max: altoAltos() - DOBLE_MIN }; }
     case 'upperLift': return { v: Math.max(...row(true).filter(q => !q.reserved && isDoble(q)).map(q => q.altoSuperior)), min: DOBLE_MIN, max: Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN) };
-    case 'halfw': return { v: m.ancho/2, min: 15, max: 60 };
+    case 'halfw': return { v: m.ancho/2, min: reg().ancho.min/2, max: reg().ancho.max/2 };
     case 'pdepth': return id === 'up' ? { v: maxFondo(true), min: 25, max: 45 } : { v: maxFondo(false), min: 50, max: 70 };
   }
 }
@@ -4770,13 +4829,13 @@ function commitDimension(){
   if (!dimensionKey) return;
   const key = dimensionKey, spec = dimSpec(key); dimensionKey = null; dimEdit.style.display = 'none';
   let v = parseLen(dimEdit.value); if (isNaN(v) || Math.abs(v - spec.v) < .001) return;
-  v = Math.max(spec.min, Math.min(spec.max, v));
+  v = Math.max(spec.min, Math.min(spec.max, v)); if (cfg.region === 'US') v = rd(v);   /* E5 */
   const [k, id, i] = key.split(':');
   if (k === 'width') { setWidth(id, v); return; }
-  if (k === 'halfw') { setWidth(id, Math.round(2*v)); return; }
+  if (k === 'halfw') { setWidth(id, anchoEscrito(2*v)); return; }
   change(c => {
     if (k === 'wall') c.alturaMuro = v;
-    else if (k === 'length') c.longitud = Math.round(v*100)/100;   /* D1: con decimales; el sobrante va a las tapetas */
+    else if (k === 'length') c.longitud = rd(v);   /* D1: con decimales; el sobrante va a las tapetas */
     else if (k === 'bar') c.altoBajos = v - c.baseBajos - paquete();
     else if (k === 'refri') byId(id).huecoRefri = v;
     else if (k === 'cseg') { const m = byId(id); if (i === 'zoc') c.baseBajos = v; else if (i === 'esc') m.altoEscritorio = v; else if (i === 'caj') m.altoCajonCloset = v; else if (i === 'zap') m.altoZapatera = v; else if (i === 'mal') m.altoMaletero = v; }
@@ -4784,10 +4843,10 @@ function commitDimension(){
     else if (k === 'bpw') { const q = c.islaPaneles.find(q => q.id === id); q.ancho = v; q.fijo = true; }
     else if (k === 'islaW') c.islaAncho = v; else if (k === 'islaV') c.islaEspacioBancos = v; else if (k === 'islaZ') c.islaRetiroZocloPosterior = v;
     else if (k === 'islaBar') c.islaBarraAncho = v - espesorBarra(); else if (k === 'barraElev') c.islaBarraElevacion = v; else if (k === 'barraAlto') c.islaBarraElevacion = v - altoBarra();
-    else if (k === 'doorw') { const d = doorById(id); d.ancho = Math.round(v - (d.tapetaLateral ? d.anchoTapeta : 0)); }
-    else if (k === 'doorj') { const d = doorById(id), js = hdJoints(d); js[+i] = Math.round(v*100)/100; d.juntasHorizontales = js; }
+    else if (k === 'doorw') { const d = doorById(id); d.ancho = anchoEscrito(v - (d.tapetaLateral ? d.anchoTapeta : 0)); }
+    else if (k === 'doorj') { const d = doorById(id), js = hdJoints(d); js[+i] = rd(v); d.juntasHorizontales = js; }
     else if (k === 'doorp') doorById(id).altoPiston = v;
-    else if (k === 'doorhalf') doorById(id).ancho = Math.round(2*v);
+    else if (k === 'doorhalf') doorById(id).ancho = anchoEscrito(2*v);
     else if (k === 'doorseg') hdSetSegment(doorById(id), +i, v);
     else if (k === 'gap') c.separacionAltos = v;
     else if (k === 'split') setGripZ(byId(id), +i, v);
@@ -4962,11 +5021,11 @@ function modulePanel(m){
     + (espCon(m) !== 'Nada' ? `<div style="margin-top:8px">${radios('espLado', [['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], espIzq(m) ? 'Izquierda' : 'Derecha')}</div>`
       + (espCon(m) === 'Cajones' ? `<div class="grid-2" style="margin-top:10px">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div>` : '')
       + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones iguales'} en el resto de la columna, con una división en la misma carcasa.</div>` : ''));
-  if (m.tipo === 'Estufa') html += section('Estufa', chk('quem6', m.ancho >= 70, '6 quemadores (76 cm); sin marcar, 4 (60 cm)'));
+  if (m.tipo === 'Estufa') html += section('Estufa', chk('quem6', m.ancho >= (reg().estufa.cuatro + reg().estufa.seis)/2, `6 quemadores (${medida(reg().estufa.seis)}); sin marcar, 4 (${medida(reg().estufa.cuatro)})`));
   if (m.tipo === 'Frigobar') html += section('Frigobar', `<div class="grid-2">${num('altoFrig', 'Alto del frigobar (desde el zoclo)', m.altoFrigobar, 'cm', 50, 120)}</div>`
     + chk('tapFrig', m.tapetaFrigobar, 'Tapeta superior bajo la cubierta') + `<div class="note-sm">Si el frigobar supera el alto del gabinete, baja hasta el piso y el zoclo se interrumpe.</div>`);
   if (!m.upper && m.tipo !== 'Estufa' && m.tipo !== 'Frigobar') html += section('Parrilla', chk('parr', m.parrilla, 'Parrilla de inducción encima')
-    + (m.parrilla ? `<div class="grid-2" style="margin-top:10px">${num('parrAncho', 'Ancho de la parrilla', m.parrillaAncho, 'cm', 30, 90)}</div>` : ''));
+    + (m.parrilla ? `<div class="grid-2" style="margin-top:10px">${num('parrAncho', 'Ancho de la parrilla', m.parrillaAncho, 'cm', reg().parrilla.min, reg().parrilla.max)}</div>` : ''));
   if (m.tipo === 'Cajones') html += section('Cajones', `<div class="grid-2">${num('nCaj', 'Número de cajones', m.numCajones, 'u', 1, 6, 1)}</div>`
     + `<div style="margin-top:10px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>`
     + `<div class="note-sm">Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.</div>`
@@ -4987,8 +5046,8 @@ function specialPanel(m){
   if (isTower(m)) html += section('Torre', `<div class="note-sm" style="margin-top:0">Doble clic en el gabinete inferior o superior del dibujo para elegir puertas, cajones o repisas. Clic en el horno, el microondas o la rejilla para editarlos.</div><div class="grid-2" style="margin-top:10px">${num('aire', 'Aire posterior', m.aireHornos, 'cm', 5, 15)}</div>`);
   else if (isRefri(m)) {
     html += section('Refrigerador', `<div class="info-card"><div class="info-row">Ancho libre <b>${fmt(anchoLibreRefri(m))}${uS()}</b></div></div>`
-      + `<div class="grid-2" style="margin-top:10px">${num('anchoRefri', 'Ancho del refrigerador', anchoRefri(m), 'cm', 40, 120)}${num('huecoRefri', 'Alto libre refrigerador', m.huecoRefri, 'cm', 120, 300)}</div>`
-      + `<div class="note-sm">Se ajusta solo a la cota de la columna dejando al menos ${fmt(HOLGURA_REFRI)}${uS()} de holgura; si lo escribes, la columna cambia a ese ancho más la holgura.</div>`
+      + `<div class="grid-2" style="margin-top:10px">${num('anchoRefri', 'Ancho del refrigerador', anchoRefri(m), 'cm', 40, reg().ancho.max)}${num('huecoRefri', 'Alto libre refrigerador', m.huecoRefri, 'cm', 120, 300)}</div>`
+      + `<div class="note-sm">Se ajusta solo a la cota de la columna dejando al menos ${fmt(holguraRefri())}${uS()} de holgura; si lo escribes, la columna cambia a ese ancho más la holgura.</div>`
       + chk('supRefri', m.superiorRefri, 'Gabinete superior') + chk('latRefri', m.lateralesRefri, 'Tapetas laterales')
       + (m.superiorRefri ? chk('dos', m.dosPuertas, 'Dos puertas') + (m.dosPuertas ? '' : `<div class="sub">${chk('inv', m.invertir, 'Invertir abatimiento')}</div>`)
         + `<div class="grid-2" style="margin-top:10px">${num('repRefri', 'Repisas gabinete superior', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'), showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '') : ''));
@@ -5035,7 +5094,7 @@ function capPanel(id){
   let html = head('Módulo superior', `${g.members.length === 1 ? '1 columna' : g.members.length + ' columnas unidas'} · ${fmt(g.width)}${uS()}`);
   html += section('Tipo', sel('capTipo', [['Piston','Puerta elevable (pistón)'],['Puertas','Dos puertas'],['Repisas','Caja de repisas abierta']], m.tipoSuperior));
   html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}</div>` + avisoDoble(m)
-    + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a 120 cm; la caja abierta, a 3 columnas.</div>`
+    + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; la caja abierta, a 3 columnas.</div>`
     + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
     + (m.tipoSuperior === 'Piston' ? chk('capMostrar', m.mostrarPuertaSuperior, 'Mostrar puerta elevable') : ''));
   const cols = (next && !next.reserved ? `<button class="btn btn-block" data-act="capExt">Extender a la columna derecha</button>` : '') + (g.members.length > 1 ? `<button class="btn btn-block" data-act="capSep">Separar la última columna</button>` : '');
@@ -5099,7 +5158,7 @@ function doorPanel(key){
   /* A73 (usuario, 04/10): en lugar del lado (que se elige al agregarla con el + de cada extremo), hacia donde abre la hoja.
      Hacia adentro (al vano, como Revit) o hacia afuera (a la cocina) */
   html += section('Abre', radios('hdAbre', [['adentro', 'Hacia adentro'], ['afuera', 'Hacia afuera']], d.abre === 'afuera' ? 'afuera' : 'adentro'));
-  html += section('Hoja', `<div class="grid-2">${num('hdAncho', 'Ancho de la hoja', d.ancho, 'cm', 60, 120, 1)}${num('hdFondo', 'Paño desde el muro', d.fondo, 'cm', 35, 70)}</div>`
+  html += section('Hoja', `<div class="grid-2">${num('hdAncho', 'Ancho de la hoja', d.ancho, 'cm', reg().puertaOculta.min, reg().puertaOculta.max, 1)}${num('hdFondo', 'Paño desde el muro', d.fondo, 'cm', 35, 70)}</div>`
     + chk('hdInv', d.invertir, 'Invertir abatimiento') + chk('hdZoc', d.zoclo, 'Zoclo pegado a la hoja (abre con ella)')
     + `<div class="info-card" style="margin-top:10px"><div class="info-row">Hoja <b>${fmt(d.ancho)} × ${fmt(leaf)}${uS()}</b></div></div>`);
   html += section('Gabinete de pistón', chk('hdPist', d.piston, 'Gabinete de pistón arriba') + (d.piston ? `<div class="grid-2" style="margin-top:10px">${num('hdAltP', 'Alto del gabinete', d.altoPiston, 'cm', 25, 60)}</div>` : ''));
@@ -5148,6 +5207,8 @@ function partPanel(key){
     if (cfg.closet) html += section('Iluminación', chk('closetLed', !!cfg.closetLed, 'LED bajo las repisas') + (cfg.closetLed ? posicionLedHTML('mueble') + tonoLuzHTML() : '')
       + '<div class="note-sm">En SketchUp, los closets se generarán con Drawdrobe; la opción queda guardada en la configuración.</div>');   /* B27 */
     html += section('Medidas', num('muro', 'Altura total', cfg.alturaMuro, 'cm', 150, 360) + num('piso', 'Piso respecto al nivel', cfg.desfasePiso, 'cm', -300, 300) + num('sepPost', 'Separación posterior', cfg.separacionPosterior, 'cm', 0, 30));
+    if (cfg.region === 'US') html += section('Reparto de anchos', sel('pasoRep', PASOS_REPARTO, cfg.pasoReparto || 'modular')   /* E4 */
+      + `<div class="note-sm">Los gabinetes automáticos se reparten en pasos de ${medida(pasoAncho())}; lo que no llena un paso va a las tapetas.</div>`);
     html += section('', `<div class="note-sm" style="margin-top:0">El largo del tramo se edita con la cota inferior del dibujo.</div><div class="note-sm">Selecciona un mueble, cubierta, tarja, zoclo o tapeta en el dibujo. Los contornos punteados permiten activar piezas ocultas.</div>`);
   } else if (key === 'cover' || key === 'sink' || key === 'tap') {
     html += section('Cubierta', chk('nariz', cfg.narizCubierta, 'Cubierta con nariz')
@@ -5200,7 +5261,7 @@ const ACT = {
   aire: (v, m) => change(() => byId(m.id).aireHornos = v),
   cajAl: (v, m) => change(() => {   /* las divisiones conservan su altura desde el piso al sumar o quitar la cajonera */
     const t = byId(m.id), d = t.altoCajonesAlacena*(v ? 1 : -1);
-    if (t.divisionesAlacena && t.cajonesAlacena !== v) t.divisionesAlacena = t.divisionesAlacena.map(e => Math.round((e - d)*100)/100);
+    if (t.divisionesAlacena && t.cajonesAlacena !== v) t.divisionesAlacena = t.divisionesAlacena.map(e => rd((e - d)));
     t.cajonesAlacena = v; t.frenteSup = t.frenteMed = 0;
   }),
   cuerpos: (v, m) => change(() => { const t = byId(m.id); t.cuerposAlacena = Math.round(v); t.divisionesAlacena = null; }),
@@ -5212,14 +5273,15 @@ const ACT = {
   repElev: (v, m) => change(() => byId(m.id).repisasElevable = Math.round(v)),
   huecoRefri: (v, m) => change(() => byId(m.id).huecoRefri = v, 'Revisar altura'), supRefri: (v, m) => change(() => byId(m.id).superiorRefri = v),
   latRefri: (v, m) => change(() => byId(m.id).lateralesRefri = v),
-  anchoRefri: (v, m) => setWidth(m.id, Math.ceil(v + HOLGURA_REFRI + (m.lateralesRefri ? 2*m.espesorLaterales : 0) - 1e-6)),
+  anchoRefri: (v, m) => setWidth(m.id, techoAncho(v + holguraRefri() + (m.lateralesRefri ? 2*m.espesorLaterales : 0))),
   repRefri: (v, m) => change(() => { const t = byId(m.id); t.repisasZona.superior = Math.max(0, Math.min(MAX_REPISAS, Math.round(v))); }),
   extr: (v, m) => change(() => byId(m.id).extraible = v),
   espAlto: v => ACT.tipo(v === 'Torre' ? 'EspecieroTorre' : 'Especiero'),
   espCon: (v, m) => change(c => { const q = byId(m.id), l = row(false), h = row(true); q.especieroCon = v; q.frentes = [];   /* A51 */
     if (l.length === h.length) h[l.indexOf(q)].fijo = false; q.ancho = ANCHO_TIPO.Especiero(q); q.fijo = true; }),
   espLado: (v, m) => change(() => byId(m.id).especieroLado = v),   /* A49 */
-  quem6: (v, m) => setWidth(m.id, v ? 76 : 60),   /* como la cota de ancho: la columna completa toma el ancho nuevo */
+  pasoRep: v => change(c => { c.pasoReparto = v; c.repartoAdaptado = false; }),
+  quem6: (v, m) => setWidth(m.id, v ? reg().estufa.seis : reg().estufa.cuatro),   /* como la cota de ancho: la columna completa toma el ancho nuevo */
   altoFrig: (v, m) => change(() => byId(m.id).altoFrigobar = v), tapFrig: (v, m) => change(() => byId(m.id).tapetaFrigobar = v),
   parr: (v, m) => change(c => { const q = byId(m.id); q.parrilla = v; if (v) { q.preparadoTarja = false; quitarTarja(c, m.id); } }),   /* parrilla y tarja se excluyen (A36) */ parrAncho: (v, m) => change(() => byId(m.id).parrillaAncho = v),
   nariz: v => change(c => { const bar = altoBarra(); c.narizCubierta = v; c.altoBajos = bar - c.baseBajos - paquete(); }, 'Revisar altura'),
@@ -5243,7 +5305,7 @@ const ACT = {
     if (!next || next.reserved) return;
     last.unirSuperior = true; ponerDoble(next); next.altoSuperior = last.altoSuperior;
     /* una puerta elevable no pasa de 120 cm: al superarlos el grupo se convierte en caja de repisas */
-    const ng = capGroupOf(next); if (ng && ng.lead.tipoSuperior !== 'Repisas' && ng.width > 120) ng.lead.tipoSuperior = 'Repisas';
+    const ng = capGroupOf(next); if (ng && ng.lead.tipoSuperior !== 'Repisas' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Repisas';
   }),
   capSep: () => change(() => { const g = capGroupOf(partMod()); if (g && g.members.length > 1) g.members[g.members.length - 2].unirSuperior = false; }),
   capQuitar: () => deletePart(selectedPart),
@@ -5312,7 +5374,7 @@ const ACT = {
   extBox: () => { const bx = currentBox(); if (!bx) return; const lastId = bx.members[bx.members.length - 1].id, asPart = !!partBox(); change(() => { byId(lastId).unirCuerpo = true; joinRight(lastId); });
     const nb = bodyGroups().find(g => g.members.some(q => q.id === lastId)); if (nb && !asPart) selection = new Set(nb.members.map(q => q.id)); render(); }, aPano: v => change(c => c.cubiertaAPano = v),
   prep: (v, m) => change(c => { const q = byId(m.id); q.preparadoTarja = v; if (!v) quitarTarja(c, m.id); else q.parrilla = false; }),   /* sin preparar, la tarja se quita (A36) */
-  tarja: (v, m) => change(c => { c.moduloTarja = m.id; c.tipoTarja = v === 'Tarja sencilla' ? 1 : v === 'Tarja doble' ? 2 : 0; if (c.tipoTarja) c.generarCubierta = true; if (c.tipoTarja === 2 && m.ancho !== ANCHO_TARJA_DOBLE) applyWidth(m.id, ANCHO_TARJA_DOBLE); if (c.tipoTarja) byId(m.id).parrilla = false; }),
+  tarja: (v, m) => change(c => { c.moduloTarja = m.id; c.tipoTarja = v === 'Tarja sencilla' ? 1 : v === 'Tarja doble' ? 2 : 0; if (c.tipoTarja) c.generarCubierta = true; if (c.tipoTarja === 2 && m.ancho !== anchoTarjaDoble()) applyWidth(m.id, anchoTarjaDoble()); if (c.tipoTarja) byId(m.id).parrilla = false; }),
   bajoCub: v => change(c => { c.tarjaBajoCubierta = v; c.retiroTarja = v ? 10 : 7; }),
   muro: v => change(c => c.alturaMuro = v, 'Revisar altura'), piso: v => change(c => c.desfasePiso = v), sepPost: v => change(c => c.separacionPosterior = v),
   genCub: v => change(c => c.generarCubierta = v), espCub: v => change(c => c.espesorCubierta = v, 'Revisar altura'), vuelo: v => change(c => c.vuelo = v),
@@ -5338,6 +5400,7 @@ function onSideAction(e){
   let v = el.type === 'checkbox' ? el.checked : el.dataset.len ? parseLen(el.value) : el.type === 'number' ? parseFloat(el.value) : el.value;
   if ((el.dataset.len || el.type === 'number') && isNaN(v)) { render(); return; }
   if (el.dataset.len && el.dataset.min !== undefined) v = Math.max(+el.dataset.min, Math.min(+el.dataset.max, v));   /* limites en cm */
+  if (el.dataset.len && cfg.region === 'US') v = rd(v);   /* E5: 1/16" */
   act(v, selection.size === 1 ? byId([...selection][0]) : null);
 }
 side.addEventListener('change', onSideAction);
@@ -5837,6 +5900,20 @@ const EN = {
   'Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.': 'With 0 the bar is flush with the waterfall’s outer face (or the countertop edge if that side has no waterfall); a larger value pushes it out. Left and right are those of the front elevation.',
   'Con barra elevada la cubierta usa un espesor único, sin nariz.': 'With a raised bar the countertop uses a single thickness, no nosing.',
   'Conservar este ancho': 'Keep this width',
+  'Región': 'Region',
+  'México (métrico)': 'Mexico (metric)',
+  'Estados Unidos (pulgadas)': 'United States (inches)',
+  'Estados Unidos': 'United States',
+  'México': 'Mexico',
+  ' (módulos de 3", 1" o 1/16")': ' (3", 1", or 1/16" steps)',
+  ' (cm enteros)': ' (whole cm)',
+  'Aplicar a la distribución actual': 'Apply to the current layout',
+  'Reparto de anchos': 'Cabinet sizing',
+  'Modular (pasos de 3")': 'Modular (3" steps)',
+  'Por pulgada (1")': 'By the inch (1")',
+  'A medida (1/16")': 'Custom (1/16")',
+  'La distribución actual usa ahora las reglas de Estados Unidos.': 'The current layout now uses the United States rules.',
+  'La distribución actual usa ahora las reglas de México.': 'The current layout now uses the Mexico rules.',
   'Ancho fijo': 'Fixed width',
   'Volver a automático': 'Back to automatic',
   'A paño de gabinetes (solo en laterales)': 'Flush with cabinets (sides only)',
@@ -6237,6 +6314,21 @@ const EN = {
   'Ejemplo: 60 cm': 'Example: 60 cm'
 };
 const EN_T = [
+  ["La puerta oculta mide de {0} a {1} de ancho.", "The hidden door is {0} to {1} wide."],
+  ["La hoja de la puerta oculta quedaría de {0}: necesita al menos {1} (reduce el gabinete de pistón o quita el zoclo).", "The hidden door leaf would be {0}: it needs at least {1} (reduce the lift-up cabinet or remove the toe kick)."],
+  ["Cada módulo de closet admite hasta {0} ({1}): divide el tramo en más módulos.", "Each closet section takes up to {0} ({1}): split the run into more sections."],
+  ["Especial: ancho mínimo {0}, fondo {1}–{2} y laterales {3}–{4}.", "Tall unit: minimum width {0}, depth {1}–{2}, and sides {3}–{4}."],
+  ["{0} quedaría de {1} y el mínimo es {2}. Quita un módulo, libera un ancho fijo o alarga el tramo.", "{0} would be {1} wide; the minimum is {2}. Remove a cabinet, unlock a fixed width, or lengthen the run."],
+  ["{0} quedaría de {1} y el máximo es {2}. Añade un módulo o fija otros anchos.", "{0} would be {1} wide; the maximum is {2}. Add a cabinet or lock other widths."],
+  ["La estufa mide de {0} a {1} de ancho ({2} con 4 quemadores, {3} con 6).", "The range is {0} to {1} wide ({2} with 4 burners, {3} with 6)."],
+  ["La parrilla mide de {0} a {1} de ancho.", "The cooktop is {0} to {1} wide."],
+  ["Módulo superior unido: con puertas no puede pasar de {0}; separa columnas o usa caja de repisas.", "Joined stacker: with doors it cannot exceed {0}; split the columns or use open shelves."],
+  ["Con puertas llega a {0}; la caja abierta, a 3 columnas.", "With doors it reaches {0}; open shelves, 3 columns."],
+  ["6 quemadores ({0}); sin marcar, 4 ({1})", "6 burners ({0}); unchecked, 4 ({1})"],
+  ["La nueva distancia no admite estos módulos entre sus anchos mínimos y {0}. Ajusta la cantidad o el equipo.", "The new length does not fit these cabinets between their minimum widths and {0}. Change the count or the appliances."],
+  ["Activa una tapeta para absorber el sobrante del reparto en pasos de {0} (o elige «A medida» en el muro).", "Turn on a filler to take the space left by the {0} steps (or choose “Custom” on the wall)."],
+  ["Los gabinetes automáticos se reparten en pasos de {0}; lo que no llena un paso va a las tapetas.", "Automatic cabinets are sized in {0} steps; whatever doesn't fill a step goes to the fillers."],
+  ["Independiente del idioma: pone la unidad, los valores de inicio, el reparto de anchos{0} y los límites de los gabinetes. Vale para las cocinas, islas y closets nuevos; la actual conserva la suya ({1}).", "Separate from the language: it sets the unit, the starting values, cabinet sizing{0}, and cabinet limits. It applies to new kitchens, islands, and closets; the current one keeps its own ({1})."],
   ["Entre repisas quedan {0}: menos de los 35 cm recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended 35 cm. They are generated anyway."],
   ["Entre repisas quedan {0}: menos de los {1} recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended {1}. They are generated anyway."],
   ["Entre repisas quedan {0}: menos de los 25 cm recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended 25 cm. They are generated anyway."],
@@ -6487,7 +6579,13 @@ function renderPresets(){
 }
 document.getElementById('btnConfigs').addEventListener('click', () => settingsOpen ? closeSettings() : openSettings());
 document.getElementById('btnPrefs').addEventListener('click', () => prefsOpen ? closePrefs() : openPrefs());
-/* pagina de Ajustes: idioma, unidades, cotas, valores de inicio, comportamiento, exportar y licencia */
+/* pagina de Ajustes: region, idioma, unidades, cotas, valores de inicio, comportamiento, exportar y licencia */
+const PASOS_REPARTO = [['modular', 'Modular (pasos de 3")'], ['pulgada', 'Por pulgada (1")'], ['medida', 'A medida (1/16")']];
+/* E1: al elegir la region se proponen su unidad, su redondeo, su iman y sus valores de inicio (se pueden cambiar despues) */
+function aplicarRegionPrefs(v){
+  prefs.unidad = v === 'US' ? 'in' : 'cm'; prefs.paso.in = 16; prefs.paso.ftin = 16; prefs.imanTol = v === 'US' ? inch(.5) : 1.5;
+  prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION[v]));
+}
 function renderPrefs(){
   const el = document.getElementById('prefsPanel'), P = prefs, I = P.inicio, u = P.unidad;
   const radio = (path, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${String(v) === String(cur) ? ' on' : ''}"><input type="radio" name="pf-${path}" data-pref="${path}" value="${v}" ${String(v) === String(cur) ? 'checked' : ''}><div><div class="t">${t}</div></div></label>`).join('')}</div>`;
@@ -6500,6 +6598,10 @@ function renderPrefs(){
   el.innerHTML = `<div class="p-section"><div class="m-head"><div class="m-title">Ajustes</div>
       <button class="btn btn-icon btn-sm" id="prefsClose" title="Volver al editor" aria-label="Cerrar">✕</button></div>
       <div class="note-sm">Son tuyos, no del proyecto: valen para todas tus cocinas, islas y closets.</div></div>
+    ${section('Región', radio('region', [['MX', 'México (métrico)'], ['US', 'Estados Unidos (pulgadas)']], P.region)
+      + (P.region === 'US' ? select('pasoReparto', PASOS_REPARTO, P.pasoReparto, 'Reparto de anchos') : '')
+      + `<div class="note-sm">Independiente del idioma: pone la unidad, los valores de inicio, el reparto de anchos${P.region === 'US' ? ' (módulos de 3", 1" o 1/16")' : ' (cm enteros)'} y los límites de los gabinetes. Vale para las cocinas, islas y closets nuevos; la actual conserva la suya (${cfg.region === 'US' ? 'Estados Unidos' : 'México'}).</div>`
+      + (cfg.region !== P.region ? `<button class="btn btn-block" style="margin-top:8px" id="prefsRegionCfg">Aplicar a la distribución actual</button>` : ''))}
     ${section('Idioma', radio('idioma', [['es', 'Español'], ['en', 'English']], P.idioma) + `<div class="note-sm">Toda la interfaz: paneles, ayudas, mensajes y rótulos del dibujo. No se traducen los nombres que pones tú (materiales propios y configuraciones).</div>`)}
     ${section('Unidades', select('unidad', [['cm', 'Centímetros (cm)'], ['mm', 'Milímetros (mm)'], ['in', 'Pulgadas fraccionarias (in)'], ['ftin', 'Pies y pulgadas (ft-in)']], u)
       + select('paso.' + u, pasos, P.paso[u], 'Redondeo')
@@ -6533,7 +6635,9 @@ function renderPrefs(){
     const last = path[path.length - 1], old = o[last];
     if (typeof old === 'number' && typeof v === 'string') v = parseFloat(v);
     if (last === 'materialGeneral' && v === '') v = null;
-    o[last] = v; savePrefs(); render(); renderPrefs();
+    o[last] = v;
+    if (path.length === 1 && last === 'region') aplicarRegionPrefs(v);   /* E1: unidad y valores de inicio de la region */
+    savePrefs(); render(); renderPrefs();
   }));
   const done = () => closePrefs();
   document.getElementById('prefsClose').addEventListener('click', done); document.getElementById('prefsDone').addEventListener('click', done);
@@ -6544,7 +6648,10 @@ function renderPrefs(){
     if (lo) prefs.inicio.fondoBajos = lo.fondo; if (hi) prefs.inicio.fondoAltos = hi.fondo;
     savePrefs(); renderPrefs(); setStatus('Valores de inicio tomados de la distribución actual.');
   });
-  document.getElementById('prefsIniReset').addEventListener('click', () => { prefs.inicio = JSON.parse(JSON.stringify(PREFS_DEF.inicio)); savePrefs(); renderPrefs(); });
+  document.getElementById('prefsIniReset').addEventListener('click', () => { prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION[prefs.region] || PREFS_DEF.inicio)); savePrefs(); renderPrefs(); });
+  const rc = document.getElementById('prefsRegionCfg');
+  if (rc) rc.addEventListener('click', () => { const v = prefs.region; change(c => { c.region = v; c.pasoReparto = v === 'US' ? prefs.pasoReparto : 'entero'; c.repartoAdaptado = false; c.modulos.forEach(m => { if (!ANCHO_TIPO[m.tipo]) m.fijo = false; }); }, 'Región');
+    renderPrefs(); setStatus(v === 'US' ? 'La distribución actual usa ahora las reglas de Estados Unidos.' : 'La distribución actual usa ahora las reglas de México.'); });
   document.getElementById('prefsActivar').addEventListener('click', () => showDialog('Licencia', 'La activación con Gumroad llega con la capa comercial. Por ahora la clave solo se guarda.', [{ text: 'Aceptar', primary: true }], 'info'));
   document.getElementById('prefsUpdate').addEventListener('click', () => showDialog('Actualizaciones', 'Maqueta: aquí se consultará si hay una versión nueva del plugin.', [{ text: 'Aceptar', primary: true }], 'info'));
   trUI();
@@ -6594,6 +6701,7 @@ function sketchupCargar(texto){
   /* B20: una cocina guardada con un master anterior no trae las opciones nuevas: se completan con las de fabrica de su tipo (sin
      ellas, una clave como bisagras quedaba indefinida y apagaba las bisagras sin aviso) */
   sketchupAbrir(() => { const c = JSON.parse(texto), base = c.isla ? defaultIsland(240, 90) : c.closet ? defaultCloset(240) : defaultConfig(300);
+    if (!c.region) { c.region = 'MX'; c.pasoReparto = 'entero'; }   /* E1: guardada antes de la region: metrica */
     Object.keys(base).forEach(k => { if (!(k in c)) c[k] = base[k]; }); if (!c.catalogo) c.catalogo = cfg.catalogo; return c; },
     'No se pudo abrir la cocina guardada: ', 'Cocina cargada desde SketchUp: los cambios actualizan solo las piezas que cambian.');
 }
