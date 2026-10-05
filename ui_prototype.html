@@ -1241,12 +1241,13 @@ const PULG = 2.54, DIECISEISAVO = PULG/16, inch = v => Math.round(v*PULG*1e6)/1e
 const REGIONES = {
   MX: { ancho: { min: 30, max: 120, objetivo: 60 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 5, tapetaMin: 4, tapetaMax: 8, especialMin: 45,
     closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90 },
-    tarjaDoble: 85, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20 },
+    tarjaDoble: 85, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20,
+    lava: 60, lavaCompacto: 45, campana: { protegida: 60, combustible: 75 }, dosPuertasDesde: 0 },
   US: { ancho: { min: inch(12), max: inch(48), objetivo: inch(30) }, pasos: { modular: inch(3), pulgada: inch(1), medida: DIECISEISAVO }, pasoDef: 'modular',
     tapetaCorta: inch(1), tapetaMin: inch(.5), tapetaMax: inch(3), especialMin: inch(18),
     closet: { min: inch(18), max: inch(48), objetivo: inch(36), reserva: inch(2) }, estufa: { cuatro: inch(30), seis: inch(36), min: inch(20), max: inch(48) },
     parrilla: { min: inch(12), max: inch(48) }, tarjaDoble: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
-    especieroTorre: inch(12), especiero: inch(9) } };
+    especieroTorre: inch(12), especiero: inch(9), lava: inch(24), lavaCompacto: inch(18), campana: { protegida: inch(24), combustible: inch(30) }, dosPuertasDesde: inch(24) } };
 /* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
 const INICIO_REGION = {
   MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 7, style: 'Moderna', materialGeneral: null },
@@ -1456,7 +1457,7 @@ function defaultConfig(length){
     materialGeneral: null, materiales: {}, modulos: [] };
   /* E1: la cocina nueva toma la region de Ajustes y la guarda; sus reglas ya no cambian aunque cambie la preferencia */
   const region = prefs.region === 'US' ? 'US' : 'MX', R = REGIONES[region];
-  c.region = region; c.pasoReparto = region === 'US' ? prefs.pasoReparto : 'entero';
+  c.region = region; c.pasoReparto = region === 'US' ? prefs.pasoReparto : 'entero'; c.dosPuertasDesde = R.dosPuertasDesde;   /* E12 */
   if (region === 'US') Object.assign(c, COCINA_US);
   const ini = prefs.inicio;   /* valores de inicio de Ajustes */
   Object.assign(c, { alturaMuro: ini.alturaMuro, baseBajos: ini.baseBajos, altoBajos: ini.altoBajos, espesorCubierta: ini.espesorCubierta, separacionAltos: ini.separacionAltos, style: ini.style });
@@ -1535,7 +1536,7 @@ const ISLA_DEF = { islaAncho: 90, cascadaIzq: false, cascadaDer: false, islaPane
   islaBarraElevada: false, islaBarraAncho: 40, islaBarraElevacion: 20, islaBarraVueloIzq: 0, islaBarraVueloDer: 0, islaBarraEspesor: 3,
   islaRetiroZocloPosterior: -1, islaBarraCascadaIzq: false, islaBarraCascadaDer: false };
 /* la isla solo admite bajos (IslandKinds): sin refrigerador, torre, alacena, especiero torre ni estufa */
-const ISLA_TIPOS = ['Puertas', 'Abierto', 'Cajones', 'C', 'Basura', 'Frigobar', 'Especiero'];
+const ISLA_TIPOS = ['Puertas', 'Abierto', 'Cajones', 'C', 'Basura', 'Frigobar', 'Especiero', 'Lavavajillas'];
 function defaultIsland(length, width){
   const c = defaultConfig(length), R = regionDe(c), us = c.region === 'US', res = us ? inch(.75) : 2;
   Object.assign(c, JSON.parse(JSON.stringify(ISLA_DEF)), us ? ISLA_US : {}, { isla: true, islaAncho: width, cubiertaAPano: true, vuelo: 0, backsplash: false,
@@ -1781,7 +1782,7 @@ const tarjaDe = m => m.id === cfg.moduloTarja && cfg.tipoTarja > 0 ? (cfg.tipoTa
 /* Cajones: N cajones (1 a 6), el de arriba pequeño y los demas grandes, o todos iguales. 'C' = cajon y puerta */
 const drawerType = m => !m.upper && (m.tipo === 'Cajones' || m.tipo === 'C');
 const TIPOS_BAJO = [['Puertas','Puertas'],['Abierto','Abierto'],['Cajones','Cajones'],['C','Cajón y puerta'],['Refri','Refrigerador'],['Hornos','Torre de hornos'],['Alacena','Alacena'],
-  ['Basura','Cesto de basura'],['Frigobar','Frigobar de vinos'],['Especiero','Especiero'],['EspecieroTorre','Especiero torre'],['Estufa','Estufa']];
+  ['Basura','Cesto de basura'],['Frigobar','Frigobar de vinos'],['Especiero','Especiero'],['EspecieroTorre','Especiero torre'],['Estufa','Estufa'],['Lavavajillas','Lavavajillas']];
 /* tipos de ancho fijo: al elegirlos fijan su ancho; al dejarlos se libera */
 /* A50: limites del alto doble. Recomendados (aviso): cada modulo 25 cm (15 si es caja de repisas abierta) y el superior hasta 60;
    absolutos (no se genera): 8 cm cada uno y el superior hasta 120 */
@@ -1802,7 +1803,7 @@ const espIzq = m => m.especieroLado !== 'Derecha';
 /* [especiero x0, x1, resto x0, x1] relativos al modulo; sin combinar, el especiero ocupa todo el ancho */
 const espPartes = m => { const A = espAncho(m); if (espCon(m) === 'Nada') return [0, m.ancho, 0, 0];
   return espIzq(m) ? [0, A, A, m.ancho] : [m.ancho - A, m.ancho, 0, m.ancho - A]; };
-const ANCHO_TIPO = { EspecieroTorre: () => reg().especieroTorre, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + reg().ancho.min) : reg().especiero,   /* A52: combinado, conserva el ancho del modulo */ Basura: m => m.anchoBasura, Estufa: () => reg().estufa.cuatro };   /* E3: anchos de la region */
+const ANCHO_TIPO = { EspecieroTorre: () => reg().especieroTorre, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + reg().ancho.min) : reg().especiero,   /* A52: combinado, conserva el ancho del modulo */ Basura: m => m.anchoBasura, Estufa: () => reg().estufa.cuatro, Lavavajillas: m => m.lavavajillasCompacto ? reg().lavaCompacto : reg().lava };   /* E3: anchos de la region */
 /* la campana es una casilla de los altos (Campana extractora): sobre Sencillo = espacio para campana; sobre el doble = doble con campana */
 const TIPOS_ALTO = [['Sencillo','Sencillo'],['Abierto','Abierto / repisas'],['Doble','Módulo inferior + módulo superior']];
 /* especiales (Module.Special): de piso a su tope, reservan la columna de altos */
@@ -1812,7 +1813,9 @@ const isRefri = m => !m.upper && m.tipo === 'Refri';
 const isSpecial = m => isTower(m) || isPantry(m) || isRefri(m);
 /* RunLayout: la cubierta se corta en los especiales y la estufa; el zoclo, en el refrigerador, la estufa y el frigobar alto */
 const cortaCubierta = m => isSpecial(m) || m.tipo === 'Estufa';
-const cortaZoclo = m => isRefri(m) || m.tipo === 'Estufa' || m.tipo === 'Frigobar' && m.altoFrigobar > cfg.altoBajos + .01;
+/* E6: aparatos bajo cubierta sin carcasa: estufa, frigobar y lavavajillas (este lleva su propio zoclo: el del mueble se corta) */
+const esAparato = m => !m.upper && (m.tipo === 'Estufa' || m.tipo === 'Frigobar' || m.tipo === 'Lavavajillas');
+const cortaZoclo = m => isRefri(m) || m.tipo === 'Estufa' || m.tipo === 'Lavavajillas' || m.tipo === 'Frigobar' && m.altoFrigobar > cfg.altoBajos + .01;
 /* altos: DobleAlto (modulo superior propio), Campana (hueco libre al pie) y SinPuertas (abierto / modulo inferior de repisas) */
 const isDoble = m => m.upper && m.tipo === 'Doble';
 /* «Unir con la columna derecha»: la columna derecha se abre y se alinea sola para formar una sola caja de repisas (Revit P12.172) */
@@ -1825,7 +1828,7 @@ function joinRight(id){ const ups = row(true), i = ups.findIndex(q => q.id === i
   r.campana = false; r.dosPuertas = false; r.repisas = m.repisas; r.division = m.division; r.divisiones = m.divisiones; }
 const hasCampana = m => m.upper && !!m.campana && m.tipo !== 'Abierto' && !m.inferiorAbierto;
 const sinPuertas = m => m.tipo === 'Abierto' || m.tipo === 'Doble' && m.inferiorAbierto;
-const NOMBRES = { EspecieroTorre: 'Especiero torre', Hornos: 'Hornos', Alacena: 'Alacena', Refri: 'Refrigerador', Estufa: 'Estufa', Basura: 'Cesto de basura', Frigobar: 'Frigobar de vinos', Especiero: 'Especiero' };
+const NOMBRES = { EspecieroTorre: 'Especiero torre', Hornos: 'Hornos', Alacena: 'Alacena', Refri: 'Refrigerador', Estufa: 'Estufa', Basura: 'Cesto de basura', Frigobar: 'Frigobar de vinos', Especiero: 'Especiero', Lavavajillas: 'Lavavajillas' };
 const nombreModulo = m => cfg.closet ? 'Closet · ' + closetLabel(m) : !m.upper && NOMBRES[m.tipo] || (m.upper ? 'Gabinete alto' : 'Gabinete bajo');
 function ponerDoble(m){ if (!isDoble(m)) { m.inferiorAbierto = m.tipo === 'Abierto'; m.tipo = 'Doble'; } }
 function quitarDoble(m){ m.tipo = m.inferiorAbierto ? 'Abierto' : 'Sencillo'; m.inferiorAbierto = false; }
@@ -1979,7 +1982,7 @@ function fronts(m){
     }
     return r;
   }
-  if (m.tipo === 'Estufa' || m.tipo === 'Frigobar') return r;
+  if (esAparato(m)) return r;
   if (m.tipo === 'Basura') { r.push({ kind: 'Cajon', x0: hol, x1: Math.min(m.ancho, m.anchoBasura) - hol, z0: zb + hol, z1: zb + cfg.altoBajos - g }); return r; }
   if (m.tipo === 'Especiero') {   /* A51: el especiero y, en el resto de la columna, una puerta o cajones iguales; las bisagras van por fuera */
     const [e0, e1, r0, r1] = espPartes(m), con = espCon(m), z0 = zb + hol, z1 = zb + cfg.altoBajos - g;
@@ -2001,7 +2004,7 @@ const pantryTopGola = (m, b, n) => b < n - 1 && bodyDoors(bodyType(m, b, n)) && 
 /* GolaStrips: franja en el hueco real sobre cada frente de un bajo (solo estilo moderno). Torre: solo sobre sus cajones;
    alacena: sobre su cajonera y TopGola; refrigerador, estufa y frigobar: ninguna */
 function golaStrips(m){
-  if (cfg.style !== 'Moderna' || m.upper || m.reserved || m.tipo === 'Abierto' || isRefri(m) || m.tipo === 'Estufa' || m.tipo === 'Frigobar') return [];
+  if (cfg.style !== 'Moderna' || m.upper || m.reserved || m.tipo === 'Abierto' || isRefri(m) || esAparato(m)) return [];
   const zb = cfg.baseBajos, gT = agarre(), gE = agarreEntre(), s = [];
   if (m.tipo === 'Especiero' && espCon(m) === 'Cajones') {   /* A51: arriba a todo el ancho; entre cajones solo del lado de los cajones */
     const [, , r0, r1] = espPartes(m); s.push([zb + cfg.altoBajos - gT, gT]);
@@ -2112,7 +2115,7 @@ const golaHondo = () => PLAN_GOLA.fondo + (cfg.gola === 'Melamina' ? PLAN_GOLA.m
 /* LED bajo los altos (usuario, 03/10): la cama corrida es el piso de los altos (laterales y trasero apoyan sobre ella y las puertas
    alinean con su cara inferior); el perfil LED de 1.7 x 0.7 cm va embutido en una ranura por debajo de la cama */
 const PLAN_LED = { ancho: 1.7, hondo: .7, retiro: 8 }, PLAN_JUNTA = { ancho: .4, salida: .2 };   /* retiro: del borde del mueble al inicio del canal */
-const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 1.8,                        /* cazoleta de 35 mm a 1.8 cm del canto (Revit) */
+const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 2.25,                       /* E15: cazoleta de 35 mm con su centro a 22.5 mm del canto (perforacion de 5 mm; Blum pide 3-8 mm). Antes 1.8 */
   brazo: 4.5, brazoAlto: 1.6, brazoPaso: .6, placa: 3, placaAlto: 4, placaGrueso: .8 };   /* B19: brazo y placa en el lateral */
 const PLAN_CORREDERA = { fija: .6, movil: .5, alto: 4.5, centro: 2.6, pared: .15 };   /* B19: en la holgura de la caja (PLAN_CAJA.holgura) */
 const PLAN_PISTON = { cuerpo: 1.8, vastago: .8, largoCuerpo: .6 };                    /* B19: el cuerpo es el 60 % del piston cerrado (Revit) */
@@ -2299,6 +2302,7 @@ function planDePiezas(c = cfg){
     const especial = (m, x) => {
       const zb = cfg.baseBajos, x1 = x + m.ancho, y0 = sep, y1 = sep + m.fondo, mat = matDe(m);
       if (m.tipo === 'Estufa') { equipo(m, 'estufa', 'Estufa', x, x1, 0, altoBarra(), y0, y1 + t); return; }
+      if (m.tipo === 'Lavavajillas') { equipo(m, 'lavavajillas', 'Lavavajillas', x, x1, 0, zb + cfg.altoBajos, y0, y1 + t); return; }   /* E6: del piso a la cubierta */
       if (m.tipo === 'Frigobar') {
         const A = cfg.altoBajos, fh = Math.min(m.altoFrigobar, zb + A), z0 = fh > A ? zb + A - fh : zb;
         equipo(m, 'frigobar', 'Frigobar', x, x1, z0, z0 + fh, y0, y1 + t);
@@ -2370,7 +2374,7 @@ function planDePiezas(c = cfg){
       for (const m of row(upper)) {
         sep = sepDe(m);
         if (m.reserved) { x += m.ancho; continue; }
-        if (isSpecial(m) || m.tipo === 'Estufa' || m.tipo === 'Frigobar') { especial(m, x); x += m.ancho; continue; }
+        if (isSpecial(m) || esAparato(m)) { especial(m, x); x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
            interior del primero (BodyLead) y a todo el ancho del grupo */
         const z0 = upper ? baseAltos() + (hasCampana(m) ? m.huecoCampana : 0) : cfg.baseBajos;
@@ -2924,8 +2928,8 @@ function recalculate(){
   for (const m of cfg.modulos) {
     if (!(m.upper ? TIPOS_ALTO : cfg.closet ? CLOSET_TIPOS : TIPOS_BAJO).some(([v]) => v === m.tipo)) m.tipo = m.upper ? 'Sencillo' : 'Puertas';
     if (m.tipo === 'EspecieroTorre') { m.cuerposAlacena = 1; m.divisionesAlacena = null; m.cajonesAlacena = false; m.dosPuertas = false; m.cuerposTipos = [m.extraible ? 'Especiero extraíble' : 'Especiero']; }
-    if (m.upper || isSpecial(m) || m.tipo === 'Estufa' || m.tipo === 'Frigobar') m.parrilla = false;
-    if (['Basura', 'Frigobar', 'Especiero', 'Estufa'].includes(m.tipo)) m.dosPuertas = false;
+    if (m.upper || isSpecial(m) || esAparato(m)) m.parrilla = false;
+    if (['Basura', 'Frigobar', 'Especiero', 'Estufa', 'Lavavajillas'].includes(m.tipo)) m.dosPuertas = false;
     if (isTower(m) && m.microSobreponer) m.altoMicro = Math.round((m.microAlto + 5)*100)/100;
     if (m.tipo !== 'Doble' || m.campana) m.inferiorAbierto = false;
     if (!m.upper || m.tipo === 'Abierto') m.campana = false;
@@ -2979,6 +2983,8 @@ function recalculate(){
     if (sobra > 1e-4) alloc[alloc.length - 1] += sobra;
     flex.forEach((m, k) => m.ancho = Math.round(alloc[k]*1e4)/1e4);
   }
+  /* E12: con «Dos puertas desde» (US 24"), los gabinetes de puertas mas anchos llevan dos hojas, salvo que el usuario lo haya elegido */
+  if (cfg.dosPuertasDesde > 0) for (const m of cfg.modulos) if (!m.dosPuertasManual && !m.reserved && !sinPuertas(m) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C')) m.dosPuertas = m.ancho > cfg.dosPuertasDesde + .01;
   if (cfg.isla) islandPanels();
 }
 function validate(){
@@ -3996,11 +4002,40 @@ function drawFridge(m, x0, RX, post){
   outline(full, C.line, 1);
   const rect = fh > A ? unionRect(full, ap) : full; hits.push({ rect, module: m }); moduleChrome(m, rect, post, sel);
 }
+/* E6: lavavajillas: aparato del piso a la cubierta (su zoclo es parte del aparato), franja de mandos y jaladera de barra */
+function drawDishwasher(m, x0, RX, post){
+  const zb = cfg.baseBajos, A = cfg.altoBajos, full = RX(x0, x0 + m.ancho, 0, zb + A), sel = selection.has(m.id), s = frame.scale;
+  ctx.fillStyle = flat ? C.flat : sel ? C.selFill : C.metal; ctx.fillRect(full.x, full.y, full.w, full.h); outline(full, C.line, 1);
+  const panel = RX(x0, x0 + m.ancho, zb, zb + A); outline(panel, C.line, 1);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; const yc = panel.y + 6*s; line(panel.x, yc, panel.x + panel.w, yc);
+  ctx.fillStyle = C.handle; ctx.fillRect(panel.x + .2*panel.w, yc + 2.5*s, .6*panel.w, Math.max(2, 1.2*s));
+  ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('Lavavajillas', panel.x + 4, panel.y + panel.h - 17); ctx.textBaseline = 'alphabetic';
+  hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel);
+}
+/* E6 (NKBA): el lavavajillas a 36" (91 cm) o menos de la tarja, de canto a canto */
+function avisoLavavajillas(m){
+  const lw = row(false), tj = lw.find(q => q.id === cfg.moduloTarja); if (!tj || cfg.tipoTarja === 0) return `<div class="note-sm">Sin tarja en la cocina: la NKBA pide el lavavajillas a ${medida(inch(36))} o menos de ella.</div>`;
+  let x = ajusteIzq(); const pos = new Map(); lw.forEach(q => { pos.set(q.id, [x, x + q.ancho]); x += q.ancho; });
+  const [a0, a1] = pos.get(m.id), [b0, b1] = pos.get(tj.id), d = Math.max(0, b0 - a1, a0 - b1);
+  return d > inch(36) + .01 ? `<div class="note-sm" style="color:#C2410C">El lavavajillas queda a ${medida(d)} de la tarja; la NKBA recomienda ${medida(inch(36))} o menos.</div>` : '';
+}
+/* E7 (NKBA): de la parrilla a lo que tenga encima, al menos 24" si es la campana (superficie protegida) o 30" si es un gabinete
+   (combustible); MX: 60 y 75 cm. Aviso naranja con boton para subir el libre sobre cubierta (todos los altos) */
+function avisoCoccion(m){
+  const lw = row(false), up = row(true); if (lw.length !== up.length) return '';
+  const i = (m.upper ? up : lw).indexOf(m), bajo = lw[i], alto = up[i];
+  if (!bajo || !alto || alto.reserved || !(bajo.tipo === 'Estufa' || bajo.parrilla)) return '';
+  const R = reg().campana, campana = hasCampana(alto), pide = campana ? R.protegida : R.combustible, libre = cfg.separacionAltos;
+  if (libre >= pide - .01) return '';
+  return `<div class="note-sm" style="color:#C2410C;margin-top:0">${campana ? 'La campana queda' : 'El gabinete alto queda'} a ${medida(libre)} de la ${bajo.tipo === 'Estufa' ? 'estufa' : 'parrilla'}; se recomiendan al menos ${medida(pide)} (${campana ? 'campana' : 'gabinete sin campana'}, NKBA).</div>`
+    + `<button class="btn btn-block" style="margin-top:6px" data-act="subirLibre" value="${pide}">Subir el libre sobre cubierta a ${medida(pide)}</button>`;
+}
 function drawModule(m, x0, RX, X, Z, post){
   if (m.reserved) return;   /* columna reservada por un especial: no se dibuja ni se elige */
   if (isSpecial(m)) { drawSpecial(m, x0, RX, Z, post); return; }
   if (m.tipo === 'Estufa') { drawStove(m, x0, RX, post); return; }
   if (m.tipo === 'Frigobar') { drawFridge(m, x0, RX, post); return; }
+  if (m.tipo === 'Lavavajillas' && !m.upper) { drawDishwasher(m, x0, RX, post); return; }
   const zb = cfg.baseBajos, z0 = m.upper ? baseAltos() : zb, z1 = m.upper ? baseAltos() + bodyH(m) : zb + cfg.altoBajos;
   const full = RX(x0, x0 + m.ancho, z0, z1), sel = selection.has(m.id), scale = frame.scale;
   /* espacio para campana: franja libre al pie del alto; el cuerpo queda encima */
@@ -4907,6 +4942,7 @@ const FI = (() => {
     Especiero: R(14,10,12,32) + L(14,18,26,18) + L(14,26,26,26) + L(14,34,26,34),
     EspecieroTorre: R(15,2,10,44) + L(15,10,25,10) + L(15,18,25,18) + L(15,26,25,26) + L(15,34,25,34),
     Estufa: R(5,10,30,32) + C(13,16,2.5) + C(27,16,2.5) + R(9,24,22,14),
+    Lavavajillas: R(5,8,30,36) + L(5,14,35,14) + L(12,18,28,18) + L(9,27,31,27,1) + L(9,35,31,35,1),
     Sencillo: R(5,6,30,36) + door(5,6,30,36),
     DosPuertas: R(5,6,30,36) + L(20,6,20,42) + L(5,6,20,24,1) + L(5,42,20,24,1) + L(35,6,20,24,1) + L(35,42,20,24,1),
     Campana: P('M16 3 h8 v8 l10 8 h-28 l10 -8 z') + R(5,24,30,18) + door(5,24,30,18),
@@ -5000,6 +5036,7 @@ function modulePanel(m){
   if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);
   if (twoVis) sw.push(['tgDos', m.dosPuertas, 'Dos puertas', FI.DosPuertas]);
   if (sw.length) opts += toggles(sw);
+  if (twoVis && cfg.dosPuertasDesde > 0 && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas en más de ${medida(cfg.dosPuertasDesde)} de ancho.</div>`;
   if (twoVis && !m.dosPuertas) opts += chk('inv', m.invertir, 'Invertir abatimiento');
   /* con campana extractora la division se conserva aunque el modulo quede de una puerta (master; el real la oculta) */
   const divVis = !isDoble(m) && (m.upper ? (m.dosPuertas || sinPuertas(m) || hasCampana(m)) : m.dosPuertas && m.tipo === 'Puertas' && !m.preparadoTarja);   /* alto doble: en sus secciones (A38) */
@@ -5009,6 +5046,7 @@ function modulePanel(m){
   if (isDoble(m) && !hasCampana(m)) opts += chk('infAb', m.inferiorAbierto, 'Módulo inferior sin puertas (repisas)');
   if (isDoble(m) && !bx && bodyGroupOf(m)) opts += `<div class="note-sm">Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o</div><button class="btn btn-block" style="margin-top:6px" data-act="editBox">Editar la caja corrida</button>`;
   html += section('Opciones', opts);
+  if (m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
   if (hasCampana(m)) html += section('Campana', `<div class="grid-2">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
   if (isDoble(m) && !hasCampana(m)) {   /* A38: repisas y divisiones del gabinete inferior y del superior */
     const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS;
@@ -5034,10 +5072,13 @@ function modulePanel(m){
     + (espCon(m) !== 'Nada' ? `<div style="margin-top:8px">${radios('espLado', [['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], espIzq(m) ? 'Izquierda' : 'Derecha')}</div>`
       + (espCon(m) === 'Cajones' ? `<div class="grid-2" style="margin-top:10px">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div>` : '')
       + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones iguales'} en el resto de la columna, con una división en la misma carcasa.</div>` : ''));
+  if (m.tipo === 'Lavavajillas') html += section('Lavavajillas', chk('lavaComp', m.lavavajillasCompacto, `Compacto (${medida(reg().lavaCompacto)})`)
+    + `<div class="note-sm">Hueco de ${medida(m.ancho)} del piso a la cubierta; el aparato trae su propio zoclo y el del mueble se corta.</div>` + avisoLavavajillas(m));
+  if (!m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
   if (m.tipo === 'Estufa') html += section('Estufa', chk('quem6', m.ancho >= (reg().estufa.cuatro + reg().estufa.seis)/2, `6 quemadores (${medida(reg().estufa.seis)}); sin marcar, 4 (${medida(reg().estufa.cuatro)})`));
   if (m.tipo === 'Frigobar') html += section('Frigobar', `<div class="grid-2">${num('altoFrig', 'Alto del frigobar (desde el zoclo)', m.altoFrigobar, 'cm', 50, 120)}</div>`
     + chk('tapFrig', m.tapetaFrigobar, 'Tapeta superior bajo la cubierta') + `<div class="note-sm">Si el frigobar supera el alto del gabinete, baja hasta el piso y el zoclo se interrumpe.</div>`);
-  if (!m.upper && m.tipo !== 'Estufa' && m.tipo !== 'Frigobar') html += section('Parrilla', chk('parr', m.parrilla, 'Parrilla de inducción encima')
+  if (!m.upper && !esAparato(m)) html += section('Parrilla', chk('parr', m.parrilla, 'Parrilla de inducción encima')
     + (m.parrilla ? `<div class="grid-2" style="margin-top:10px">${num('parrAncho', 'Ancho de la parrilla', m.parrillaAncho, 'cm', reg().parrilla.min, reg().parrilla.max)}</div>` : ''));
   if (m.tipo === 'Cajones') html += section('Cajones', `<div class="grid-2">${num('nCaj', 'Número de cajones', m.numCajones, 'u', 1, 6, 1)}</div>`
     + `<div style="margin-top:10px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>`
@@ -5222,6 +5263,7 @@ function partPanel(key){
     html += section('Medidas', num('muro', 'Altura total', cfg.alturaMuro, 'cm', 150, 360) + num('piso', 'Piso respecto al nivel', cfg.desfasePiso, 'cm', -300, 300) + num('sepPost', 'Separación posterior', cfg.separacionPosterior, 'cm', 0, 30));
     if (cfg.region === 'US') html += section('Reparto de anchos', sel('pasoRep', PASOS_REPARTO, cfg.pasoReparto || 'modular')   /* E4 */
       + `<div class="note-sm">Los gabinetes automáticos se reparten en pasos de ${medida(pasoAncho())}; lo que no llena un paso va a las tapetas.</div>`);
+    html += section('Puertas', `<div class="grid-2">${num('dpDesde', 'Dos puertas desde (0 = a mano)', cfg.dosPuertasDesde || 0, 'cm', 0, 120)}</div>`);   /* E12 */
     html += section('', `<div class="note-sm" style="margin-top:0">El largo del tramo se edita con la cota inferior del dibujo.</div><div class="note-sm">Selecciona un mueble, cubierta, tarja, zoclo o tapeta en el dibujo. Los contornos punteados permiten activar piezas ocultas.</div>`);
   } else if (key === 'cover' || key === 'sink' || key === 'tap') {
     html += section('Cubierta', chk('nariz', cfg.narizCubierta, 'Cubierta con nariz')
@@ -5294,6 +5336,9 @@ const ACT = {
     if (l.length === h.length) h[l.indexOf(q)].fijo = false; q.ancho = ANCHO_TIPO.Especiero(q); q.fijo = true; }),
   espLado: (v, m) => change(() => byId(m.id).especieroLado = v),   /* A49 */
   pasoRep: v => change(c => { c.pasoReparto = v; c.repartoAdaptado = false; }),
+  lavaComp: (v, m) => change(() => { const t = byId(m.id); t.lavavajillasCompacto = v; applyWidth(t.id, ANCHO_TIPO.Lavavajillas(t)); }),
+  subirLibre: v => change(c => c.separacionAltos = parseFloat(v), 'Revisar altura'),
+  dpDesde: v => change(c => c.dosPuertasDesde = v),
   quem6: (v, m) => setWidth(m.id, v ? reg().estufa.seis : reg().estufa.cuatro),   /* como la cota de ancho: la columna completa toma el ancho nuevo */
   altoFrig: (v, m) => change(() => byId(m.id).altoFrigobar = v), tapFrig: (v, m) => change(() => byId(m.id).tapetaFrigobar = v),
   parr: (v, m) => change(c => { const q = byId(m.id); q.parrilla = v; if (v) { q.preparadoTarja = false; quitarTarja(c, m.id); } }),   /* parrilla y tarja se excluyen (A36) */ parrAncho: (v, m) => change(() => byId(m.id).parrillaAncho = v),
@@ -5371,7 +5416,7 @@ const ACT = {
   pzReset: () => deletePart(selectedPart),
   pzEditar: () => { const id = selectedPart.split(':')[1]; selectedPart = null; pieces.clear(); selection = new Set([id]); render(); },
   fijo: (v, m) => setFixed(m.id, v), fijoLibre: (v, m) => setFixed(m.id, false),
-  dos: (v, m) => change(() => byId(m.id).dosPuertas = v), tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m),
+  dos: (v, m) => change(() => { const t = byId(m.id); t.dosPuertas = v; t.dosPuertasManual = true; }),   /* E12: elegido a mano */ tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m),
   supTipo: (v, m) => change(() => { const l = capLead(byId(m.id)); l.tipoSuperior = v; if (v === 'Repisas' && l.repisasSuperior < 1) l.repisasSuperior = 1; }),
   inv: (v, m) => change(() => byId(m.id).invertir = v),
   div: (v, m) => change(() => boxTargets(m).forEach(id => byId(id).division = v)),
@@ -5915,6 +5960,9 @@ const EN = {
   'Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.': 'With 0 the bar is flush with the waterfall’s outer face (or the countertop edge if that side has no waterfall); a larger value pushes it out. Left and right are those of the front elevation.',
   'Con barra elevada la cubierta usa un espesor único, sin nariz.': 'With a raised bar the countertop uses a single thickness, no built-up edge.',
   'Conservar este ancho': 'Keep this width',
+  'Lavavajillas': 'Dishwasher',
+  'Seguridad': 'Safety',
+  'Dos puertas desde (0 = a mano)': 'Two doors from (0 = manual)',
   'Pulgadas, con pies en las totales (in + ft-in)': 'Inches, with feet on totals (in + ft-in)',
   'Los campos y las cotas aceptan escribir en esta unidad, o con su unidad: 60 cm, 600 mm, 23 5/8" o 1\'-11 5/8".': 'Fields and dimensions accept this unit, or a value with its unit: 60 cm, 600 mm, 23 5/8", or 1\'-11 5/8".',
   'Melamina 3/4"': 'Melamine 3/4"',
@@ -6333,6 +6381,16 @@ const EN = {
   'Ejemplo: 60 cm': 'Example: 60 cm'
 };
 const EN_T = [
+  ["Compacto ({0})", "Compact ({0})"],
+  ["Hueco de {0} del piso a la cubierta; el aparato trae su propio zoclo y el del mueble se corta.", "{0} opening from the floor to the countertop; the appliance has its own toe kick, so the cabinet toe kick stops."],
+  ["Sin tarja en la cocina: la NKBA pide el lavavajillas a {0} o menos de ella.", "No sink in the kitchen: NKBA wants the dishwasher within {0} of it."],
+  ["El lavavajillas queda a {0} de la tarja; la NKBA recomienda {1} o menos.", "The dishwasher is {0} from the sink; NKBA recommends {1} or less."],
+  ["La campana queda a {0} de la estufa; se recomiendan al menos {1} (campana, NKBA).", "The range hood is {0} above the range; NKBA recommends at least {1} (hood)."],
+  ["La campana queda a {0} de la parrilla; se recomiendan al menos {1} (campana, NKBA).", "The range hood is {0} above the cooktop; NKBA recommends at least {1} (hood)."],
+  ["El gabinete alto queda a {0} de la estufa; se recomiendan al menos {1} (gabinete sin campana, NKBA).", "The wall cabinet is {0} above the range; NKBA recommends at least {1} (combustible, no hood)."],
+  ["El gabinete alto queda a {0} de la parrilla; se recomiendan al menos {1} (gabinete sin campana, NKBA).", "The wall cabinet is {0} above the cooktop; NKBA recommends at least {1} (combustible, no hood)."],
+  ["Subir el libre sobre cubierta a {0}", "Raise countertop-to-uppers to {0}"],
+  ["Automático: dos puertas en más de {0} de ancho.", "Automatic: two doors when wider than {0}."],
   ["En el plugin, Wall-closet toma la cara del muro (largo y altura). El prototipo abre un closet de {0} de largo en un muro de {1}. ¿Continuar? La distribución actual se descarta.", "In the plugin, Wall-closet takes the wall face (length and height). The prototype opens a {0} closet on a {1} wall. Continue? The current layout will be discarded."],
   ["En el plugin, Line-Island se dibuja como un rectángulo (dos esquinas o largo,ancho tecleado) y después se elige el lado largo de los gabinetes. El prototipo abre una isla de {0} × {1}. ¿Continuar? La distribución actual se descarta.", "In the plugin, Line-Island is drawn as a rectangle (two corners, or length,width typed in), then you pick the long side for the cabinets. The prototype opens a {0} × {1} island. Continue? The current layout will be discarded."],
   ["El prototipo abre una cocina en muro de {0}. ¿Continuar? La distribución actual se descarta.", "The prototype opens a kitchen on a {0} wall. Continue? The current layout will be discarded."],
