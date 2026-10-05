@@ -1268,7 +1268,7 @@ const rd = v => cfg.region === 'US' ? Math.round(Math.round(v/DIECISEISAVO)*DIEC
 const anchoEscrito = v => cfg.region === 'US' ? rd(v) : Math.round(v);
 const techoAncho = v => cfg.region === 'US' ? Math.ceil(v/DIECISEISAVO - 1e-6)*DIECISEISAVO : Math.ceil(v - 1e-6);
 const medida = v => fmt(v) + uS();
-const PREFS_DEF = { region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, ftin: 16 },
+const PREFS_DEF = { region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, inft: 16, ftin: 16 },
   cotaRemate: 'oblicuo', cotaTexto: 11.5, cotaUnidad: 'totales', cotaColor: 'producto',
   inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 7, style: 'Moderna', materialGeneral: null },
   iman: true, imanTol: 1.5, resaltado: true, preguntarGuardar: true,
@@ -1522,9 +1522,9 @@ function validateDoors(){
   for (const d of ds) {
     const PO = reg().puertaOculta;   /* E3 */
     if (d.ancho < PO.min - .01 || d.ancho > PO.max + .01) throw new Error(`La puerta oculta mide de ${medida(PO.min)} a ${medida(PO.max)} de ancho.`);
-    if (d.piston && (d.altoPiston < 25 || d.altoPiston > 60)) throw new Error('El gabinete de pistón sobre la puerta oculta mide de 25 a 60 cm.');
-    if (d.tapetaLateral && (d.anchoTapeta < 2 || d.anchoTapeta > 15)) throw new Error('La tapeta lateral de la puerta oculta mide de 2 a 15 cm.');
-    if (d.fondo < 35 || d.fondo > 70) throw new Error('El paño de la puerta oculta va de 35 a 70 cm desde el muro.');
+    if (d.piston && (d.altoPiston < 25 || d.altoPiston > 60)) throw new Error(`El gabinete de pistón sobre la puerta oculta mide de ${medida(25)} a ${medida(60)}.`);
+    if (d.tapetaLateral && (d.anchoTapeta < 2 || d.anchoTapeta > 15)) throw new Error(`La tapeta lateral de la puerta oculta mide de ${medida(2)} a ${medida(15)}.`);
+    if (d.fondo < 35 || d.fondo > 70) throw new Error(`El paño de la puerta oculta va de ${medida(35)} a ${medida(70)} desde el muro.`);
     const leaf = hdLeafTop(d) - hdBottom(d);
     if (leaf < PO.hoja - .01) throw new Error(`La hoja de la puerta oculta quedaría de ${fmt(leaf)}${uS()}: necesita al menos ${medida(PO.hoja)} (reduce el gabinete de pistón o quita el zoclo).`);
   }
@@ -1582,7 +1582,7 @@ function islandPanels(){
   if (!P.length) for (let k = 0; k < Math.max(1, Math.round(total/60)); k++) P.push(newPanel());
   if (P.every(q => q.fijo)) P[P.length - 1].fijo = false;
   const flex = P.filter(q => !q.fijo), fixed = P.filter(q => q.fijo).reduce((a, q) => a + q.ancho, 0);
-  if (total - fixed < 10*flex.length) throw new Error('Los paneles posteriores de ancho fijo no dejan al menos 10 cm para los demás.');
+  if (total - fixed < 10*flex.length) throw new Error(`Los paneles posteriores de ancho fijo no dejan al menos ${medida(10)} para los demás.`);
   const each = rd((total - fixed)/flex.length); flex.forEach(q => q.ancho = each);
   flex[flex.length - 1].ancho = rd((total - fixed - each*(flex.length - 1)));
 }
@@ -1592,9 +1592,9 @@ function islandValidate(){
   if (cfg.islaAncho < need - .01) throw new Error(`La isla mide ${fmt(cfg.islaAncho)}${uS()} de ancho; los gabinetes con sus frentes, su vuelo y el panel trasero necesitan ${fmt(need)}${uS()}.`);
   if (cfg.islaBarraElevada) {
     if (cfg.islaBarraAncho < 20 || cfg.islaBarraAncho > islaSeparacion()) throw new Error(`La barra elevada debe medir entre 20 y ${fmt(islaSeparacion())}${uS()} de ancho para no invadir los gabinetes (ensancha la isla si necesitas más).`);
-    if (cfg.islaBarraEspesor < 1 || cfg.islaBarraEspesor > 10) throw new Error('El espesor de la barra elevada debe estar entre 1 y 10 cm.');
-    if (cfg.islaBarraElevacion < 5 || cfg.islaBarraElevacion > 40) throw new Error('La elevación de la barra debe estar entre 5 y 40 cm.');
-    if ([cfg.islaBarraVueloIzq, cfg.islaBarraVueloDer].some(v => v < 0 || v > 30)) throw new Error('El vuelo lateral de la barra elevada debe estar entre 0 y 30 cm.');
+    if (cfg.islaBarraEspesor < 1 || cfg.islaBarraEspesor > 10) throw new Error(`El espesor de la barra elevada debe estar entre ${medida(1)} y ${medida(10)}.`);
+    if (cfg.islaBarraElevacion < 5 || cfg.islaBarraElevacion > 40) throw new Error(`La elevación de la barra debe estar entre ${medida(5)} y ${medida(40)}.`);
+    if ([cfg.islaBarraVueloIzq, cfg.islaBarraVueloDer].some(v => v < 0 || v > 30)) throw new Error(`El vuelo lateral de la barra elevada debe estar entre ${medida(0)} y ${medida(30)}.`);
   }
 }
 /* Center: deja el modulo en el centro de la isla fijando los de su izquierda; los de la derecha quedan automaticos */
@@ -1707,17 +1707,17 @@ function closetRecalc(){
   }
 }
 function closetValidate(){
-  if (cfg.altoBajos < 150 || cfg.altoBajos > 300) throw new Error('El cuerpo del closet debe medir entre 150 y 300 cm de alto.');
-  if (cfg.espesorCloset < 1.5 || cfg.espesorCloset > 2.5) throw new Error('El espesor de tableros del closet va de 1.5 a 2.5 cm.');
-  if (closetSliding() && cfg.longitud < 80) throw new Error('Las puertas correderas necesitan un tramo de al menos 80 cm.');
+  if (cfg.altoBajos < 150 || cfg.altoBajos > 300) throw new Error(`El cuerpo del closet debe medir entre ${medida(150)} y ${medida(300)} de alto.`);
+  if (cfg.espesorCloset < 1.5 || cfg.espesorCloset > 2.5) throw new Error(`El espesor de tableros del closet va de ${medida(1.5)} a ${medida(2.5)}.`);
+  if (closetSliding() && cfg.longitud < 80) throw new Error(`Las puertas correderas necesitan un tramo de al menos ${medida(80)}.`);
   for (const m of row(false)) {
     if (m.ancho > reg().closet.max + .01) throw new Error(`Cada módulo de closet admite hasta ${medida(reg().closet.max)} (${closetLabel(m)}): divide el tramo en más módulos.`);
-    if (m.fondo < 35 || m.fondo > 80) throw new Error('El fondo del closet va de 35 a 80 cm.');
+    if (m.fondo < 35 || m.fondo > 80) throw new Error(`El fondo del closet va de ${medida(35)} a ${medida(80)}.`);
     const body = cfg.altoBajos - (m.maletero ? m.altoMaletero : 0);
     if ((m.tipo === 'Cajonera' || m.tipo === 'Completo') && m.cajonesCloset*m.altoCajonCloset > body - 2*cfg.espesorCloset - 20) throw new Error(`La cajonera no cabe: ${m.cajonesCloset} cajones de ${fmt(m.altoCajonCloset)}${uS()}.`);
-    if (m.maletero && (m.altoMaletero < 25 || m.altoMaletero > 80 || body < 100)) throw new Error('El maletero mide de 25 a 80 cm y el cuerpo debe conservar al menos 100 cm.');
-    if (m.tipo === 'ZapateraBaja' && (m.altoZapatera < 40 || m.altoZapatera > body - 60)) throw new Error('La zapatera baja va de 40 cm a la altura del cuerpo menos 60 cm.');
-    if (m.tipo === 'Vanity' && (m.altoEscritorio < 65 || m.altoEscritorio > 95)) throw new Error('Vanity: el escritorio va de 65 a 95 cm.');
+    if (m.maletero && (m.altoMaletero < 25 || m.altoMaletero > 80 || body < 100)) throw new Error(`El maletero mide de ${medida(25)} a ${medida(80)} y el cuerpo debe conservar al menos ${medida(100)}.`);
+    if (m.tipo === 'ZapateraBaja' && (m.altoZapatera < 40 || m.altoZapatera > body - 60)) throw new Error(`La zapatera baja va de ${medida(40)} a la altura del cuerpo menos ${medida(60)}.`);
+    if (m.tipo === 'Vanity' && (m.altoEscritorio < 65 || m.altoEscritorio > 95)) throw new Error(`Vanity: el escritorio va de ${medida(65)} a ${medida(95)}.`);
   }
 }
 let cfg = defaultConfig(300);
@@ -1738,18 +1738,30 @@ const ajusteIzq = () => cfg.tapetaIzq ? cfg.reservaIzq + (!cfg.tapetaDer ? cfg.c
 const ajusteDer = () => cfg.tapetaDer ? cfg.reservaDer + (cfg.compensacion || 0) - compIzq() : 0;
 /* medidas en la unidad de Ajustes (el modelo siempre en cm): fmt da el numero y uS() el sufijo */
 const fmtNum = v => String(Math.round(v*10)/10);
-const UNIDADES = { cm: ' cm', mm: ' mm', in: '"', ftin: '' };
+const UNIDADES = { cm: ' cm', mm: ' mm', in: '"', inft: '"', ftin: '' };
 const uS = () => UNIDADES[prefs.unidad];
-const unitTag = () => ({ cm: 'cm', mm: 'mm', in: 'in', ftin: 'ft-in' })[prefs.unidad];
+const unitTag = () => ({ cm: 'cm', mm: 'mm', in: 'in', inft: 'in', ftin: 'ft-in' })[prefs.unidad];
 function fmt(v){
   const u = prefs.unidad, st = prefs.paso[u];
   if (u === 'cm' || u === 'mm') { const x = u === 'mm' ? v*10 : v; return String(Math.round(Math.round(x/st)*st*1000)/1000); }
   const den = st, neg = v < 0, n = Math.round(Math.abs(v)/2.54*den), whole = Math.floor(n/den); let fr = n % den, dd = den;
   while (fr && fr % 2 === 0 && dd % 2 === 0) { fr /= 2; dd /= 2; }
   const fs = fr ? fr + '/' + dd : '', sg = neg ? '-' : '';
-  if (u === 'in') return sg + (whole || !fs ? whole : '') + (whole && fs ? ' ' : '') + fs;
-  const ft = Math.floor(whole/12), inch = whole % 12;
-  return sg + (ft ? ft + "' " : '') + (inch || !fs ? inch : '') + (inch && fs ? ' ' : '') + fs + '"';
+  if (u === 'in' || u === 'inft') return sg + (whole || !fs ? whole : '') + (whole && fs ? ' ' : '') + fs;
+  return sg + piesPulgadas(whole, fs);
+}
+/* E10: pies y pulgadas al estilo de los planos de EE. UU., con guion: 10'-0", 1'-11 5/8"; bajo un pie, solo pulgadas */
+function piesPulgadas(whole, fs){
+  const ft = Math.floor(whole/12), inch = whole % 12, pin = (inch || !fs ? inch : '') + (inch && fs ? ' ' : '') + fs;
+  return ft ? ft + "'-" + (pin || '0') + '"' : pin + '"';
+}
+/* cota total en «pulgadas con pies en las totales»: desde 72" (6 ft) sale en ft-in */
+function totalFtIn(text){
+  if (prefs.unidad !== 'inft' || !text.endsWith('"')) return text;
+  const v = parseLen(text); if (isNaN(v) || v < inch(72) - 1e-6) return text;
+  const den = prefs.paso.inft || 16, n = Math.round(v/2.54*den), whole = Math.floor(n/den); let fr = n % den, dd = den;
+  while (fr && fr % 2 === 0 && dd % 2 === 0) { fr /= 2; dd /= 2; }
+  return piesPulgadas(whole, fr ? fr + '/' + dd : '');
 }
 /* lo que se escribe en un campo o cota, en la unidad elegida (acepta tambien 60 cm, 600 mm, 23 5/8" o 1' 11 5/8"); devuelve cm */
 function parseLen(str){
@@ -1779,7 +1791,7 @@ function avisoDoble(m){
   const sup = m.altoSuperior, inf = altoAltos() - sup, minSup = m.tipoSuperior === 'Repisas' ? 15 : 25, minInf = sinPuertas(m) ? 15 : 25;
   const p = [];
   if (sup < minSup) p.push(`el superior mide ${fmt(sup)}${uS()} (se recomiendan ${fmt(minSup)}${uS()} o más)`);
-  if (sup > 60) p.push(`el superior mide ${fmt(sup)}${uS()} (se recomiendan 60${uS()} como máximo)`);
+  if (sup > 60) p.push(`el superior mide ${fmt(sup)}${uS()} (se recomiendan ${medida(60)} como máximo)`);
   if (inf < minInf) p.push(`el inferior mide ${fmt(inf)}${uS()} (se recomiendan ${fmt(minInf)}${uS()} o más)`);
   return p.length ? `<div class="note-sm" style="color:#C2410C">Aviso: ${p.join('; ')}. Se genera igual.</div>` : '';
 }
@@ -1915,7 +1927,7 @@ const splitIndexes = m => m.tipo === 'Cajones' ? Array.from({ length: m.numCajon
 function setSplit(m, i, z){
   const top = i === 1 ? bodyH(m) - topGap(m) : split(m, i - 1) - agarreEntre();
   const v = rd((top - z));
-  if (!isFinite(v) || v < 8) throw new Error('La división deja un frente menor de 8 cm.');
+  if (!isFinite(v) || v < 8) throw new Error(`La división deja un frente menor de ${medida(8)}.`);
   if (m.tipo === 'Cajones') { const f = (m.frentes || []).slice(); while (f.length < m.numCajones - 1) f.push(0); f[i - 1] = v; m.frentes = f; }
   else if (i === 1) m.frenteSup = v; else m.frenteMed = v;
 }
@@ -2980,30 +2992,30 @@ function validate(){
     if (m.ancho > reg().ancho.max + .01) throw new Error(`${what} quedaría de ${fmt(m.ancho)}${uS()} y el máximo es ${medida(reg().ancho.max)}. Añade un módulo o fija otros anchos.`);
     if (hasDrawers(m)) {
       const h = heights(m).slice(0, count(m)); if (m.tipo === 'C') h.push(split(m, 1) - agarreEntre() - .2);
-      if (h.some(v => v < 8)) throw new Error('La división deja un frente menor de 8 cm.');
+      if (h.some(v => v < 8)) throw new Error(`La división deja un frente menor de ${medida(8)}.`);
     }
   }
   /* especiales (Validate de LayoutState) */
   for (const m of cfg.modulos.filter(isSpecial)) {
     const top = altoEsp(m), t = m.espesorLaterales, zb = cfg.baseBajos;
-    if (top < 160) throw new Error('El especial debe terminar entre 160 cm y el tope disponible.');
+    if (top < 160) throw new Error(`El especial debe terminar entre ${medida(160)} y el tope disponible.`);
     if (isRefri(m)) {
-      if (m.huecoRefri < 120 || m.huecoRefri > top || (m.superiorRefri && top - m.huecoRefri < 25)) throw new Error('El hueco de refri requiere al menos 120 cm y el alto superior al menos 25 cm.');
+      if (m.huecoRefri < 120 || m.huecoRefri > top || (m.superiorRefri && top - m.huecoRefri < 25)) throw new Error(`El hueco de refri requiere al menos ${medida(120)} y el alto superior al menos ${medida(25)}.`);
     } else if (isTower(m)) {
-      if (m.aireHornos < 5 || m.aireHornos > 15) throw new Error('Ventilacion posterior de torre: minimo 5 cm.');
+      if (m.aireHornos < 5 || m.aireHornos > 15) throw new Error(`Ventilacion posterior de torre: minimo ${medida(5)}.`);
       const rest = top - zb - m.baseHorno - m.altoHorno - t - (m.microondas ? m.altoMicro + t + microGap(m) : 0);
-      if (m.baseHorno < 25 || m.altoHorno < 40 || m.altoHorno > 90 || (m.microondas && (m.altoMicro < 25 || m.altoMicro > 70)) || rest < 25) throw new Error('Revisa la torre: gabinetes inferior/superior minimo 25 cm, hueco horno 40–90 y micro 25–70 cm.');
-      if (m.torreInferior === 'Cajones' && m.baseHorno < 60) throw new Error('La cajonera de tres cajones necesita un gabinete inferior de al menos 60 cm; usa «Dos cajones».');
-      if (m.torreInferior === 'Dos cajones' && m.baseHorno < 40) throw new Error('La cajonera de dos cajones necesita un gabinete inferior de al menos 40 cm.');
-      if (m.microondas && m.microSobreponer && (m.microAlto < 20 || m.microAlto > 60 || m.microAncho < 30 || m.microAncho > 70)) throw new Error('Microondas de sobreponer: de 30 a 70 cm de ancho y de 20 a 60 cm de alto.');
-      if (towerLift(m) && top - towerTopStart(m) < 45) throw new Error('Torre de hornos: piston + repisas necesita al menos 45 cm sobre el ultimo equipo.');
+      if (m.baseHorno < 25 || m.altoHorno < 40 || m.altoHorno > 90 || (m.microondas && (m.altoMicro < 25 || m.altoMicro > 70)) || rest < 25) throw new Error(`Revisa la torre: gabinetes inferior/superior minimo ${medida(25)}, hueco horno ${medida(40)}–${medida(90)} y micro ${medida(25)}–${medida(70)}.`);
+      if (m.torreInferior === 'Cajones' && m.baseHorno < 60) throw new Error(`La cajonera de tres cajones necesita un gabinete inferior de al menos ${medida(60)}; usa «Dos cajones».`);
+      if (m.torreInferior === 'Dos cajones' && m.baseHorno < 40) throw new Error(`La cajonera de dos cajones necesita un gabinete inferior de al menos ${medida(40)}.`);
+      if (m.microondas && m.microSobreponer && (m.microAlto < 20 || m.microAlto > 60 || m.microAncho < 30 || m.microAncho > 70)) throw new Error(`Microondas de sobreponer: de ${medida(30)} a ${medida(70)} de ancho y de ${medida(20)} a ${medida(60)} de alto.`);
+      if (towerLift(m) && top - towerTopStart(m) < 45) throw new Error(`Torre de hornos: piston + repisas necesita al menos ${medida(45)} sobre el ultimo equipo.`);
     } else {
       if (m.cuerposAlacena < 1 || m.cuerposAlacena > 3 || (top - pantryStart(m))/m.cuerposAlacena < 25) throw new Error('Alacena: elige de 1 a 3 cuerpos.');
-      if (m.cajonesAlacena && (m.altoCajonesAlacena < (m.cajonesDobles ? 40 : 60) || m.altoCajonesAlacena > 100)) throw new Error(`Cajones de alacena: cuerpo de ${m.cajonesDobles ? '40' : '60'} a 100 cm.`);
+      if (m.cajonesAlacena && (m.altoCajonesAlacena < (m.cajonesDobles ? 40 : 60) || m.altoCajonesAlacena > 100)) throw new Error(`Cajones de alacena: cuerpo de ${medida(m.cajonesDobles ? 40 : 60)} a ${medida(100)}.`);
       const hs = pantryHeights(m);
-      if (hs.some(h => h < 25)) throw new Error('Cada cuerpo de alacena necesita al menos 25 cm.');
+      if (hs.some(h => h < 25)) throw new Error(`Cada cuerpo de alacena necesita al menos ${medida(25)}.`);
       if (bodyType(m, hs.length - 1, hs.length) === 'Elevable') {
-        if (hs[hs.length - 1] > 60) throw new Error('El cuerpo superior elevable de la alacena debe medir 60 cm o menos; mueve su división.');
+        if (hs[hs.length - 1] > 60) throw new Error(`El cuerpo superior elevable de la alacena debe medir ${medida(60)} o menos; mueve su división.`);
         /* A42: el entrepaño minimo del elevable (27 cm) ya no detiene: solo aviso en el panel */
       }
     }
@@ -3017,14 +3029,14 @@ function validate(){
       if (m.parrillaAncho < reg().parrilla.min - .01 || m.parrillaAncho > reg().parrilla.max + .01) throw new Error(`La parrilla mide de ${medida(reg().parrilla.min)} a ${medida(reg().parrilla.max)} de ancho.`);
     }
   }
-  if (cfg.generarCubierta && cfg.narizCubierta && (cfg.alturaNariz < cfg.espesorCubierta || cfg.alturaNariz > 15)) throw new Error('La nariz total debe medir entre el espesor de cubierta y 15 cm.');
+  if (cfg.generarCubierta && cfg.narizCubierta && (cfg.alturaNariz < cfg.espesorCubierta || cfg.alturaNariz > 15)) throw new Error(`La nariz total debe medir entre el espesor de cubierta y ${medida(15)}.`);
   validateDoors();
   /* campana, alto doble y cajas unidas */
   for (const m of row(true).filter(q => !q.reserved)) {
     if (hasCampana(m)) {
       const body = altoAltos() - (isDoble(m) ? m.altoSuperior : 0) - m.huecoCampana;
-      if (m.huecoCampana < 5 || m.huecoCampana > 40 || body < -.01 || body > .01 && body < 25) throw new Error('Campana: la canopy visible mide de 5 a 40 cm y el gabinete que la cubre necesita al menos 25 cm (o 0 para usar todo el hueco).');
-      if (m.fondoCampana < 30 || m.fondoCampana > 70) throw new Error('Campana: el fondo debe estar entre 30 y 70 cm.');
+      if (m.huecoCampana < 5 || m.huecoCampana > 40 || body < -.01 || body > .01 && body < 25) throw new Error(`Campana: la canopy visible mide de ${medida(5)} a ${medida(40)} y el gabinete que la cubre necesita al menos ${medida(25)} (o ${medida(0)} para usar todo el hueco).`);
+      if (m.fondoCampana < 30 || m.fondoCampana > 70) throw new Error(`Campana: el fondo debe estar entre ${medida(30)} y ${medida(70)}.`);
     }
     if (espCon(m) !== 'Nada' && m.ancho < espAncho(m) + reg().ancho.min - .01) throw new Error(`Especiero con ${espCon(m) === 'Puerta' ? 'puerta' : 'cajones'}: la columna necesita al menos ${fmt(espAncho(m) + reg().ancho.min)}${uS()}.`);
     /* A50 (usuario): la regla de 25 cm (15 en caja de repisas abierta) y 60 cm es solo aviso (avisoDoble); bloquea lo que no cabe */
@@ -3034,7 +3046,7 @@ function validate(){
   for (const g of capGroups()) if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : g.members.length > 1 && g.width > reg().ancho.max + .01)
     throw new Error(g.lead.tipoSuperior === 'Repisas' ? 'Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.' : `Módulo superior unido: con puertas no puede pasar de ${medida(reg().ancho.max)}; separa columnas o usa caja de repisas.`);
   /* (A39) la caja de repisas corrida ya no tiene limite de columnas: Unir con la columna derecha sigue mientras haya columnas normales */
-  if (cfg.altoBajos < 50) throw new Error('Los gabinetes bajos quedarían de menos de 50 cm.');
+  if (cfg.altoBajos < 50) throw new Error(`Los gabinetes bajos quedarían de menos de ${medida(50)}.`);
   if (row(true).length && altoAltos() < 30) throw new Error(`Los gabinetes altos quedarían de ${fmt(altoAltos())}${uS()}. Baja la cubierta o el libre sobre cubierta, o sube la altura del muro.`);
 }
 
@@ -3075,7 +3087,7 @@ function setFillerWidth(left, value){
   change(c => {
     if (c.tapetaIzq && c.tapetaDer) {
       value = rd(value); const other = rd((ajusteIzq() + ajusteDer() - value));
-      if (value < 1 || other < 1) throw new Error('Cada tapeta debe conservar al menos 1 cm.');
+      if (value < 1 || other < 1) throw new Error(`Cada tapeta debe conservar al menos ${medida(1)}.`);
       if (left) { c.reservaIzq = value; c.reservaDer = other; } else { c.reservaDer = value; c.reservaIzq = other; }
       c.repartoAdaptado = true; c.modulos.forEach(m => m.peso = m.ancho);
     } else {
@@ -3311,7 +3323,7 @@ function label(text, x, y, color = C.ink, font = "500 11.5px 'IBM Plex Mono'"){
 }
 function title(t, sub){
   if (exporting) return;
-  if (prefs.idioma === 'en') { const V = { 'ALZADO':'ELEVATION', 'PLANTA':'PLAN', 'ALZADO FRONTAL':'FRONT ELEVATION', 'VISTA POSTERIOR':'BACK VIEW', 'SECCIÓN TRANSVERSAL':'CROSS SECTION' }; t = V[t] || t; if (sub) sub = sub.startsWith('· ') ? '· ' + trText(sub.slice(2), EN) : trText(sub, EN); }
+  if (prefs.idioma === 'en') { const V = { 'ALZADO':'ELEVATION', 'PLANTA':'PLAN', 'ALZADO FRONTAL':'FRONT ELEVATION', 'VISTA POSTERIOR':'REAR ELEVATION', 'SECCIÓN TRANSVERSAL':'CROSS SECTION' }; t = V[t] || t; if (sub) sub = sub.startsWith('· ') ? '· ' + trText(sub.slice(2), EN) : trText(sub, EN); }
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = C.title; ctx.font = "600 15px 'Inter'"; ctx.fillText(t, 22, 32);
   if (sub) { const w = ctx.measureText(t).width; ctx.fillStyle = C.sub; ctx.font = "400 12.5px 'Inter'"; ctx.fillText(sub, 22 + w + 8, 32); }
@@ -3324,6 +3336,7 @@ function dim(x1, y1, x2, y2, text, key){
   /* unidad en las cotas (Ajustes): solo en las totales (como el real), en todas o en ninguna */
   if (prefs.cotaUnidad === 'todas' && us && !text.endsWith(us) && /[\d"]$/.test(text) && text[0] !== '+') text += us;
   else if (prefs.cotaUnidad === 'ninguna' && us && text.endsWith(us)) text = text.slice(0, -us.length);
+  text = totalFtIn(text);   /* E10 */
   ctx.save();
   ctx.strokeStyle = dc || C.dimLine; ctx.fillStyle = dc || C.dimLine; ctx.lineWidth = 1;
   line(x1, y1, x2, y2);
@@ -4966,7 +4979,7 @@ function closetPanel(m){
   if (T === 'ZapateraBaja' || T === 'Completo') html += section('Zapatera', `<div class="grid-2">${num('cAltoZap', 'Alto de la zapatera baja', m.altoZapatera, 'cm', 40, 200)}</div>`);
   if (T === 'Vanity') html += section('Vanity', `<div class="grid-2">${num('cEsc', 'Alto del escritorio', m.altoEscritorio, 'cm', 65, 95)}${num('cAltoCaj', 'Alto del cajón', m.altoCajonCloset, 'cm', 8, 30)}</div>`
     + `<label class="field" style="margin-top:10px"><span>Espejo</span></label>` + sel('cEspejo', [['Rectangular', 'Rectangular'], ['Circular', 'Circular'], ['Capsula', 'Cápsula']], m.espejo)
-    + `<div class="grid-2" style="margin-top:10px">${num('cRepAlta', 'Repisa alta (0 = sin repisa)', m.repisaAltaVanity, 'cm', 0, 290)}</div><div class="note-sm">Repisa alta en cm desde el zoclo; con maletero es su piso. Escritorio a todo el ancho con un cajón sencillo con jaladera debajo, hueco libre para la silla, espejo pegado al muro y repisa alta.</div>`);
+    + `<div class="grid-2" style="margin-top:10px">${num('cRepAlta', 'Repisa alta (0 = sin repisa)', m.repisaAltaVanity, 'cm', 0, 290)}</div><div class="note-sm">Repisa alta medida desde el zoclo; con maletero es su piso. Escritorio a todo el ancho con un cajón sencillo con jaladera debajo, hueco libre para la silla, espejo pegado al muro y repisa alta.</div>`);
   if (closetGrips(m).length) html += section('', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules del dibujo (maletero, zapatera, escritorio y cajones) o haz clic en su cota.</div>`);
   return html;
 }
@@ -4999,7 +5012,7 @@ function modulePanel(m){
   if (hasCampana(m)) html += section('Campana', `<div class="grid-2">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
   if (isDoble(m) && !hasCampana(m)) {   /* A38: repisas y divisiones del gabinete inferior y del superior */
     const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS;
-    html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo 25 cm libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Forma una caja corrida: repisas y divisiones se reparten en toda la caja.' : ''}</div>`
+    html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Forma una caja corrida: repisas y divisiones se reparten en toda la caja.' : ''}</div>`
       + chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, bodyGroupOf(m) ? 99 : 4, 1)}</div></div>` : ''));
     html += section('Gabinete superior', `<div class="grid-2">${num('supRep', 'Repisas del gabinete superior', cl.repisasSuperior, 'u', 0, mxS, 1)}</div>` + shelfNote(cl.altoSuperior, cl.repisasSuperior)
       + chk('supDiv', cl.divisionSuperior, 'División vertical interna') + (cl.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', cl.divisionesSuperior || 1, 'u', 1, capJoined(cl) ? 99 : 4, 1)}</div></div>` : '')
@@ -5008,8 +5021,8 @@ function modulePanel(m){
   if (isDoble(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + `<div class="note-sm">Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
   if (m.upper && !hasCampana(m) && !isDoble(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
     html += section('Repisas', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete alto', n, 'u', 0, 12, 1)}</div>`
-      + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los 25 cm recomendados. Se generan igual.</div>`
-        : `<div class="note-sm">Mínimo 25 cm libres entre repisas: en este alto caben ${mx}.${showDoors && !sinPuertas(m) ? ' Detrás de las puertas se ven en la vista Interior.' : ''}</div>`)); }
+      + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los ${medida(25)} recomendados. Se generan igual.</div>`
+        : `<div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mx}.${showDoors && !sinPuertas(m) ? ' Detrás de las puertas se ven en la vista Interior.' : ''}</div>`)); }
   if (!m.upper && (m.tipo === 'Puertas' || m.tipo === 'C')) {
     const t = tarjaDe(m);
     let tj = chk('prep', m.preparadoTarja, 'Preparado para tarja') + sel('tarja', [['Sin tarja', 'Sin tarja'], ['Tarja sencilla', 'Tarja sencilla'], ['Tarja doble', 'Tarja doble']], t);
@@ -5053,7 +5066,7 @@ function specialPanel(m){
         + `<div class="grid-2" style="margin-top:10px">${num('repRefri', 'Repisas gabinete superior', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'), showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '') : ''));
   }
   else if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en cada cuerpo o en la cajonera del dibujo para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`);
-  else html += section('Especiero', alturaEspeciero(m) + `<div class="note-sm">Torre de 20 cm con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)'));
+  else html += section('Especiero', alturaEspeciero(m) + `<div class="note-sm">Torre de ${medida(reg().especieroTorre)} con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)'));
   if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.</div>`);
   return html;
 }
@@ -5189,7 +5202,7 @@ function boxPanel(){
   let html = head(isDoble(m) ? 'Gabinete inferior unido' : 'Caja de repisas corrida', `${g.members.length} columnas · ${fmt(g.width)}${uS()}`);
   html += section('Caja', `<button class="btn btn-block" data-act="sepBox">Separar la caja</button>${extBoxBtn(currentBox())}`);
   html += section('Repisas', `<div class="grid-2">${num('repAlto', isDoble(m) ? 'Repisas del gabinete inferior' : 'Repisas de la caja', n, 'u', 0, 12, 1)}</div>`
-    + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los 25 cm recomendados. Se generan igual.</div>` : `<div class="note-sm">Mínimo 25 cm libres entre repisas: en este alto caben ${mx}.</div>`));
+    + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los ${medida(25)} recomendados. Se generan igual.</div>` : `<div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mx}.</div>`));
   html += section('Divisiones', chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, 99, 1)}</div></div>` : ''));
   return html + `<div class="p-foot"><button class="btn btn-block" data-act="closePart">Volver a las columnas</button></div>`;
 }
@@ -5504,17 +5517,19 @@ function renderMatEditor(){
 /* =======================================================================
  * ESTILO (StyleTab.cs)
  * ======================================================================= */
+/* E9: las jaladeras se venden por su distancia entre centros en mm (tambien en EE. UU.); la lista conserva un largo propio */
+const largosJaladera = () => { const l = [9.6, 12.8, 16, 19.2, 22.4, 25.6, 32]; if (!l.some(v => Math.abs(v - cfg.largoJaladera) < .01)) l.push(cfg.largoJaladera); return l.sort((a, b) => a - b); };
 function renderStyle(){
   const opt = (name, value, current, t, d) => `<label class="opt${current === value ? ' on' : ''}"><input type="radio" name="${name}" value="${value}" ${current === value ? 'checked' : ''}><div><div class="t">${t}</div>${d ? `<div class="d">${d}</div>` : ''}</div></label>`;
   let html = section('Estilo de frentes', opt('style', 'Moderna', cfg.style, 'Moderna', 'Frentes lisos con gola y perfil.') + opt('style', 'Clasica', cfg.style, 'Clásica', 'Puertas shaker con jaladeras.') + opt('style', 'Simple', cfg.style, 'Simple', 'Frentes lisos con jaladeras, sin marcos.'));
-  if (cfg.style === 'Moderna') html += section('Agarre de gola', opt('gola', 'L', cfg.gola, 'Aluminio', 'L superior / C entre cajones.') + opt('gola', 'Melamina', cfg.gola, 'Melamina 1.8 cm', 'Solo en gabinetes bajos.') + `<div class="note">Los frentes son lisos y se abren por el uñero de la gola.</div>`);
+  if (cfg.style === 'Moderna') html += section('Agarre de gola', opt('gola', 'L', cfg.gola, 'Aluminio', 'L superior / C entre cajones.') + opt('gola', 'Melamina', cfg.gola, cfg.region === 'US' ? 'Melamina 3/4"' : 'Melamina 1.8 cm', 'Solo en gabinetes bajos.') + `<div class="note">Los frentes son lisos y se abren por el uñero de la gola.</div>`);
   if (cfg.style !== 'Moderna' || cfg.closet) html += section(cfg.style === 'Moderna' ? 'Jaladera (puertas, elevables y cajón del vanity)' : 'Jaladera', opt('jal', 'Barra', cfg.jaladera, 'Barra tipo tubo', '') + opt('jal', 'Boton', cfg.jaladera, 'Botón / perilla', '')
-    + (cfg.jaladera === 'Barra' ? `<div class="grid-2" style="margin-top:12px"><label class="field"><span>Largo de la barra</span><div class="unit" data-unit="cm"><input type="number" id="jalLargo" value="${cfg.largoJaladera}" min="8" max="40" step="0.8"></div></label></div>` : '')
+    + (cfg.jaladera === 'Barra' ? `<div class="grid-2" style="margin-top:12px"><label class="field"><span>Largo de la barra (entre centros)</span><select id="jalLargo">${largosJaladera().map(v => `<option value="${v}" ${Math.abs(v - cfg.largoJaladera) < .01 ? 'selected' : ''}>${Math.round(v*10)} mm${prefs.unidad === 'cm' || prefs.unidad === 'mm' ? '' : ' (' + medida(v) + ')'}</option>`).join('')}</select></label></div>` : '')
     + `<div class="note">Puertas y cajones cierran a hueso${cfg.style === 'Clasica' ? ', con marco shaker' : ''} y jaladera.</div>`);
   if (cfg.style === 'Clasica') html += section('Marco shaker', `<div class="grid-2">${lenField('id="shakerAncho"', 'Ancho del marco', cfg.anchoShaker || 5)}</div>`
-    + '<div class="note">El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos 2 cm.</div>');
+    + `<div class="note">El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos ${medida(2)}.</div>`);
   html += section('Herrajes', `<label class="check"><input type="checkbox" id="hinge" ${cfg.bisagras ? 'checked' : ''}>Bisagras de cazoleta en las puertas</label>`);
-  if (cfg.closet) html = section('Puertas del closet', opt('pcl', 'Abatibles', cfg.puertasCloset, 'Abatibles por módulo', 'Dos hojas a partir de 60 cm.') + opt('pcl', 'Correderas', cfg.puertasCloset, 'Correderas para todo el tramo', '')
+  if (cfg.closet) html = section('Puertas del closet', opt('pcl', 'Abatibles', cfg.puertasCloset, 'Abatibles por módulo', `Dos hojas a partir de ${medida(60)}.`) + opt('pcl', 'Correderas', cfg.puertasCloset, 'Correderas para todo el tramo', '')
       + opt('pcl', 'Sin puertas', cfg.puertasCloset, 'Sin puertas', 'Closet abierto.')
       + `<div class="grid-2" style="margin-top:12px"><label class="field"><span>Hojas correderas (0 = automático)</span><div class="unit" data-unit="u"><input type="number" id="hojasCor" value="${cfg.hojasCorredera}" min="0" max="8" step="1" ${closetSliding() ? '' : 'disabled'}></div></label></div>`
       + `<div class="note">Con abatibles el cuerpo retrocede el espesor de la hoja. Correderas: sistema Ducasse D52 al piso dentro de vano (riel inferior, guía superior bajo una tapeta de 8 cm, hojas casi a tope con 3 cm de traslape), sin zoclo. En estilo moderno los cajones llevan perfiles gola de aluminio (L superior con hueco de 35 mm, C intermedio con hueco de 30 mm); en clásico, jaladeras.</div>`) + html;
@@ -5524,7 +5539,7 @@ function renderStyle(){
   el.querySelectorAll('input[name=style]').forEach(r => r.addEventListener('change', e => change(c => c.style = e.target.value)));
   el.querySelectorAll('input[name=gola]').forEach(r => r.addEventListener('change', e => change(c => c.gola = e.target.value)));
   el.querySelectorAll('input[name=jal]').forEach(r => r.addEventListener('change', e => change(c => c.jaladera = e.target.value)));
-  const jl = document.getElementById('jalLargo'); if (jl) jl.addEventListener('change', e => change(c => c.largoJaladera = parseFloat(e.target.value) || c.largoJaladera));
+  const jl = document.getElementById('jalLargo'); if (jl) jl.addEventListener('change', e => change(c => c.largoJaladera = parseFloat(e.target.value) || c.largoJaladera));   /* E9: lista de medidas de fabrica */
   const sh = document.getElementById('shakerAncho');
   if (sh) { sh.addEventListener('change', e => { const v = parseLen(e.target.value); if (isNaN(v)) { renderStyle(); return; } change(c => c.anchoShaker = Math.max(1, Math.min(10, v))); });
     sh.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }); }
@@ -5535,13 +5550,13 @@ function renderStyle(){
  * TOOLBAR / PESTANAS / ESTADO
  * ======================================================================= */
 const EN = {
-  "Caja de repisas corrida": "Continuous shelf box", "Separar la caja": "Split the box", "Añadir la columna derecha": "Add the right column", "Caja": "Box",
+  "Caja de repisas corrida": "Continuous open shelf", "Separar la caja": "Split the box", "Añadir la columna derecha": "Add the right column", "Caja": "Box",
   "Divisiones verticales": "Vertical dividers", "No hay columna a la derecha para unir.": "There is no column on the right to join.", "La columna derecha es un especial: no se puede unir.": "The right column is a special unit: it cannot be joined.",
-  "gabinetes": "cabinets", "paneles": "panels", "zoclo": "plinth",
-  "haz clic en un gabinete, la cubierta, el zoclo o una cota para editarlo": "click a cabinet, the countertop, the plinth or a dimension to edit it",
+  "gabinetes": "cabinets", "paneles": "panels", "zoclo": "toe kick",
+  "haz clic en un gabinete, la cubierta, el zoclo o una cota para editarlo": "click a cabinet, the countertop, the toe kick or a dimension to edit it",
   "arrastra en vacío para seleccionar varios": "drag on empty space to select several",
   "los contornos punteados activan piezas ocultas.": "dashed outlines turn on hidden parts.",
-  "haz clic en un módulo, el zoclo, una tapeta o una cota para editarlo": "click a module, the plinth, a filler or a dimension to edit it",
+  "haz clic en un módulo, el zoclo, una tapeta o una cota para editarlo": "click a cabinet, the toe kick, a filler or a dimension to edit it",
   "las puertas se eligen en la pestaña Estilo": "doors are chosen in the Style tab",
   "clic para seleccionarlo y editarlo a la derecha": "click to select it and edit it on the right",
   "Ctrl + clic suma a la selección": "Ctrl + click adds to the selection",
@@ -5550,34 +5565,34 @@ const EN = {
   "doble clic para seleccionarla (después, Ctrl + clic suma piezas)": "double-click to select it (then Ctrl + click adds parts)",
   "un clic selecciona el gabinete": "one click selects the cabinet",
   "arrastra un material sobre la pieza.": "drag a material onto the part.",
-  "Cota editable · haz clic, escribe la medida y pulsa Enter.": "Editable dimension · click, type the value and press Enter.",
-  "División entre frentes · arrástrala para cambiar las alturas, o haz clic en su cota.": "Division between fronts · drag it to change the heights, or click its dimension.",
+  "Cota editable · haz clic, escribe la medida y pulsa Enter.": "Editable dimension · click, type a size (e.g. 30 or 2'-6\"), and press Enter.",
+  "División entre frentes · arrástrala para cambiar las alturas, o haz clic en su cota.": "Drawer/door split · drag to resize the fronts, or click its dimension.",
   "Backsplash · clic para editar su altura, espesor y la iluminación LED.": "Backsplash · click to edit its height, thickness and LED lighting.",
   "Barra elevada · clic para editar ancho, elevación, vuelos laterales y su cascada propia · arrastra un material solo para la barra.": "Raised bar · click to edit width, rise, side overhangs and its own waterfall · drag a material for the bar only.",
   "Cascadas de cubierta · clic para activar cada lado · se seleccionan en conjunto · Supr las quita.": "Countertop waterfalls · click to turn on each side · selected together · Del removes them.",
-  "Cubierta · clic para editar espesor, nariz, vuelo · arrastra un material para cambiar su acabado.": "Countertop · click to edit thickness, nosing, overhang · drag a material to change its finish.",
-  "Cubierta · clic para editar espesor, nariz, vuelo, ancho de isla, cascadas y barra elevada · arrastra un material para cambiar su acabado.": "Countertop · click to edit thickness, nosing, overhang, island width, waterfalls and raised bar · drag a material to change its finish.",
-  "Franja gola · clic para elegir el perfil · arrastra un material sobre la franja.": "Gola strip · click to choose the profile · drag a material onto the strip.",
+  "Cubierta · clic para editar espesor, nariz, vuelo · arrastra un material para cambiar su acabado.": "Countertop · click to set thickness, edge build-up, and overhang · drag a material to change the finish.",
+  "Cubierta · clic para editar espesor, nariz, vuelo, ancho de isla, cascadas y barra elevada · arrastra un material para cambiar su acabado.": "Countertop · click to edit thickness, built-up edge, overhang, island width, waterfalls and raised bar · drag a material to change its finish.",
+  "Franja gola · clic para elegir el perfil · arrastra un material sobre la franja.": "Gola channel · click to choose the profile · drag a finish onto it.",
   "Gabinete de pistón de la puerta oculta · clic para editar su alto o quitarlo.": "Hidden door lift-up cabinet · click to edit its height or remove it.",
   "Horno · clic para editar su alto libre, la rejilla y el microondas.": "Oven · click to edit its clear height, the grille and the microwave.",
   "Línea de corte · arrástrala para elegir por dónde se corta la sección transversal.": "Cut line · drag it to choose where the cross section is cut.",
   "Microondas · clic para editar su alto libre o quitarlo.": "Microwave · click to edit its clear height or remove it.",
   "Monomando · clic para mostrarlo u ocultarlo.": "Faucet · click to show or hide it.",
-  "Muro · clic para editar la altura total y la colocación.": "Wall · click to edit the total height and placement.",
-  "Módulo superior · un clic selecciona la columna completa · doble clic para elegir puerta elevable, dos puertas o caja de repisas, sus repisas, su alto y unirlo con la columna vecina · arrastra un material sobre él · Supr lo quita.": "Top module · one click selects the whole column · double-click to choose lift-up door, two doors or shelf box, its shelves, its height and to join it with the next column · drag a material onto it · Del removes it.",
+  "Muro · clic para editar la altura total y la colocación.": "Wall · click to set ceiling height and placement.",
+  "Módulo superior · un clic selecciona la columna completa · doble clic para elegir puerta elevable, dos puertas o caja de repisas, sus repisas, su alto y unirlo con la columna vecina · arrastra un material sobre él · Supr lo quita.": "Stacker · one click selects the whole column · double-click to choose lift-up door, two doors or open shelves, its shelves, its height and to join it with the next column · drag a material onto it · Del removes it.",
   "Panel posterior · clic para editar su ancho, añadir o quitar paneles · haz clic en su cota para escribir la medida · arrastra un material desde la pestaña Materiales.": "Back panel · click to edit its width, add or remove panels · click its dimension to type the value · drag a material from the Materials tab.",
   "Planta · haz clic en la cubierta, una cascada, la barra elevada o una cota (gabinetes, tramo intermedio, barra y ancho total) · los gabinetes se editan en el alzado frontal.": "Plan · click the countertop, a waterfall, the raised bar or a dimension (cabinets, middle run, bar and total width) · cabinets are edited in the front elevation.",
   "Planta · haz clic en un gabinete, la cubierta o una cota · el botón de vistas cambia de esquema.": "Plan · click a cabinet, the countertop or a dimension · the views button switches the scheme.",
-  "Puerta oculta · clic para editar ancho, abatimiento, gabinete de pistón, tapetas y zoclo · queda fuera de la cota del muro · Supr la quita.": "Hidden door · click to edit width, swing, lift-up cabinet, fillers and plinth · it sits outside the wall dimension · Del removes it.",
+  "Puerta oculta · clic para editar ancho, abatimiento, gabinete de pistón, tapetas y zoclo · queda fuera de la cota del muro · Supr la quita.": "Hidden door · click to edit width, swing, lift-up cabinet, fillers and toe kick · it sits outside the wall dimension · Del removes it.",
   "Rejilla de ventilación · clic para editar su alto o quitarla.": "Vent grille · click to edit its height or remove it.",
-  "Sección transversal · arrastra las guías: verde = fondo de los gabinetes, azul = paneles posteriores, naranja = zoclo posterior · la posición del corte se mueve en la planta (línea roja) · arrastra materiales sobre el gabinete, la cubierta, la barra o su peralte · las cotas en azul también se editan con clic.": "Cross section · drag the guides: green = cabinet depth, blue = back panels, orange = back plinth · the cut position moves in the plan (red line) · drag materials onto the cabinet, the countertop, the bar or its riser · blue dimensions are also edited with a click.",
-  "Tapeta de extremo · clic para activarla y dar su ancho.": "End filler · click to turn it on and set its width.",
+  "Sección transversal · arrastra las guías: verde = fondo de los gabinetes, azul = paneles posteriores, naranja = zoclo posterior · la posición del corte se mueve en la planta (línea roja) · arrastra materiales sobre el gabinete, la cubierta, la barra o su peralte · las cotas en azul también se editan con clic.": "Cross section · drag the guides: green = cabinet depth, blue = back panels, orange = back toe kick · the cut position moves in the plan (red line) · drag materials onto the cabinet, the countertop, the bar or its riser · blue dimensions are also edited with a click.",
+  "Tapeta de extremo · clic para activarla y dar su ancho.": "End filler · click to add it and set its width.",
   "Tapeta lateral de la puerta oculta · clic para activarla y dar su ancho · Supr la quita.": "Hidden door side filler · click to turn it on and set its width · Del removes it.",
   "Tapeta superior de la puerta oculta · clic para activarla y dar su altura · Supr la quita.": "Hidden door top filler · click to turn it on and set its height · Del removes it.",
-  "Tapeta superior · clic para activarla y dar su altura · doble clic la desactiva.": "Top filler · click to turn it on and set its height · double-click turns it off.",
-  "Tarja · clic para editar sus medidas y el retiro frontal.": "Sink · click to edit its size and front setback.",
-  "Vista posterior · haz clic en un panel, la barra elevada, una cascada o el zoclo · los gabinetes se editan en el alzado frontal.": "Back view · click a panel, the raised bar, a waterfall or the plinth · cabinets are edited in the front elevation.",
-  "Zoclo · clic para editar altura, retiro y cierres de extremo.": "Plinth · click to edit height, setback and end closures.",
+  "Tapeta superior · clic para activarla y dar su altura · doble clic la desactiva.": "Top filler · click to add it and set its height · double-click to remove.",
+  "Tarja · clic para editar sus medidas y el retiro frontal.": "Sink · click to set bowl size and front setback.",
+  "Vista posterior · haz clic en un panel, la barra elevada, una cascada o el zoclo · los gabinetes se editan en el alzado frontal.": "Rear elevation · click a panel, the raised bar, a waterfall or the toe kick · cabinets are edited in the front elevation.",
+  "Zoclo · clic para editar altura, retiro y cierres de extremo.": "Toe kick · click to set height, setback, and end returns.",
   "Añadir una puerta oculta en este extremo: hoja de piso a techo que parece gabinete, fuera de la cota del muro.": "Add a hidden door at this end: a floor-to-ceiling leaf that looks like a cabinet, outside the wall dimension.",
   "lado de los bancos": "stool side",
   "el extremo izquierdo del alzado queda a la derecha": "the left end of the elevation is on the right",
@@ -5590,7 +5605,7 @@ const EN = {
   "bancos a la derecha": "stools on the right",
   "Editor cerrado sin generar (prototipo).": "Editor closed without generating (prototype).",
   "Prototipo de interfaz: la generación 3D real todavía no está conectada.": "Interface prototype: real 3D generation is not connected yet.",
-  "Módulos intercambiados.": "Modules swapped.",
+  "Módulos intercambiados.": "Cabinets swapped.",
   "Valores de inicio tomados de la distribución actual.": "Starting values taken from the current layout.",
   "Soltar para intercambiar": "Drop to swap",
   "Actualizaciones": "Updates",
@@ -5604,19 +5619,19 @@ const EN = {
   "En el plugin, Wall-closet toma la cara del muro (largo y altura). El prototipo abre un closet de 240 cm de largo en un muro de 240 cm. ¿Continuar? La distribución actual se descarta.": "In the plugin, Wall-closet takes the wall face (length and height). The prototype opens a 240 cm long closet on a 240 cm wall. Continue? The current layout is discarded.",
   "salir": "closing",
   "generar": "generating",
-  "Intercambiar módulos": "Swap modules",
-  "Intercambia módulos dentro de su fila.": "Swap modules within their row.",
-  "Centrar módulo": "Center module",
-  "Activa ambas tapetas para ajustar libremente una y compensar en la otra.": "Turn on both fillers to adjust one freely and compensate with the other.",
-  "Alacena: elige de 1 a 3 cuerpos.": "Pantry: choose 1 to 3 bodies.",
-  "Añade al menos un módulo.": "Add at least one module.",
-  "Cada cuerpo de alacena necesita al menos 25 cm.": "Each pantry body needs at least 25 cm.",
+  "Intercambiar módulos": "Swap cabinets",
+  "Intercambia módulos dentro de su fila.": "Swap cabinets within their row.",
+  "Centrar módulo": "Center cabinet",
+  "Activa ambas tapetas para ajustar libremente una y compensar en la otra.": "Turn on both fillers to resize one freely; the other one makes up the difference.",
+  "Alacena: elige de 1 a 3 cuerpos.": "Pantry: choose 1 to 3 sections.",
+  "Añade al menos un módulo.": "Add at least one cabinet.",
+  "Cada cuerpo de alacena necesita al menos 25 cm.": "Each pantry section needs at least 25 cm.",
   "Cada tapeta debe conservar al menos 1 cm.": "Each filler must keep at least 1 cm.",
-  "Caja de repisas corrida: abarca hasta 3 columnas.": "Continuous shelf box: spans up to 3 columns.",
+  "Caja de repisas corrida: abarca hasta 3 columnas.": "Continuous open shelf: spans up to 3 columns.",
   "Campana: el fondo debe estar entre 30 y 70 cm.": "Hood: depth must be between 30 and 70 cm.",
   "Campana: la canopy visible mide de 5 a 40 cm y el gabinete que la cubre necesita al menos 25 cm (o 0 para usar todo el hueco).": "Hood: the visible canopy is 5 to 40 cm and the cabinet covering it needs at least 25 cm (or 0 to use the whole space).",
-  "El cuerpo del closet debe medir entre 150 y 300 cm de alto.": "The closet body must be 150 to 300 cm high.",
-  "El cuerpo superior elevable de la alacena debe medir 60 cm o menos; mueve su división.": "The pantry’s lift-up top body must be 60 cm or less; move its division.",
+  "El cuerpo del closet debe medir entre 150 y 300 cm de alto.": "The closet case must be 150 to 300 cm high.",
+  "El cuerpo superior elevable de la alacena debe medir 60 cm o menos; mueve su división.": "The pantry’s lift-up top section must be 60 cm or less; move its division.",
   "El especial debe terminar entre 160 cm y el tope disponible.": "The special unit must end between 160 cm and the available top.",
   "El espesor de la barra elevada debe estar entre 1 y 10 cm.": "The raised bar thickness must be between 1 and 10 cm.",
   "El espesor de tableros del closet va de 1.5 a 2.5 cm.": "Closet board thickness goes from 1.5 to 2.5 cm.",
@@ -5624,44 +5639,44 @@ const EN = {
   "El gabinete de pistón sobre la puerta oculta mide de 25 a 60 cm.": "The lift-up cabinet above the hidden door is 25 to 60 cm.",
   "El grupo debe caber en posiciones libres de la misma selección.": "The group must fit in free positions of the same selection.",
   "El hueco de refri requiere al menos 120 cm y el alto superior al menos 25 cm.": "The fridge space needs at least 120 cm and the top height at least 25 cm.",
-  "El maletero mide de 25 a 80 cm y el cuerpo debe conservar al menos 100 cm.": "Top storage is 25 to 80 cm and the body must keep at least 100 cm.",
+  "El maletero mide de 25 a 80 cm y el cuerpo debe conservar al menos 100 cm.": "Top storage is 25 to 80 cm and the section must keep at least 100 cm.",
   "El paño de la puerta oculta va de 35 a 70 cm desde el muro.": "The hidden door face goes from 35 to 70 cm from the wall.",
   "El vuelo lateral de la barra elevada debe estar entre 0 y 30 cm.": "The raised bar side overhang must be between 0 and 30 cm.",
-  "Elige de 0 a 12 repisas por cuerpo.": "Choose 0 to 12 shelves per body.",
-  "Elige de 0 a 6 repisas por cuerpo.": "Choose 0 to 6 shelves per body.",
+  "Elige de 0 a 12 repisas por cuerpo.": "Choose 0 to 12 shelves per section.",
+  "Elige de 0 a 6 repisas por cuerpo.": "Choose 0 to 6 shelves per section.",
   "Especial: ancho minimo 45 cm, fondo 50–80 cm y laterales 1–5 cm.": "Special unit: minimum width 45 cm, depth 50–80 cm and sides 1–5 cm.",
-  "Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.": "Joined top cabinet: the shelf box spans up to 3 columns.",
+  "Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.": "Joined top cabinet: the open shelves spans up to 3 columns.",
   "La cajonera de dos cajones necesita un gabinete inferior de al menos 40 cm.": "The two-drawer unit needs a lower cabinet of at least 40 cm.",
   "La cajonera de tres cajones necesita un gabinete inferior de al menos 60 cm; usa «Dos cajones».": "The three-drawer unit needs a lower cabinet of at least 60 cm; use “Two drawers”.",
   "La división deja un frente menor de 8 cm.": "The division leaves a front smaller than 8 cm.",
   "La elevación de la barra debe estar entre 5 y 40 cm.": "The bar rise must be between 5 and 40 cm.",
   "La estufa mide de 50 a 92 cm de ancho (60 con 4 quemadores, 75 a 80 con 6).": "The range is 50 to 92 cm wide (60 with 4 burners, 75 to 80 with 6).",
-  "La isla solo admite gabinetes bajos (sin refrigerador, torre ni alacena).": "The island only takes base cabinets (no refrigerator, tower or pantry).",
-  "La nariz total debe medir entre el espesor de cubierta y 15 cm.": "Total nosing must be between the countertop thickness and 15 cm.",
-  "La nueva distancia no admite estos módulos entre sus anchos mínimos y 120 cm. Ajusta la cantidad o el equipo.": "The new distance does not fit these modules between their minimum widths and 120 cm. Adjust the count or the appliance.",
+  "La isla solo admite gabinetes bajos (sin refrigerador, torre ni alacena).": "Islands take base cabinets only — no refrigerator, oven cabinet, or tall pantry.",
+  "La nariz total debe medir entre el espesor de cubierta y 15 cm.": "Total built-up edge must be between the countertop thickness and 15 cm.",
+  "La nueva distancia no admite estos módulos entre sus anchos mínimos y 120 cm. Ajusta la cantidad o el equipo.": "The new distance does not fit these cabinets between their minimum widths and 120 cm. Adjust the count or the appliance.",
   "La parrilla mide de 30 a 90 cm de ancho.": "The cooktop is 30 to 90 cm wide.",
   "La parrilla no puede ir sobre el gabinete de la tarja.": "The cooktop cannot go over the sink cabinet.",
-  "La puerta elevable necesita al menos dos cuerpos: añade uno.": "The lift-up door needs at least two bodies: add one.",
+  "La puerta elevable necesita al menos dos cuerpos: añade uno.": "The lift-up door needs at least two sections: add one.",
   "La puerta oculta mide de 60 a 120 cm de ancho.": "The hidden door is 60 to 120 cm wide.",
   "La tapeta lateral de la puerta oculta mide de 2 a 15 cm.": "The hidden door side filler is 2 to 15 cm.",
-  "La zapatera baja va de 40 cm a la altura del cuerpo menos 60 cm.": "The low shoe rack goes from 40 cm to the body height minus 60 cm.",
+  "La zapatera baja va de 40 cm a la altura del cuerpo menos 60 cm.": "The low shoe rack goes from 40 cm to the section height minus 60 cm.",
   "Las puertas correderas necesitan un tramo de al menos 80 cm.": "Sliding doors need a run of at least 80 cm.",
   "Los anchos fijos de la misma columna no coinciden. Libera uno antes de reorganizar.": "Fixed widths in the same column do not match. Release one before rearranging.",
   "Los especiales requieren ambas filas emparejadas para reservar su columna.": "Special units need both rows paired to reserve their column.",
   "Los gabinetes bajos quedarían de menos de 50 cm.": "Base cabinets would be less than 50 cm.",
-  "Los módulos de la derecha no caben al centrar.": "The modules on the right do not fit when centering.",
+  "Los módulos de la derecha no caben al centrar.": "The cabinets on the right do not fit when centering.",
   "Los paneles posteriores de ancho fijo no dejan al menos 10 cm para los demás.": "Fixed-width back panels do not leave at least 10 cm for the others.",
   "Microondas de sobreponer: de 30 a 70 cm de ancho y de 20 a 60 cm de alto.": "Countertop microwave: 30 to 70 cm wide and 20 to 60 cm high.",
-  "Módulo inferior + superior: cada módulo necesita al menos 25 cm (15 si es caja de repisas abierta); el superior, 60 cm como máximo.": "Lower + top module: each module needs at least 25 cm (15 for an open shelf box); the top one, 60 cm at most.",
-  "Módulo superior unido: con puertas no puede pasar de 120 cm; separa columnas o usa caja de repisas.": "Joined top module: with doors it cannot exceed 120 cm; split columns or use a shelf box.",
-  "No hay espacio para centrar este módulo con los anchos mínimos de sus vecinos.": "There is no room to center this module with its neighbors’ minimum widths.",
+  "Módulo inferior + superior: cada módulo necesita al menos 25 cm (15 si es caja de repisas abierta); el superior, 60 cm como máximo.": "Stacked wall cabinet: each cabinet needs at least 25 cm (15 for open shelves); the top one, 60 cm at most.",
+  "Módulo superior unido: con puertas no puede pasar de 120 cm; separa columnas o usa caja de repisas.": "Joined stacker: with doors it cannot exceed 120 cm; split columns or use open shelves.",
+  "No hay espacio para centrar este módulo con los anchos mínimos de sus vecinos.": "There is no room to center this cabinet with its neighbors’ minimum widths.",
   "No queda ningún ancho automático en la fila. Libera uno para repartir el espacio.": "No automatic width is left in the row. Release one to share the space.",
   "No se pudo adaptar el ancho.": "The width could not be adapted.",
-  "Para centrar hacen falta módulos a ambos lados.": "Centering needs modules on both sides.",
-  "Para vincular anchos, ambas filas necesitan el mismo número de módulos. Añade o elimina módulos para emparejarlas.": "To link widths, both rows need the same number of modules. Add or delete modules to pair them.",
+  "Para centrar hacen falta módulos a ambos lados.": "Centering needs cabinets on both sides.",
+  "Para vincular anchos, ambas filas necesitan el mismo número de módulos. Añade o elimina módulos para emparejarlas.": "To link widths, both rows need the same number of cabinets. Add or delete cabinets to pair them.",
   "Revisa la torre: gabinetes inferior/superior minimo 25 cm, hueco horno 40–90 y micro 25–70 cm.": "Check the tower: lower/upper cabinets at least 25 cm, oven space 40–90 and microwave 25–70 cm.",
   "Solo cabe una puerta oculta por lado.": "Only one hidden door fits per side.",
-  "Torre de hornos: piston + repisas necesita al menos 45 cm sobre el ultimo equipo.": "Oven tower: lift-up + shelves needs at least 45 cm above the last appliance.",
+  "Torre de hornos: piston + repisas necesita al menos 45 cm sobre el ultimo equipo.": "Oven cabinet: lift-up + shelves needs at least 45 cm above the last appliance.",
   "Vanity: el escritorio va de 65 a 95 cm.": "Vanity: the desk goes from 65 to 95 cm.",
   "Ventilacion posterior de torre: minimo 5 cm.": "Tower rear ventilation: at least 5 cm.",
   "Detrás de las puertas se ven en la vista Interior.": "Behind the doors they show in the Interior view.",
@@ -5686,9 +5701,9 @@ const EN = {
   "1 repisa": "1 shelf",
   "Añade un bajo para ver la cubierta": "Add a base cabinet to see the countertop",
   "Vanity · cajón bajo el escritorio": "Vanity · drawer under the desk",
-  "Cuerpo": "Body",
+  "Cuerpo": "Section",
   "Repisa": "Shelf",
-  "Fondo interior": "Inner back",
+  "Fondo interior": "Back panel",
   "División vertical": "Vertical divider",
   "Gabinete": "Cabinet",
   "Gabinete inferior": "Lower cabinet",
@@ -5698,14 +5713,14 @@ const EN = {
   "Dos cajones": "Two drawers",
   "Gola": "Gola",
   "Perfil": "Profile",
-  "Jaladera": "Handle",
+  "Jaladera": "Pull",
   "Piston": "Lift-up",
   "Micro": "Microwave",
   "Peralte de la barra": "Bar riser",
   "Posterior": "Back",
   "Seccion": "Section",
   "SECCIÓN TRANSVERSAL": "CROSS SECTION",
-  "Juntas de la puerta oculta": "Hidden door joints",
+  "Juntas de la puerta oculta": "Hidden door reveals",
   "Todos los gabinetes": "All cabinets",
   "Un gabinete alto": "One upper cabinet",
   "Un gabinete bajo": "One base cabinet",
@@ -5724,16 +5739,16 @@ const EN = {
   "izq.": "left",
   "der.": "right",
   "Usar su material en todas las repisas de la cocina": "Use its material on all kitchen shelves",
-  "Usar su material en todos los fondos interiores": "Use its material on all inner backs",
+  "Usar su material en todos los fondos interiores": "Use its material on all back panels",
   "Editar": "Edit",
   "Cocina · Distribución": "Kitchen · Layout",
   "Closet · Distribución": "Closet · Layout",
   "Roble claro": "Light oak",
   "Blanco mate": "Matte white",
-  "Granito gris": "Grey granite",
+  "Granito gris": "Gray granite",
   "Subway blanco": "White subway",
   "Azul marino": "Navy blue",
-  "Azul petróleo": "Petrol blue",
+  "Azul petróleo": "Deep teal",
   "Beige": "Beige",
   "Blanco": "White",
   "Cerezo": "Cherry",
@@ -5742,7 +5757,7 @@ const EN = {
   "Cuarzo blanco": "White quartz",
   "Grafito": "Graphite",
   "Granito": "Granite",
-  "Gris claro": "Light grey",
+  "Gris claro": "Light gray",
   "Maple": "Maple",
   "Melamina": "Melamine",
   "Mármol": "Marble",
@@ -5765,13 +5780,13 @@ const EN = {
   "Render fotorrealista de un closet a partir del alzado adjunto.": "Photorealistic render of a closet based on the attached elevation.",
   "Render fotorrealista de una cocina a partir del alzado adjunto (la planta sirve de referencia de fondos y equipos).": "Photorealistic render of a kitchen based on the attached elevation (the plan is a reference for depths and appliances).",
   "Render fotorrealista de una isla de cocina a partir del alzado adjunto (la planta sirve de referencia de fondos y equipos).": "Photorealistic render of a kitchen island based on the attached elevation (the plan is a reference for depths and appliances).",
-  "Respeta exactamente la distribución, las proporciones y las divisiones de puertas y cajones del dibujo; no añadas ni quites módulos.": "Follow exactly the layout, proportions and door and drawer divisions of the drawing; do not add or remove modules.",
+  "Respeta exactamente la distribución, las proporciones y las divisiones de puertas y cajones del dibujo; no añadas ni quites módulos.": "Follow exactly the layout, proportions and door and drawer divisions of the drawing; do not add or remove cabinets.",
   "Algunos gabinetes llevan un material distinto: respeta los colores del dibujo.": "Some cabinets use a different material: keep the colors of the drawing.",
   "Iluminación natural suave, cámara frontal a la altura de los ojos, piso y muro neutros, sin personas, sin texto ni cotas.": "Soft natural lighting, front camera at eye level, neutral floor and wall, no people, no text or dimensions.",
-  "clásico con marco shaker y jaladeras": "classic with shaker frame and handles",
-  "frentes lisos con jaladeras": "flat fronts with handles",
-  "moderno, liso, sin jaladeras (uñero gola)": "modern, flat, no handles (gola groove)",
-  'Bisagras de cazoleta en las puertas': 'Concealed hinges on doors',
+  "clásico con marco shaker y jaladeras": "classic with shaker frame and pulls",
+  "frentes lisos con jaladeras": "flat fronts with pulls",
+  "moderno, liso, sin jaladeras (uñero gola)": "modern, flat, no pulls (gola groove)",
+  'Bisagras de cazoleta en las puertas': 'Concealed European hinges on doors',
   'Quita el material propio': 'Removes the own material',
   'Ancho final': 'Final width',
   'Ancho libre': 'Clear width',
@@ -5782,13 +5797,13 @@ const EN = {
   'Clic': 'Click',
   'para editarla.': 'to edit it.',
   'para editarla (otro clic la cierra); los cambios se aplican al momento.': 'to edit it (click again to close); changes apply right away.',
-  'Jaladera (puertas, elevables y cajón del vanity)': 'Handle (doors, lift-ups and vanity drawer)',
-  'Puertas y cajones cierran a hueso y jaladera.': 'Doors and drawers close flush, with handles.',
-  'Con abatibles el cuerpo retrocede el espesor de la hoja. Correderas: sistema Ducasse D52 al piso dentro de vano (riel inferior, guía superior bajo una tapeta de 8 cm, hojas casi a tope con 3 cm de traslape), sin zoclo. En estilo moderno los cajones llevan perfiles gola de aluminio (L superior con hueco de 35 mm, C intermedio con hueco de 30 mm); en clásico, jaladeras.': 'With hinged doors the body sets back by the leaf thickness. Sliding: Ducasse D52 floor system inside the opening (bottom rail, top guide under an 8 cm filler, leaves almost touching with 3 cm overlap), no plinth. In the modern style drawers get aluminum gola profiles (L on top with a 35 mm gap, C in between with a 30 mm gap); in classic, handles.',
-  'Cada cascada mide 3 cm: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes.': 'Each waterfall is 3 cm: the nosing height, or the countertop thickness if there is no nosing. That thickness is taken from the length for the cabinets.',
+  'Jaladera (puertas, elevables y cajón del vanity)': 'Pull (doors, lift-ups and vanity drawer)',
+  'Puertas y cajones cierran a hueso y jaladera.': 'Overlay doors and drawers with pulls.',
+  'Con abatibles el cuerpo retrocede el espesor de la hoja. Correderas: sistema Ducasse D52 al piso dentro de vano (riel inferior, guía superior bajo una tapeta de 8 cm, hojas casi a tope con 3 cm de traslape), sin zoclo. En estilo moderno los cajones llevan perfiles gola de aluminio (L superior con hueco de 35 mm, C intermedio con hueco de 30 mm); en clásico, jaladeras.': 'With hinged doors the section sets back by the leaf thickness. Sliding: Ducasse D52 floor system inside the opening (bottom rail, top guide under an 8 cm filler, leaves almost touching with 3 cm overlap), no toe kick. In the modern style drawers get aluminum gola profiles (L on top with a 35 mm gap, C in between with a 30 mm gap); in classic, pulls.',
+  'Cada cascada mide 3 cm: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes.': 'Each waterfall is 3 cm: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets.',
   '+ Añadir alto': '+ Add upper',
   '+ Añadir bajo': '+ Add base',
-  '+ Añadir módulo': '+ Add module',
+  '+ Añadir módulo': '+ Add cabinet',
   '+ Añadir panel': '+ Add panel',
   '+ Añadir panel posterior': '+ Add back panel',
   '0 = pegado al horno; si no, 5 cm o más, cerrada con una tapa ciega. También puedes arrastrar el punto azul del microondas.': '0 = tight to the oven; otherwise 5 cm or more, closed with a blank panel. You can also drag the microwave’s blue point.',
@@ -5800,7 +5815,7 @@ const EN = {
   'A la derecha': 'On the right',
   'A la izquierda': 'On the left',
   'A paño de gabinetes': 'Flush with cabinets',
-  'Abatibles por módulo': 'Hinged per module',
+  'Abatibles por módulo': 'Hinged doors per section',
   'Abatibles': 'Hinged',
   'Correderas': 'Sliding',
   'Abierto': 'Open',
@@ -5808,18 +5823,18 @@ const EN = {
   'Aceptar': 'OK',
   'Activa': 'Active',
   'Activo': 'Active',
-  'Agarre de gola': 'Gola handle',
+  'Agarre de gola': 'Gola channel',
   'Aire posterior': 'Rear air gap',
-  'Alacena': 'Pantry',
+  'Alacena': 'Tall pantry',
   'Alto': 'Height',
   'Alto de cada cajón': 'Drawer height',
   'Alto de cajonera': 'Drawer stack height',
   'Alto de la rejilla': 'Grille height',
   'Alto de la zapatera baja': 'Low shoe rack height',
   'Alto del cajón': 'Drawer height',
-  'Alto del cuerpo del closet': 'Closet body height',
+  'Alto del cuerpo del closet': 'Closet case height',
   'Alto del escritorio': 'Desk height',
-  'Alto del frigobar (desde el zoclo)': 'Wine fridge height (from plinth)',
+  'Alto del frigobar (desde el zoclo)': 'Wine cooler height (from toe kick)',
   'Alto del gabinete': 'Cabinet height',
   'Alto del maletero': 'Top storage height',
   'Alto del modelo': 'Model height',
@@ -5830,7 +5845,7 @@ const EN = {
   'Alto libre refrigerador': 'Fridge clear height',
   'Altura': 'Height',
   'Altura total': 'Total height',
-  'Altura total de nariz': 'Total nosing height',
+  'Altura total de nariz': 'Total built-up edge height',
   'Aluminio': 'Aluminum',
   'Alzado': 'Elevation',
   'Alzado frontal': 'Front elevation',
@@ -5843,7 +5858,7 @@ const EN = {
   'Ancho del panel': 'Panel width',
   'Ancho total de la isla': 'Total island width',
   'Arrastra el punto azul del dibujo para cambiar la altura del cajón, o haz clic en su cota.': 'Drag the blue point in the drawing to change the drawer height, or click its dimension.',
-  'Arrastra los puntos azules de la hoja para mover las juntas, o haz clic en su cota.': 'Drag the leaf’s blue points to move the joints, or click their dimension.',
+  'Arrastra los puntos azules de la hoja para mover las juntas, o haz clic en su cota.': 'Drag the leaf’s blue points to move the reveals, or click their dimension.',
   'Arrastra los puntos azules del dibujo (maletero, zapatera, escritorio y cajones) o haz clic en su cota.': 'Drag the blue points in the drawing (top storage, shoe rack, desk and drawers) or click their dimension.',
   'Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.': 'Drag the blue points in the drawing to change the heights, or click their dimension.',
   'Arrastra un material sobre la caja (vista Interior) o sobre su puerta (vista Puertas), o doble clic en una muestra con esta pieza seleccionada.': 'Drag a material onto the box (Interior view) or its door (Doors view), or double-click a swatch with this part selected.',
@@ -5854,10 +5869,10 @@ const EN = {
   'Barra': 'Rod',
   'Barra elevada': 'Raised bar',
   'Barra elevada al fondo': 'Raised bar at the back',
-  'Barra tipo tubo': 'Tube bar',
+  'Barra tipo tubo': 'Bar pull',
   'Bisagra a la derecha (puerta única)': 'Hinge on the right (single door)',
-  'Botón / perilla': 'Button / knob',
-  'Caja de repisas abierta': 'Open shelf box',
+  'Botón / perilla': 'Knob',
+  'Caja de repisas abierta': 'Open shelves',
   'Cajonera': 'Drawer unit',
   'Cajones': 'Drawers',
   'Cajones bajos': 'Bottom drawers',
@@ -5879,7 +5894,7 @@ const EN = {
   'Centrar en la isla': 'Center on the island',
   'Cerrar extremo derecho': 'Close right end',
   'Cerrar extremo izquierdo': 'Close left end',
-  'Cesto de basura': 'Trash bin',
+  'Cesto de basura': 'Trash pull-out',
   'Circular': 'Round',
   'Clic: siguiente vista · mantener pulsado: elegir la vista': 'Click: next view · hold: choose the view',
   'Closet': 'Closet',
@@ -5888,18 +5903,23 @@ const EN = {
   'Cocina': 'Kitchen',
   'Isla': 'Island',
   'Distribución': 'Layout',
-  'Colgado': 'Hanging',
-  'Colgado doble': 'Double hanging',
+  'Colgado': 'Long hang',
+  'Colgado doble': 'Double hang',
   'Color': 'Color',
   'Colores rápidos': 'Quick colors',
   'Color…': 'Color…',
   'Columnas': 'Columns',
   'Comando:': 'Command:',
-  'Completo': 'Full',
+  'Completo': 'Combo tower',
   'Completo hasta los gabinetes altos': 'Full height up to the uppers',
   'Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.': 'With 0 the bar is flush with the waterfall’s outer face (or the countertop edge if that side has no waterfall); a larger value pushes it out. Left and right are those of the front elevation.',
-  'Con barra elevada la cubierta usa un espesor único, sin nariz.': 'With a raised bar the countertop uses a single thickness, no nosing.',
+  'Con barra elevada la cubierta usa un espesor único, sin nariz.': 'With a raised bar the countertop uses a single thickness, no built-up edge.',
   'Conservar este ancho': 'Keep this width',
+  'Pulgadas, con pies en las totales (in + ft-in)': 'Inches, with feet on totals (in + ft-in)',
+  'Los campos y las cotas aceptan escribir en esta unidad, o con su unidad: 60 cm, 600 mm, 23 5/8" o 1\'-11 5/8".': 'Fields and dimensions accept this unit, or a value with its unit: 60 cm, 600 mm, 23 5/8", or 1\'-11 5/8".',
+  'Melamina 3/4"': 'Melamine 3/4"',
+  'Largo de la barra (entre centros)': 'Bar pull length (center to center)',
+  'Repisa alta medida desde el zoclo; con maletero es su piso. Escritorio a todo el ancho con un cajón sencillo con jaladera debajo, hueco libre para la silla, espejo pegado al muro y repisa alta.': 'Top shelf measured from the toe kick; with top storage it is its floor. Full-width desk with a single drawer and pull below, knee space for the chair, a mirror on the wall, and a top shelf.',
   'Región': 'Region',
   'México (métrico)': 'Mexico (metric)',
   'Estados Unidos (pulgadas)': 'United States (inches)',
@@ -5923,7 +5943,7 @@ const EN = {
   'Correderas para todo el tramo': 'Sliding for the whole run',
   'Ctrl + clic: selección · Arrastrar: mover · Supr: borrar': 'Ctrl + click: select · Drag: move · Del: delete',
   'Cubierta': 'Countertop',
-  'Cubierta con nariz': 'Countertop with nosing',
+  'Cubierta con nariz': 'Countertop with built-up edge',
   'Inferior + superior': 'Lower + upper',
   'Render IA': 'AI render',
   'Render con IA': 'AI render',
@@ -5958,28 +5978,27 @@ const EN = {
   'Repisas del gabinete superior': 'Upper cabinet shelves',
   'Gabinete inferior unido': 'Joined lower cabinet',
   'Gabinete inferior': 'Lower cabinet',
-  'Gabinete superior': 'Upper cabinet',
-  'Caja de repisas abierta.': 'Open shelf box.',
+  'Caja de repisas abierta.': 'Open shelves.',
   'Detrás de su puerta se ven en la vista Interior.': 'Behind its door they show in the Interior view.',
   ' Forma una caja corrida: repisas y divisiones se reparten en toda la caja.': ' It forms a continuous box: shelves and dividers are spread over the whole box.',
   'Volver a las columnas': 'Back to the columns',
   'Editar la caja corrida': 'Edit the continuous box',
   'Divisiones': 'Dividers',
-  'Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o': 'Its lower module forms a continuous box with the next column: click it in the drawing, or',
-  'Cuerpos de puertas': 'Door bodies',
+  'Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o': 'Its lower cabinet forms a continuous box with the next column: click it in the drawing, or',
+  'Cuerpos de puertas': 'Door sections',
   'Cápsula': 'Capsule',
   'Derecho': 'Right',
   'Descargar todo': 'Download all',
   'Deshacer (Ctrl+Z)': 'Undo (Ctrl+Z)',
   'División vertical interna': 'Inner vertical divider',
-  'Doble clic en cada cuerpo o en la cajonera del dibujo para configurarlos.': 'Double-click each body or the drawer unit in the drawing to set them up.',
+  'Doble clic en cada cuerpo o en la cajonera del dibujo para configurarlos.': 'Double-click each section or the drawer unit in the drawing to set them up.',
   'Doble clic en el gabinete inferior o superior del dibujo para elegir puertas, cajones o repisas. Clic en el horno, el microondas o la rejilla para editarlos.': 'Double-click the lower or upper cabinet in the drawing to choose doors, drawers or shelves. Click the oven, microwave or grille to edit them.',
   'Dos hojas a partir de 60 cm.': 'Two leaves from 60 cm.',
   'Dos puertas': 'Two doors',
   'Día / noche: lienzo e interfaz en oscuro': 'Day / night: dark canvas and interface',
   'Editar el gabinete': 'Edit the cabinet',
   'Editar el gabinete alto': 'Edit the upper cabinet',
-  'Editar el módulo superior': 'Edit the top module',
+  'Editar el módulo superior': 'Edit the stacker',
   'Editar la puerta oculta': 'Edit the hidden door',
   'Editar la torre': 'Edit the tower',
   'El especiero lleva 5 repisas.': 'The spice rack has 5 shelves.',
@@ -5993,15 +6012,15 @@ const EN = {
   'Eliminar panel': 'Delete panel',
   'Eliminar selección': 'Delete selection',
   'En este proyecto': 'In this project',
-  'Entre repisas se respetan 35 cm: en módulos bajos cabe una sola. Con puertas llega a 120 cm; la caja abierta, a 3 columnas.': '35 cm is kept between shelves: short modules fit only one. With doors it reaches 120 cm; the open box, 3 columns.',
+  'Entre repisas se respetan 35 cm: en módulos bajos cabe una sola. Con puertas llega a 120 cm; la caja abierta, a 3 columnas.': '35 cm is kept between shelves: short cabinets fit only one. With doors it reaches 120 cm; the open box, 3 columns.',
   'Entrepaños de 27 cm como mínimo.': 'Shelf spaces of at least 27 cm.',
   'Es un elemento independiente del gabinete alto. Arrastra un material sobre él; con doble clic se eligen sus repisas o su fondo.': 'It is separate from the upper cabinet. Drag a material onto it; double-click to pick its shelves or back.',
-  'Es un elemento propio: doble clic sobre él en el dibujo para elegir pistón, dos puertas o caja de repisas, su alto y unirlo con la columna vecina.': 'It is its own element: double-click it in the drawing to choose lift-up, two doors or shelf box, its height, and to join it with the next column.',
+  'Es un elemento propio: doble clic sobre él en el dibujo para elegir pistón, dos puertas o caja de repisas, su alto y unirlo con la columna vecina.': 'It is its own element: double-click it in the drawing to choose lift-up, two doors or open shelves, its height, and to join it with the next column.',
   'Escala del patrón': 'Pattern scale',
   'Espacio para bancos': 'Stool space',
-  'Especiero': 'Spice rack',
+  'Especiero': 'Base pull-out',
   'Especiero extraíble': 'Pull-out spice rack',
-  'Especiero torre': 'Spice tower',
+  'Especiero torre': 'Tall pull-out pantry',
   'Espejo': 'Mirror',
   'Espesor': 'Thickness',
   'Espesor (losa, peralte y cascada)': 'Thickness (slab, riser and waterfall)',
@@ -6016,9 +6035,9 @@ const EN = {
   'Fondo': 'Depth',
   'Fondo de campana': 'Hood depth',
   'Frentes lisos con gola y perfil.': 'Flat fronts with gola and profile.',
-  'Frentes lisos con jaladeras, sin marcos.': 'Flat fronts with handles, no frames.',
-  'Frigobar': 'Wine fridge',
-  'Frigobar de vinos': 'Wine fridge',
+  'Frentes lisos con jaladeras, sin marcos.': 'Slab fronts with pulls.',
+  'Frigobar': 'Wine cooler',
+  'Frigobar de vinos': 'Wine cooler',
   'Función': 'Function',
   ' · pasa el mouse para ver todas': ' · hover to see all',
   'Gabinete de pistón': 'Lift-up cabinet',
@@ -6028,7 +6047,7 @@ const EN = {
   'Generar': 'Generate',
   'Generar backsplash': 'Generate backsplash',
   'Generar cubierta': 'Generate countertop',
-  'Generar zoclos': 'Generate plinths',
+  'Generar zoclos': 'Generate toe kicks',
   'Gotero': 'Eyedropper',
   'Guardado': 'Saved',
   'Guardar / actualizar': 'Save / update',
@@ -6048,20 +6067,20 @@ const EN = {
   'Isla y colocación': 'Island and placement',
   'Izquierdo': 'Left',
   'Junta vertical central': 'Central vertical joint',
-  'Juntas': 'Joints',
-  'Juntas horizontales (0 a 4)': 'Horizontal joints (0 to 4)',
+  'Juntas': 'Reveals',
+  'Juntas horizontales (0 a 4)': 'Horizontal reveals (0 to 4)',
   'L superior / C entre cajones.': 'L on top / C between drawers.',
   'LED al frente': 'LED at the front',
   'LED atrás': 'LED at the back',
-  'La cascada de la barra es independiente de las de la cubierta. Donde no hay cascada de cubierta, la de la barra cae por fuera del cuerpo de la isla. La barra admite su propio material: arrástralo sobre ella.': 'The bar waterfall is independent from the countertop ones. Where there is no countertop waterfall, the bar’s falls outside the island body. The bar takes its own material: drag it onto it.',
+  'La cascada de la barra es independiente de las de la cubierta. Donde no hay cascada de cubierta, la de la barra cae por fuera del cuerpo de la isla. La barra admite su propio material: arrástralo sobre ella.': 'The bar waterfall is independent from the countertop ones. Where there is no countertop waterfall, the bar’s falls outside the island section. The bar takes its own material: drag it onto it.',
   'La distribución posterior es independiente de los gabinetes del frente. Arrastra un material de la pestaña Materiales sobre cada panel.': 'The back layout is independent from the front cabinets. Drag a material from the Materials tab onto each panel.',
   'La misma altura de la tapeta superior de la cocina.': 'Same height as the kitchen’s top filler.',
   'La tarja y el monomando se configuran desde su gabinete, o haciendo clic sobre ellos en el dibujo.': 'The sink and faucet are set from their cabinet, or by clicking them in the drawing.',
   'Lado': 'Side',
   'Largo de la barra': 'Bar length',
-  'Lateral piso a techo': 'Floor-to-ceiling side',
+  'Lateral piso a techo': 'Floor-to-ceiling end panel',
   'Listo': 'Done',
-  'Los frentes son lisos y se abren por el uñero de la gola.': 'Fronts are flat and open by the gola groove.',
+  'Los frentes son lisos y se abren por el uñero de la gola.': 'Slab fronts, handleless — they open from the gola channel.',
   'Luz LED sobre los paneles posteriores': 'LED light over the back panels',
   'Maletero': 'Top storage',
   'Maletero superior': 'Top storage',
@@ -6079,9 +6098,9 @@ const EN = {
   'Mostrar campana genérica': 'Show generic hood',
   'Mostrar horno y microondas genéricos': 'Show generic oven and microwave',
   'Mostrar puerta elevable': 'Show lift-up door',
-  'Módulo inferior + módulo superior': 'Lower module + top module',
-  'Módulo inferior sin puertas (repisas)': 'Lower module without doors (shelves)',
-  'Módulo superior': 'Top module',
+  'Módulo inferior + módulo superior': 'Stacked wall cabinet',
+  'Módulo inferior sin puertas (repisas)': 'Lower cabinet without doors (shelves)',
+  'Módulo superior': 'Stacker',
   'No': 'No',
   'Nombre': 'Name',
   'Número de cajones': 'Number of drawers',
@@ -6109,9 +6128,9 @@ const EN = {
   'Puerta oculta': 'Hidden door',
   'Puertas': 'Doors',
   'Puertas del closet': 'Closet doors',
-  'Puertas shaker con jaladeras.': 'Shaker doors with handles.',
+  'Puertas shaker con jaladeras.': 'Shaker doors with pulls.',
   'Quitar barra elevada': 'Remove raised bar',
-  'Quitar módulo superior': 'Remove top module',
+  'Quitar módulo superior': 'Remove stacker',
   'Quitar puerta oculta': 'Remove hidden door',
   'Quitar tarja': 'Remove sink',
   'Rectangular': 'Rectangular',
@@ -6122,11 +6141,11 @@ const EN = {
   'Rejilla de ventilación bajo el horno': 'Vent grille under the oven',
   'Repartir alturas de nuevo': 'Redistribute heights',
   'Repisa alta (0 = sin repisa)': 'Top shelf (0 = none)',
-  'Repisa alta en cm desde el zoclo; con maletero es su piso. Escritorio a todo el ancho con un cajón sencillo con jaladera debajo, hueco libre para la silla, espejo pegado al muro y repisa alta.': 'Top shelf in cm from the plinth; with top storage it is its floor. Full-width desk with a single drawer and handle below, clear space for the chair, wall mirror and top shelf.',
+  'Repisa alta en cm desde el zoclo; con maletero es su piso. Escritorio a todo el ancho con un cajón sencillo con jaladera debajo, hueco libre para la silla, espejo pegado al muro y repisa alta.': 'Top shelf in cm from the toe kick; with top storage it is its floor. Full-width desk with a single drawer and pull below, clear space for the chair, wall mirror and top shelf.',
   'Repisa interior': 'Inner shelf',
   'Repisas': 'Shelves',
   'Repisas del gabinete alto': 'Upper cabinet shelves',
-  'Repisas en este cuerpo': 'Shelves in this body',
+  'Repisas en este cuerpo': 'Shelves in this section',
   'Repisas en este gabinete': 'Shelves in this cabinet',
   'Repisas gabinete superior': 'Top cabinet shelves',
   'Repisas internas (0 a 3)': 'Inner shelves (0 to 3)',
@@ -6134,16 +6153,16 @@ const EN = {
   'Retiro frontal': 'Front setback',
   'Retiro respecto a los paneles': 'Setback from the panels',
   'Sección': 'Section',
-  'Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo. La cara posterior se edita en la vista Posterior.': 'Select a cabinet, the countertop, a waterfall, the plinth or the raised bar in the drawing. The back face is edited in the Back view.',
-  'Selecciona un mueble, cubierta, tarja, zoclo o tapeta en el dibujo. Los contornos punteados permiten activar piezas ocultas.': 'Select a cabinet, countertop, sink, plinth or filler in the drawing. Dashed outlines turn on hidden parts.',
-  'Sencillo': 'Single',
+  'Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo. La cara posterior se edita en la vista Posterior.': 'Select a cabinet, the countertop, a waterfall, the toe kick or the raised bar in the drawing. The back face is edited in the Rear elevation.',
+  'Selecciona un mueble, cubierta, tarja, zoclo o tapeta en el dibujo. Los contornos punteados permiten activar piezas ocultas.': 'Select a cabinet, countertop, sink, toe kick, or filler in the drawing. Dashed outlines are parts you can turn on.',
+  'Sencillo': 'Standard',
   'Separación posterior': 'Rear gap',
   'Separación sobre el horno': 'Gap above the oven',
   'Separar la última columna': 'Split the last column',
-  'Si el frigobar supera el alto del gabinete, baja hasta el piso y el zoclo se interrumpe.': 'If the wine fridge is taller than the cabinet, it goes down to the floor and the plinth is cut.',
+  'Si el frigobar supera el alto del gabinete, baja hasta el piso y el zoclo se interrumpe.': 'If the wine cooler is taller than the cabinet, it goes down to the floor and the toe kick is cut.',
   'Simple': 'Simple',
   'Sin puertas': 'No doors',
-  'Sin puertas en este módulo': 'No doors on this module',
+  'Sin puertas en este módulo': 'No doors on this cabinet',
   'Sin tarja': 'No sink',
   'Sobre la cajonera': 'Above the drawers',
   'Solo en el prototipo: simula el comando de la cinta que abre el editor': 'Prototype only: simulates the ribbon command that opens the editor',
@@ -6165,24 +6184,24 @@ const EN = {
   'Tipo': 'Type',
   'Todas las repisas de este gabinete': 'All shelves in this cabinet',
   'Torre': 'Tower',
-  'Torre de 20 cm con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.': '20 cm tower with a 5-shelf spice body, from the plinth to the top of the uppers.',
-  'Torre de hornos': 'Oven tower',
+  'Torre de 20 cm con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.': '20 cm tower with a 5-shelf spice section, from the toe kick to the top of the uppers.',
+  'Torre de hornos': 'Oven cabinet',
   'Tramo': 'Run',
   'Unir con la columna derecha (caja corrida)': 'Join with the right column (continuous box)',
   'Va de piso a tope, por fuera de la hoja.': 'Runs floor to top, outside the leaf.',
   'Vanity': 'Vanity',
-  'Vista posterior': 'Back view',
+  'Vista posterior': 'Rear elevation',
   'Volver a los gabinetes': 'Back to cabinets',
   'Volver al gabinete': 'Back to the cabinet',
   'Vuelo': 'Overhang',
   'Vuelos laterales': 'Side overhangs',
   'Zapatera': 'Shoe rack',
   'Zapatera baja': 'Low shoe rack',
-  'Zoclo': 'Plinth',
-  'Zoclo en la cara posterior': 'Plinth on the back face',
-  'Zoclo pegado a la hoja (abre con ella)': 'Plinth attached to the leaf (opens with it)',
-  'Zoclo posterior a paño del respaldo de los gabinetes': 'Back plinth flush with the cabinet backs',
-  'Zoclo posterior alineado con el paño inicial de la cascada de la barra elevada.': 'Back plinth aligned with the start face of the raised bar waterfall.',
+  'Zoclo': 'Toe kick',
+  'Zoclo en la cara posterior': 'Toe kick on the back face',
+  'Zoclo pegado a la hoja (abre con ella)': 'Toe kick attached to the leaf (opens with it)',
+  'Zoclo posterior a paño del respaldo de los gabinetes': 'Back toe kick flush with the cabinet backs',
+  'Zoclo posterior alineado con el paño inicial de la cascada de la barra elevada.': 'Back toe kick aligned with the start face of the raised bar waterfall.',
   '· prototipo': '· prototype',
   'Interior': 'Interior',
   'Ajustes': 'Settings',
@@ -6191,20 +6210,20 @@ const EN = {
   'Hornos': 'Ovens',
   'Muro y colocación': 'Wall and placement',
   'Cubierta y tarja': 'Countertop and sink',
-  'Zoclos': 'Plinths',
+  'Zoclos': 'Toe kicks',
   'Tapeta izquierda': 'Left filler',
   'Tapeta derecha': 'Right filler',
   'Franja gola': 'Gola strip',
-  'Base altos': 'Upper base',
-  'Libre sobre cubierta': 'Clearance above countertop',
-  'Cuerpo del closet': 'Closet body',
+  'Base altos': 'Wall cabinet bottom',
+  'Libre sobre cubierta': 'Countertop to uppers',
+  'Cuerpo del closet': 'Closet case',
   'gabinete inferior': 'lower cabinet',
   'gabinete superior': 'upper cabinet',
   'cajonera': 'drawer unit',
   'Alacena · cajonera': 'Pantry · drawer unit',
-  'Haz clic en un gabinete, la cubierta, el zoclo o una cota para editarlo.': 'Click a cabinet, the countertop, the plinth or a dimension to edit it.',
-  'Haz clic en un módulo, el zoclo, una tapeta o una cota para editarlo.': 'Click a module, the plinth, a filler or a dimension to edit it.',
-  'Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo.': 'Select a cabinet, the countertop, a waterfall, the plinth or the raised bar in the drawing.',
+  'Haz clic en un gabinete, la cubierta, el zoclo o una cota para editarlo.': 'Click a cabinet, the countertop, the toe kick, or a dimension to edit it.',
+  'Haz clic en un módulo, el zoclo, una tapeta o una cota para editarlo.': 'Click a cabinet, the toe kick, a filler or a dimension to edit it.',
+  'Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo.': 'Select a cabinet, the countertop, a waterfall, the toe kick or the raised bar in the drawing.',
   'Madera': 'Wood',
   'Cubiertas': 'Countertops',
   'Metal': 'Metal', 'Níquel satinado': 'Satin nickel', 'Antracita': 'Anthracite', 'Cromo': 'Chrome', 'Latón': 'Brass', 'Bronce': 'Bronze', 'Acero inoxidable': 'Stainless steel',
@@ -6214,8 +6233,8 @@ const EN = {
   'Asignados': 'Assigned',
   'Todo el mueble': 'Whole unit',
   'Material propio': 'Own material',
-  'Módulos superiores': 'Top modules',
-  'Piezas y cuerpos': 'Parts and bodies',
+  'Módulos superiores': 'Stackers',
+  'Piezas y cuerpos': 'Parts and sections',
   'Configuración': 'Configuration',
   'Revisar distribución': 'Check layout',
   'Revisar altura': 'Check height',
@@ -6231,10 +6250,10 @@ const EN = {
   'Al centro': 'Center',
   'Distancia del borde': 'Distance from the edge',
   'Al paño': 'Flush',
-  'Jaladeras': 'Handles',
-  'Material de jaladeras': 'Handle material',
-  'Clic en un metal: se aplica a todas las jaladeras.': 'Click a metal: it applies to every handle.',
-  'Arrastra aquí una muestra: se aplica a todas las jaladeras.': 'Drop a swatch here: it applies to every handle.',
+  'Jaladeras': 'Pulls',
+  'Material de jaladeras': 'Hardware finish',
+  'Clic en un metal: se aplica a todas las jaladeras.': 'Click a metal: it applies to every pull.',
+  'Arrastra aquí una muestra: se aplica a todas las jaladeras.': 'Drop a swatch here: it applies to every pull.',
   'Quitar': 'Remove',
   'Ancho del marco': 'Frame width',
   'El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos 2 cm.': 'The same width on every door and drawer; on a very small front it shrinks so the recessed panel is at least 2 cm.',
@@ -6247,7 +6266,7 @@ const EN = {
   'Generar y cerrar': 'Generate and close',
   'Cerrar sin generar': 'Close without generating',
   'Elige la carpeta para las vistas…': 'Choose the folder for the views…',
-  'Exportación cancelada.': 'Export cancelled.',
+  'Exportación cancelada.': 'Export canceled.',
   'Configuraciones guardadas': 'Saved configurations',
   'Sin configuraciones guardadas': 'No saved configurations',
   'Volver al editor': 'Back to the editor',
@@ -6259,7 +6278,7 @@ const EN = {
   'Valores de inicio': 'Starting values',
   'Comportamiento': 'Behavior',
   'Licencia y acerca de': 'License and about',
-  'Son tuyos, no del proyecto: valen para todas tus cocinas, islas y closets.': 'They are yours, not the project’s: they apply to all your kitchens, islands and closets.',
+  'Son tuyos, no del proyecto: valen para todas tus cocinas, islas y closets.': 'These are your personal settings, not the project\'s — they apply to every kitchen, island, and closet you create.',
   'Toda la interfaz: paneles, ayudas, mensajes y rótulos del dibujo. No se traducen los nombres que pones tú (materiales propios y configuraciones).': 'The whole interface: panels, help, messages and drawing labels. Names you give (own materials and configurations) are not translated.',
   'Centímetros (cm)': 'Centimeters (cm)',
   'Milímetros (mm)': 'Millimeters (mm)',
@@ -6268,7 +6287,7 @@ const EN = {
   'Redondeo': 'Rounding',
   'Los campos y las cotas aceptan escribir en esta unidad, o con su unidad: 60 cm, 600 mm, 23 5/8" o 1\u0027 11 5/8".': 'Fields and dimensions accept this unit, or a value with its unit: 60 cm, 600 mm, 23 5/8" or 1\u0027 11 5/8".',
   'Remate': 'Tick mark',
-  'Oblicuo': 'Diagonal',
+  'Oblicuo': 'Tick',
   'Flecha': 'Arrow',
   'Punto': 'Dot',
   'Tamaño del texto': 'Text size',
@@ -6281,7 +6300,7 @@ const EN = {
   'En ninguna': 'On none',
   'Color del producto': 'Product color',
   'Negro': 'Black',
-  'Cada cocina, isla o closet nuevo arranca con estas medidas.': 'Every new kitchen, island or closet starts with these values.',
+  'Cada cocina, isla o closet nuevo arranca con estas medidas.': 'Every new kitchen, island, or closet starts with these sizes.',
   'Altura de muro': 'Wall height',
   'Alto de bajos': 'Base height',
   'Espesor de cubierta': 'Countertop thickness',
@@ -6314,6 +6333,44 @@ const EN = {
   'Ejemplo: 60 cm': 'Example: 60 cm'
 };
 const EN_T = [
+  ["En el plugin, Wall-closet toma la cara del muro (largo y altura). El prototipo abre un closet de {0} de largo en un muro de {1}. ¿Continuar? La distribución actual se descarta.", "In the plugin, Wall-closet takes the wall face (length and height). The prototype opens a {0} closet on a {1} wall. Continue? The current layout will be discarded."],
+  ["En el plugin, Line-Island se dibuja como un rectángulo (dos esquinas o largo,ancho tecleado) y después se elige el lado largo de los gabinetes. El prototipo abre una isla de {0} × {1}. ¿Continuar? La distribución actual se descarta.", "In the plugin, Line-Island is drawn as a rectangle (two corners, or length,width typed in), then you pick the long side for the cabinets. The prototype opens a {0} × {1} island. Continue? The current layout will be discarded."],
+  ["El prototipo abre una cocina en muro de {0}. ¿Continuar? La distribución actual se descarta.", "The prototype opens a kitchen on a {0} wall. Continue? The current layout will be discarded."],
+  ["Mínimo {0} libres entre repisas: en este alto caben {1}. Detrás de las puertas se ven en la vista Interior.", "At least {0} clear between shelves: {1} fit at this height. Behind the doors they show in the Interior view."],
+  ["Torre de {0} con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.", "A {0} tall pull-out with a 5-shelf spice section, from the toe kick to the top of the uppers."],
+  ["Dos hojas a partir de {0}.", "Two doors from {0} up."],
+  ["El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos {0}.", "The same width on every door and drawer; on a very small front it shrinks so the recessed panel is at least {0}."],
+  ["Ejemplo: {0}", "Example: {0}"],
+  ["El gabinete de pistón sobre la puerta oculta mide de {0} a {1}.", "The lift-up cabinet above the hidden door is {0} to {1}."],
+  ["La tapeta lateral de la puerta oculta mide de {0} a {1}.", "The hidden door side filler is {0} to {1}."],
+  ["El paño de la puerta oculta va de {0} a {1} desde el muro.", "The hidden door face goes from {0} to {1} from the wall."],
+  ["Los paneles posteriores de ancho fijo no dejan al menos {0} para los demás.", "Fixed-width back panels do not leave at least {0} for the others."],
+  ["El espesor de la barra elevada debe estar entre {0} y {1}.", "The raised bar thickness must be between {0} and {1}."],
+  ["La elevación de la barra debe estar entre {0} y {1}.", "The bar rise must be between {0} and {1}."],
+  ["El vuelo lateral de la barra elevada debe estar entre {0} y {1}.", "The raised bar side overhang must be between {0} and {1}."],
+  ["El cuerpo del closet debe medir entre {0} y {1} de alto.", "The closet case must be {0} to {1} high."],
+  ["El espesor de tableros del closet va de {0} a {1}.", "Closet board thickness goes from {0} to {1}."],
+  ["Las puertas correderas necesitan un tramo de al menos {0}.", "Sliding doors need a run of at least {0}."],
+  ["El fondo del closet va de {0} a {1}.", "Closet depth goes from {0} to {1}."],
+  ["El maletero mide de {0} a {1} y el cuerpo debe conservar al menos {2}.", "Top storage is {0} to {1} and the section must keep at least {2}."],
+  ["La zapatera baja va de {0} a la altura del cuerpo menos {1}.", "The low shoe rack goes from {0} to the section height minus {1}."],
+  ["Vanity: el escritorio va de {0} a {1}.", "Vanity: the desk goes from {0} to {1}."],
+  ["La división deja un frente menor de {0}.", "The division leaves a front smaller than {0}."],
+  ["El especial debe terminar entre {0} y el tope disponible.", "The special unit must end between {0} and the available top."],
+  ["El hueco de refri requiere al menos {0} y el alto superior al menos {1}.", "The fridge space needs at least {0} and the top height at least {1}."],
+  ["Ventilacion posterior de torre: minimo {0}.", "Tower rear ventilation: at least {0}."],
+  ["Revisa la torre: gabinetes inferior/superior minimo {0}, hueco horno {1}–{2} y micro {3}–{4}.", "Check the tower: lower/upper cabinets at least {0}, oven space {1}–{2} and microwave {3}–{4}."],
+  ["La cajonera de tres cajones necesita un gabinete inferior de al menos {0}; usa «Dos cajones».", "The three-drawer unit needs a lower cabinet of at least {0}; use “Two drawers”."],
+  ["La cajonera de dos cajones necesita un gabinete inferior de al menos {0}.", "The two-drawer unit needs a lower cabinet of at least {0}."],
+  ["Microondas de sobreponer: de {0} a {1} de ancho y de {2} a {3} de alto.", "Countertop microwave: {0} to {1} wide and {2} to {3} high."],
+  ["Torre de hornos: piston + repisas necesita al menos {0} sobre el ultimo equipo.", "Oven cabinet: lift-up + shelves needs at least {0} above the last appliance."],
+  ["Cada cuerpo de alacena necesita al menos {0}.", "Each pantry section needs at least {0}."],
+  ["El cuerpo superior elevable de la alacena debe medir {0} o menos; mueve su división.", "The pantry’s lift-up top section must be {0} or less; move its division."],
+  ["La nariz total debe medir entre el espesor de cubierta y {0}.", "Total built-up edge must be between the countertop thickness and {0}."],
+  ["Campana: la canopy visible mide de {0} a {1} y el gabinete que la cubre necesita al menos {2} (o {3} para usar todo el hueco).", "Hood: the visible canopy is {0} to {1} and the cabinet covering it needs at least {2} (or {3} to use the whole space)."],
+  ["Campana: el fondo debe estar entre {0} y {1}.", "Hood: depth must be between {0} and {1}."],
+  ["Los gabinetes bajos quedarían de menos de {0}.", "Base cabinets would be less than {0}."],
+  ["Cada tapeta debe conservar al menos {0}.", "Each filler must keep at least {0}."],
   ["La puerta oculta mide de {0} a {1} de ancho.", "The hidden door is {0} to {1} wide."],
   ["La hoja de la puerta oculta quedaría de {0}: necesita al menos {1} (reduce el gabinete de pistón o quita el zoclo).", "The hidden door leaf would be {0}: it needs at least {1} (reduce the lift-up cabinet or remove the toe kick)."],
   ["Cada módulo de closet admite hasta {0} ({1}): divide el tramo en más módulos.", "Each closet section takes up to {0} ({1}): split the run into more sections."],
@@ -6332,13 +6389,13 @@ const EN_T = [
   ["Entre repisas quedan {0}: menos de los 35 cm recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended 35 cm. They are generated anyway."],
   ["Entre repisas quedan {0}: menos de los {1} recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended {1}. They are generated anyway."],
   ["Entre repisas quedan {0}: menos de los 25 cm recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended 25 cm. They are generated anyway."],
-  ["{0} módulos seleccionados", "{0} modules selected"],
+  ["{0} módulos seleccionados", "{0} cabinets selected"],
   ["{0} piezas seleccionadas", "{0} parts selected"],
   ["{0} columnas unidas", "{0} joined columns"],
   ["{0} columnas", "{0} columns"],
   ["{0} repisas", "{0} shelves"],
   ["Repisa {0}", "Shelf {0}"],
-  ["Cuerpo {0}", "Body {0}"],
+  ["Cuerpo {0}", "Section {0}"],
   ["hoja {0}", "leaf {0}"],
   ["{0} hojas D52", "{0} D52 leaves"],
   ["{0} delante / {1} detrás", "{0} front / {1} back"],
@@ -6350,22 +6407,22 @@ const EN_T = [
   ["Mínimo {0} libres entre repisas: en este alto caben {1}.", "At least {0} clear between shelves: {1} fit in this height."],
   ["Caben hasta {0}: entre repisas quedan al menos {1}. Detrás de las puertas se ven en la vista Interior.", "Up to {0} fit: at least {1} stay between shelves. Behind the doors they show in the Interior view."],
   ["Caben hasta {0}: entre repisas quedan al menos {1}.", "Up to {0} fit: at least {1} stay between shelves."],
-  ["Cada cascada mide {0}: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes {1}.", "Each waterfall is {0}: the nosing height, or the countertop thickness if there is no nosing. That thickness is taken from the length for the cabinets {1}."],
-  ["Cada cascada mide {0}: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes.", "Each waterfall is {0}: the nosing height, or the countertop thickness if there is no nosing. That thickness is taken from the length for the cabinets."],
-  ["Cajones de alacena: cuerpo de {0} a 100 cm.", "Pantry drawers: body from {0} to 100 cm."],
-  ["Cama automática: {0}. Conserva libre la gola.", "Automatic countertop base: {0}. The gola stays clear."],
-  ["Cada módulo de closet admite hasta 120 cm ({0}): divide el tramo en más módulos.", "Each closet module takes up to 120 cm ({0}): split the run into more modules."],
-  ["Cuerpo elevable de la alacena: con {0} los entrepaños quedan de {1} y el mínimo es 27 cm. Quita repisas o haz más alto el cuerpo.", "Pantry lift-up body: with {0} the shelf spaces are {1} and the minimum is 27 cm. Remove shelves or make the body taller."],
+  ["Cada cascada mide {0}: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes {1}.", "Each waterfall is {0}: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets {1}."],
+  ["Cada cascada mide {0}: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes.", "Each waterfall is {0}: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets."],
+  ["Cajones de alacena: cuerpo de {0} a {1}.", "Pantry drawers: section from {0} to {1}."],
+  ["Cama automática: {0}. Conserva libre la gola.", "Automatic countertop substrate: {0}. The gola stays clear."],
+  ["Cada módulo de closet admite hasta 120 cm ({0}): divide el tramo en más módulos.", "Each closet section takes up to 120 cm ({0}): split the run into more cabinets."],
+  ["Cuerpo elevable de la alacena: con {0} los entrepaños quedan de {1} y el mínimo es 27 cm. Quita repisas o haz más alto el cuerpo.", "Pantry lift-up section: with {0} the shelf spaces are {1} and the minimum is 27 cm. Remove shelves or make the section taller."],
   ["El espacio real es de {0}: {1}", "The real space is {0}: {1}"],
   ["El nicho queda 5 cm más alto que el modelo: {0}.", "The niche is 5 cm taller than the model: {0}."],
   ["La barra elevada debe medir entre 20 y {0} de ancho para no invadir los gabinetes (ensancha la isla si necesitas más).", "The raised bar must be between 20 and {0} wide so it does not invade the cabinets (widen the island if you need more)."],
   ["La cajonera no cabe: {0} cajones de {1}.", "The drawer unit does not fit: {0} drawers of {1}."],
-  ["La hoja de la puerta oculta quedaría de {0}: necesita al menos 180 cm (reduce el gabinete de pistón o quita el zoclo).", "The hidden door leaf would be {0}: it needs at least 180 cm (reduce the lift-up cabinet or remove the plinth)."],
+  ["La hoja de la puerta oculta quedaría de {0}: necesita al menos 180 cm (reduce el gabinete de pistón o quita el zoclo).", "The hidden door leaf would be {0}: it needs at least 180 cm (reduce the lift-up cabinet or remove the toe kick)."],
   ["La isla mide {0} de ancho; los gabinetes, su vuelo y el panel trasero necesitan {1}.", "The island is {0} wide; the cabinets, their overhang and the back panel need {1}."],
   ["Los gabinetes altos quedarían de {0}. Baja la cubierta o el libre sobre cubierta, o sube la altura del muro.", "Upper cabinets would be {0}. Lower the countertop or the clearance above it, or raise the wall height."],
-  ["Puertas y cajones cierran a hueso{0} y jaladera.", "Doors and drawers close flush{0}, with handles."],
-  ["{0} quedaría de {1} y el máximo es 120 cm. Añade un módulo o fija otros anchos.", "{0} would be {1} and the maximum is 120 cm. Add a module or fix other widths."],
-  ["{0} quedaría de {1} y el mínimo es {2} cm. Quita un módulo, libera un ancho fijo o alarga el tramo.", "{0} would be {1} and the minimum is {2} cm. Remove a module, release a fixed width or lengthen the run."],
+  ["Puertas y cajones cierran a hueso{0} y jaladera.", "Overlay doors and drawers{0}, with pulls."],
+  ["{0} quedaría de {1} y el máximo es 120 cm. Añade un módulo o fija otros anchos.", "{0} would be {1} and the maximum is 120 cm. Add a cabinet or fix other widths."],
+  ["{0} quedaría de {1} y el mínimo es {2} cm. Quita un módulo, libera un ancho fijo o alarga el tramo.", "{0} would be {1} and the minimum is {2} cm. Remove a cabinet, release a fixed width or lengthen the run."],
   ["por la línea de corte de la planta, a {0} del extremo izquierdo", "along the plan cut line, {0} from the left end"],
   ["¿Guardar la configuración antes de {0}?", "Save the configuration before {0}?"],
   ["Configuración «{0}» cargada en este muro.", "Configuration “{0}” loaded on this wall."],
@@ -6378,7 +6435,7 @@ const EN_T = [
   ["Gabinetes: {0}.", "Cabinets: {0}."],
   ["Cubierta: {0}.", "Countertop: {0}."],
   ["Backsplash: {0}.", "Backsplash: {0}."],
-  ["Zoclo: {0}.", "Plinth: {0}."],
+  ["Zoclo: {0}.", "Toe kick: {0}."],
   ["Tapetas: {0}.", "Fillers: {0}."],
   ["Repisas: {0}.", "Shelves: {0}."],
   ["Interior de gabinetes abiertos: {0}.", "Open cabinet interior: {0}."],
@@ -6489,12 +6546,12 @@ function syncCommandUI(){
 document.querySelectorAll('.cmdsel button').forEach(b => b.addEventListener('click', () => {
   const cmd = b.dataset.cmd; if (b.classList.contains('on')) return;
   showDialog(cmd === 'isla' ? 'Line-Island' : cmd === 'closet' ? 'Wall-closet' : 'Wall-kitchen', cmd === 'closet'
-    ? 'En el plugin, Wall-closet toma la cara del muro (largo y altura). El prototipo abre un closet de 240 cm de largo en un muro de 240 cm. ¿Continuar? La distribución actual se descarta.'
+    ? `En el plugin, Wall-closet toma la cara del muro (largo y altura). El prototipo abre un closet de ${medida(proto().closet)} de largo en un muro de ${medida(prefs.inicio.alturaMuro)}. ¿Continuar? La distribución actual se descarta.`
     : cmd === 'isla'
-    ? 'En el plugin, Line-Island se dibuja como un rectángulo (dos esquinas o largo,ancho tecleado) y después se elige el lado largo de los gabinetes. El prototipo abre una isla de 240 × 90 cm. ¿Continuar? La distribución actual se descarta.'
-    : 'El prototipo abre una cocina en muro de 300 cm. ¿Continuar? La distribución actual se descarta.', [
+    ? `En el plugin, Line-Island se dibuja como un rectángulo (dos esquinas o largo,ancho tecleado) y después se elige el lado largo de los gabinetes. El prototipo abre una isla de ${fmt(proto().isla[0])} × ${medida(proto().isla[1])}. ¿Continuar? La distribución actual se descarta.`
+    : `El prototipo abre una cocina en muro de ${medida(proto().cocina)}. ¿Continuar? La distribución actual se descarta.`, [
     { text: 'Continuar', primary: true, action: () => {
-      const cat = cfg.catalogo; cfg = cmd === 'isla' ? defaultIsland(240, 90) : cmd === 'closet' ? defaultCloset(240) : defaultConfig(300); cfg.catalogo = cat;
+      const cat = cfg.catalogo, P = proto(); cfg = cmd === 'isla' ? defaultIsland(P.isla[0], P.isla[1]) : cmd === 'closet' ? defaultCloset(P.closet) : defaultConfig(P.cocina); cfg.catalogo = cat;
       recalculate(); undoStack = []; redoStack = []; sectionCut = NaN; view = 'Alzado';
       selection = new Set(row(false).length ? [row(false)[0].id] : []); selectedPart = null; focusPanel = null; upperFocus = null; pieces.clear();
       syncCommandUI(); render(); } },
@@ -6583,9 +6640,12 @@ document.getElementById('btnPrefs').addEventListener('click', () => prefsOpen ? 
 const PASOS_REPARTO = [['modular', 'Modular (pasos de 3")'], ['pulgada', 'Por pulgada (1")'], ['medida', 'A medida (1/16")']];
 /* E1: al elegir la region se proponen su unidad, su redondeo, su iman y sus valores de inicio (se pueden cambiar despues) */
 function aplicarRegionPrefs(v){
-  prefs.unidad = v === 'US' ? 'in' : 'cm'; prefs.paso.in = 16; prefs.paso.ftin = 16; prefs.imanTol = v === 'US' ? inch(.5) : 1.5;
+  prefs.unidad = v === 'US' ? 'inft' : 'cm'; prefs.paso.in = 16; prefs.paso.inft = 16; prefs.paso.ftin = 16; prefs.imanTol = v === 'US' ? inch(.5) : 1.5;
   prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION[v]));
 }
+/* E2: medidas con que el prototipo abre cada comando (el plugin toma las del muro o del rectangulo) */
+const PROTO = { MX: { cocina: 300, isla: [240, 90], closet: 240 }, US: { cocina: inch(120), isla: [inch(96), inch(42)], closet: inch(96) } };
+const proto = () => PROTO[prefs.region] || PROTO.MX;
 function renderPrefs(){
   const el = document.getElementById('prefsPanel'), P = prefs, I = P.inicio, u = P.unidad;
   const radio = (path, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${String(v) === String(cur) ? ' on' : ''}"><input type="radio" name="pf-${path}" data-pref="${path}" value="${v}" ${String(v) === String(cur) ? 'checked' : ''}><div><div class="t">${t}</div></div></label>`).join('')}</div>`;
@@ -6603,10 +6663,10 @@ function renderPrefs(){
       + `<div class="note-sm">Independiente del idioma: pone la unidad, los valores de inicio, el reparto de anchos${P.region === 'US' ? ' (módulos de 3", 1" o 1/16")' : ' (cm enteros)'} y los límites de los gabinetes. Vale para las cocinas, islas y closets nuevos; la actual conserva la suya (${cfg.region === 'US' ? 'Estados Unidos' : 'México'}).</div>`
       + (cfg.region !== P.region ? `<button class="btn btn-block" style="margin-top:8px" id="prefsRegionCfg">Aplicar a la distribución actual</button>` : ''))}
     ${section('Idioma', radio('idioma', [['es', 'Español'], ['en', 'English']], P.idioma) + `<div class="note-sm">Toda la interfaz: paneles, ayudas, mensajes y rótulos del dibujo. No se traducen los nombres que pones tú (materiales propios y configuraciones).</div>`)}
-    ${section('Unidades', select('unidad', [['cm', 'Centímetros (cm)'], ['mm', 'Milímetros (mm)'], ['in', 'Pulgadas fraccionarias (in)'], ['ftin', 'Pies y pulgadas (ft-in)']], u)
+    ${section('Unidades', select('unidad', [['cm', 'Centímetros (cm)'], ['mm', 'Milímetros (mm)'], ['in', 'Pulgadas fraccionarias (in)'], ['inft', 'Pulgadas, con pies en las totales (in + ft-in)'], ['ftin', 'Pies y pulgadas (ft-in)']], u)
       + select('paso.' + u, pasos, P.paso[u], 'Redondeo')
-      + `<div class="info-card" style="margin-top:10px"><div class="info-row">Ejemplo: 60 cm <b class="pref-ex">${esc(fmt(60) + uS())}</b></div></div>`
-      + `<div class="note-sm">Los campos y las cotas aceptan escribir en esta unidad, o con su unidad: 60 cm, 600 mm, 23 5/8" o 1' 11 5/8".</div>`)}
+      + `<div class="info-card" style="margin-top:10px"><div class="info-row">${P.region === 'US' ? 'Ejemplo: 24"' : 'Ejemplo: 60 cm'} <b class="pref-ex">${esc(medida(P.region === 'US' ? inch(24) : 60))}</b></div></div>`
+      + `<div class="note-sm">Los campos y las cotas aceptan escribir en esta unidad, o con su unidad: 60 cm, 600 mm, 23 5/8" o 1'-11 5/8".</div>`)}
     ${section('Cotas', `<label class="field"><span>Remate</span></label>` + radio('cotaRemate', [['oblicuo', 'Oblicuo'], ['flecha', 'Flecha'], ['punto', 'Punto']], P.cotaRemate)
       + `<div class="grid-2" style="margin-top:10px">${select('cotaTexto', [[10, 'Pequeño'], [11.5, 'Normal'], [13, 'Grande']], P.cotaTexto, 'Tamaño del texto')}${select('cotaUnidad', [['totales', 'Solo en las totales'], ['todas', 'En todas'], ['ninguna', 'En ninguna']], P.cotaUnidad, 'Unidad en las cotas')}</div>`
       + `<label class="field" style="margin-top:10px"><span>Color</span></label>` + radio('cotaColor', [['producto', 'Color del producto'], ['negro', 'Negro']], P.cotaColor))}
