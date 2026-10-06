@@ -171,20 +171,27 @@
        suma «LED bajo las repisas» con las mismas opciones (posicion,
        distancia, temperatura, luz) y su dibujo en el alzado. SketchUp: el
        closet llegara con Drawdrobe. Revit: LED en repisas del closet.
-   A83. [Por hacer en el master] Doble cama en los altos con gola (06/10,
+   A83. Doble cama en los altos con gola (06/10,
        usuario): en estilo Moderna (con gola) los gabinetes altos llevan
        siempre doble cama abajo, haya LED o no (hoy solo la llevan con LED
        bajo altos): oculta la tira LED cuando la hay y deja el espacio del
-       unero en el canto inferior de la puerta.
+       unero en el canto inferior de la puerta. Master (06/10): conCama(m);
+       la cama del piso (con ranura y LED solo si hay LED) y la cama interior
+       (tipo CamaInterior) de 1.8 cm tras el frente al trasero, como LedUpgrade.
        Revit y SketchUp: despues del master.
-   A82. [Por hacer en el master] Fondo independiente en el alto doble (05/10,
+   A82. Fondo independiente en el alto doble (05/10,
        usuario): el modulo inferior y el modulo superior del alto doble
        cambian de fondo cada uno por su lado; el fondo de uno ya no depende
-       del otro. Revit y SketchUp: despues del master.
-   A81. [Por hacer en el master] Mostrar solo la campana (05/10, usuario):
+       del otro. Revit y SketchUp: despues del master. Master (06/10):
+       m.fondoSuperior (arranca con el fondo del alto) y campo Fondo en el
+       panel del modulo superior; el fondo del alto ya no lo mueve.
+   A81. Mostrar solo la campana (05/10, usuario):
        en el alto doble con campana, opcion para que en esa columna quede
        solo la campana: elimina el modulo inferior y el modulo superior del
        alto doble. Los bajos no cambian. Revit y SketchUp: despues del master.
+       Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
+       (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
+       sin modulo superior ni sus secciones; la chimenea llega al tope.
    A80. Tapetas laterales en planta (04/10, usuario): no se dibujaban; ahora van
        rellenas del muro al frente de los bajos, punteadas para activarlas y
        seleccionables, con prioridad sobre la cubierta. Revit: dibujarlas en
@@ -1360,7 +1367,7 @@ function newModule(upper, region = cfg.region){
     altoZapatera: 60, altoEscritorio: 75, espejo: 'Rectangular', repisaAltaVanity: 200,
     /* alto doble (UpperCaps): modulo superior de piston, dos puertas o caja de repisas; campana bajo el alto */
     inferiorAbierto: false, tipoSuperior: 'Piston', repisasSuperior: 0, divisionSuperior: false, divisionesSuperior: 1, unirSuperior: false, altoSuperior: 30, materialSuperior: null, mostrarPuertaSuperior: true,
-    huecoCampana: 10, fondoCampana: 50, mostrarCampana: true,
+    huecoCampana: 10, fondoCampana: 50, mostrarCampana: true, soloCampana: false, fondoSuperior: 0,   /* A81; A82: 0 = toma el fondo del alto al volverse doble */
     /* especiales de la fila baja: torre de hornos, alacena y especiero torre (Config de src/LayoutState.cs) */
     topeEspecial: 0, espesorLaterales: 1.8, repisasEspecial: 2, aireHornos: 5,
     baseHorno: 60, altoHorno: 60, rejillaHorno: true, altoRejilla: 5, microondas: true, altoMicro: 45, elevacionMicro: 0,
@@ -1900,6 +1907,11 @@ function joinRight(id){ const ups = row(true), i = ups.findIndex(q => q.id === i
   if (isDoble(m)) { r.tipo = 'Doble'; r.inferiorAbierto = true; r.altoSuperior = m.altoSuperior; r.tipoSuperior = m.tipoSuperior; } else r.tipo = 'Abierto';
   r.campana = false; r.dosPuertas = false; r.repisas = m.repisas; r.division = m.division; r.divisiones = m.divisiones; }
 const hasCampana = m => m.upper && !!m.campana && m.tipo !== 'Abierto' && !m.inferiorAbierto;
+/* A81 (usuario, 06/10): solo la campana: la columna no lleva el cuerpo del alto ni el modulo superior del alto doble; la chimenea llega al tope */
+const soloCamp = m => hasCampana(m) && !!m.soloCampana;
+/* A83 (usuario, 06/10): con gola (Moderna) los altos llevan siempre doble cama, con o sin LED: la cama del piso (con la ranura si hay LED)
+   y encima una cama interior desde 1.8 cm tras el frente hasta el trasero (como LedUpgrade de Revit); deja el unero y oculta el LED */
+const conCama = m => m.upper && !m.reserved && !hasCampana(m) && (cfg.led || cfg.style === 'Moderna');
 const sinPuertas = m => m.tipo === 'Abierto' || m.tipo === 'Doble' && m.inferiorAbierto;
 const NOMBRES = { EspecieroTorre: 'Especiero torre', Hornos: 'Hornos', Alacena: 'Alacena', Refri: 'Refrigerador', Estufa: 'Estufa', Basura: 'Cesto de basura', Frigobar: 'Frigobar de vinos', Especiero: 'Especiero', Lavavajillas: 'Lavavajillas' };
 /* E16: codigo de gabinete de EE. UU. (estimado del oficio): B30, SB36, DB18, W3042, W361524, T2484, OC3384... Solo en el panel con la region US */
@@ -2034,7 +2046,7 @@ function fronts(m){
     else r.push({kind:'Puerta', x0, x1, z0, z1, hingeRight:inv});
   };
   if (sinPuertas(m)) return r;
-  if (m.upper) { const z0 = baseAltos() + (hasCampana(m) ? m.huecoCampana : 0); door(hol, m.ancho-hol, z0, baseAltos() + bodyH(m) - hol, m.dosPuertas, m.invertir); return r; }
+  if (m.upper) { if (soloCamp(m)) return r; const z0 = baseAltos() + (hasCampana(m) ? m.huecoCampana : 0); door(hol, m.ancho-hol, z0, baseAltos() + bodyH(m) - hol, m.dosPuertas, m.invertir); return r; }
   const ins = isTower(m) ? m.espesorLaterales : 0;   /* la torre lleva sus frentes entre laterales */
   const drawers = () => {
     const hs = heights(m); let top = zb + bodyH(m) - topGap(m);
@@ -2461,6 +2473,9 @@ function planDePiezas(c = cfg){
         sep = sepDe(m);
         if (m.reserved) { x += m.ancho; continue; }
         if (isSpecial(m) || esAparato(m)) { especial(m, x); x += m.ancho; continue; }
+        if (upper && soloCamp(m)) {   /* A81: solo la campana */
+          if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos(), baseAltos() + m.huecoCampana, sep, sep + m.fondoCampana);
+          x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
            interior del primero (BodyLead) y a todo el ancho del grupo */
         const z0 = upper ? baseAltos() + (hasCampana(m) ? m.huecoCampana : 0) : cfg.baseBajos;
@@ -2471,8 +2486,11 @@ function planDePiezas(c = cfg){
           const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
           const basura = m.tipo === 'Basura' && m.ancho > m.anchoBasura + .01;   /* el cesto ocupa su ancho; el resto, tapeta */
           const tarja = !upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0 && cfg.generarCubierta;   /* la tina entra por arriba */
-          const led = upper && cfg.led && !hasCampana(m);   /* el alto con campana no lleva LED: su lecho es el hueco de la campana */
+          const led = conCama(m);   /* sobre la cama (LED o gola, A83); el alto con campana no la lleva: su lecho es el hueco de la campana */
           const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo', !tarja, led);
+          if (upper && led && cfg.style === 'Moderna') {   /* A83: cama interior sobre la del piso, de 1.8 cm tras el frente al trasero */
+            const e = PLAN_CUERPO.lateral; add({ id: lead.id + ':cuerpo:camaInterior', rol: 'panel', modulo: lead.id, tipo: 'CamaInterior', x: h.x0, y: h.y0, z: h.z0, ancho: h.x1 - h.x0, fondo: h.y1 - e - h.y0, alto: e, material: matDe(lead), etiqueta: 'gabinetes' });
+            h.z0 += e; }
           if (basura) add({ id: m.id + ':tapeta', rol: 'tapeta', modulo: m.id, tipo: 'Compensacion', x: x + m.anchoBasura, y: sep + m.fondo, z: cfg.baseBajos, ancho: m.ancho - m.anchoBasura, fondo: t, alto: cfg.altoBajos, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
           if (espCon(m) !== 'Nada') {   /* A51: division entre el especiero y el resto; cada parte con su interior y sus cajas */
             const [e0, e1, r0, r1] = espPartes(m), e = PLAN_CUERPO.lateral, xd = x + (espIzq(m) ? e1 : r1);
@@ -2495,7 +2513,7 @@ function planDePiezas(c = cfg){
         const cap = isDoble(m) ? capGroupOf(m) : null;
         if (cap && cap.lead === m) {
           const cz0 = topeAltos() - m.altoSuperior, cz1 = topeAltos(), cx0 = cap.x0, cx1 = cap.x0 + cap.width, hol = .2;
-          const capMat = m.materialSuperior || cfg.materialGeneral || null, fondo = Math.max(...cap.members.map(q => q.fondo));
+          const capMat = m.materialSuperior || cfg.materialGeneral || null, fondo = m.fondoSuperior > 0 ? m.fondoSuperior : Math.max(...cap.members.map(q => q.fondo));   /* A82 */
           const h = carcasa(m, m.id + ':superior', cx0, cx1, cz0, cz1, fondo, capMat, 'cap');
           interior(m, m.id + ':superior', h, m.repisasSuperior || 0, m.divisionSuperior ? Math.max(1, m.divisionesSuperior || 1) : 0, 'cap');
           /* A76: con tablero, para llevar marco shaker en estilo Clasica como los demas frentes */
@@ -2512,19 +2530,19 @@ function planDePiezas(c = cfg){
     /* cama del LED (B14): piso bajo los altos con LED, de todo el fondo, con la ranura por debajo (tabla delgada encima del perfil) y
        el perfil embutido a ras. A67 (usuario, 04/10): una cama por columna (antes corrida), con el material de su gabinete, para que
        cada seccion admita un material distinto; no la llevan las columnas reservadas ni los altos con campana */
-    if (cfg.led) { let xc = ajusteIzq(); const tramosCama = [];
-      for (const m of row(true)) { if (!m.reserved && !hasCampana(m)) tramosCama.push({ x0: xc, x1: xc + m.ancho, fondo: m.fondo, m }); xc += m.ancho; }
+    if (cfg.led || cfg.style === 'Moderna') { let xc = ajusteIzq(); const tramosCama = [];   /* A83: con gola, cama aunque no haya LED */
+      for (const m of row(true)) { if (conCama(m)) tramosCama.push({ x0: xc, x1: xc + m.ancho, fondo: m.fondo, m }); xc += m.ancho; }
       tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + L.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
-        add({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes',
-          ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } });
-        add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: PLAN_TIRA.id, etiqueta: 'herrajes' });
+        add(Object.assign({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes' },
+          cfg.led ? { ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } } : {}));
+        if (cfg.led) add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: PLAN_TIRA.id, etiqueta: 'herrajes' });
         });
       /* B25: la luz en el muro, de la cubierta a las camas, delante del backsplash si lo hay. B26 (usuario): corrida, una por tramo de
          camas seguidas (se corta solo donde no hay cama: columna reservada o alto con campana) */
       const yl = (cfg.backsplash && lows.length ? cfg.espesorBacksplash : 0) + .05, zl = altoBarra(), zc = baseAltos(), tramosLuz = [];
       tramosCama.forEach(q => { const u = tramosLuz[tramosLuz.length - 1]; if (u && Math.abs(u.x1 - q.x0) < .01) u.x1 = q.x1; else tramosLuz.push({ x0: q.x0, x1: q.x1, m: q.m }); });
-      if (cfg.ledLuz !== false && zc - zl > 5) tramosLuz.forEach(q => add({ id: 'luz:' + q.m.id, rol: 'luz', modulo: q.m.id, tipo: 'Luz', x: q.x0, y: yl, z: zl, ancho: q.x1 - q.x0, fondo: .1, alto: zc - zl,
+      if (cfg.led && cfg.ledLuz !== false && zc - zl > 5) tramosLuz.forEach(q => add({ id: 'luz:' + q.m.id, rol: 'luz', modulo: q.m.id, tipo: 'Luz', x: q.x0, y: yl, z: zl, ancho: q.x1 - q.x0, fondo: .1, alto: zc - zl,
         material: PLAN_LUZ.id, etiqueta: 'luz', forma: { tipo: 'plano', eje: 'y' } })); }
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
        a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
@@ -2988,7 +3006,7 @@ function pruebasPlanMX(){
 function capGroups(){
   const out = []; let open = null, x = ajusteIzq();
   for (const m of row(true)) {
-    if (!m.reserved && isDoble(m)) {
+    if (!m.reserved && isDoble(m) && !soloCamp(m)) {   /* A81: con solo campana no hay modulo superior */
       if (open && open.members[open.members.length - 1].unirSuperior) { open.members.push(m); open.width += m.ancho; }
       else { open = { lead: m, members: [m], x0: x, width: m.ancho }; out.push(open); }
     } else open = null;
@@ -3035,7 +3053,9 @@ function recalculate(){
      del mismo alto; si una deja de serlo (tipo, campana, puertas), la marca se limpia y no queda tildada sin efecto */
   { const up = row(true), isBox = q => q && !q.reserved && sinPuertas(q) && !hasCampana(q), sup = q => isDoble(q) ? q.altoSuperior : 0;
     up.forEach((q, k) => { if (q.unirCuerpo && !(isBox(q) && isBox(up[k + 1]) && Math.abs(sup(q) - sup(up[k + 1])) < .01)) q.unirCuerpo = false; }); }
-  capGroups().forEach(g => g.members.slice(1).forEach(f => { f.altoSuperior = g.lead.altoSuperior; f.tipoSuperior = g.lead.tipoSuperior; f.repisasSuperior = g.lead.repisasSuperior; f.divisionSuperior = g.lead.divisionSuperior; f.divisionesSuperior = g.lead.divisionesSuperior; f.materialSuperior = g.lead.materialSuperior; f.mostrarPuertaSuperior = g.lead.mostrarPuertaSuperior; }));
+  /* A82 (usuario, 06/10): el modulo superior tiene su fondo; al volverse doble arranca con el del alto y despues ninguno depende del otro */
+  for (const m of cfg.modulos) if (isDoble(m) && !(m.fondoSuperior > 0)) m.fondoSuperior = m.fondo;
+  capGroups().forEach(g => g.members.slice(1).forEach(f => { f.fondoSuperior = g.lead.fondoSuperior; f.altoSuperior = g.lead.altoSuperior; f.tipoSuperior = g.lead.tipoSuperior; f.repisasSuperior = g.lead.repisasSuperior; f.divisionSuperior = g.lead.divisionSuperior; f.divisionesSuperior = g.lead.divisionesSuperior; f.materialSuperior = g.lead.materialSuperior; f.mostrarPuertaSuperior = g.lead.mostrarPuertaSuperior; }));
   /* cuerpos de altos abiertos unidos: la caja la manda el primero (repisas, division y material) */
   bodyGroups().forEach(g => g.members.slice(1).forEach(f => { f.repisas = g.members[0].repisas; f.division = g.members[0].division; f.material = g.members[0].material; }));
   if (!cfg.generarCubierta || !cfg.modulos.some(m => m.id === cfg.moduloTarja && !m.upper)) { cfg.tipoTarja = 0; cfg.moduloTarja = null; }
@@ -3128,7 +3148,7 @@ function validate(){
   for (const m of row(true).filter(q => !q.reserved)) {
     if (hasCampana(m)) {
       const body = altoAltos() - (isDoble(m) ? m.altoSuperior : 0) - m.huecoCampana;
-      if (m.huecoCampana < 5 || m.huecoCampana > 40 || body < -.01 || body > .01 && body < 25) throw new Error(`Campana: la canopy visible mide de ${medida(5)} a ${medida(40)} y el gabinete que la cubre necesita al menos ${medida(25)} (o ${medida(0)} para usar todo el hueco).`);
+      if (m.huecoCampana < 5 || m.huecoCampana > 40 || !m.soloCampana && (body < -.01 || body > .01 && body < 25)) throw new Error(`Campana: la canopy visible mide de ${medida(5)} a ${medida(40)} y el gabinete que la cubre necesita al menos ${medida(25)} (o ${medida(0)} para usar todo el hueco).`);
       if (m.fondoCampana < 30 || m.fondoCampana > 70) throw new Error(`Campana: el fondo debe estar entre ${medida(30)} y ${medida(70)}.`);
     }
     if (espCon(m) !== 'Nada' && m.ancho < espAncho(m) + reg().ancho.min - .01) throw new Error(`Especiero con ${espCon(m) === 'Puerta' ? 'puerta' : 'cajones'}: la columna necesita al menos ${fmt(espAncho(m) + reg().ancho.min)}${uS()}.`);
@@ -3564,7 +3584,7 @@ function drawElevation(){
   /* cadena lateral: con altos dobles, del lecho de los altos al lecho del modulo superior y de ahi al tope (upperBody / upperLift) */
   if (highs.some(h => !h.reserved)) {
     dim(xr, Z(zBar), xr, Z(zBA), fmt(cfg.separacionAltos) + uS(), 'gap');
-    const lifted = highs.filter(h => !h.reserved && isDoble(h));
+    const lifted = highs.filter(h => !h.reserved && isDoble(h) && !soloCamp(h));   /* A81 */
     if (lifted.length) { const hs = Math.max(...lifted.map(h => h.altoSuperior)); dim(xr, Z(zBA), xr, Z(zTop - hs), fmt(zTop - hs - zBA) + uS(), 'upperBody'); dim(xr, Z(zTop - hs), xr, Z(zTop), fmt(hs) + uS(), 'upperLift'); }
     else dim(xr, Z(zBA), xr, Z(zTop), fmt(altoAltos()) + uS(), null);
   }
@@ -4123,6 +4143,9 @@ function drawModule(m, x0, RX, X, Z, post){
   if (m.tipo === 'Estufa') { drawStove(m, x0, RX, post); return; }
   if (m.tipo === 'Frigobar') { drawFridge(m, x0, RX, post); return; }
   if (m.tipo === 'Lavavajillas' && !m.upper) { drawDishwasher(m, x0, RX, post); return; }
+  if (soloCamp(m)) {   /* A81: solo la campana en su hueco y la chimenea hasta el tope; sin cuerpo ni modulo superior */
+    const full = RX(x0, x0 + m.ancho, baseAltos(), topeAltos()), free = RX(x0, x0 + m.ancho, baseAltos(), baseAltos() + m.huecoCampana), sel = selection.has(m.id);
+    drawCampana(m, full, free); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel); return; }
   const zb = cfg.baseBajos, z0 = m.upper ? baseAltos() : zb, z1 = m.upper ? baseAltos() + bodyH(m) : zb + cfg.altoBajos;
   const full = RX(x0, x0 + m.ancho, z0, z1), sel = selection.has(m.id), scale = frame.scale;
   /* espacio para campana: franja libre al pie del alto; el cuerpo queda encima */
@@ -4152,7 +4175,7 @@ function drawModule(m, x0, RX, X, Z, post){
   hits.push({ rect: full, module: m, body: true });
   /* alto doble: el modulo superior es un elemento aparte; su franja tambien elige la columna */
   let slice = null;
-  if (isDoble(m)) {
+  if (isDoble(m) && !soloCamp(m)) {
     slice = RX(x0, x0 + m.ancho, topeAltos() - m.altoSuperior, topeAltos()); hits.push({ rect: slice, module: m });
     const g = capGroupOf(m); if (g && g.lead === m) drawCap(g, RX, post);
   }
@@ -4945,8 +4968,8 @@ function dimSpec(key){
     case 'mheight': return { v: mheightOf(m), min: m.upper ? 15 : 60, max: m.upper ? 120 : 100 };
     case 'tw': { const sg = segments(m).find(q => q[0] === i); return { v: sg ? sg[2] - sg[1] : 0, min: 2, max: 300 }; }
     case 'mlift': return { v: m.altoSuperior, min: DOBLE_MIN, max: Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN) };   /* A50: aviso, no tope */
-    case 'upperBody': { const hs = Math.max(...row(true).filter(q => !q.reserved && isDoble(q)).map(q => q.altoSuperior)); return { v: altoAltos() - hs, min: DOBLE_MIN, max: altoAltos() - DOBLE_MIN }; }
-    case 'upperLift': return { v: Math.max(...row(true).filter(q => !q.reserved && isDoble(q)).map(q => q.altoSuperior)), min: DOBLE_MIN, max: Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN) };
+    case 'upperBody': { const hs = Math.max(...row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)).map(q => q.altoSuperior)); return { v: altoAltos() - hs, min: DOBLE_MIN, max: altoAltos() - DOBLE_MIN }; }
+    case 'upperLift': return { v: Math.max(...row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)).map(q => q.altoSuperior)), min: DOBLE_MIN, max: Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN) };
     case 'halfw': return { v: m.ancho/2, min: reg().ancho.min/2, max: reg().ancho.max/2 };
     case 'pdepth': return id === 'up' ? { v: maxFondo(true), min: 25, max: 45 } : { v: maxFondo(false), min: 50, max: 70 };
   }
@@ -4989,7 +5012,7 @@ function commitDimension(){
     else if (k === 'mheight') { const m = byId(id); setHeight(m.upper, m.upper ? v + (isDoble(m) ? m.altoSuperior : 0) + (hasCampana(m) ? m.huecoCampana : 0) : v); }
     else if (k === 'tw') setSegment(byId(id), i, v);
     else if (k === 'mlift') { const m = byId(id), g = capGroupOf(m); (g ? g.lead : m).altoSuperior = v; }
-    else if (k === 'upperBody' || k === 'upperLift') { const hs = k === 'upperLift' ? v : altoAltos() - v; row(true).filter(q => !q.reserved && isDoble(q)).forEach(q => q.altoSuperior = hs); }
+    else if (k === 'upperBody' || k === 'upperLift') { const hs = k === 'upperLift' ? v : altoAltos() - v; row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)).forEach(q => q.altoSuperior = hs); }
     else if (k === 'pdepth') { const r = row(id === 'up'), t = r.filter(x => selection.has(x.id)); (t.length ? t : r).forEach(x => x.fondo = v); }
   }, ['wall', 'bar', 'closetAlto', 'cseg', 'gap', 'mheight', 'tw', 'mlift', 'upperBody', 'upperLift'].includes(k) ? 'Revisar altura' : 'Revisar distribución');
 }
@@ -5119,7 +5142,7 @@ function modulePanel(m){
     + (view === 'Alzado' ? `<button class="btn btn-block" style="margin-top:10px" data-act="centrar">Centrar en la isla</button>` : ''));
   let opts = anchoFijo(m.fijo, 'fijoLibre');
   /* (A60) campana extractora y dos puertas: interruptores con icono, como las tarjetas de Funcion */
-  const twoVis = !sinPuertas(m) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
+  const twoVis = !sinPuertas(m) && !soloCamp(m) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
   if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);
   if (twoVis) sw.push(['tgDos', m.dosPuertas, 'Dos puertas', FI.DosPuertas]);
   if (sw.length) opts += toggles(sw);
@@ -5134,7 +5157,7 @@ function modulePanel(m){
   if (isDoble(m) && !bx && bodyGroupOf(m)) opts += `<div class="note-sm">Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o</div><button class="btn btn-block" style="margin-top:6px" data-act="editBox">Editar la caja corrida</button>`;
   html += section('Opciones', opts);
   if (m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
-  if (hasCampana(m)) html += section('Campana', `<div class="grid-2">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
+  if (hasCampana(m)) html += section('Campana', chk('soloCamp', !!m.soloCampana, 'Mostrar solo la campana (sin gabinete alto)') + (m.soloCampana ? `<div class="note-sm" style="margin-top:0">La columna lleva solo la campana: sin el gabinete alto${isDoble(m) ? ' ni el módulo superior' : ''}; la chimenea llega al tope.</div>` : '') + `<div class="grid-2" style="margin-top:8px">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
   if (isDoble(m) && !hasCampana(m)) {   /* A38: repisas y divisiones del gabinete inferior y del superior */
     const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS;
     html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Forma una caja corrida: repisas y divisiones se reparten en toda la caja.' : ''}</div>`
@@ -5143,7 +5166,7 @@ function modulePanel(m){
       + chk('supDiv', cl.divisionSuperior, 'División vertical interna') + (cl.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', cl.divisionesSuperior || 1, 'u', 1, capJoined(cl) ? 99 : 4, 1)}</div></div>` : '')
       + `<div class="note-sm">${cl.tipoSuperior === 'Repisas' ? 'Caja de repisas abierta.' : 'Detrás de su puerta se ven en la vista Interior.'}</div>`);
   }
-  if (isDoble(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + `<div class="note-sm">Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
+  if (isDoble(m) && !soloCamp(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + `<div class="note-sm">Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
   if (m.upper && !hasCampana(m) && !isDoble(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
     html += section('Repisas', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete alto', n, 'u', 0, 12, 1)}</div>`
       + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los ${medida(25)} recomendados. Se generan igual.</div>`
@@ -5234,7 +5257,7 @@ function capPanel(id){
   const up = row(true), last = g.members[g.members.length - 1], next = up[up.indexOf(last) + 1];
   let html = head('Módulo superior', `${g.members.length === 1 ? '1 columna' : g.members.length + ' columnas unidas'} · ${fmt(g.width)}${uS()}`);
   html += section('Tipo', sel('capTipo', [['Piston','Puerta elevable (pistón)'],['Puertas','Dos puertas'],['Repisas','Caja de repisas abierta']], m.tipoSuperior));
-  html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}</div>` + avisoDoble(m)
+  html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}${num('capFondo', 'Fondo', m.fondoSuperior > 0 ? m.fondoSuperior : m.fondo, 'cm', 25, 70)}</div><div class="note-sm">El fondo del módulo superior es independiente del gabinete alto de abajo.</div>` + avisoDoble(m)
     + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; la caja abierta, a 3 columnas.</div>`
     + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
     + (m.tipoSuperior === 'Piston' ? chk('capMostrar', m.mostrarPuertaSuperior, 'Mostrar puerta elevable') : ''));
@@ -5439,9 +5462,11 @@ const ACT = {
   closeFocus: () => { focusPanel = null; render(); },
   /* altos: campana y alto doble */
   infAb: (v, m) => change(() => { const t = byId(m.id); t.inferiorAbierto = v; if (v) t.dosPuertas = false; }),
+  soloCamp: (v, m) => change(() => byId(m.id).soloCampana = v, 'Revisar altura'),   /* A81 */
   hueco: (v, m) => change(() => byId(m.id).huecoCampana = v, 'Revisar altura'), fCamp: (v, m) => change(() => byId(m.id).fondoCampana = v),
   mCamp: (v, m) => change(() => byId(m.id).mostrarCampana = v),
   editCap: (v, m) => { const g = capGroupOf(m); if (g) selectPart('ucap:' + g.lead.id); },
+  capFondo: v => change(() => { partMod().fondoSuperior = v; }),   /* A82 */
   capTipo: v => change(() => { const l = partMod(); l.tipoSuperior = v; if (v === 'Repisas' && l.repisasSuperior < 1) l.repisasSuperior = 1; }),
   capRep: v => change(() => { const l = partMod(); l.repisasSuperior = Math.max(0, Math.min(MAX_REPISAS, Math.round(v))); }),
   capMostrar: v => change(() => partMod().mostrarPuertaSuperior = v), capAlto: v => change(() => partMod().altoSuperior = v, 'Revisar altura'),
@@ -6047,6 +6072,9 @@ const EN = {
   'Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.': 'With 0 the bar is flush with the waterfall’s outer face (or the countertop edge if that side has no waterfall); a larger value pushes it out. Left and right are those of the front elevation.',
   'Con barra elevada la cubierta usa un espesor único, sin nariz.': 'With a raised bar the countertop uses a single thickness, no built-up edge.',
   'Conservar este ancho': 'Keep this width',
+  ' ni el módulo superior': ' or stacker',
+  'Mostrar solo la campana (sin gabinete alto)': 'Show the range hood only (no wall cabinet)',
+  'El fondo del módulo superior es independiente del gabinete alto de abajo.': "The stacker's depth is independent from the wall cabinet below.",
   'Subway 3×6"': '3×6" subway',
   'Ladrillo alineado 3×6"': '3×6" stacked',
   'Cuadro 8×8"': '8×8" square',
@@ -6476,6 +6504,7 @@ const EN = {
   'Ejemplo: 60 cm': 'Example: 60 cm'
 };
 const EN_T = [
+  ["La columna lleva solo la campana: sin el gabinete alto{0}; la chimenea llega al tope.", "This column has the range hood only: no wall cabinet{0}; the chimney runs to the top."],
   ["Compacto ({0})", "Compact ({0})"],
   ["Hueco de {0} del piso a la cubierta; el aparato trae su propio zoclo y el del mueble se corta.", "{0} opening from the floor to the countertop; the appliance has its own toe kick, so the cabinet toe kick stops."],
   ["Sin tarja en la cocina: la NKBA pide el lavavajillas a {0} o menos de ella.", "No sink in the kitchen: NKBA wants the dishwasher within {0} of it."],
