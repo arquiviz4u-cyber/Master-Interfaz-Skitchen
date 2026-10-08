@@ -213,6 +213,9 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A112. [Revit OK P12.226] Barra elevada sin tope de ancho (08/10, usuario, tras probar la isla en Revit): la barra elevada mide de 5 cm al ancho
+       de la isla; ya no se limita al espacio detras de los gabinetes. Si es mas ancha que ese espacio, el peralte se apoya sobre la
+       cubierta principal, que no se acorta por debajo de los gabinetes. Revit: misma regla.
    A111. [Revit OK P12.217] Separacion entre frentes de 3 mm de fabrica (08/10, usuario, tras probar
        A109): valores de inicio MX 3 mm y US 1/8"; los Ajustes guardados con los
        2 mm (o 1/16") pasan una vez a 3 mm. Revit: mismo valor.
@@ -1798,7 +1801,8 @@ function islandValidate(){
   const need = islaFondoMax() + 1.8 + vueloEf() + 1.8;   /* B16: con sus frentes (la cubierta queda a pano de las puertas) */
   if (cfg.islaAncho < need - .01) throw new Error(`La isla mide ${fmt(cfg.islaAncho)}${uS()} de ancho; los gabinetes con sus frentes, su vuelo y el panel trasero necesitan ${fmt(need)}${uS()}.`);
   if (cfg.islaBarraElevada) {
-    if (cfg.islaBarraAncho < 20 || cfg.islaBarraAncho > islaSeparacion()) throw new Error(`La barra elevada debe medir entre 20 y ${fmt(islaSeparacion())}${uS()} de ancho para no invadir los gabinetes (ensancha la isla si necesitas más).`);
+    if (cfg.islaBarraAncho < 5) throw new Error(`La barra elevada debe medir al menos ${medida(5)} de ancho.`);   /* A112: sin tope por el espacio posterior */
+    if (cfg.islaBarraAncho > cfg.islaAncho + .01) throw new Error(`La barra elevada mide como máximo el ancho de la isla (${fmt(cfg.islaAncho)}${uS()}).`);
     if (cfg.islaBarraEspesor < 1 || cfg.islaBarraEspesor > 10) throw new Error(`El espesor de la barra elevada debe estar entre ${medida(1)} y ${medida(10)}.`);
     if (cfg.islaBarraElevacion < 5 || cfg.islaBarraElevacion > 40) throw new Error(`La elevación de la barra debe estar entre ${medida(5)} y ${medida(40)}.`);
     if ([cfg.islaBarraVueloIzq, cfg.islaBarraVueloDer].some(v => v < 0 || v > 30)) throw new Error(`El vuelo lateral de la barra elevada debe estar entre ${medida(0)} y ${medida(30)}.`);
@@ -2774,7 +2778,7 @@ function planDePiezas(c = cfg){
          se ve como una sola pieza con la cubierta: tiene su espesor y se une a ella a inglete (45 grados), sin junta al frente; la cama
          se retira al menos el espesor de la nariz */
       const D = cfg.isla ? cfg.islaAncho : dBajo + vueloEf(), esp = cfg.espesorCubierta, nariz = cfg.narizCubierta && pq > esp + .01;
-      const barraIsla = cfg.isla && cfg.islaBarraElevada, yC = barraIsla ? cfg.islaBarraAncho : 0;   /* con barra, la cubierta llega al peralte */
+      const barraIsla = cfg.isla && cfg.islaBarraElevada, yC = barraIsla ? Math.min(cfg.islaBarraAncho, islaSeparacion()) : 0;   /* con barra, la cubierta llega al peralte; si la barra es más ancha que el espacio posterior, el peralte se apoya sobre la cubierta y esta no se acorta bajo los gabinetes (A112) */
       const cubX = cfg.isla ? cubXIsla() : [run0 - vI, run1 + vD];
       if (cfg.generarCubierta) cutRun(cubX[0], cubX[1], cortaCubierta).forEach(([a, b], k) => {
         if (!nariz) { losa('cubierta:' + k, 'Losa', a, b, yC, D, zBar - pq, zBar); return; }
@@ -5522,7 +5526,7 @@ function islaPartPanel(key){
     + section('', `<div class="note-sm" style="margin-top:0">Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo. La cara posterior se edita en la vista Posterior.</div>`);
   if (key === 'cascada') return head('Cascadas de cubierta', null) + section('Cascadas', chk('cascI', cfg.cascadaIzq, 'Cascada izquierda hasta el piso') + chk('cascD', cfg.cascadaDer, 'Cascada derecha hasta el piso') + cascNote(true)) + back;
   if (key === 'raisedbar') return head('Barra elevada', null)
-    + section('Medidas', `<div class="grid-2">${num('barraAncho', 'Ancho', cfg.islaBarraAncho, 'cm', 20, 120)}${num('barraElev', 'Elevación sobre la cubierta', cfg.islaBarraElevacion, 'cm', 5, 40)}${num('barraEsp', 'Espesor (losa, peralte y cascada)', cfg.islaBarraEspesor, 'cm', 1, 10)}</div>`)
+    + section('Medidas', `<div class="grid-2">${num('barraAncho', 'Ancho', cfg.islaBarraAncho, 'cm', 5, 250)}${num('barraElev', 'Elevación sobre la cubierta', cfg.islaBarraElevacion, 'cm', 5, 40)}${num('barraEsp', 'Espesor (losa, peralte y cascada)', cfg.islaBarraEspesor, 'cm', 1, 10)}</div>`)
     + section('Vuelos laterales', `<div class="grid-2">${num('barraVI', 'Izquierdo', cfg.islaBarraVueloIzq, 'cm', 0, 30)}${num('barraVD', 'Derecho', cfg.islaBarraVueloDer, 'cm', 0, 30)}</div><div class="note-sm">Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.</div>`)
     + section('Cascadas de la barra', chk('bCascI', cfg.islaBarraCascadaIzq, 'Cascada izquierda de la barra hasta el piso') + chk('bCascD', cfg.islaBarraCascadaDer, 'Cascada derecha de la barra hasta el piso')
       + `<div class="note-sm">La cascada de la barra es independiente de las de la cubierta. Donde no hay cascada de cubierta, la de la barra cae por fuera del cuerpo de la isla. La barra admite su propio material: arrástralo sobre ella.</div>`)
@@ -5536,7 +5540,7 @@ function islaPartPanel(key){
   html += section('Isla', `<div class="grid-2">${num('islaW', 'Ancho total de la isla', cfg.islaAncho, 'cm', 40, 250)}${num('islaEsp', 'Espacio para bancos', cfg.islaEspacioBancos, 'cm', 0, 150)}</div>` + espNote()
     + chk('cascI', cfg.cascadaIzq, 'Cascada izquierda hasta el piso') + chk('cascD', cfg.cascadaDer, 'Cascada derecha hasta el piso')
     + zocPostBlock() + chk('ledPost', cfg.islaLedPosterior, 'Luz LED sobre los paneles posteriores') + (cfg.islaLedPosterior ? tonoLuzHTML() : '')
-    + chk('barra', cfg.islaBarraElevada, 'Barra elevada al fondo') + (cfg.islaBarraElevada ? `<div class="sub"><div class="grid-2">${num('barraAncho', 'Ancho de la barra', cfg.islaBarraAncho, 'cm', 20, 120)}${num('barraElev', 'Elevación', cfg.islaBarraElevacion, 'cm', 5, 40)}</div></div>` : '')
+    + chk('barra', cfg.islaBarraElevada, 'Barra elevada al fondo') + (cfg.islaBarraElevada ? `<div class="sub"><div class="grid-2">${num('barraAncho', 'Ancho de la barra', cfg.islaBarraAncho, 'cm', 5, 250)}${num('barraElev', 'Elevación', cfg.islaBarraElevacion, 'cm', 5, 40)}</div></div>` : '')
     + cascNote(false));
   if (key !== 'cover') return null;   /* tarja y monomando: el panel de cocina */
   html += section('', `<div class="note-sm" style="margin-top:0">La tarja y el monomando se configuran desde su gabinete, o haciendo clic sobre ellos en el dibujo.</div>`);
@@ -6852,7 +6856,8 @@ const EN_T = [
   ["Cuerpo elevable de la alacena: con {0} los entrepaños quedan de {1} y el mínimo es 27 cm. Quita repisas o haz más alto el cuerpo.", "Pantry lift-up section: with {0} the shelf spaces are {1} and the minimum is 27 cm. Remove shelves or make the section taller."],
   ["El espacio real es de {0}: {1}", "The real space is {0}: {1}"],
   ["El nicho queda 5 cm más alto que el modelo: {0}.", "The niche is 5 cm taller than the model: {0}."],
-  ["La barra elevada debe medir entre 20 y {0} de ancho para no invadir los gabinetes (ensancha la isla si necesitas más).", "The raised bar must be between 20 and {0} wide so it does not invade the cabinets (widen the island if you need more)."],
+  ["La barra elevada debe medir al menos {0} de ancho.", "The raised bar must be at least {0} wide."],
+  ["La barra elevada mide como máximo el ancho de la isla ({0}).", "The raised bar is at most as wide as the island ({0})."],
   ["La cajonera no cabe: {0} cajones de {1}.", "The drawer unit does not fit: {0} drawers of {1}."],
   ["La hoja de la puerta oculta quedaría de {0}: necesita al menos 180 cm (reduce el gabinete de pistón o quita el zoclo).", "The hidden door leaf would be {0}: it needs at least 180 cm (reduce the lift-up cabinet or remove the toe kick)."],
   ["La isla mide {0} de ancho; los gabinetes, su vuelo y el panel trasero necesitan {1}.", "The island is {0} wide; the cabinets, their overhang and the back panel need {1}."],
