@@ -213,6 +213,9 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A111. Separacion entre frentes de 3 mm de fabrica (08/10, usuario, tras probar
+       A109): valores de inicio MX 3 mm y US 1/8"; los Ajustes guardados con los
+       2 mm (o 1/16") pasan una vez a 3 mm. Revit: mismo valor.
    A110. Dia / noche en SketchUp (08/10, usuario): el boton Dia / noche del editor
        tambien pone el estilo del modelo en noche (fondo, cielo, suelo y aristas
        oscuros; Ruby guarda el estilo de dia y lo devuelve) y la barra de Skitchen
@@ -1443,8 +1446,8 @@ const REGIONES = {
     especieroTorre: inch(12), especiero: inch(9), lava: inch(24), lavaCompacto: inch(18), campana: { protegida: inch(24), combustible: inch(30) }, dosPuertasDesde: inch(24) } };
 /* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
 const INICIO_REGION = {
-  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .2, espesorFrente: 1.8, style: 'Moderna', materialGeneral: null },
-  US: { alturaMuro: inch(96), baseBajos: inch(4.5), altoBajos: inch(30), espesorCubierta: inch(1.5), separacionAltos: inch(18), fondoBajos: inch(24), fondoAltos: inch(12), tapeta: inch(1.5), separacionFrentes: inch(1/16), espesorFrente: inch(.75), style: 'Moderna', materialGeneral: null } };
+  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .3, espesorFrente: 1.8, style: 'Moderna', materialGeneral: null },
+  US: { alturaMuro: inch(96), baseBajos: inch(4.5), altoBajos: inch(30), espesorCubierta: inch(1.5), separacionAltos: inch(18), fondoBajos: inch(24), fondoAltos: inch(12), tapeta: inch(1.5), separacionFrentes: inch(1/8), espesorFrente: inch(.75), style: 'Moderna', materialGeneral: null } };
 /* cocina, modulo, isla y closet de EE. UU.: lo que no esta en los valores de inicio (secciones B1-B4) */
 const COCINA_US = { vuelo: inch(.75), alturaTapetaSuperior: inch(3), retiroZoclo: inch(3), altoBacksplash: inch(4), espesorBacksplash: inch(.75), ledRetiro: inch(3),
   tarjaAncho: inch(27), tarjaFondo: inch(18), tarjaProf: inch(9), retiroTarja: inch(3), anchoShaker: inch(2.25), alturaNariz: inch(2.25) };
@@ -1462,9 +1465,9 @@ const rd = v => cfg.region === 'US' ? Math.round(Math.round(v/DIECISEISAVO)*DIEC
 const anchoEscrito = v => cfg.region === 'US' ? rd(v) : Math.round(v);
 const techoAncho = v => cfg.region === 'US' ? Math.ceil(v/DIECISEISAVO - 1e-6)*DIECISEISAVO : Math.ceil(v - 1e-6);
 const medida = v => fmt(v) + uS();
-const PREFS_DEF = { region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, inft: 16, ftin: 16 },
+const PREFS_DEF = { frentesA111: false, region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, inft: 16, ftin: 16 },
   cotaRemate: 'oblicuo', cotaTexto: 11.5, cotaUnidad: 'totales', cotaColor: 'producto',
-  inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .2, espesorFrente: 1.8, style: 'Moderna', materialGeneral: null },
+  inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .3, espesorFrente: 1.8, style: 'Moderna', materialGeneral: null },
   iman: true, imanTol: 1.5, resaltado: true, preguntarGuardar: true,
   exportAncho: 3840, exportFormato: 'png', exportCotas: false, exportProyeccion: false, exportPrefijo: '', exportPrompt: '', licencia: '' };
 const mergePrefs = (base, over) => { for (const k in over) { if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k] && typeof base[k] === 'object') mergePrefs(base[k], over[k]); else if (k in base) base[k] = over[k]; } return base; };
@@ -1472,6 +1475,8 @@ let prefs = JSON.parse(JSON.stringify(PREFS_DEF));
 try { const saved = JSON.parse(localStorage.getItem('cabynetry.ajustes') || 'null'); if (saved) mergePrefs(prefs, saved); } catch (e) { /* sin almacenamiento: valores de fabrica */ }
 /* A89: la tapeta de inicio de fabrica paso de 7 a 3 cm; unos Ajustes guardados con el 7 anterior se llevan una vez al nuevo valor */
 if (!prefs.tapetaA89) { if (prefs.inicio.tapeta === 7) prefs.inicio.tapeta = 3; prefs.tapetaA89 = true; }
+/* A111: la separacion entre frentes de fabrica paso de 2 a 3 mm (US 1/16" a 1/8"); unos Ajustes guardados con la anterior se llevan una vez */
+if (!prefs.frentesA111) { if (prefs.inicio.separacionFrentes === .2) prefs.inicio.separacionFrentes = .3; else if (Math.abs(prefs.inicio.separacionFrentes - inch(1/16)) < 1e-6) prefs.inicio.separacionFrentes = inch(1/8); prefs.frentesA111 = true; }
 function savePrefs(){ try { localStorage.setItem('cabynetry.ajustes', JSON.stringify(prefs)); } catch (e) { /* queda en memoria */ } }
 const uid = () => 'm' + Math.random().toString(36).slice(2, 9);
 function newModule(upper, region = cfg.region){
@@ -1660,7 +1665,7 @@ function defaultConfig(length){
   if (region === 'US') Object.assign(c, COCINA_US);
   const ini = prefs.inicio;   /* valores de inicio de Ajustes */
   Object.assign(c, { alturaMuro: ini.alturaMuro, baseBajos: ini.baseBajos, altoBajos: ini.altoBajos, espesorCubierta: ini.espesorCubierta, separacionAltos: ini.separacionAltos, style: ini.style,
-    separacionFrentes: ini.separacionFrentes > 0 ? ini.separacionFrentes : .2, espesorFrente: ini.espesorFrente > 0 ? ini.espesorFrente : 1.8 });   /* A109 */
+    separacionFrentes: ini.separacionFrentes > 0 ? ini.separacionFrentes : .3, espesorFrente: ini.espesorFrente > 0 ? ini.espesorFrente : 1.8 });   /* A109 */
   const reserve = length - 2*ini.tapeta >= R.ancho.min ? ini.tapeta : R.tapetaCorta; c.reservaIzq = c.reservaDer = reserve;
   c.topeTapeta = Math.max(R.tapetaMax, reserve);   /* A89: ancho maximo de las tapetas (MX 5 cm; US 3") */
   const usable = length - 2*reserve; let n = 1, best = 1e9;
@@ -2122,9 +2127,9 @@ function setSegment(m, name, value){
 }
 
 /* ---- FrontLayout: huecos de agarre (3.5 gola L arriba, 3.0 entre cajones; 0.2 sin gola) ---- */
-/* A109 (usuario, 08/10): separacion entre frentes de la cocina (cfg.separacionFrentes, 2 mm de fabrica; antes 4 mm fijos): cada
+/* A109 (usuario, 08/10): separacion entre frentes de la cocina (cfg.separacionFrentes, 3 mm de fabrica desde A111; antes 4 mm fijos): cada
    frente deja la mitad a cada lado (holF); sin gola, la misma separacion entre cajones y bajo la cubierta */
-const sepFrentes = () => cfg.separacionFrentes > 0 ? cfg.separacionFrentes : .2, holF = () => sepFrentes()/2;
+const sepFrentes = () => cfg.separacionFrentes > 0 ? cfg.separacionFrentes : .3, holF = () => sepFrentes()/2;
 /* A109: espesor de los frentes (cfg.espesorFrente, 1.8 cm de fabrica) */
 const espFrente = () => cfg.espesorFrente > 0 ? cfg.espesorFrente : 1.8;
 const agarre = () => cfg.style === 'Moderna' ? 3.5 : sepFrentes();
@@ -5929,7 +5934,7 @@ function renderStyle(){
   if (cfg.style === 'Clasica') html += section('Marco shaker', `<div class="grid-2">${lenField('id="shakerAncho"', 'Ancho del marco', cfg.anchoShaker || 5)}</div>`
     + `<div class="note">El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos ${medida(2)}.</div>`);
   html += section('Frentes', `<div class="grid-2">${lenField('id="sepFrentes"', 'Separación entre frentes', sepFrentes())}${lenField('id="espFrente"', 'Espesor de frentes', espFrente())}</div>`
-    + `<div class="note">La separación es el hueco entre puertas y cajones vecinos (${medida(.2)} de fábrica); cada frente deja la mitad a cada lado.</div>`);   /* A109 */
+    + `<div class="note">La separación es el hueco entre puertas y cajones vecinos (${medida(cfg.region === 'US' ? inch(1/8) : .3)} de fábrica); cada frente deja la mitad a cada lado.</div>`);   /* A109 */
   html += section('Herrajes', `<label class="check"><input type="checkbox" id="hinge" ${cfg.bisagras ? 'checked' : ''}>Bisagras de cazoleta en las puertas</label>`);
   if (cfg.closet) html = section('Puertas del closet', opt('pcl', 'Abatibles', cfg.puertasCloset, 'Abatibles por módulo', `Dos hojas a partir de ${medida(60)}.`) + opt('pcl', 'Correderas', cfg.puertasCloset, 'Correderas para todo el tramo', '')
       + opt('pcl', 'Sin puertas', cfg.puertasCloset, 'Sin puertas', 'Closet abierto.')
