@@ -213,6 +213,13 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A102. Jaladeras del modulo superior (08/10, usuario): en clasica y simple el
+       modulo superior del alto doble lleva jaladera cuando tiene frente (una o
+       dos puertas, o piston), con la regla de los demas frentes; la caja de
+       repisas no. Revit: mismas jaladeras.
+   A103. Alto «Solo piston» (08/10, usuario): tipo de gabinete alto con un solo
+       frente elevable de piston a todo el cuerpo (pistones B19, jaladera y
+       marco en clasica). Revit: mismo tipo.
    A101. Jaladera del especiero extraible bajo (08/10, usuario): va al centro
        del riel superior del marco shaker (Clasica; Simple a 5 cm del canto),
        no a media altura del frente. Revit: HandleAt con el mismo caso.
@@ -1975,7 +1982,7 @@ const espPartes = m => { const A = espAncho(m); if (espCon(m) === 'Nada') return
   return espIzq(m) ? [0, A, A, m.ancho] : [m.ancho - A, m.ancho, 0, m.ancho - A]; };
 const ANCHO_TIPO = { EspecieroTorre: () => reg().especieroTorre, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + reg().ancho.min) : reg().especiero,   /* A52: combinado, conserva el ancho del modulo; A96: el cesto ya no fija su ancho */ Estufa: () => reg().estufa.cuatro, Lavavajillas: m => m.lavavajillasCompacto ? reg().lavaCompacto : reg().lava };   /* E3: anchos de la region */
 /* la campana es una casilla de los altos (Campana extractora): sobre Sencillo = espacio para campana; sobre el doble = doble con campana */
-const TIPOS_ALTO = [['Sencillo','Sencillo'],['Abierto','Abierto / repisas'],['Doble','Módulo inferior + módulo superior']];
+const TIPOS_ALTO = [['Sencillo','Sencillo'],['Piston','Solo pistón'],['Abierto','Abierto / repisas'],['Doble','Módulo inferior + módulo superior']];   /* A103: Solo piston */
 /* especiales (Module.Special): de piso a su tope, reservan la columna de altos */
 const isTower = m => !m.upper && m.tipo === 'Hornos';
 const isPantry = m => !m.upper && (m.tipo === 'Alacena' || m.tipo === 'EspecieroTorre');
@@ -2140,7 +2147,9 @@ function fronts(m){
     else r.push({kind:'Puerta', x0, x1, z0, z1, hingeRight:inv});
   };
   if (sinPuertas(m)) return r;
-  if (m.upper) { if (soloCamp(m)) return r; const z0 = baseAltos() + huecoAlto(m); door(hol, m.ancho-hol, z0, baseAltos() + bodyH(m) - hol, m.dosPuertas, m.invertir); return r; }
+  if (m.upper) { if (soloCamp(m)) return r; const z0 = baseAltos() + huecoAlto(m), z1 = baseAltos() + bodyH(m) - hol;
+    if (m.tipo === 'Piston') r.push({ kind: 'Elevable', x0: hol, x1: m.ancho - hol, z0, z1 });   /* A103: un frente elevable de piston a todo el cuerpo */
+    else door(hol, m.ancho-hol, z0, z1, m.dosPuertas, m.invertir); return r; }
   const ins = isTower(m) ? m.espesorLaterales : 0;   /* la torre lleva sus frentes entre laterales */
   const drawers = () => {
     const hs = heights(m); let top = zb + bodyH(m) - topGap(m);
@@ -2437,14 +2446,14 @@ function planDePiezas(c = cfg){
       lado('piso', 'Piso', x0 + c.lado, x1 - c.lado, y0 + c.lado, y1 - c.lado, z0, z0 + c.piso);
     };
     /* jaladera (drawHandle / HandleAt): solo fuera del estilo Moderna; frentes de 8 cm o mas que no son fijos */
-    const jaladera = (m, f, x0, base) => {
+    const jaladera = (m, f, x0, base, yF = sep + m.fondo + t) => {   /* yF: cara vista (el modulo superior tiene su propio fondo) */
       if (cfg.style === 'Moderna' || f.fijo || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
       const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', J = PLAN_JALADERA, boton = cfg.jaladera === 'Boton';
       const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
       const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : f.especiero ? f.z1 - ck : (f.z0 + f.z1)/2;
       const cx = x0 + (vertical ? (f.hingeRight ? f.x0 + ck : f.x1 - ck) : (f.x0 + f.x1)/2);
       const [w, h] = boton ? [J.boton, J.boton] : vertical ? [J.grueso, L] : [L, J.grueso];
-      add({ id: base + ':jaladera', rol: 'herraje', modulo: m.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: sep + m.fondo + t, z: cz - h/2, ancho: w, fondo: boton ? J.boton : J.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' });
+      add({ id: base + ':jaladera', rol: 'herraje', modulo: m.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: yF, z: cz - h/2, ancho: w, fondo: boton ? J.boton : J.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' });
     };
     /* bisagras de cazoleta (cfg.bisagras; regla de Revit): 2 hasta 90 cm de alto, 3 hasta 160, 4 hasta 200 y 5 mas; a 10 cm
        de los extremos (o al 25 % del alto) y a 1.8 cm del canto de giro. La cazoleta va dentro del espesor de la puerta */
@@ -2626,6 +2635,7 @@ function planDePiezas(c = cfg){
           /* A76: con tablero, para llevar marco shaker en estilo Clasica como los demas frentes */
           const capFront = (k, kind, a, b, hingeRight) => { const base = m.id + ':superior:frente:' + k;
             tablero(m.id, base, kind, a, b, cz0 + hol, cz1 - hol, sep + fondo, capMat, hingeRight, false);
+            jaladera(m, { kind, x0: a, x1: b, z0: cz0 + hol, z1: cz1 - hol, hingeRight, fijo: false }, 0, base, sep + fondo + t);   /* A102: con jaladera en clasica y simple */
             if (kind === 'Puerta') bisagras(m, base, a, b, cz0 + hol, cz1 - hol, hingeRight, sep + fondo); };
           if (m.tipoSuperior === 'Puertas') { const xm = (cx0 + cx1)/2; capFront(0, 'Puerta', cx0 + hol, xm - hol, false); capFront(1, 'Puerta', xm + hol, cx1 - hol, true); }
           else if (m.tipoSuperior === 'Puerta') capFront(0, 'Puerta', cx0 + hol, cx1 - hol, !!m.bisagraDerechaSuperior);   /* A98: una sola puerta */
@@ -3032,6 +3042,8 @@ function pruebasPlanMX(){
     ['tarja bajo cubierta, shaker y puertas dobles', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       c.style = 'Clasica'; c.moduloTarja = l[2].id; c.tipoTarja = 1; c.tarjaBajoCubierta = true; l[2].dosPuertas = true; u[1].dosPuertas = true;
       u[2].tipo = 'Doble'; u[2].tipoSuperior = 'Puertas'; return c; }],
+    ['clasica: alto solo piston y modulos superiores con jaladera (A102, A103)', c => { c.style = 'Clasica'; const u = c.modulos.filter(m => m.upper); u[0].tipo = 'Piston';
+      u[1].tipo = 'Doble'; u[1].tipoSuperior = 'Puertas'; u[2].tipo = 'Doble'; u[2].tipoSuperior = 'Piston'; return c; }],
     ['alto doble con una puerta arriba, bisagra a la derecha (A98)', c => { const u = c.modulos.filter(m => m.upper); u[1].tipo = 'Doble'; u[1].tipoSuperior = 'Puerta'; u[1].bisagraDerechaSuperior = true; return c; }]];
   for (const [nombre, prep] of casos) {
     const c = prep(JSON.parse(JSON.stringify(base))); let p;
@@ -3213,7 +3225,7 @@ function recalculate(){
     if (tarjaDe(m) !== 'Sin tarja') m.preparadoTarja = true;
     if (m.tipo === 'Cajones' || m.tipo === 'Abierto') m.dosPuertas = false;
   }
-  for (const m of cfg.modulos) if (sinPuertas(m)) m.dosPuertas = false;
+  for (const m of cfg.modulos) if (sinPuertas(m) || m.upper && m.tipo === 'Piston') m.dosPuertas = false;
   const lows = row(false), highs = row(true);
   if (lows.length === highs.length) lows.forEach((a, i) => { const b = highs[i];
     if (a.fijo && b.fijo && Math.abs(a.ancho-b.ancho) > .011) throw new Error('Los anchos fijos de la misma columna no coinciden. Libera uno antes de reorganizar.');
@@ -4375,9 +4387,10 @@ function drawCap(g, RX, post){
     if (proyOn()) { const hx = m.bisagraDerechaSuperior ? cr.x + cr.w : cr.x, fx = m.bisagraDerechaSuperior ? cr.x : cr.x + cr.w; ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing;
       line(hx, cr.y, fx, my); line(hx, cr.y + cr.h, fx, my); ctx.restore(); }
   } else if (showDoors && !box && m.mostrarPuertaSuperior && proyOn()) { line(cr.x, cr.y + cr.h, mx, cr.y); line(cr.x + cr.w, cr.y + cr.h, mx, cr.y); }
-  /* A76: marco shaker tambien en el modulo superior (dos puertas o elevable) en estilo Clasica */
-  if (showDoors && !box && cfg.style === 'Clasica') { const s = frame.scale, n = m.tipoSuperior === 'Puertas' ? 2 : 1, w = cr.w/n; ctx.strokeStyle = C.shaker; ctx.lineWidth = 1;
-    for (let i = 0; i < n; i++) { const fw = marcoShaker(w/s, cr.h/s)*s; if (w > 2*fw + 2 && cr.h > 2*fw + 2) ctx.strokeRect(cr.x + i*w + fw, cr.y + fw, w - 2*fw, cr.h - 2*fw); } }
+  /* A76 + A102: en clasica y simple, cada hoja del modulo superior con su marco (clasica) y su jaladera (drawHandle), como los demas frentes */
+  if (showDoors && !box && cfg.style !== 'Moderna') { const s = frame.scale, z0 = topeAltos() - m.altoSuperior, z1 = topeAltos(), n = m.tipoSuperior === 'Puertas' ? 2 : 1, w = cr.w/n;
+    for (let i = 0; i < n; i++) { const kind = m.tipoSuperior === 'Piston' ? 'Elevable' : 'Puerta', hingeRight = m.tipoSuperior === 'Puertas' ? i === 1 : !!m.bisagraDerechaSuperior;
+      drawHandle({ kind, x0: 0, x1: w/s, z0, z1, hingeRight }, { x: cr.x + i*w, y: cr.y, w, h: cr.h }, s); } }
   if (picked) post.push(() => outline(cr, C.focus, 3));
   else if (hover === 'part:' + key) post.push(() => outline(cr, C.hoverPart, 1.5));
 }
@@ -5217,6 +5230,7 @@ const FI = (() => {
     Estufa: R(5,10,30,32) + C(13,16,2.5) + C(27,16,2.5) + R(9,24,22,14),
     Lavavajillas: R(5,8,30,36) + L(5,14,35,14) + L(12,18,28,18) + L(9,27,31,27,1) + L(9,35,31,35,1),
     Sencillo: R(5,6,30,36) + door(5,6,30,36),
+    Piston: R(5,6,30,36) + lift(5,6,30,36),
     DosPuertas: R(5,6,30,36) + L(20,6,20,42) + L(5,6,20,24,1) + L(5,42,20,24,1) + L(35,6,20,24,1) + L(35,42,20,24,1),
     Campana: P('M16 3 h8 v8 l10 8 h-28 l10 -8 z') + R(5,24,30,18) + door(5,24,30,18),
     SupPiston: R(5,14,30,20) + lift(5,14,30,20),
@@ -5306,7 +5320,7 @@ function modulePanel(m){
     + (view === 'Alzado' ? `<button class="btn btn-block" style="margin-top:10px" data-act="centrar">Centrar en la isla</button>` : ''));
   let opts = anchoFijo(m.fijo, 'fijoLibre');
   /* (A60) campana extractora y dos puertas: interruptores con icono, como las tarjetas de Funcion */
-  const twoVis = !sinPuertas(m) && !soloCamp(m) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
+  const twoVis = !sinPuertas(m) && !soloCamp(m) && m.tipo !== 'Piston' && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
   if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);
   if (twoVis) sw.push(['tgDos', m.dosPuertas, 'Dos puertas', FI.DosPuertas]);
   if (sw.length) opts += toggles(sw);
@@ -6589,7 +6603,7 @@ const EN = {
   'Revisar altura': 'Check height',
   'Revisar ancho': 'Check width',
   'Exportar vistas': 'Export views',
-  'Marco shaker': 'Shaker frame', 'Una puerta': 'One door', 'Bisagra a la derecha': 'Hinge on the right',
+  'Marco shaker': 'Shaker frame', 'Solo pistón': 'Lift-up only', 'Una puerta': 'One door', 'Bisagra a la derecha': 'Hinge on the right',
   'Abre': 'Opens',
   'Hacia adentro': 'Inward',
   'Hacia afuera': 'Outward',
