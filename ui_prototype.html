@@ -213,6 +213,10 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A99. Cubierta con tarja en una pieza (08/10, usuario): la cubierta (y su
+       cama) con tarja ya no se arma con cuatro tiras con juntas: es una sola
+       pieza con el hueco de la tina de arriba abajo (hueco en el plan),
+       compatible con el inglete de la nariz. Revit: cubierta con vacio.
    A98. Modulo superior de una puerta (08/10, usuario): el modulo superior del
        alto doble suma «Una puerta» (antes piston, dos puertas o repisas), con
        bisagras de la regla de Revit y opcion «Bisagra a la derecha»; abatimiento
@@ -2691,10 +2695,13 @@ function planDePiezas(c = cfg){
       const losa = (id, tipo, a, b, y0, y1, z0, z1, inglete = false) => {
         const caja = (k, xa, xb, ya, yb) => { const q = { id: id + k, rol: 'cubierta', tipo, x: xa, y: ya, z: z0, ancho: xb - xa, fondo: yb - ya, alto: z1 - z0, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' };
           if (inglete && Math.abs(yb - y1) < .001 && yb - ya > z1 - z0 + .01) q.forma = { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [r2(yb - ya - (z1 - z0)), 0], [r2(yb - ya), r2(z1 - z0)], [0, r2(z1 - z0)]] };
-          add(q); };
+          add(q); return q; };
         const h = hueco && hueco.x0 < b && hueco.x1 > a && hueco.y0 < y1 && hueco.y1 > y0 ? hueco : null;
-        if (!h) { caja('', a, b, y0, y1); return; }
-        caja(':izq', a, h.x0, y0, y1); caja(':der', h.x1, b, y0, y1); caja(':atras', h.x0, h.x1, y0, h.y0); caja(':frente', h.x0, h.x1, h.y1, y1);
+        const q = caja('', a, b, y0, y1);
+        /* A99 (usuario, 08/10): con tarja, una sola pieza con el hueco de la tina de arriba abajo (antes cuatro tiras con juntas);
+           hueco = {x, y, ancho, fondo} desde la esquina menor de la pieza */
+        if (h && piezas.includes(q)) { const hx0 = Math.max(a, h.x0), hx1 = Math.min(b, h.x1), hy0 = Math.max(y0, h.y0), hy1 = Math.min(y1, h.y1);
+          q.hueco = { x: r2(hx0 - q.x), y: r2(hy0 - q.y), ancho: r2(hx1 - hx0), fondo: r2(hy1 - hy0) }; }
       };
       /* nariz (seccion del master; Mostrar_Nariz / Mostrar_Cama de Revit): losa del espesor arriba, nariz al frente hasta la altura
          total y cama debajo de la losa, retirada del frente 2 cm (6.8 con tarja, Retiro_Frontal_Cama). A88 (usuario, 08/10): la nariz
@@ -3050,7 +3057,10 @@ function pruebasPlanMX(){
     ok(Math.abs(xb + aj(false) - c.longitud) < .02, nombre + ': los bajos y tapetas no suman el largo');
     const cruza = (a, b) => ['x', 'y', 'z'].every((e, i) => { const w = ['ancho', 'fondo', 'alto'][i]; return a[e] + a[w] > b[e] + .01 && b[e] + b[w] > a[e] + .01; });
     /* una pieza con ranura es solida salvo el hueco de la ranura: se compara por sus tres partes macizas */
-    const solidos = q => !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
+    /* A99: una pieza con hueco es solida salvo el hueco: se compara por las cuatro partes que lo rodean */
+    const solidosHueco = q => { const h = q.hueco; return [Object.assign({}, q, { ancho: h.x }), Object.assign({}, q, { x: q.x + h.x + h.ancho, ancho: q.ancho - h.x - h.ancho }),
+      Object.assign({}, q, { x: q.x + h.x, ancho: h.ancho, fondo: h.y }), Object.assign({}, q, { x: q.x + h.x, ancho: h.ancho, y: q.y + h.y + h.fondo, fondo: q.fondo - h.y - h.fondo })].filter(r => r.ancho > .01 && r.fondo > .01); };
+    const solidos = q => q.hueco ? solidosHueco(q) : !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
       Object.assign({}, q, { y: q.y + q.ranura.y, fondo: q.ranura.ancho, z: q.z + q.ranura.hondo, alto: q.alto - q.ranura.hondo }),
       Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
     const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && a.rol !== 'luz' && b.rol !== 'luz' && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado */
@@ -3120,7 +3130,7 @@ function pruebasPlanMX(){
     ok(cierres.length === (c.generarZoclos && c.baseBajos > 0 ? (c.cerrarZocloIzq ? 1 : 0) + (c.cerrarZocloDer ? 1 : 0) : 0), nombre + ': ' + cierres.length + ' cierres de zoclo');
     /* tarja: la cubierta queda abierta sobre la tina y el gabinete de la tarja no lleva techo */
     if (c.tipoTarja > 0 && c.moduloTarja && c.generarCubierta) { const tina = p.piezas.find(q => q.id === c.moduloTarja + ':tarja:fondo');
-      ok(tina && !p.piezas.some(q => q.rol === 'cubierta' && cruza(q, Object.assign({}, tina, { z: tina.z, alto: 200 }))), nombre + ': la cubierta tapa la tarja');
+      ok(tina && !p.piezas.some(q => q.rol === 'cubierta' && solidos(q).some(u => cruza(u, Object.assign({}, tina, { z: tina.z, alto: 200 })))), nombre + ': la cubierta tapa la tarja');   /* A99: cuenta el hueco */
       ok(!p.piezas.some(q => q.id === c.moduloTarja + ':cuerpo:techo'), nombre + ': el gabinete de la tarja tiene techo'); }
     /* frentes dentro de la carcasa de su modulo; cajas de cajon y jaladeras, una por cada frente de cajon o frente con jaladera */
     p.piezas.filter(q => q.rol === 'frente' && q.modulo).forEach(f => { const e = extension(f.modulo);   /* los paneles posteriores de la isla no son de un modulo */
