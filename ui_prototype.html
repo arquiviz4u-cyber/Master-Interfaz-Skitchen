@@ -213,6 +213,10 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A108. Cadena lateral del alto doble (08/10, usuario): las cotas del inferior y
+       del modulo superior (upperBody / upperLift) miden los altos dobles con el
+       modulo superior mas alto (la caja unida) y al editarlas solo cambian esos;
+       antes igualaban todos los altos dobles. Revit: igual.
    A107. Cotas de la caja unida (08/10, usuario): el ancho y el alto de la caja
        unida (gabinete inferior unido del alto doble o caja de repisas corrida) y
        el ancho del modulo superior unido se editan con clic: el ancho se reparte
@@ -5220,7 +5224,10 @@ function commitDimension(){
     else if (k === 'tw') setSegment(byId(id), i, v);
     else if (k === 'boxh') { const g = bodyGroupOf(byId(id)), hs = altoAltos() - v; (g ? g.members : [byId(id)]).forEach(q => { q.altoSuperior = hs; const cg = capGroupOf(q); if (cg) cg.lead.altoSuperior = hs; }); }   /* A107 */
     else if (k === 'mlift') { const m = byId(id), g = capGroupOf(m); (g ? g.lead : m).altoSuperior = v; }
-    else if (k === 'upperBody' || k === 'upperLift') { const hs = k === 'upperLift' ? v : altoAltos() - v; row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)).forEach(q => q.altoSuperior = hs); }
+    /* A108: la cadena mide los altos dobles con el modulo superior mas alto (la caja unida); solo esos cambian, los demas
+       altos dobles conservan su modulo superior */
+    else if (k === 'upperBody' || k === 'upperLift') { const hs = k === 'upperLift' ? v : altoAltos() - v, ls = row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)), h0 = Math.max(...ls.map(q => q.altoSuperior));
+      ls.filter(q => Math.abs(q.altoSuperior - h0) < .01).forEach(q => q.altoSuperior = hs); }
     else if (k === 'pdepth') { const r = row(id === 'up'), t = r.filter(x => selection.has(x.id)); (t.length ? t : r).forEach(x => x.fondo = v); }
   }, ['wall', 'bar', 'closetAlto', 'cseg', 'gap', 'mheight', 'boxh', 'tw', 'mlift', 'upperBody', 'upperLift'].includes(k) ? 'Revisar altura' : 'Revisar distribución');
 }
