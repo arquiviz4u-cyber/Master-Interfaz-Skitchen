@@ -213,6 +213,13 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A90. La cubierta se titula «Cubierta» (08/10, usuario): el panel decia
+       «Cubierta y tarja»; la tarja y el monomando se titulan «Tarja».
+   A91. Unero de los altos con gola sin LED (08/10, usuario): estaba
+       invertido. Sin LED, la cama del piso se queda la profundidad del canal
+       gola antes del pano de las puertas (el unero) y la cama interior llega
+       al pano; con LED sigue igual (la del piso completa oculta la tira).
+       Revit: invertir las camas sin LED (A83).
    A89. Tapetas delgadas (08/10, usuario): base de fabrica 3 cm (antes 7) y
        tope 5 cm por cocina (cfg.topeTapeta), editables en «Las dos tapetas»;
        el reparto parejo (A87) solo manda a las tapetas lo que cabe bajo el
@@ -2531,7 +2538,7 @@ function planDePiezas(c = cfg){
           const led = conCama(m);   /* sobre la cama (LED o gola, A83); el alto con campana no la lleva: su lecho es el hueco de la campana */
           const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo', !tarja, led);
           if (upper && led && cfg.style === 'Moderna') {   /* A83: cama interior sobre la del piso, de 1.8 cm tras el frente al trasero */
-            const e = PLAN_CUERPO.lateral; add({ id: lead.id + ':cuerpo:camaInterior', rol: 'panel', modulo: lead.id, tipo: 'CamaInterior', x: h.x0, y: h.y0, z: h.z0, ancho: h.x1 - h.x0, fondo: h.y1 - e - h.y0, alto: e, material: matDe(lead), etiqueta: 'gabinetes' });
+            const e = PLAN_CUERPO.lateral; add({ id: lead.id + ':cuerpo:camaInterior', rol: 'panel', modulo: lead.id, tipo: 'CamaInterior', x: h.x0, y: h.y0, z: h.z0, ancho: h.x1 - h.x0, fondo: h.y1 - (cfg.led ? e : 0) - h.y0,   /* A91: sin LED llega al pano */ alto: e, material: matDe(lead), etiqueta: 'gabinetes' });
             h.z0 += e; }
           if (basura) add({ id: m.id + ':tapeta', rol: 'tapeta', modulo: m.id, tipo: 'Compensacion', x: x + m.anchoBasura, y: sep + m.fondo, z: cfg.baseBajos, ancho: m.ancho - m.anchoBasura, fondo: t, alto: cfg.altoBajos, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
           if (espCon(m) !== 'Nada') {   /* A51: division entre el especiero y el resto; cada parte con su interior y sus cajas */
@@ -2576,7 +2583,11 @@ function planDePiezas(c = cfg){
       for (const m of row(true)) { if (conCama(m)) tramosCama.push({ x0: xc, x1: xc + m.ancho, fondo: m.fondo, m }); xc += m.ancho; }
       tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo, r0 = ranuraLed(y1), r1 = r0 + L.ancho, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
-        add(Object.assign({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep, alto: e, material: matDe(q.m), etiqueta: 'gabinetes' },
+        /* A91 (usuario, 08/10): sin LED, con gola, la cama del piso se queda la profundidad del canal (golaHondo) antes del pano de las
+           puertas: ese hueco es el unero de los altos, y la cama interior de encima llega al pano y lo cierra. Con LED la del piso va
+           completa para ocultar la tira */
+        const unero = !cfg.led && cfg.style === 'Moderna' ? golaHondo() : 0;
+        add(Object.assign({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep - unero, alto: e, material: matDe(q.m), etiqueta: 'gabinetes' },
           cfg.led ? { ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } } : {}));
         if (cfg.led) add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: PLAN_TIRA.id, etiqueta: 'herrajes' });
         });
@@ -5427,7 +5438,7 @@ function partPanel(key){
   if (key.startsWith('backpanel:')) return backPanelHtml(key.slice(10));
   if (EQUIPOS.test(key)) return equipPanel(key);
   if (cfg.isla && (key === 'wall' || key === 'cascada' || key === 'raisedbar' || key === 'cover' || key === 'sink' || key === 'tap')) { const ih = islaPartPanel(key); if (ih) return ih; }
-  const T = { wall: 'Muro y colocación', cover: 'Cubierta y tarja', sink: 'Cubierta y tarja', tap: 'Cubierta y tarja', plinth: 'Zoclos', backsplash: 'Backsplash', fillerI: 'Tapeta izquierda', fillerD: 'Tapeta derecha', fillerTop: 'Tapeta superior', gola: 'Franja gola' };
+  const T = { wall: 'Muro y colocación', cover: 'Cubierta', sink: 'Tarja', tap: 'Tarja',   /* A90: la cubierta se titula solo «Cubierta» */ plinth: 'Zoclos', backsplash: 'Backsplash', fillerI: 'Tapeta izquierda', fillerD: 'Tapeta derecha', fillerTop: 'Tapeta superior', gola: 'Franja gola' };
   let html = head(T[key], null);
   if (key === 'wall') {
     if (cfg.closet) html += section('Iluminación', chk('closetLed', !!cfg.closetLed, 'LED bajo las repisas') + (cfg.closetLed ? posicionLedHTML('mueble') + tonoLuzHTML() : '')
