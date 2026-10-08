@@ -213,6 +213,10 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A113. Frentes de piston sin jaladera (08/10, usuario): los gabinetes de piston (frente elevable, en el alto, el modulo
+       superior o la puerta oculta) no llevan jaladera; solo la llevan las puertas abatibles, sencillas o dobles, y los cajones
+       (estilos clasica y simple). En clasica el elevable conserva su marco shaker. Cambia A102 para el modulo superior de piston.
+       Revit: PlaceFronts y la previa sin jaladera en Kind Elevable.
    A112. [Revit OK P12.226] Barra elevada sin tope de ancho (08/10, usuario, tras probar la isla en Revit): la barra elevada mide de 5 cm al ancho
        de la isla; ya no se limita al espacio detras de los gabinetes. Si es mas ancha que ese espacio, el peralte se apoya sobre la
        cubierta principal, que no se acorta por debajo de los gabinetes. Revit: misma regla.
@@ -2495,7 +2499,7 @@ function planDePiezas(c = cfg){
     };
     /* jaladera (drawHandle / HandleAt): solo fuera del estilo Moderna; frentes de 8 cm o mas que no son fijos */
     const jaladera = (m, f, x0, base, yF = sep + m.fondo + t) => {   /* yF: cara vista (el modulo superior tiene su propio fondo) */
-      if (cfg.style === 'Moderna' || f.fijo || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
+      if (cfg.style === 'Moderna' || f.fijo || f.kind === 'Elevable' || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;   /* A113: los frentes de piston no llevan jaladera */
       const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', J = PLAN_JALADERA, boton = cfg.jaladera === 'Boton';
       const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
       const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : f.arriba ? f.z1 - ck : (f.z0 + f.z1)/2;
@@ -4625,6 +4629,7 @@ const destinoJaladera = (x0, y0, x1, y1) => { const pad = 5; materialHits.push({
 function drawHandle(f, r, scale){
   if (f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;   /* frentes de menos de 8 cm: sin marco ni jaladera */
   if (cfg.style === 'Clasica') { const fw = marcoShaker(f.x1 - f.x0, f.z1 - f.z0)*scale; ctx.strokeStyle = C.shaker; ctx.lineWidth = 1; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
+  if (f.kind === 'Elevable') return;   /* A113: el frente de piston conserva su marco pero no lleva jaladera */
   /* HandleAt: altos, abajo; puertas altas (mas de 110 cm hasta sobre 160), a 95 cm del lecho; resto, arriba. Elevable: abajo */
   const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', Zs = frame.Z;
   const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
