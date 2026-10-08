@@ -213,6 +213,16 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A96. Cesto de basura (08/10, usuario): el extraible ocupa todo el ancho de la
+       columna (antes el ancho del bote y una tapeta de compensacion); el
+       cesto ya no fija el ancho de la columna y anchoBasura es el ancho del
+       bote (se rotulan los botes que caben). Variantes: solo extraible, cajon
+       chico visible arriba (15 cm, con gola entre ellos) o cajon oculto (caja
+       interior de 14 cm dentro del extraible). Revit: mismas variantes.
+   A97. Especiero con cajones alineado (08/10, usuario): sus cajones usan el
+       reparto de la cajonera (iguales o pequeno + grandes, mismo numero), asi
+       se alinean con los modulos de cajones; antes siempre iguales. Revit:
+       mismo reparto.
    A95. Subir solo un alto (08/10, usuario): el boton del aviso NKBA de coccion
        subia el libre de todos los altos; ahora sube solo el alto de esa columna
        (elevacionAlto): su cuerpo, cama, LED, luz y campana empiezan mas arriba
@@ -1421,7 +1431,7 @@ function newModule(upper, region = cfg.region){
     frenteSup: 0, frenteMed: 0, material: null, unirCuerpo: false, materialesPaneles: {},
     numCajones: 3, cajonesIguales: true, frentes: [], campana: false, repisasZona: {},   /* A46: iguales por defecto */
     /* refrigerador, frigobar, cesto de basura, especiero y parrilla de induccion */
-    especieroCon: 'Nada', especieroLado: 'Izquierda', anchoEspeciero: 20, huecoRefri: 190, superiorRefri: true, lateralesRefri: true, altoFrigobar: 82, tapetaFrigobar: true, anchoBasura: 40, extraible: true,
+    especieroCon: 'Nada', especieroLado: 'Izquierda', anchoEspeciero: 20, huecoRefri: 190, superiorRefri: true, lateralesRefri: true, altoFrigobar: 82, tapetaFrigobar: true, anchoBasura: 40, cestoVariante: 'extraible', extraible: true,
     parrilla: false, parrillaAncho: 60,
     /* closet (ClosetModule) */
     cajonesCloset: 3, altoCajonCloset: 20, sobreCajonera: 'Barra', closetSinPuertas: false, maletero: false, altoMaletero: 40, puertaMaletero: true,
@@ -1948,7 +1958,7 @@ const espIzq = m => m.especieroLado !== 'Derecha';
 /* [especiero x0, x1, resto x0, x1] relativos al modulo; sin combinar, el especiero ocupa todo el ancho */
 const espPartes = m => { const A = espAncho(m); if (espCon(m) === 'Nada') return [0, m.ancho, 0, 0];
   return espIzq(m) ? [0, A, A, m.ancho] : [m.ancho - A, m.ancho, 0, m.ancho - A]; };
-const ANCHO_TIPO = { EspecieroTorre: () => reg().especieroTorre, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + reg().ancho.min) : reg().especiero,   /* A52: combinado, conserva el ancho del modulo */ Basura: m => m.anchoBasura, Estufa: () => reg().estufa.cuatro, Lavavajillas: m => m.lavavajillasCompacto ? reg().lavaCompacto : reg().lava };   /* E3: anchos de la region */
+const ANCHO_TIPO = { EspecieroTorre: () => reg().especieroTorre, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + reg().ancho.min) : reg().especiero,   /* A52: combinado, conserva el ancho del modulo; A96: el cesto ya no fija su ancho */ Estufa: () => reg().estufa.cuatro, Lavavajillas: m => m.lavavajillasCompacto ? reg().lavaCompacto : reg().lava };   /* E3: anchos de la region */
 /* la campana es una casilla de los altos (Campana extractora): sobre Sencillo = espacio para campana; sobre el doble = doble con campana */
 const TIPOS_ALTO = [['Sencillo','Sencillo'],['Abierto','Abierto / repisas'],['Doble','Módulo inferior + módulo superior']];
 /* especiales (Module.Special): de piso a su tope, reservan la columna de altos */
@@ -2072,7 +2082,7 @@ const count = m => m.tipo === 'Cajones' ? m.numCajones : m.tipo === 'C' ? 1 : tw
 const hasDrawers = m => drawerType(m) || isTower(m) && (m.torreInferior === 'Cajones' || m.torreInferior === 'Dos cajones') || m.tipo === 'Alacena' && m.cajonesAlacena;
 function heights(m){
   if (two(m)) { const total = bodyH(m) - .2 - topGap(m) - agarreEntre(), top = m.frenteSup > 0 ? m.frenteSup : total*.4; return [top, total - top, 0]; }
-  if (m.tipo === 'Cajones') {
+  if (m.tipo === 'Cajones' || m.tipo === 'Especiero' && espCon(m) === 'Cajones') {   /* A97: el especiero reparte sus cajones como la cajonera */
     /* pesos: pequeño + grandes = (n-1) para el de arriba y n para cada uno de los demas (con 3: 25 % y 37.5 %); iguales = 1.
        Las alturas fijadas con los puntos azules (frentes) se respetan; el resto se reparte y el ultimo toma lo que sobra */
     const n = m.numCajones, sum = bodyH(m) - .2 - topGap(m) - (n - 1)*agarreEntre(), c = m.frentes || [];
@@ -2149,13 +2159,17 @@ function fronts(m){
     return r;
   }
   if (esAparato(m)) return r;
-  if (m.tipo === 'Basura') { r.push({ kind: 'Cajon', x0: hol, x1: Math.min(m.ancho, m.anchoBasura) - hol, z0: zb + hol, z1: zb + cfg.altoBajos - g }); return r; }
+  if (m.tipo === 'Basura') { const z1 = zb + cfg.altoBajos - g, hc = PLAN_CESTO.cajon;   /* A96: a todo el ancho; con cajon chico arriba */
+    if (m.cestoVariante === 'cajon') { r.push({ kind: 'Cajon', x0: hol, x1: m.ancho - hol, z0: z1 - hc, z1 }); r.push({ kind: 'Cajon', x0: hol, x1: m.ancho - hol, z0: zb + hol, z1: z1 - hc - agarreEntre() }); }
+    else r.push({ kind: 'Cajon', x0: hol, x1: m.ancho - hol, z0: zb + hol, z1 });
+    return r; }
   if (m.tipo === 'Especiero') {   /* A51: el especiero y, en el resto de la columna, una puerta o cajones iguales; las bisagras van por fuera */
     const [e0, e1, r0, r1] = espPartes(m), con = espCon(m), z0 = zb + hol, z1 = zb + cfg.altoBajos - g;
     if (m.extraible) r.push({ kind: 'Cajon', x0: e0 + hol, x1: e1 - hol, z0, z1 }); else door(e0 + hol, e1 - hol, z0, z1, false, con === 'Nada' ? m.invertir : !espIzq(m));
     if (con === 'Puerta') door(r0 + hol, r1 - hol, z0, z1, false, espIzq(m));
-    if (con === 'Cajones') { const n = Math.max(1, m.numCajones), hc = (cfg.altoBajos - .2 - g - (n - 1)*agarreEntre())/n; let top = z1;
-      for (let i = 0; i < n; i++) { r.push({ kind: 'Cajon', x0: r0 + hol, x1: r1 - hol, z0: top - hc, z1: top }); top -= hc + agarreEntre(); } }
+    /* A97 (usuario, 08/10): mismas alturas que una cajonera con el mismo numero y reparto (iguales o pequeno + grandes): se alinean */
+    if (con === 'Cajones') { const hs = heights(m); let top = z1;
+      hs.forEach(hc => { r.push({ kind: 'Cajon', x0: r0 + hol, x1: r1 - hol, z0: top - hc, z1: top }); top -= hc + agarreEntre(); }); }
     return r;
   }
   if (m.tipo === 'Puertas') door(hol, m.ancho-hol, zb+hol, zb+cfg.altoBajos-g, m.dosPuertas, m.invertir);
@@ -2177,6 +2191,7 @@ function golaStrips(m){
     fronts(m).filter(f => f.kind === 'Cajon' && f.x0 >= r0 - .01 && f.x1 <= r1 + .01).sort((a, b) => b.z1 - a.z1).slice(0, -1).forEach(f => s.push([f.z0 - gE, gE, r0, r1]));
     return s;
   }
+  if (m.tipo === 'Basura' && m.cestoVariante === 'cajon') { const z1 = zb + cfg.altoBajos - gT; s.push([z1, gT], [z1 - PLAN_CESTO.cajon - gE, gE]); return s; }   /* A96 */
   if (m.tipo === 'Puertas' || m.tipo === 'Basura' || m.tipo === 'Especiero') { s.push([zb + cfg.altoBajos - gT, gT]); return s; }
   if (hasDrawers(m)) {
     const tg = topGap(m), h = heights(m); let top = zb + bodyH(m) - tg; s.push([top, tg]);
@@ -2278,6 +2293,11 @@ const marcoShaker = (w, h) => Math.max(.5, Math.min(cfg.anchoShaker || 5, (Math.
 /* A75 (usuario, 04/10): en Clasica la perilla o la barra va al centro del ancho del marco (montante de la puerta, riel inferior del
    elevable); en Simple, a 5 cm del canto como antes */
 const cantoJaladera = (w, h) => cfg.style === 'Clasica' ? marcoShaker(w, h)/2 : 5;
+/* A96 (usuario, 08/10): cesto de basura. El extraible ocupa todo el ancho de la columna (antes el ancho del bote y el resto era una
+   tapeta: espacio perdido); anchoBasura queda como ancho del bote. Variantes: solo extraible, cajon chico visible arriba (15 cm) o cajon
+   oculto (caja interior de 14 cm arriba, dentro del extraible, que sale con el) */
+const PLAN_CESTO = { cajon: 15, oculto: 14 };
+const botesCesto = m => Math.max(1, Math.floor((m.ancho - 2*PLAN_CUERPO.lateral - 2*PLAN_CAJA.holgura) / Math.max(1, m.anchoBasura)));
 const golaHondo = () => PLAN_GOLA.fondo + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina - PLAN_GOLA.lamina : 0);   /* melamina: mas hondo, mismo canal libre */
 /* LED bajo los altos (usuario, 03/10): la cama corrida es el piso de los altos (laterales y trasero apoyan sobre ella y las puertas
    alinean con su cara inferior); el perfil LED de 1.7 x 0.7 cm va embutido en una ranura por debajo de la cama */
@@ -2553,7 +2573,7 @@ function planDePiezas(c = cfg){
         if (!grp || grp.members[grp.members.length - 1] === m) {
           const lead = grp ? grp.members[0] : m, gx0 = grp ? grp.x0 : x, gx1 = grp ? grp.x0 + grp.width : x + m.ancho;
           const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
-          const basura = m.tipo === 'Basura' && m.ancho > m.anchoBasura + .01;   /* el cesto ocupa su ancho; el resto, tapeta */
+          const basura = false;   /* A96: el cesto ocupa toda la columna (antes su ancho y el resto, tapeta) */
           const tarja = !upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0 && cfg.generarCubierta;   /* la tina entra por arriba */
           const led = conCama(m);   /* sobre la cama (LED o gola, A83); el alto con campana no la lleva: su lecho es el hueco de la campana */
           const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo', !tarja, led);
@@ -2570,7 +2590,10 @@ function planDePiezas(c = cfg){
             cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, x + (f.x0 + f.x1)/2 < xd ? hI : hD, f, m.id + ':frente:' + frs.indexOf(f)));
           } else {
             interior(lead, lead.id + ':cuerpo', h, shelvesOf(lead), !cajones.length && hasDivider(lead) ? Math.max(1, lead.divisiones || 1) : 0, 'cuerpo');
-            cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, h, f, m.id + ':frente:' + frs.indexOf(f)));
+            cajones.forEach((f, k) => { const fid = m.id + ':frente:' + frs.indexOf(f);
+              if (m.tipo === 'Basura' && m.cestoVariante === 'oculto') {   /* A96: caja de los botes abajo y cajon oculto arriba, ambos con el extraible */
+                const ho = PLAN_CESTO.oculto; cajaCajon(m, m.id + ':caja:' + k, h, Object.assign({}, f, { z1: f.z1 - ho - 1 }), fid); cajaCajon(m, m.id + ':caja:oculto', h, Object.assign({}, f, { z0: f.z1 - ho }), fid);
+              } else cajaCajon(m, m.id + ':caja:' + k, h, f, fid); });
           }
         }
         fronts(m).forEach((f, k) => frente(m, f, k, x));
@@ -2933,6 +2956,7 @@ function pruebasPlanDePiezas(){
   try { return pruebasPlanMX(); } finally { prefs.region = pr; prefs.inicio = pi; }
 }
 function pruebasPlanMX(){
+  const r2c = v => Math.round(v*100)/100;
   const fallas = [], ok = (cond, txt) => { if (!cond) fallas.push(txt); };
   /* base fija (cocina de 300 cm de inicio): los casos no dependen de lo que este abierto en el editor */
   const editor = JSON.stringify(cfg), base = (() => { const c = defaultConfig(300); c.catalogo = JSON.parse(JSON.stringify(cfg.catalogo)); return c; })();
@@ -2982,6 +3006,10 @@ function pruebasPlanMX(){
       c.cerrarZocloIzq = c.cerrarZocloDer = true; l[2].tipo = 'Refri'; return c; }],
     ['puerta oculta con 6 juntas horizontales y 3 verticales (A78)', c => { const d = newDoor(false); c.puertasOcultas = [d]; const prev = cfg; cfg = c;
       d.juntasHorizontales = hdDefaultJoints(6, d); d.juntasVerticales = 3; cfg = prev; return c; }],
+    ['cesto con cajon chico arriba y cesto con cajon oculto (A96)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Moderna';
+      Object.assign(l[1], { tipo: 'Basura', cestoVariante: 'cajon' }); Object.assign(l[3], { tipo: 'Basura', cestoVariante: 'oculto' }); return c; }],
+    ['especiero con cajones pequeno + grandes junto a una cajonera igual (A97)', c => { const l = c.modulos.filter(m => !m.upper);
+      Object.assign(l[1], { tipo: 'Especiero', especieroCon: 'Cajones', ancho: 60, fijo: true, numCajones: 3, cajonesIguales: false }); Object.assign(l[2], { tipo: 'Cajones', numCajones: 3, cajonesIguales: false }); return c; }],
     ['tarja bajo cubierta, shaker y puertas dobles', c => { const l = c.modulos.filter(m => !m.upper), u = c.modulos.filter(m => m.upper);
       c.style = 'Clasica'; c.moduloTarja = l[2].id; c.tipoTarja = 1; c.tarjaBajoCubierta = true; l[2].dosPuertas = true; u[1].dosPuertas = true;
       u[2].tipo = 'Doble'; u[2].tipoSuperior = 'Puertas'; return c; }]];
@@ -3061,6 +3089,10 @@ function pruebasPlanMX(){
     /* A78: cada puerta oculta lleva sus juntas: horizontales a todo el ancho y verticales cortadas entre ellas */
     (c.puertasOcultas || []).forEach(d => { const prev = cfg; cfg = c; const nh = hdJoints(d).length, nv = hdNumVert(d); cfg = prev;
       const n = p.piezas.filter(q => q.modulo === d.id && q.tipo === 'Junta').length; ok(n === nh + nv*(nh + 1), nombre + ': ' + n + ' juntas en la puerta oculta ' + d.id); });
+    /* A97: el especiero con cajones y una cajonera del mismo numero y reparto tienen los cajones a las mismas alturas */
+    c.modulos.filter(m => m.tipo === 'Especiero' && m.especieroCon === 'Cajones').forEach(e => c.modulos.filter(m => m.tipo === 'Cajones' && m.numCajones === e.numCajones && m.cajonesIguales === e.cajonesIguales).forEach(k => {
+      const zs = id => p.piezas.filter(q => q.modulo === id && q.rol === 'frente' && q.tipo === 'Cajon' && q.alto < c.altoBajos*.8).map(q => [r2c(q.z), r2c(q.alto)]).sort((a, b) => b[0] - a[0]).slice(0, e.numCajones);
+      ok(JSON.stringify(zs(e.id)) === JSON.stringify(zs(k.id)), nombre + ': los cajones del especiero ' + e.id + ' no se alinean con la cajonera ' + k.id); }));
     /* B19: la forma de cada pieza cabe en su caja; cada cajon lleva su par de correderas y cada elevable sus pistones */
     const dentro = (q, v) => v.every((c, i) => c >= -.001 && c <= [q.ancho, q.fondo, q.alto][i] + .001);
     p.piezas.filter(q => q.forma).forEach(q => ok(q.forma.tipo === 'plano' ? ['x', 'y', 'z'].includes(q.forma.eje) : q.forma.tipo === 'cilindro' ? dentro(q, q.forma.de) && dentro(q, q.forma.a) && q.forma.diametro > 0 && q.forma.lados >= 6
@@ -3088,7 +3120,8 @@ function pruebasPlanMX(){
     p.piezas.filter(q => q.rol === 'frente' && q.modulo).forEach(f => { const e = extension(f.modulo);   /* los paneles posteriores de la isla no son de un modulo */
       ok(e && f.x >= e[0] - .01 && f.x + f.ancho <= e[1] + .01, nombre + ': frente fuera de su modulo ' + f.id); });
     const cajones = p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Cajon' && !q.fijo && !p.piezas.some(r => r.rol === 'modulo' && r.modulo === q.modulo));
-    ok(p.piezas.filter(q => q.rol === 'caja' && q.tipo === 'Piso').length === cajones.length, nombre + ': falta una caja de cajon');
+    const ocultos = c.modulos.filter(m => m.tipo === 'Basura' && m.cestoVariante === 'oculto' && !m.reserved).length;   /* A96: el cesto con cajon oculto lleva dos cajas en su extraible */
+    ok(p.piezas.filter(q => q.rol === 'caja' && q.tipo === 'Piso').length === cajones.length + ocultos, nombre + ': falta una caja de cajon');
     const conJaladera = p.piezas.filter(q => q.tipo === 'Jaladera' || q.tipo === 'Boton').length;
     ok(c.style === 'Moderna' ? conJaladera === 0 : conJaladera > 0, nombre + ': jaladeras que no corresponden al estilo');
     ok(c.style === 'Moderna' ? p.piezas.some(q => q.tipo === 'Gola') : !p.piezas.some(q => q.tipo === 'Gola'), nombre + ': gola que no corresponde al estilo');
@@ -4264,14 +4297,14 @@ function drawModule(m, x0, RX, X, Z, post){
   else {
     fillMat(body.x, body.y, body.w, body.h, mat, sel ? C.selFill : C.front);
     if (sel && mat && !flat) { ctx.fillStyle = C.selOverlay; ctx.fillRect(body.x, body.y, body.w, body.h); }
-    if (m.tipo === 'Basura' && m.ancho > m.anchoBasura + .01) {   /* el cesto ocupa su ancho; el resto, tapeta de compensacion */
+    if (false && m.tipo === 'Basura') {   /* A96: ya no hay tapeta de compensacion junto al cesto */
       const q = RX(x0 + m.anchoBasura, x0 + m.ancho, zb, zb + cfg.altoBajos); fillMat(q.x, q.y, q.w, q.h, groupMaterial('Tapetas'), C.tapeta); ctx.strokeStyle = C.line; line(q.x, q.y, q.x, q.y + q.h);
     }
     if (m.tipo === 'Especiero') { const [e0, e1] = espPartes(m), s = frame.scale;   /* A51: sus repisas, solo en su parte */
       drawShelves({ x: body.x + e0*s, y: body.y, w: (e1 - e0)*s, h: body.h }, 5, m, 'cuerpo', false, sel); }   /* sus 5 repisas se ven con las puertas */
     drawGola(m, x0, RX, post);
     fronts(m).forEach(f => drawFront(f, x0, Z, scale));
-    const tag = m.tipo === 'Basura' ? 'Basura' : m.tipo === 'Especiero' ? (m.extraible ? 'Esp. extraíble' : 'Esp.') : null;
+    const tag = m.tipo === 'Basura' ? (botesCesto(m) > 1 ? `Basura ×${botesCesto(m)}` : 'Basura') : m.tipo === 'Especiero' ? (m.extraible ? 'Esp. extraíble' : 'Esp.') : null;
     if (tag) { ctx.fillStyle = C.ink; ctx.font = "500 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(tag, body.x + 4, body.y + 22); ctx.textBaseline = 'alphabetic'; }
   }
   if (gap) drawCampana(m, full, { x: full.x, y: body.y + body.h, w: full.w, h: gap });
@@ -5285,8 +5318,11 @@ function modulePanel(m){
   if (m.tipo === 'Especiero') html += section('Especiero', alturaEspeciero(m) + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
     + `<div style="margin-top:10px">${radios('espCon', [['Nada', 'Solo'], ['Puerta', '+ Puerta'], ['Cajones', '+ Cajones']], espCon(m))}</div>`
     + (espCon(m) !== 'Nada' ? `<div style="margin-top:8px">${radios('espLado', [['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], espIzq(m) ? 'Izquierda' : 'Derecha')}</div>`
-      + (espCon(m) === 'Cajones' ? `<div class="grid-2" style="margin-top:10px">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div>` : '')
-      + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones iguales'} en el resto de la columna, con una división en la misma carcasa.</div>` : ''));
+      + (espCon(m) === 'Cajones' ? `<div class="grid-2" style="margin-top:10px">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div><div style="margin-top:8px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>` : '')
+      + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones'} en el resto de la columna, con una división en la misma carcasa.${espCon(m) === 'Cajones' ? ' Sus cajones se alinean con las cajoneras del mismo número y reparto.' : ''}</div>` : ''));
+  if (m.tipo === 'Basura') html += section('Cesto de basura', radios('cesto', [['extraible', 'Solo extraíble'], ['cajon', 'Cajón chico arriba'], ['oculto', 'Cajón oculto']], m.cestoVariante || 'extraible')
+    + `<div class="grid-2" style="margin-top:10px">${num('anchoBote', 'Ancho del bote', m.anchoBasura, 'cm', 25, 60)}</div>`
+    + `<div class="note-sm">El extraíble ocupa todo el ancho de la columna (${botesCesto(m) === 1 ? 'un bote' : botesCesto(m) + ' botes'}). ${m.cestoVariante === 'cajon' ? `Cajón visible de ${medida(PLAN_CESTO.cajon)} arriba.` : m.cestoVariante === 'oculto' ? `Cajón oculto de ${medida(PLAN_CESTO.oculto)} detrás del frente, sale con el extraíble.` : ''}</div>`);
   if (m.tipo === 'Lavavajillas') html += section('Lavavajillas', chk('lavaComp', m.lavavajillasCompacto, `Compacto (${medida(reg().lavaCompacto)})`)
     + `<div class="note-sm">Hueco de ${medida(m.ancho)} del piso a la cubierta; el aparato trae su propio zoclo y el del mueble se corta.</div>` + avisoLavavajillas(m));
   if (!m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
@@ -5566,6 +5602,7 @@ const ACT = {
   altNariz: v => change(c => { const bar = altoBarra(); c.alturaNariz = v; c.altoBajos = bar - c.baseBajos - paquete(); }, 'Revisar altura'),
   nCaj: (v, m) => change(() => { const t = byId(m.id); t.numCajones = Math.max(1, Math.min(6, Math.round(v))); t.frentes = []; }),
   repCaj: (v, m) => change(() => { const t = byId(m.id); t.cajonesIguales = v === 'igu'; t.frentes = []; }),
+  cesto: (v, m) => change(() => { byId(m.id).cestoVariante = v; byId(m.id).frentes = []; }), anchoBote: (v, m) => change(() => byId(m.id).anchoBasura = v),
   repartir: (v, m) => change(() => { const t = byId(m.id); t.frentes = []; t.frenteSup = t.frenteMed = 0; }),
   campana: (v, m) => change(() => { const t = byId(m.id); t.campana = v; if (v) t.inferiorAbierto = false; }, 'Revisar altura'),
   altoCaj: (v, m) => change(() => byId(m.id).altoCajonesAlacena = v),
