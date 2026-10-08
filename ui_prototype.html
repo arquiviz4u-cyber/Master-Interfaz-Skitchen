@@ -213,6 +213,9 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A94. Cama de la caja unida (08/10, usuario): las columnas de una caja de
+       repisas unida comparten una sola cama (y una sola tira LED) a todo su
+       ancho, en lugar de una por columna (A67). Revit: misma regla.
    A93. Caja de repisas alta con gola (08/10, usuario): al pasar un alto con
        gola a caja de repisas (sin puertas) lleva una sola cama, completa hasta
        el frente (sin unero ni cama interior: un solo marco), con la tira si
@@ -2588,7 +2591,10 @@ function planDePiezas(c = cfg){
        el perfil embutido a ras. A67 (usuario, 04/10): una cama por columna (antes corrida), con el material de su gabinete, para que
        cada seccion admita un material distinto; no la llevan las columnas reservadas ni los altos con campana */
     if (cfg.led || cfg.style === 'Moderna') { let xc = ajusteIzq(); const tramosCama = [];   /* A83: con gola, cama aunque no haya LED */
-      for (const m of row(true)) { if (conCama(m)) tramosCama.push({ x0: xc, x1: xc + m.ancho, fondo: m.fondo, m }); xc += m.ancho; }
+      /* A94 (usuario, 08/10): las columnas de una caja de repisas unida comparten una sola cama (y una sola tira), a todo su ancho */
+      for (const m of row(true)) { const bg = sinPuertas(m) && bodyGroupOf(m), g = bg && bg.members.length > 1 ? bg.members[0].id : null, u = tramosCama[tramosCama.length - 1];
+        if (conCama(m)) { if (g && u && u.grupo === g && Math.abs(u.x1 - xc) < .01) { u.x1 = xc + m.ancho; u.fondo = Math.max(u.fondo, m.fondo); } else tramosCama.push({ x0: xc, x1: xc + m.ancho, fondo: m.fondo, m, grupo: g }); }
+        xc += m.ancho; }
       tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
         /* A91 (usuario, 08/10): con gola, la cama del piso se queda la profundidad del canal (golaHondo) antes del pano de las puertas:
