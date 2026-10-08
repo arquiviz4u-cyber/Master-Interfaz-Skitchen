@@ -213,6 +213,17 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A110. Dia / noche en SketchUp (08/10, usuario): el boton Dia / noche del editor
+       tambien pone el estilo del modelo en noche (fondo, cielo, suelo y aristas
+       oscuros; Ruby guarda el estilo de dia y lo devuelve) y la barra de Skitchen
+       suma el comando Noche / Dia, sincronizado con el editor. La interfaz de
+       SketchUp (menus y bandejas) no se puede cambiar desde una extension.
+       Revit: solo el tema del lienzo (A8).
+   A109. Separacion y espesor de frentes (08/10, usuario): separacion entre
+       puertas y cajones de 2 mm de fabrica (antes 4 mm fijos; US 1/16") y espesor
+       de frentes (1.8 cm; US 3/4"), en Valores de inicio y en Estilo › Frentes de
+       cada cocina. Cada frente deja la mitad de la separacion a cada lado.
+       Revit: mismos valores (holgura de frentes y espesor en P09).
    A108. Cadena lateral del alto doble (08/10, usuario): las cotas del inferior y
        del modulo superior (upperBody / upperLift) miden los altos dobles con el
        modulo superior mas alto (la caja unida) y al editarlas solo cambian esos;
@@ -1432,8 +1443,8 @@ const REGIONES = {
     especieroTorre: inch(12), especiero: inch(9), lava: inch(24), lavaCompacto: inch(18), campana: { protegida: inch(24), combustible: inch(30) }, dosPuertasDesde: inch(24) } };
 /* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
 const INICIO_REGION = {
-  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, style: 'Moderna', materialGeneral: null },
-  US: { alturaMuro: inch(96), baseBajos: inch(4.5), altoBajos: inch(30), espesorCubierta: inch(1.5), separacionAltos: inch(18), fondoBajos: inch(24), fondoAltos: inch(12), tapeta: inch(1.5), style: 'Moderna', materialGeneral: null } };
+  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .2, espesorFrente: 1.8, style: 'Moderna', materialGeneral: null },
+  US: { alturaMuro: inch(96), baseBajos: inch(4.5), altoBajos: inch(30), espesorCubierta: inch(1.5), separacionAltos: inch(18), fondoBajos: inch(24), fondoAltos: inch(12), tapeta: inch(1.5), separacionFrentes: inch(1/16), espesorFrente: inch(.75), style: 'Moderna', materialGeneral: null } };
 /* cocina, modulo, isla y closet de EE. UU.: lo que no esta en los valores de inicio (secciones B1-B4) */
 const COCINA_US = { vuelo: inch(.75), alturaTapetaSuperior: inch(3), retiroZoclo: inch(3), altoBacksplash: inch(4), espesorBacksplash: inch(.75), ledRetiro: inch(3),
   tarjaAncho: inch(27), tarjaFondo: inch(18), tarjaProf: inch(9), retiroTarja: inch(3), anchoShaker: inch(2.25), alturaNariz: inch(2.25) };
@@ -1453,7 +1464,7 @@ const techoAncho = v => cfg.region === 'US' ? Math.ceil(v/DIECISEISAVO - 1e-6)*D
 const medida = v => fmt(v) + uS();
 const PREFS_DEF = { region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, inft: 16, ftin: 16 },
   cotaRemate: 'oblicuo', cotaTexto: 11.5, cotaUnidad: 'totales', cotaColor: 'producto',
-  inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, style: 'Moderna', materialGeneral: null },
+  inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .2, espesorFrente: 1.8, style: 'Moderna', materialGeneral: null },
   iman: true, imanTol: 1.5, resaltado: true, preguntarGuardar: true,
   exportAncho: 3840, exportFormato: 'png', exportCotas: false, exportProyeccion: false, exportPrefijo: '', exportPrompt: '', licencia: '' };
 const mergePrefs = (base, over) => { for (const k in over) { if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k] && typeof base[k] === 'object') mergePrefs(base[k], over[k]); else if (k in base) base[k] = over[k]; } return base; };
@@ -1648,7 +1659,8 @@ function defaultConfig(length){
   c.region = region; c.pasoReparto = region === 'US' ? prefs.pasoReparto : 'entero'; c.dosPuertasDesde = R.dosPuertasDesde;   /* E12 */
   if (region === 'US') Object.assign(c, COCINA_US);
   const ini = prefs.inicio;   /* valores de inicio de Ajustes */
-  Object.assign(c, { alturaMuro: ini.alturaMuro, baseBajos: ini.baseBajos, altoBajos: ini.altoBajos, espesorCubierta: ini.espesorCubierta, separacionAltos: ini.separacionAltos, style: ini.style });
+  Object.assign(c, { alturaMuro: ini.alturaMuro, baseBajos: ini.baseBajos, altoBajos: ini.altoBajos, espesorCubierta: ini.espesorCubierta, separacionAltos: ini.separacionAltos, style: ini.style,
+    separacionFrentes: ini.separacionFrentes > 0 ? ini.separacionFrentes : .2, espesorFrente: ini.espesorFrente > 0 ? ini.espesorFrente : 1.8 });   /* A109 */
   const reserve = length - 2*ini.tapeta >= R.ancho.min ? ini.tapeta : R.tapetaCorta; c.reservaIzq = c.reservaDer = reserve;
   c.topeTapeta = Math.max(R.tapetaMax, reserve);   /* A89: ancho maximo de las tapetas (MX 5 cm; US 3") */
   const usable = length - 2*reserve; let n = 1, best = 1e9;
@@ -1694,7 +1706,7 @@ function hdSetSegment(d, k, value){
 }
 /* frentes: zoclo pegado a la hoja, la hoja en una pieza (las juntas son tiras aplicadas) y el elevable del gabinete de piston */
 function hdFronts(d){
-  const hol = .2, top = hdTop(d), zc = hdLeafTop(d), b = hdBottom(d), hr = hdHingeRight(d), r = [];
+  const hol = holF(), top = hdTop(d), zc = hdLeafTop(d), b = hdBottom(d), hr = hdHingeRight(d), r = [];
   if (b > 0) r.push({ kind: 'Puerta', x0: hol, x1: d.ancho - hol, z0: hol, z1: b - hol, hingeRight: hr, panel: 'zoclo' });
   r.push({ kind: 'Puerta', x0: hol, x1: d.ancho - hol, z0: b + hol, z1: zc - hol, hingeRight: hr, panel: 'puerta' });
   if (d.piston) r.push({ kind: 'Elevable', x0: hol, x1: d.ancho - hol, z0: zc + hol, z1: top - hol, panel: 'piston' });
@@ -1702,7 +1714,7 @@ function hdFronts(d){
 }
 /* tableros entre juntas (estilo clasico: un marco shaker por tablero) */
 function hdPanels(d){
-  const hol = .2, zs = [hdBottom(d), ...hdJoints(d), hdLeafTop(d)], xs = [0, ...hdVerticales(d), d.ancho], r = [];
+  const hol = holF(), zs = [hdBottom(d), ...hdJoints(d), hdLeafTop(d)], xs = [0, ...hdVerticales(d), d.ancho], r = [];
   for (let i = 0; i + 1 < zs.length; i++) for (let j = 0; j + 1 < xs.length; j++) r.push([xs[j] + hol, xs[j+1] - hol, zs[i] + hol, zs[i+1] - hol]);
   return r;
 }
@@ -1850,7 +1862,7 @@ function closetItems(m){
 }
 /* ClosetInterior.Fronts: elevable del maletero, puertas abatibles (dos hojas desde 60 cm), cajones con gola o a hueso */
 function closetFronts(m){
-  const t = cfg.espesorCloset, hol = .2, H = closetBody(m), AC = closetAltoCuerpo(), r = [], items = closetItems(m);
+  const t = cfg.espesorCloset, hol = holF(), H = closetBody(m), AC = closetAltoCuerpo(), r = [], items = closetItems(m);
   if (m.maletero && m.puertaMaletero && !closetSliding()) r.push({ kind: 'Elevable', x0: hol, x1: m.ancho - hol, z0: H + hol, z1: AC - hol });
   if (m.tipo === 'Vanity') { items.filter(i => i.kind === 'Cajon').forEach(i => r.push({ kind: 'Cajon', x0: hol, x1: m.ancho - hol, z0: i.z0 + hol, z1: i.z1 - hol })); return r; }
   if (cfg.puertasCloset === 'Abatibles' && !m.closetSinPuertas) {
@@ -2110,8 +2122,13 @@ function setSegment(m, name, value){
 }
 
 /* ---- FrontLayout: huecos de agarre (3.5 gola L arriba, 3.0 entre cajones; 0.2 sin gola) ---- */
-const agarre = () => cfg.style === 'Moderna' ? 3.5 : .2;
-const agarreEntre = () => cfg.style === 'Moderna' ? 3.0 : .2;
+/* A109 (usuario, 08/10): separacion entre frentes de la cocina (cfg.separacionFrentes, 2 mm de fabrica; antes 4 mm fijos): cada
+   frente deja la mitad a cada lado (holF); sin gola, la misma separacion entre cajones y bajo la cubierta */
+const sepFrentes = () => cfg.separacionFrentes > 0 ? cfg.separacionFrentes : .2, holF = () => sepFrentes()/2;
+/* A109: espesor de los frentes (cfg.espesorFrente, 1.8 cm de fabrica) */
+const espFrente = () => cfg.espesorFrente > 0 ? cfg.espesorFrente : 1.8;
+const agarre = () => cfg.style === 'Moderna' ? 3.5 : sepFrentes();
+const agarreEntre = () => cfg.style === 'Moderna' ? 3.0 : sepFrentes();
 /* Body: alto del cuerpo de frentes. Altos: sin el modulo superior; alacena: su cajonera; torre: bajo la rejilla */
 const bodyH = m => m.upper ? altoAltos() - (isDoble(m) ? m.altoSuperior : 0) : m.tipo === 'Alacena' ? m.altoCajonesAlacena : isTower(m) ? m.baseHorno - grille(m) : cfg.altoBajos;
 const topGap = m => isTower(m) ? agarreEntre() : agarre();
@@ -2156,7 +2173,7 @@ const mheightOf = m => bodyH(m) - huecoAlto(m);
 function setHeight(upper, value){ if (upper) cfg.altoBajos = topeAltos() - cfg.baseBajos - paquete() - cfg.separacionAltos - value; else cfg.altoBajos = value; }
 
 function fronts(m){
-  const r = [], hol = .2, g = agarre(), zb = cfg.baseBajos;
+  const r = [], hol = holF(), g = agarre(), zb = cfg.baseBajos;
   const door = (x0, x1, z0, z1, two, inv) => {
     if (z1-z0 < 1 || x1-x0 < 1) return;
     if (two) { const xm = (x0+x1)/2; r.push({kind:'Puerta', x0, x1:xm-hol, z0, z1, hingeRight:false}); r.push({kind:'Puerta', x0:xm+hol, x1, z0, z1, hingeRight:true}); }
@@ -2405,7 +2422,7 @@ function planDePiezas(c = cfg){
   const previo = cfg; cfg = c;
   try {
     if (cfg.closet) throw new Error('El plan de piezas todavía no cubre closets.');
-    const piezas = [], sepMuro = cfg.separacionPosterior || 0, t = PLAN_ESPESOR_FRENTE, r2 = v => Math.round(v*100)/100;
+    const piezas = [], sepMuro = cfg.separacionPosterior || 0, t = espFrente(), r2 = v => Math.round(v*100)/100;
     /* sep: del origen del plan a la cara posterior del modulo. Muro: separacion posterior. Isla (B16): y va del canto de los bancos
        (0) al frente de la cubierta (islaAncho) y los frentes quedan alineados, asi que cada modulo arranca segun su fondo */
     const sepDe = m => cfg.isla ? cfg.islaAncho - vueloEf() - t - m.fondo : sepMuro;
@@ -2655,7 +2672,7 @@ function planDePiezas(c = cfg){
         /* modulo superior del alto doble (drawCap): uno por grupo de columnas unidas, del primero y a todo su ancho */
         const cap = isDoble(m) ? capGroupOf(m) : null;
         if (cap && cap.lead === m) {
-          const cz0 = topeAltos() - m.altoSuperior, cz1 = topeAltos(), cx0 = cap.x0, cx1 = cap.x0 + cap.width, hol = .2;
+          const cz0 = topeAltos() - m.altoSuperior, cz1 = topeAltos(), cx0 = cap.x0, cx1 = cap.x0 + cap.width, hol = holF();
           const capMat = m.materialSuperior || cfg.materialGeneral || null, fondo = m.fondoSuperior > 0 ? m.fondoSuperior : Math.max(...cap.members.map(q => q.fondo));   /* A82 */
           const h = carcasa(m, m.id + ':superior', cx0, cx1, cz0, cz1, fondo, capMat, 'cap');
           interior(m, m.id + ':superior', h, m.repisasSuperior || 0, m.divisionSuperior ? Math.max(1, m.divisionesSuperior || 1) : 0, 'cap');
@@ -2833,7 +2850,7 @@ function planDePiezas(c = cfg){
        el piso), juntas aplicadas al frente, jaladera a 100 cm junto al canto libre, gabinete de piston opcional y tapetas lateral
        y superior. El pano de la hoja queda a d.fondo del muro; detras, el vano libre */
     doors().forEach(d => {
-      const [s0, s1] = hdSpan(d), top = hdTop(d), zc = hdLeafTop(d), b = hdBottom(d), hr = hdHingeRight(d), hol = .2, yF = d.fondo - t;
+      const [s0, s1] = hdSpan(d), top = hdTop(d), zc = hdLeafTop(d), b = hdBottom(d), hr = hdHingeRight(d), hol = holF(), yF = d.fondo - t;
       const dm = { id: d.id, fondo: yF - sep, materialesPaneles: {} }, dmat = d.material || cfg.materialGeneral || null, capMat = d.materialPiston || dmat;
       const base = d.id + ':hoja', a = s0 + hol, c = s1 - hol, z0 = b + hol, z1 = zc - hol, J = PLAN_JUNTA, juntas = hdJoints(d);
       if (b > 0) add({ frente: d.id + ':hoja', id: d.id + ':zoclo', rol: 'zoclo', tipo: 'Hoja', modulo: d.id, x: a, y: yF, z: hol, ancho: c - a, fondo: t, alto: b - 2*hol, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
@@ -2960,7 +2977,7 @@ function planDePiezas(c = cfg){
       const lat = piezas.filter(r => r.modulo === pr.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.z < z1 && r.z + r.alto > z0 && r.y < yF && r.y + r.fondo >= yF - .01);
       const hondo = lat.length ? Math.max(...lat.map(r => r.fondo)) : 0;
       if (h <= 6 || hondo <= 4) return;
-      const caida = Math.min(20, h*.35), fijo = Math.min(h - 3, h*.72), dentro = Math.min(16, hondo*.45), inset = Math.min(4, (x1 - x0)/4), t9 = PLAN_ESPESOR_FRENTE;
+      const caida = Math.min(20, h*.35), fijo = Math.min(h - 3, h*.72), dentro = Math.min(16, hondo*.45), inset = Math.min(4, (x1 - x0)/4), t9 = espFrente();
       const cerrada = [yF - t9, z1 - caida];
       [x0 + inset, x1 - inset].forEach((sx, i) => {
         /* una repisa entre el ancla y la punta: el ancla sube sobre ella (en obra el piston se monta arriba de la repisa) */
@@ -4832,7 +4849,7 @@ function drawPlan(){
   });
   /* puertas ocultas (DrawHiddenDoorsPlan): hoja cerrada a pano, abatimiento hacia el muro con hoja abierta y arco punteados */
   for (const d of doors()) {
-    const [s0] = hdSpan(d), yf = Y(d.fondo), t = 1.8*scale, r = d.ancho*scale, leaf = { x: X(s0), y: yf - t, w: r, h: t };
+    const [s0] = hdSpan(d), yf = Y(d.fondo), t = espFrente()*scale, r = d.ancho*scale, leaf = { x: X(s0), y: yf - t, w: r, h: t };
     if (d.tapetaLateral) { const [f0, f1] = hdFiller(d); outline({ x: X(f0), y: wallY, w: (f1 - f0)*scale, h: d.fondo*scale }, C.line, 1); }
     const hrt = hdHingeRight(d), afuera = d.abre === 'afuera', hx = hrt ? leaf.x + leaf.w : leaf.x;   /* A73: adentro, hacia el muro; afuera, hacia la cocina */
     const a0 = afuera ? (hrt ? .5*Math.PI : 0) : hrt ? Math.PI : 1.5*Math.PI, a1 = afuera ? (hrt ? Math.PI : .5*Math.PI) : hrt ? 1.5*Math.PI : 2*Math.PI;
@@ -5911,6 +5928,8 @@ function renderStyle(){
     + `<div class="note">Puertas y cajones cierran a hueso${cfg.style === 'Clasica' ? ', con marco shaker' : ''} y jaladera.</div>`);
   if (cfg.style === 'Clasica') html += section('Marco shaker', `<div class="grid-2">${lenField('id="shakerAncho"', 'Ancho del marco', cfg.anchoShaker || 5)}</div>`
     + `<div class="note">El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos ${medida(2)}.</div>`);
+  html += section('Frentes', `<div class="grid-2">${lenField('id="sepFrentes"', 'Separación entre frentes', sepFrentes())}${lenField('id="espFrente"', 'Espesor de frentes', espFrente())}</div>`
+    + `<div class="note">La separación es el hueco entre puertas y cajones vecinos (${medida(.2)} de fábrica); cada frente deja la mitad a cada lado.</div>`);   /* A109 */
   html += section('Herrajes', `<label class="check"><input type="checkbox" id="hinge" ${cfg.bisagras ? 'checked' : ''}>Bisagras de cazoleta en las puertas</label>`);
   if (cfg.closet) html = section('Puertas del closet', opt('pcl', 'Abatibles', cfg.puertasCloset, 'Abatibles por módulo', `Dos hojas a partir de ${medida(60)}.`) + opt('pcl', 'Correderas', cfg.puertasCloset, 'Correderas para todo el tramo', '')
       + opt('pcl', 'Sin puertas', cfg.puertasCloset, 'Sin puertas', 'Closet abierto.')
@@ -5927,6 +5946,10 @@ function renderStyle(){
   if (sh) { sh.addEventListener('change', e => { const v = parseLen(e.target.value); if (isNaN(v)) { renderStyle(); return; } change(c => c.anchoShaker = Math.max(1, Math.min(10, v))); });
     sh.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }); }
   document.getElementById('hinge').addEventListener('change', e => change(c => c.bisagras = e.target.checked));
+  /* A109: separacion de 0.5 a 10 mm y espesor de 1.2 a 3 cm */
+  [['sepFrentes', 'separacionFrentes', .05, 1], ['espFrente', 'espesorFrente', 1.2, 3]].forEach(([id, k, lo, hi]) => { const inp = document.getElementById(id); if (!inp) return;
+    inp.addEventListener('change', e => { const v = parseLen(e.target.value); if (isNaN(v)) { renderStyle(); return; } change(c => c[k] = Math.max(lo, Math.min(hi, v))); });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }); });
 }
 
 /* =======================================================================
@@ -6572,7 +6595,7 @@ const EN = {
   'Tapeta superior bajo la cubierta': 'Top filler under the countertop',
   'Tapeta superior de la puerta oculta': 'Hidden door top filler',
   'Tapetas': 'Fillers',
-  'Tapetas laterales': 'Side fillers',
+  'Tapetas laterales': 'Side fillers', 'Separación entre frentes': 'Gap between fronts', 'Espesor de frentes': 'Front thickness',
   'Tarja': 'Sink',
   'Tarja bajo cubierta': 'Undermount sink',
   'Tarja doble': 'Double sink',
@@ -7080,7 +7103,7 @@ function renderPrefs(){
       + `<div class="grid-2" style="margin-top:10px">${select('cotaTexto', [[10, 'Pequeño'], [11.5, 'Normal'], [13, 'Grande']], P.cotaTexto, 'Tamaño del texto')}${select('cotaUnidad', [['totales', 'Solo en las totales'], ['todas', 'En todas'], ['ninguna', 'En ninguna']], P.cotaUnidad, 'Unidad en las cotas')}</div>`
       + `<label class="field" style="margin-top:10px"><span>Color</span></label>` + radio('cotaColor', [['producto', 'Color del producto'], ['negro', 'Negro']], P.cotaColor))}
     ${section('Valores de inicio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Cada cocina, isla o closet nuevo arranca con estas medidas.</div>`
-      + `<div class="grid-2">${len('inicio.alturaMuro', 'Altura de muro', I.alturaMuro)}${len('inicio.baseBajos', 'Zoclo', I.baseBajos)}${len('inicio.altoBajos', 'Alto de bajos', I.altoBajos)}${len('inicio.espesorCubierta', 'Espesor de cubierta', I.espesorCubierta)}${len('inicio.separacionAltos', 'Libre sobre cubierta', I.separacionAltos)}${len('inicio.tapeta', 'Tapetas laterales', I.tapeta)}${len('inicio.fondoBajos', 'Fondo de bajos', I.fondoBajos)}${len('inicio.fondoAltos', 'Fondo de altos', I.fondoAltos)}</div>`
+      + `<div class="grid-2">${len('inicio.alturaMuro', 'Altura de muro', I.alturaMuro)}${len('inicio.baseBajos', 'Zoclo', I.baseBajos)}${len('inicio.altoBajos', 'Alto de bajos', I.altoBajos)}${len('inicio.espesorCubierta', 'Espesor de cubierta', I.espesorCubierta)}${len('inicio.separacionAltos', 'Libre sobre cubierta', I.separacionAltos)}${len('inicio.tapeta', 'Tapetas laterales', I.tapeta)}${len('inicio.fondoBajos', 'Fondo de bajos', I.fondoBajos)}${len('inicio.fondoAltos', 'Fondo de altos', I.fondoAltos)}${len('inicio.separacionFrentes', 'Separación entre frentes', I.separacionFrentes)}${len('inicio.espesorFrente', 'Espesor de frentes', I.espesorFrente)}</div>`
       + `<div class="grid-2" style="margin-top:10px">${select('inicio.style', [['Moderna', 'Moderna'], ['Clasica', 'Clásica'], ['Simple', 'Simple']], I.style, 'Estilo de frentes')}${select('inicio.materialGeneral', mats, I.materialGeneral || '', 'Material general')}</div>`
       + `<div class="grid-2" style="margin-top:10px"><button class="btn btn-block" id="prefsFromCfg">Tomar los de la actual</button><button class="btn btn-block" id="prefsIniReset">Valores de fábrica</button></div>`)}
     ${section('Comportamiento', check('iman', P.iman, 'Imán al arrastrar divisiones') + (P.iman ? `<div class="sub"><div class="grid-2">${len('imanTol', 'Tolerancia del imán', P.imanTol)}</div></div>` : '')
@@ -7452,14 +7475,18 @@ document.getElementById('btnRender').addEventListener('click', abrirRender);
 /* ---------------- Día / noche: se recuerda en la sesión ---------------- */
 const MOON = '<svg width="17" height="17" viewBox="0 0 20 20"><path d="M16.6 12.7A7 7 0 0 1 7.3 3.4a7 7 0 1 0 9.3 9.3Z" fill="#266096"/></svg>';
 const SUN = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="4" fill="#F0BE3C"/><path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M4 4l1.4 1.4M14.6 14.6 16 16M4 16l1.4-1.4M14.6 5.4 16 4" stroke="#F0BE3C" stroke-width="1.6" stroke-linecap="round"/></svg>';
-function applyTheme(){
+/* A110 (usuario, 08/10): en SketchUp el boton tambien pasa el estilo del modelo a noche (fondo, cielo, suelo y aristas oscuros) y dia lo
+   devuelve como estaba (avisar: solo el clic del usuario; Ruby manda el estado del modelo al abrir y desde su comando Noche / Dia) */
+function applyTheme(avisar = false){
+  if (avisar && enSketchUp() && typeof window.sketchup.tema === 'function') sketchup.tema(dark ? 'noche' : 'dia');
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   const b = document.getElementById('btnTheme'); b.innerHTML = dark ? SUN : MOON; b.classList.toggle('active', dark);
   try { sessionStorage.setItem('cabynetry.oscuro', dark ? '1' : '0'); } catch (e) { /* sin almacenamiento */ }
   drawCanvas();
 }
 try { dark = sessionStorage.getItem('cabynetry.oscuro') === '1'; } catch (e) { dark = false; }
-document.getElementById('btnTheme').addEventListener('click', () => { dark = !dark; applyTheme(); });
+document.getElementById('btnTheme').addEventListener('click', () => { dark = !dark; applyTheme(true); });
+window.sketchupTema = noche => { if (dark !== !!noche) { dark = !!noche; applyTheme(); } };   /* A110: el modelo de SketchUp manda */
 
 recalculate();   /* como el constructor de LayoutState: reparte los anchos del tramo inicial */
 applyTheme();
