@@ -213,6 +213,9 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A101. Jaladera del especiero extraible bajo (08/10, usuario): va al centro
+       del riel superior del marco shaker (Clasica; Simple a 5 cm del canto),
+       no a media altura del frente. Revit: HandleAt con el mismo caso.
    A100. Cama de la cubierta al pano de la nariz (08/10, usuario): la cama bajo
        la cubierta llega a la cara posterior de la nariz (antes se retiraba 2 cm,
        6.8 con tarja, Retiro_Frontal_Cama); con tarja lleva el hueco de la tina.
@@ -2177,7 +2180,7 @@ function fronts(m){
     return r; }
   if (m.tipo === 'Especiero') {   /* A51: el especiero y, en el resto de la columna, una puerta o cajones iguales; las bisagras van por fuera */
     const [e0, e1, r0, r1] = espPartes(m), con = espCon(m), z0 = zb + hol, z1 = zb + cfg.altoBajos - g;
-    if (m.extraible) r.push({ kind: 'Cajon', x0: e0 + hol, x1: e1 - hol, z0, z1 }); else door(e0 + hol, e1 - hol, z0, z1, false, con === 'Nada' ? m.invertir : !espIzq(m));
+    if (m.extraible) r.push({ kind: 'Cajon', x0: e0 + hol, x1: e1 - hol, z0, z1, especiero: true });   /* A101: jaladera en el riel superior */ else door(e0 + hol, e1 - hol, z0, z1, false, con === 'Nada' ? m.invertir : !espIzq(m));
     if (con === 'Puerta') door(r0 + hol, r1 - hol, z0, z1, false, espIzq(m));
     /* A97 (usuario, 08/10): mismas alturas que una cajonera con el mismo numero y reparto (iguales o pequeno + grandes): se alinean */
     if (con === 'Cajones') { const hs = heights(m); let top = z1;
@@ -2438,7 +2441,7 @@ function planDePiezas(c = cfg){
       if (cfg.style === 'Moderna' || f.fijo || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
       const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', J = PLAN_JALADERA, boton = cfg.jaladera === 'Boton';
       const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
-      const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : (f.z0 + f.z1)/2;
+      const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : f.especiero ? f.z1 - ck : (f.z0 + f.z1)/2;
       const cx = x0 + (vertical ? (f.hingeRight ? f.x0 + ck : f.x1 - ck) : (f.x0 + f.x1)/2);
       const [w, h] = boton ? [J.boton, J.boton] : vertical ? [J.grueso, L] : [L, J.grueso];
       add({ id: base + ':jaladera', rol: 'herraje', modulo: m.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: sep + m.fondo + t, z: cz - h/2, ancho: w, fondo: boton ? J.boton : J.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' });
@@ -4548,7 +4551,7 @@ function drawHandle(f, r, scale){
   /* HandleAt: altos, abajo; puertas altas (mas de 110 cm hasta sobre 160), a 95 cm del lecho; resto, arriba. Elevable: abajo */
   const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', Zs = frame.Z;
   const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
-  const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : (f.z0 + f.z1)/2;
+  const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : f.especiero ? f.z1 - ck : (f.z0 + f.z1)/2;
   const cx = vertical ? (f.hingeRight ? r.x + ck*scale : r.x + r.w - ck*scale) : r.x + r.w/2, cy = Zs(cz);
   ctx.fillStyle = ctx.strokeStyle = colorJaladera();
   if (cfg.jaladera === 'Boton') { const rb = Math.max(2.5, 1.1*scale); ctx.beginPath(); ctx.arc(cx, cy, rb, 0, Math.PI*2); ctx.fill(); destinoJaladera(cx - rb, cy - rb, cx + rb, cy + rb); return; }
