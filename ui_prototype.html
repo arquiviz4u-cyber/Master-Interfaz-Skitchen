@@ -213,6 +213,11 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A107. Cotas de la caja unida (08/10, usuario): el ancho y el alto de la caja
+       unida (gabinete inferior unido del alto doble o caja de repisas corrida) y
+       el ancho del modulo superior unido se editan con clic: el ancho se reparte
+       entre sus columnas en proporcion (enteros, el ultimo toma el resto); el alto
+       del inferior del alto doble mueve el alto de su modulo superior. Revit: igual.
    A106. Cajones del especiero y del cesto (08/10, usuario): (1) Interactuar abre
        cada frente del especiero y del cesto por su cuenta (abre.independiente);
        (2) el cajon oculto del cesto es un cajon propio con su tapa y sus
@@ -2289,6 +2294,8 @@ function bodyGroups(){
   return out.filter(g => g.members.length > 1);
 }
 const bodyGroupOf = m => bodyGroups().find(g => g.members.includes(m));
+/* A107: caja unida (o modulo superior unido) por el id de su primera columna */
+const grupoUnido = id => bodyGroups().find(g => g.members[0].id === id) || capGroups().find(g => g.members[0].id === id);
 /* caja corrida elegida como pieza (doble clic en un alto doble unido) o como seleccion de columnas (A37) */
 const partBox = () => selectedPart && selectedPart.startsWith('box:') ? bodyGroups().find(g => g.members[0].id === selectedPart.slice(4)) || null : null;
 const currentBox = () => partBox() || selectedBox();
@@ -4735,7 +4742,8 @@ function drawMeasure(X, Z){
   const pb = partBox();
   if (pb) {
     const lead = pb.members[0], z0 = baseAltos(), h = mheightOf(lead), r = { x: X(pb.x0), y: Z(z0 + h), w: pb.width*scale, h: h*scale };
-    dim(r.x + 12, r.y + r.h, r.x + 12, r.y, fmt(h), null); dim(r.x, r.y - 12, r.x + r.w, r.y - 12, fmt(pb.width), null);
+    /* A107: alto y ancho editables; en el alto doble el alto de la caja sale del modulo superior */
+    dim(r.x + 12, r.y + r.h, r.x + 12, r.y, fmt(h), (isDoble(lead) ? 'boxh:' : 'mheight:') + lead.id); dim(r.x, r.y - 12, r.x + r.w, r.y - 12, fmt(pb.width), 'boxw:' + lead.id);
     drawGaps(lead, r, scale);
   }
   /* modulo superior elegido: su alto, el ancho del grupo y, abierto o en Interior, sus luces */
@@ -4743,7 +4751,7 @@ function drawMeasure(X, Z){
   if (g) {
     const cr = { x: X(g.x0), y: Z(topeAltos()), w: g.width*scale, h: cap.altoSuperior*scale };
     dim(cr.x + 12, cr.y + cr.h, cr.x + 12, cr.y, fmt(cap.altoSuperior), 'mlift:' + cap.id);
-    dim(cr.x, cr.y + cr.h - 14, cr.x + cr.w, cr.y + cr.h - 14, fmt(g.width), null);
+    dim(cr.x, cr.y + cr.h - 14, cr.x + cr.w, cr.y + cr.h - 14, fmt(g.width), 'boxw:' + g.members[0].id);   /* A107 */
     if (!showDoors || cap.tipoSuperior === 'Repisas') gapsOf(cr, cap.repisasSuperior, cap.divisionSuperior ? Math.max(1, cap.divisionesSuperior || 1) : 0, scale);
   }
 }
@@ -5164,6 +5172,8 @@ function dimSpec(key){
     case 'upperBody': { const hs = Math.max(...row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)).map(q => q.altoSuperior)); return { v: altoAltos() - hs, min: DOBLE_MIN, max: altoAltos() - DOBLE_MIN }; }
     case 'upperLift': return { v: Math.max(...row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)).map(q => q.altoSuperior)), min: DOBLE_MIN, max: Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN) };
     case 'halfw': return { v: m.ancho/2, min: reg().ancho.min/2, max: reg().ancho.max/2 };
+    case 'boxw': { const g = grupoUnido(id); return { v: g.width, min: g.members.length*reg().ancho.min, max: g.members.length*reg().ancho.max }; }
+    case 'boxh': return { v: mheightOf(m), min: DOBLE_MIN, max: altoAltos() - DOBLE_MIN };
     case 'pdepth': return id === 'up' ? { v: maxFondo(true), min: 25, max: 45 } : { v: maxFondo(false), min: 50, max: 70 };
   }
 }
@@ -5184,6 +5194,10 @@ function commitDimension(){
   const [k, id, i] = key.split(':');
   if (k === 'width') { setWidth(id, v); return; }
   if (k === 'halfw') { setWidth(id, anchoEscrito(2*v)); return; }
+  /* A107: ancho de la caja unida (o del modulo superior unido): se reparte entre sus columnas en proporcion a su ancho actual,
+     en anchos enteros (anchoEscrito); el ultimo toma el resto. El tramo lo absorbe como un ancho escrito (tapetas o vecinos) */
+  if (k === 'boxw') { change(() => { const g = grupoUnido(id), ws = g.members.map(q => q.ancho), tot = g.width; let acc = 0;
+    g.members.forEach((q, n) => { const w = n < ws.length - 1 ? anchoEscrito(v*ws[n]/tot) : anchoEscrito(v - acc); acc += w; applyWidth(q.id, w); }); }, 'Revisar ancho'); return; }
   change(c => {
     if (k === 'wall') c.alturaMuro = v;
     else if (k === 'length') c.longitud = rd(v);   /* D1: con decimales; el sobrante va a las tapetas */
@@ -5204,10 +5218,11 @@ function commitDimension(){
     else if (k === 'seg') setDrawerSegment(byId(id), +i, v);
     else if (k === 'mheight') { const m = byId(id); setHeight(m.upper, m.upper ? v + (isDoble(m) ? m.altoSuperior : 0) + huecoAlto(m) : v); }
     else if (k === 'tw') setSegment(byId(id), i, v);
+    else if (k === 'boxh') { const g = bodyGroupOf(byId(id)), hs = altoAltos() - v; (g ? g.members : [byId(id)]).forEach(q => { q.altoSuperior = hs; const cg = capGroupOf(q); if (cg) cg.lead.altoSuperior = hs; }); }   /* A107 */
     else if (k === 'mlift') { const m = byId(id), g = capGroupOf(m); (g ? g.lead : m).altoSuperior = v; }
     else if (k === 'upperBody' || k === 'upperLift') { const hs = k === 'upperLift' ? v : altoAltos() - v; row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)).forEach(q => q.altoSuperior = hs); }
     else if (k === 'pdepth') { const r = row(id === 'up'), t = r.filter(x => selection.has(x.id)); (t.length ? t : r).forEach(x => x.fondo = v); }
-  }, ['wall', 'bar', 'closetAlto', 'cseg', 'gap', 'mheight', 'tw', 'mlift', 'upperBody', 'upperLift'].includes(k) ? 'Revisar altura' : 'Revisar distribución');
+  }, ['wall', 'bar', 'closetAlto', 'cseg', 'gap', 'mheight', 'boxh', 'tw', 'mlift', 'upperBody', 'upperLift'].includes(k) ? 'Revisar altura' : 'Revisar distribución');
 }
 
 /* =======================================================================
