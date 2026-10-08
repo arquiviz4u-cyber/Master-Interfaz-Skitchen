@@ -165,6 +165,10 @@
        con muestra del tono; la tira toma el mismo tono) y plano de luz
        corrido por tramo de camas seguidas (antes uno por columna). Revit: no
        aplica (la temperatura podria ir a la familia de la tira).
+   B28. [SketchUp 08/10, usuario] Plano de luz y backsplash: va delante del
+       backsplash solo si este es completo (llega a los altos); parcial o sin
+       backsplash, va al muro, detras del backsplash y antes del trasero de
+       los altos. Revit: no aplica.
    B27. [04/10, usuario] Iluminacion tambien en isla y closet: la isla (LED
        sobre los paneles posteriores) suma temperatura de color y luz
        simulada (plano frente a los paneles, del zoclo a la tira); el closet
@@ -2557,7 +2561,10 @@ function planDePiezas(c = cfg){
         });
       /* B25: la luz en el muro, de la cubierta a las camas, delante del backsplash si lo hay. B26 (usuario): corrida, una por tramo de
          camas seguidas (se corta solo donde no hay cama: columna reservada o alto con campana) */
-      const yl = (cfg.backsplash && lows.length ? cfg.espesorBacksplash : 0) + .05, zl = altoBarra(), zc = baseAltos(), tramosLuz = [];
+      /* B28 (usuario, 08/10): delante del backsplash solo si es completo (llega a los altos); parcial o sin el, la luz va al muro (detras
+         del backsplash y antes del trasero de los altos), asi no queda flotando sobre el muro libre */
+      const bsCompleto = cfg.backsplash && lows.length && (cfg.backsplashCompleto || altoBarra() + cfg.altoBacksplash >= baseAltos() - .01);
+      const yl = (bsCompleto ? cfg.espesorBacksplash : 0) + .05, zl = altoBarra(), zc = baseAltos(), tramosLuz = [];
       tramosCama.forEach(q => { const u = tramosLuz[tramosLuz.length - 1]; if (u && Math.abs(u.x1 - q.x0) < .01) u.x1 = q.x1; else tramosLuz.push({ x0: q.x0, x1: q.x1, m: q.m }); });
       if (cfg.led && cfg.ledLuz !== false && zc - zl > 5) tramosLuz.forEach(q => add({ id: 'luz:' + q.m.id, rol: 'luz', modulo: q.m.id, tipo: 'Luz', x: q.x0, y: yl, z: zl, ancho: q.x1 - q.x0, fondo: .1, alto: zc - zl,
         material: PLAN_LUZ.id, etiqueta: 'luz', forma: { tipo: 'plano', eje: 'y' } })); }
