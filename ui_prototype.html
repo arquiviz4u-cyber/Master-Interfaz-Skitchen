@@ -213,6 +213,11 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A89. Tapetas delgadas (08/10, usuario): base de fabrica 3 cm (antes 7) y
+       tope 5 cm por cocina (cfg.topeTapeta), editables en «Las dos tapetas»;
+       el reparto parejo (A87) solo manda a las tapetas lo que cabe bajo el
+       tope y el resto vuelve a los gabinetes (algunos 1 cm mas). Absorcion de
+       ajustes entre 2 cm y el tope. US: tope 3". Revit: mismos valores.
    A88. Nariz a inglete (08/10, usuario): la nariz se ve como una sola pieza
        con la cubierta: tiene el espesor de la cubierta y ambas se cortan a 45
        grados (perfil), sin junta horizontal al frente; la cama se retira al
@@ -1345,7 +1350,7 @@
  * ======================================================================= */
 const PULG = 2.54, DIECISEISAVO = PULG/16, inch = v => Math.round(v*PULG*1e6)/1e6;
 const REGIONES = {
-  MX: { ancho: { min: 30, max: 120, objetivo: 60 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 5, tapetaMin: 4, tapetaMax: 8, especialMin: 45,
+  MX: { ancho: { min: 30, max: 120, objetivo: 60 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 3, tapetaMin: 2, tapetaMax: 5, especialMin: 45,
     closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90 },
     tarjaDoble: 85, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20,
     lava: 60, lavaCompacto: 45, campana: { protegida: 60, combustible: 75 }, dosPuertasDesde: 0 },
@@ -1356,7 +1361,7 @@ const REGIONES = {
     especieroTorre: inch(12), especiero: inch(9), lava: inch(24), lavaCompacto: inch(18), campana: { protegida: inch(24), combustible: inch(30) }, dosPuertasDesde: inch(24) } };
 /* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
 const INICIO_REGION = {
-  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 7, style: 'Moderna', materialGeneral: null },
+  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, style: 'Moderna', materialGeneral: null },
   US: { alturaMuro: inch(96), baseBajos: inch(4.5), altoBajos: inch(30), espesorCubierta: inch(1.5), separacionAltos: inch(18), fondoBajos: inch(24), fondoAltos: inch(12), tapeta: inch(1.5), style: 'Moderna', materialGeneral: null } };
 /* cocina, modulo, isla y closet de EE. UU.: lo que no esta en los valores de inicio (secciones B1-B4) */
 const COCINA_US = { vuelo: inch(.75), alturaTapetaSuperior: inch(3), retiroZoclo: inch(3), altoBacksplash: inch(4), espesorBacksplash: inch(.75), ledRetiro: inch(3),
@@ -1377,12 +1382,14 @@ const techoAncho = v => cfg.region === 'US' ? Math.ceil(v/DIECISEISAVO - 1e-6)*D
 const medida = v => fmt(v) + uS();
 const PREFS_DEF = { region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, inft: 16, ftin: 16 },
   cotaRemate: 'oblicuo', cotaTexto: 11.5, cotaUnidad: 'totales', cotaColor: 'producto',
-  inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 7, style: 'Moderna', materialGeneral: null },
+  inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, style: 'Moderna', materialGeneral: null },
   iman: true, imanTol: 1.5, resaltado: true, preguntarGuardar: true,
   exportAncho: 3840, exportFormato: 'png', exportCotas: false, exportProyeccion: false, exportPrefijo: '', exportPrompt: '', licencia: '' };
 const mergePrefs = (base, over) => { for (const k in over) { if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k] && typeof base[k] === 'object') mergePrefs(base[k], over[k]); else if (k in base) base[k] = over[k]; } return base; };
 let prefs = JSON.parse(JSON.stringify(PREFS_DEF));
 try { const saved = JSON.parse(localStorage.getItem('cabynetry.ajustes') || 'null'); if (saved) mergePrefs(prefs, saved); } catch (e) { /* sin almacenamiento: valores de fabrica */ }
+/* A89: la tapeta de inicio de fabrica paso de 7 a 3 cm; unos Ajustes guardados con el 7 anterior se llevan una vez al nuevo valor */
+if (!prefs.tapetaA89) { if (prefs.inicio.tapeta === 7) prefs.inicio.tapeta = 3; prefs.tapetaA89 = true; }
 function savePrefs(){ try { localStorage.setItem('cabynetry.ajustes', JSON.stringify(prefs)); } catch (e) { /* queda en memoria */ } }
 const uid = () => 'm' + Math.random().toString(36).slice(2, 9);
 function newModule(upper, region = cfg.region){
@@ -1572,6 +1579,7 @@ function defaultConfig(length){
   const ini = prefs.inicio;   /* valores de inicio de Ajustes */
   Object.assign(c, { alturaMuro: ini.alturaMuro, baseBajos: ini.baseBajos, altoBajos: ini.altoBajos, espesorCubierta: ini.espesorCubierta, separacionAltos: ini.separacionAltos, style: ini.style });
   const reserve = length - 2*ini.tapeta >= R.ancho.min ? ini.tapeta : R.tapetaCorta; c.reservaIzq = c.reservaDer = reserve;
+  c.topeTapeta = Math.max(R.tapetaMax, reserve);   /* A89: ancho maximo de las tapetas (MX 5 cm; US 3") */
   const usable = length - 2*reserve; let n = 1, best = 1e9;
   for (let k = 1; k <= 10; k++) { const w = usable/k; if (w >= R.ancho.min && w <= R.ancho.max && Math.abs(w - R.ancho.objetivo) < best) { best = Math.abs(w - R.ancho.objetivo); n = k; } }
   for (const upper of [false, true]) for (let k = 0; k < n; k++) c.modulos.push(Object.assign(newModule(upper, region), { fondo: upper ? ini.fondoAltos : ini.fondoBajos }));
@@ -3124,7 +3132,12 @@ function recalculate(){
     cfg.compensacion = Math.max(0, residual);
     /* A87: con tapetas y reparto parejo (no adaptado) en metrico, los pasos que sobran al dividir entre los automaticos van a las tapetas */
     const flexB = base.filter(m => !m.fijo), pasos = Math.round((raw - cfg.compensacion)/u);
-    cfg.compReparto = cfg.region !== 'US' && !cfg.repartoAdaptado && (cfg.tapetaIzq || cfg.tapetaDer) && flexB.length > 1 ? (pasos % flexB.length)*u : 0; }
+    const resto = cfg.region !== 'US' && !cfg.repartoAdaptado && (cfg.tapetaIzq || cfg.tapetaDer) && flexB.length > 1 ? pasos % flexB.length : 0;
+    /* A89 (usuario, 08/10): las tapetas no pasan de su tope (cfg.topeTapeta): solo los pasos que caben bajo el tope van a ellas */
+    cfg.compReparto = 0;
+    const lados = [cfg.tapetaIzq && ajusteIzq(), cfg.tapetaDer && ajusteDer()].filter(w => w !== false);
+    const cabe = Math.max(0, Math.min(...lados.map(w => (cfg.topeTapeta || Infinity) - w)))*lados.length;
+    cfg.compReparto = Math.min(resto, Math.floor(cabe/u + 1e-6))*u; }
   for (const upper of [false, true]) {
     const r = row(upper); if (!r.length) continue;
     const flex = r.filter(m => !m.fijo);
@@ -3229,14 +3242,16 @@ function cleanSelection(){
   if (selectedPart && /^door(filler|top|cap)?:/.test(selectedPart) && !doorById(selectedPart.slice(selectedPart.indexOf(':') + 1))) selectedPart = null;
 }
 
-/* AbsorbInFillers: al ensanchar un modulo se resta primero a las tapetas (min 4) y al estrecharlo se les suma (max 8).
+/* AbsorbInFillers: al ensanchar un modulo se resta primero a las tapetas (min 2; antes 4) y al estrecharlo se les suma hasta el tope
+   de la cocina (cfg.topeTapeta, 5 cm de fabrica; antes 8).
    E4: en US el rango es de 1/2" a 3" y el paso 1/16" */
 function absorbInFillers(delta){
   const R = reg(), q = cfg.region === 'US' ? DIECISEISAVO : 1;
   for (let g = 0; g < 400 && Math.abs(delta) >= q - 1e-9; g++) {
     const s = Math.sign(delta);
-    const rl = !cfg.tapetaIzq ? 0 : s > 0 ? cfg.reservaIzq - R.tapetaMin : R.tapetaMax - cfg.reservaIzq;
-    const rr = !cfg.tapetaDer ? 0 : s > 0 ? cfg.reservaDer - R.tapetaMin : R.tapetaMax - cfg.reservaDer;
+    const max = cfg.topeTapeta || R.tapetaMax;   /* A89 */
+    const rl = !cfg.tapetaIzq ? 0 : s > 0 ? cfg.reservaIzq - R.tapetaMin : max - cfg.reservaIzq;
+    const rr = !cfg.tapetaDer ? 0 : s > 0 ? cfg.reservaDer - R.tapetaMin : max - cfg.reservaDer;
     if (rl < q - 1e-9 && rr < q - 1e-9) break;
     if (rl >= rr) cfg.reservaIzq = rd(cfg.reservaIzq - s*q); else cfg.reservaDer = rd(cfg.reservaDer - s*q);
     delta -= s*q;
@@ -5442,6 +5457,9 @@ function partPanel(key){
       + `<div class="info-card" style="margin-top:10px"><div class="info-row">Ancho final <b>${fmt(w)}${uS()}</b></div></div>`
       + (cfg.closet ? '' : chk('corridas', L ? cfg.corridaIzq : cfg.corridaDer, 'Lateral piso a techo'))
       + `<div class="note-sm">El sobrante decimal se absorbe en las tapetas activas. Perfil cerrado con tapas.</div>`);
+    /* A89: base y tope de las dos tapetas (por cocina) */
+    if (!cfg.isla) html += section('Las dos tapetas', `<div class="grid-2">${num('tapBase', 'Ancho base', Math.min(cfg.reservaIzq, cfg.reservaDer), 'cm', 1, 15)}${num('tapTope', 'Ancho máximo', cfg.topeTapeta || reg().tapetaMax, 'cm', 1, 20)}</div>`
+      + '<div class="note-sm">Los gabinetes se reparten iguales en centímetros enteros; lo que sobra va a las tapetas sin pasar del máximo. Si no cabe, algunos gabinetes quedan 1 cm más anchos.</div>');
   } else if (key === 'fillerTop') {
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`);
   } else if (key === 'gola') {
@@ -5602,7 +5620,9 @@ const ACT = {
   cerrI: v => change(c => c.cerrarZocloIzq = v), cerrD: v => change(c => c.cerrarZocloDer = v),
   genBs: v => change(c => c.backsplash = v), bsComp: v => change(c => c.backsplashCompleto = v), bsAlto: v => change(c => c.altoBacksplash = v), bsEsp: v => change(c => c.espesorBacksplash = v),
   led: v => change(c => c.led = v), ledPos: v => change(c => { c.ledCentro = v === 'centro'; if (v !== 'centro') c.ledFrente = v === 'frente'; }),
-  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0), ledLuz: v => change(c => c.ledLuz = v), closetLed: v => change(c => c.closetLed = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
+  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0), ledLuz: v => change(c => c.ledLuz = v),
+  tapBase: v => change(c => { c.reservaIzq = c.reservaDer = v; c.repartoAdaptado = false; if ((c.topeTapeta || 0) < v) c.topeTapeta = v; }),
+  tapTope: v => change(c => { c.topeTapeta = Math.max(v, c.tapetaIzq ? c.reservaIzq : 0, c.tapetaDer ? c.reservaDer : 0); }), closetLed: v => change(c => c.closetLed = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
@@ -6462,7 +6482,8 @@ const EN = {
   'Abre': 'Opens',
   'Hacia adentro': 'Inward',
   'Hacia afuera': 'Outward',
-  'Simular la luz (SketchUp)': 'Simulate the light (SketchUp)', 'LED bajo las repisas': 'LED under the shelves',
+  'Simular la luz (SketchUp)': 'Simulate the light (SketchUp)', 'Las dos tapetas': 'Both fillers', 'Ancho base': 'Base width', 'Ancho máximo': 'Maximum width',
+  'Los gabinetes se reparten iguales en centímetros enteros; lo que sobra va a las tapetas sin pasar del máximo. Si no cabe, algunos gabinetes quedan 1 cm más anchos.': 'Cabinets are split evenly in whole centimeters; the remainder goes to the fillers up to the maximum. If it does not fit, some cabinets are 1 cm wider.', 'LED bajo las repisas': 'LED under the shelves',
   'Temperatura de color': 'Color temperature', 'Tono de la luz': 'Light tone',
   'Al frente': 'Front',
   'Al centro': 'Center',
