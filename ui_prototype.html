@@ -213,6 +213,10 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A105. Muestras de material sin doble clic ni palomita (08/10, usuario): un
+       material solo se aplica arrastrandolo; se quita el doble clic que lo
+       aplicaba a la seleccion (A26, CurrentMaterialTarget) y la palomita de
+       material asignado. Clic sigue abriendo el editor. Revit: igual.
    A104. Jaladera del cesto de basura (08/10, usuario): el extraible de los botes
        la lleva en el riel superior, como el especiero (A101); con cajon chico
        arriba, el cajon la lleva al centro. Revit: HandleAt con el mismo caso.
@@ -1038,12 +1042,6 @@
     box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); transition: transform .1s, box-shadow .1s;
   }
   .swatch:hover .sw-chip { transform: translateY(-1px); box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), 0 3px 8px rgba(31,42,51,.14); }
-  .sw-chip.assigned { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--ink); }
-  .sw-chip.assigned::after {
-    content: ""; position: absolute; right: 5px; top: 5px; width: 14px; height: 14px; border-radius: 50%;
-    background: var(--ink) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='6'%3E%3Cpath d='M1 3l2 2 4-4' fill='none' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat center;
-    box-shadow: 0 0 0 1.5px #fff;
-  }
   .sw-chip.editing { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--select); }
   .sw-name { font-size: 11px; color: #3A4650; margin-top: 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .swatch.add { cursor: pointer; }
@@ -4845,17 +4843,7 @@ const pieceName = key => { const pk = key.split(':')[2], rest = pk.slice(pk.inde
 const etiqueta = key => !key ? 'Todo el mueble' : key.startsWith('mod:') ? 'Gabinete' : key.startsWith('cap:') ? 'Gabinete superior'
   : key.startsWith('backpanel:') ? 'Panel posterior' : key === 'mods:all' ? 'Todos los gabinetes' : key === 'BarraElevada' ? 'Barra elevada' : key === 'BarraPeralte' ? 'Peralte de la barra'
   : key.startsWith('doorcap:') ? 'Gabinete de pistón de la puerta oculta' : key.startsWith('doorleaf:') ? 'Puerta oculta' : key.startsWith('doorjoint:') ? 'Juntas de la puerta oculta' : key.startsWith('panel:') ? panelLabel(key.split(':')[2]) : key;
-/* CurrentMaterialTarget: destino del doble clic en una muestra (sin nada elegido, todo el mueble) */
-function currentMaterialTarget(){
-  if (selectedPart && selectedPart.startsWith('doorcap:')) return selectedPart;
-  if (selectedPart && selectedPart.startsWith('backpanel:')) return selectedPart;   /* master: el real manda estas tres al material general */
-  if (cfg.isla && selectedPart === 'cascada') return 'Cubierta';
-  if (cfg.isla && selectedPart === 'raisedbar') return 'BarraElevada';
-  if (selectedPart && selectedPart.startsWith('piece:')) return 'panel:' + selectedPart.slice(6);
-  if (selectedPart && selectedPart.startsWith('ucap:')) return 'cap:' + selectedPart.slice(5);
-  if (selection.size) return 'mod:' + [...selection][0];
-  return { cover:'Cubierta', sink:'Cubierta', tap:'Cubierta', plinth:'Zoclo', backsplash:'Backsplash', gola:'Gola', fillerI:'Tapetas', fillerD:'Tapetas', fillerTop:'Tapetas' }[selectedPart] || null;
-}
+/* A105: sin doble clic en las muestras (CurrentMaterialTarget del real): un material solo se aplica arrastrandolo */
 function drawMaterialDrag(){
   const t = materialTarget(matDrag);
   ctx.fillStyle = C.swapFill;
@@ -5430,7 +5418,7 @@ function piecePanel(){
   const list = [...pieces];
   let html = head(list.length === 1 ? pieceName(selectedPart) : list.length + ' piezas seleccionadas', null);
   const rows = list.slice(0, 8).map(pc => { const [, id, pk] = pc.split(':'), mm = mat(byId(id).materialesPaneles[pk]); return `<div class="info-row">${esc(pieceName(pc))} <b style="font-family:Inter;font-weight:600">${esc(mm ? mm.nombre : 'material del grupo')}</b></div>`; }).join('');
-  html += section('Material', `<div class="info-card">${rows}</div><div class="note-sm">Arrastra un material sobre una pieza seleccionada, o haz doble clic en una muestra de la pestaña Materiales: se aplica a toda la selección. Ctrl + clic suma o quita piezas.</div>`);
+  html += section('Material', `<div class="info-card">${rows}</div><div class="note-sm">Arrastra un material sobre una pieza seleccionada: se aplica a toda la selección. Ctrl + clic suma o quita piezas.</div>`);
   const [, id, pk] = selectedPart.split(':'), back = pk.endsWith('.fondo'), own = byId(id).materialesPaneles[pk];
   html += section('', `<div style="display:grid;gap:8px"><button class="btn btn-block" data-act="pzRepisas">Todas las repisas de este gabinete</button>
     <button class="btn btn-block" data-act="pzUsar" ${own ? '' : 'disabled'}>${back ? 'Usar su material en todos los fondos interiores' : 'Usar su material en todas las repisas de la cocina'}</button>
@@ -5499,7 +5487,7 @@ function doorPanel(key){
   const kind = key.slice(0, key.indexOf(':')), d = doorById(key.slice(kind.length + 1)); if (!d) { selectedPart = null; return ''; }
   const back = `<div class="p-foot"><button class="btn btn-block" data-act="hdEditar">Editar la puerta oculta</button></div>`;
   if (kind === 'doorcap') return head('Gabinete de pistón', 'Puerta oculta') + section('Gabinete de pistón de la puerta oculta', chk('hdPist', d.piston, 'Activo')
-    + `<div class="grid-2" style="margin-top:10px">${num('hdAltP', 'Alto', d.altoPiston, 'cm', 25, 60)}</div><div class="note-sm">Arrastra un material sobre la caja (vista Interior) o sobre su puerta (vista Puertas), o doble clic en una muestra con esta pieza seleccionada.</div>`) + back;
+    + `<div class="grid-2" style="margin-top:10px">${num('hdAltP', 'Alto', d.altoPiston, 'cm', 25, 60)}</div><div class="note-sm">Arrastra un material sobre la caja (vista Interior) o sobre su puerta (vista Puertas).</div>`) + back;
   if (kind === 'doorfiller') return head('Tapeta lateral', 'Puerta oculta') + section('Tapeta lateral de la puerta oculta', chk('hdTapL', d.tapetaLateral, 'Activa')
     + `<div class="grid-2" style="margin-top:10px">${num('hdTapLW', 'Ancho', d.anchoTapeta, 'cm', 2, 15)}</div><div class="note-sm">Va de piso a tope, por fuera de la hoja.</div>`) + back;
   if (kind === 'doortop') return head('Tapeta superior', 'Puerta oculta') + section('Tapeta superior de la puerta oculta', chk('hdTapS', d.tapetaSuperior, 'Activa')
@@ -5776,13 +5764,12 @@ side.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.type 
 /* =======================================================================
  * MATERIALES (MaterialTab.cs: galeria + arrastre)
  * ======================================================================= */
-const isAssigned = id => cfg.materialGeneral === id || (cfg.islaPaneles || []).some(q => q.material === id) || doors().some(d => d.material === id || d.materialJuntas === id || d.materialPiston === id) || Object.values(cfg.materiales).includes(id) || cfg.modulos.some(m => m.material === id || m.materialSuperior === id || Object.values(m.materialesPaneles || {}).includes(id));
 
 function renderGallery(){
   const el = document.getElementById('gallery');
   const cats = CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash');
   let html = `<div class="mat-agregar"><span class="t">Agregar</span>${cats.map(cat => `<button type="button" data-addcat="${cat}">+ ${cat}</button>`).join('')}</div>`
-    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Doble clic</b> la aplica a la selección. <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
+    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
   /* A79 (usuario, 04/10): Material de jaladeras, solo con jaladeras (estilos clasico y simple, o el vanity del closet): los metales se
      eligen con un clic y se aplican a todas las jaladeras; no se arrastran a otras piezas */
   if (cfg.style !== 'Moderna' || cfg.closet) { const actual = cfg.materiales.Jaladeras;
@@ -5792,7 +5779,7 @@ function renderGallery(){
   CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash').forEach(cat => {
     html += `<div class="p-section"><div class="p-label">${cat}</div><div class="mat-grid">`;
     cfg.catalogo.filter(m => m.categoria === cat).forEach(m => {
-      const cls = (isAssigned(m.id) ? ' assigned' : '') + (editingSwatch === m.id ? ' editing' : '');
+      const cls = editingSwatch === m.id ? ' editing' : '';   /* A105: sin palomita de asignado */
       html += `<div class="swatch" draggable="true" data-id="${m.id}" title="${esc(m.nombre)}"><div class="sw-chip${cls}" style="background:url(${swatchURL(m)}) center/cover"></div><div class="sw-name">${esc(m.nombre)}</div></div>`;
     });
     html += `<div class="swatch add" data-add="${cat}"><div class="sw-chip">+</div><div class="sw-name">Agregar</div></div></div></div>`;
@@ -5827,10 +5814,6 @@ function renderGallery(){
     if (n.classList.contains('add')) { let created = null; change(c => created = addMaterial(c, n.dataset.add)); if (created) { editingSwatch = created.id; renderGallery(); renderMatEditor(); } return; }
     if (n.classList.contains('reset') || e.detail > 1) return;
     editingSwatch = editingSwatch === n.dataset.id ? null : n.dataset.id; renderGallery(); renderMatEditor();   /* A63: sin Listo; otro clic en la muestra cierra el editor */
-  });
-  el.addEventListener('dblclick', e => {
-    const n = e.target.closest('.swatch[draggable]'); if (!n) return;
-    applyMaterial(n.dataset.id, currentMaterialTarget());
   });
 })();
 /* editor de muestra (MaterialTab.BuildMaterialTab): nombre, Color…, gotero, colores rapidos, patron, escala y Eliminar; sin Listo (A63) */
@@ -6146,7 +6129,6 @@ const EN = {
   'Arrastra': 'Drag',
   'una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble.': 'a swatch onto a part of the drawing to apply it; onto the background it paints the whole unit.',
   'Doble clic': 'Double-click',
-  'la aplica a la selección.': 'applies it to the selection.',
   'Clic': 'Click',
   'para editarla.': 'to edit it.',
   'para editarla (otro clic la cierra); los cambios se aplican al momento.': 'to edit it (click again to close); changes apply right away.',
@@ -6214,9 +6196,9 @@ const EN = {
   'Arrastra los puntos azules de la hoja para mover las juntas, o haz clic en su cota.': 'Drag the leaf’s blue points to move the reveals, or click their dimension.',
   'Arrastra los puntos azules del dibujo (maletero, zapatera, escritorio y cajones) o haz clic en su cota.': 'Drag the blue points in the drawing (top storage, shoe rack, desk and drawers) or click their dimension.',
   'Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.': 'Drag the blue points in the drawing to change the heights, or click their dimension.',
-  'Arrastra un material sobre la caja (vista Interior) o sobre su puerta (vista Puertas), o doble clic en una muestra con esta pieza seleccionada.': 'Drag a material onto the box (Interior view) or its door (Doors view), or double-click a swatch with this part selected.',
+  'Arrastra un material sobre la caja (vista Interior) o sobre su puerta (vista Puertas).': 'Drag a material onto the box (Interior view) or its door (Doors view).',
   'Arrastra un material sobre cualquier franja: se aplica a toda la gola (fondo y perfil).': 'Drag a material onto any strip: it applies to the whole gola (background and profile).',
-  'Arrastra un material sobre una pieza seleccionada, o haz doble clic en una muestra de la pestaña Materiales: se aplica a toda la selección. Ctrl + clic suma o quita piezas.': 'Drag a material onto a selected part, or double-click a swatch in the Materials tab: it applies to the whole selection. Ctrl + click adds or removes parts.',
+  'Arrastra un material sobre una pieza seleccionada: se aplica a toda la selección. Ctrl + clic suma o quita piezas.': 'Drag a material onto a selected part: it applies to the whole selection. Ctrl + click adds or removes parts.',
   'Backsplash': 'Backsplash',
   'Bajo cubierta': 'Undermount',
   'Barra': 'Rod',
