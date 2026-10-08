@@ -213,6 +213,11 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A95. Subir solo un alto (08/10, usuario): el boton del aviso NKBA de coccion
+       subia el libre de todos los altos; ahora sube solo el alto de esa columna
+       (elevacionAlto): su cuerpo, cama, LED, luz y campana empiezan mas arriba
+       y el tope no cambia; se ve y se regresa a 0 en el panel del alto.
+       Revit: elevacion por gabinete alto.
    A94. Cama de la caja unida (08/10, usuario): las columnas de una caja de
        repisas unida comparten una sola cama (y una sola tira LED) a todo su
        ancho, en lugar de una por columna (A67). Revit: misma regla.
@@ -1423,7 +1428,7 @@ function newModule(upper, region = cfg.region){
     altoZapatera: 60, altoEscritorio: 75, espejo: 'Rectangular', repisaAltaVanity: 200,
     /* alto doble (UpperCaps): modulo superior de piston, dos puertas o caja de repisas; campana bajo el alto */
     inferiorAbierto: false, tipoSuperior: 'Piston', repisasSuperior: 0, divisionSuperior: false, divisionesSuperior: 1, unirSuperior: false, altoSuperior: 30, materialSuperior: null, mostrarPuertaSuperior: true,
-    huecoCampana: 10, fondoCampana: 50, mostrarCampana: true, soloCampana: false, fondoSuperior: 0,   /* A81; A82: 0 = toma el fondo del alto al volverse doble */
+    huecoCampana: 10, fondoCampana: 50, mostrarCampana: true, soloCampana: false, fondoSuperior: 0, elevacionAlto: 0,   /* A81; A82: 0 = toma el fondo del alto al volverse doble */
     /* especiales de la fila baja: torre de hornos, alacena y especiero torre (Config de src/LayoutState.cs) */
     topeEspecial: 0, espesorLaterales: 1.8, repisasEspecial: 2, aireHornos: 5,
     baseHorno: 60, altoHorno: 60, rejillaHorno: true, altoRejilla: 5, microondas: true, altoMicro: 45, elevacionMicro: 0,
@@ -2095,7 +2100,11 @@ function setSplit(m, i, z){
 function drawerLevels(m){ const zb = cfg.baseBajos, l = [zb + bodyH(m)]; splitIndexes(m).forEach(i => l.push(zb + split(m, i))); l.push(zb); return l; }
 function setDrawerSegment(m, k, value){ const l = drawerLevels(m), n = l.length - 2; if (k < n) setSplit(m, k+1, l[k] - cfg.baseBajos - value); else setSplit(m, n, value); }
 /* alto del cuerpo que muestra Medir: en altos, sin el modulo superior ni el hueco de campana */
-const mheightOf = m => bodyH(m) - (hasCampana(m) ? m.huecoCampana : 0);
+/* A95 (usuario, 08/10): un alto se puede subir solo (elevacionAlto, cm sobre el libre de los demas): su cuerpo, su cama, su LED y su
+   campana empiezan mas arriba y el tope no cambia. Lo usa el aviso NKBA de coccion para subir solo el alto de esa columna */
+const elevAlto = m => m.upper ? Math.max(0, m.elevacionAlto || 0) : 0;
+const huecoAlto = m => elevAlto(m) + (hasCampana(m) ? m.huecoCampana : 0);   /* del libre de los altos al cuerpo */
+const mheightOf = m => bodyH(m) - huecoAlto(m);
 function setHeight(upper, value){ if (upper) cfg.altoBajos = topeAltos() - cfg.baseBajos - paquete() - cfg.separacionAltos - value; else cfg.altoBajos = value; }
 
 function fronts(m){
@@ -2106,7 +2115,7 @@ function fronts(m){
     else r.push({kind:'Puerta', x0, x1, z0, z1, hingeRight:inv});
   };
   if (sinPuertas(m)) return r;
-  if (m.upper) { if (soloCamp(m)) return r; const z0 = baseAltos() + (hasCampana(m) ? m.huecoCampana : 0); door(hol, m.ancho-hol, z0, baseAltos() + bodyH(m) - hol, m.dosPuertas, m.invertir); return r; }
+  if (m.upper) { if (soloCamp(m)) return r; const z0 = baseAltos() + huecoAlto(m); door(hol, m.ancho-hol, z0, baseAltos() + bodyH(m) - hol, m.dosPuertas, m.invertir); return r; }
   const ins = isTower(m) ? m.espesorLaterales : 0;   /* la torre lleva sus frentes entre laterales */
   const drawers = () => {
     const hs = heights(m); let top = zb + bodyH(m) - topGap(m);
@@ -2534,11 +2543,11 @@ function planDePiezas(c = cfg){
         if (m.reserved) { x += m.ancho; continue; }
         if (isSpecial(m) || esAparato(m)) { especial(m, x); x += m.ancho; continue; }
         if (upper && soloCamp(m)) {   /* A81: solo la campana */
-          if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos(), baseAltos() + m.huecoCampana, sep, sep + m.fondoCampana);
+          if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana);
           x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
            interior del primero (BodyLead) y a todo el ancho del grupo */
-        const z0 = upper ? baseAltos() + (hasCampana(m) ? m.huecoCampana : 0) : cfg.baseBajos;
+        const z0 = upper ? baseAltos() + huecoAlto(m) : cfg.baseBajos;
         const z1 = upper ? baseAltos() + bodyH(m) : cfg.baseBajos + cfg.altoBajos;
         const grp = upper && sinPuertas(m) ? bodyGroupOf(m) : null, frs = fronts(m), cajones = frs.filter(f => f.kind === 'Cajon' && !f.fijo);
         if (!grp || grp.members[grp.members.length - 1] === m) {
@@ -2566,7 +2575,7 @@ function planDePiezas(c = cfg){
         }
         fronts(m).forEach((f, k) => frente(m, f, k, x));
         /* campana (drawCampana): en el hueco bajo el alto, del muro a su fondo y casi a todo el ancho */
-        if (hasCampana(m) && m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos(), baseAltos() + m.huecoCampana, sep, sep + m.fondoCampana);
+        if (hasCampana(m) && m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana);
         /* gola: franja de perfil en cada hueco de agarre (golaStrips), detras del plano de los frentes */
         gola(m, x, x + m.ancho);
         /* modulo superior del alto doble (drawCap): uno por grupo de columnas unidas, del primero y a todo su ancho */
@@ -2595,7 +2604,7 @@ function planDePiezas(c = cfg){
       for (const m of row(true)) { const bg = sinPuertas(m) && bodyGroupOf(m), g = bg && bg.members.length > 1 ? bg.members[0].id : null, u = tramosCama[tramosCama.length - 1];
         if (conCama(m)) { if (g && u && u.grupo === g && Math.abs(u.x1 - xc) < .01) { u.x1 = xc + m.ancho; u.fondo = Math.max(u.fondo, m.fondo); } else tramosCama.push({ x0: xc, x1: xc + m.ancho, fondo: m.fondo, m, grupo: g }); }
         xc += m.ancho; }
-      tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo, z0 = baseAltos(), e = PLAN_CUERPO.lateral;
+      tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo, z0 = baseAltos() + elevAlto(q.m), e = PLAN_CUERPO.lateral;   /* A95 */
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
         /* A91 (usuario, 08/10): con gola, la cama del piso se queda la profundidad del canal (golaHondo) antes del pano de las puertas:
            ese hueco es el unero de los altos, y la cama interior de encima llega al pano y lo cierra. Con LED igual (la ranura y la tira
@@ -2614,9 +2623,12 @@ function planDePiezas(c = cfg){
          del backsplash y antes del trasero de los altos), asi no queda flotando sobre el muro libre */
       const bsCompleto = cfg.backsplash && lows.length && (cfg.backsplashCompleto || altoBarra() + cfg.altoBacksplash >= baseAltos() - .01);
       const yl = (bsCompleto ? cfg.espesorBacksplash : 0) + .05, zl = altoBarra(), zc = baseAltos(), tramosLuz = [];
-      tramosCama.forEach(q => { const u = tramosLuz[tramosLuz.length - 1]; if (u && Math.abs(u.x1 - q.x0) < .01) u.x1 = q.x1; else tramosLuz.push({ x0: q.x0, x1: q.x1, m: q.m }); });
-      if (cfg.led && cfg.ledLuz !== false && zc - zl > 5) tramosLuz.forEach(q => add({ id: 'luz:' + q.m.id, rol: 'luz', modulo: q.m.id, tipo: 'Luz', x: q.x0, y: yl, z: zl, ancho: q.x1 - q.x0, fondo: .1, alto: zc - zl,
-        material: PLAN_LUZ.id, etiqueta: 'luz', forma: { tipo: 'plano', eje: 'y' } })); }
+      /* A95: un alto subido corta la luz (otra altura); su tramo lleva su propio material de luz, con el degradado a su alto */
+      tramosCama.forEach(q => { const u = tramosLuz[tramosLuz.length - 1], z = baseAltos() + elevAlto(q.m);
+        if (u && Math.abs(u.x1 - q.x0) < .01 && Math.abs(u.z - z) < .01) u.x1 = q.x1; else tramosLuz.push({ x0: q.x0, x1: q.x1, m: q.m, z }); });
+      if (cfg.led && cfg.ledLuz !== false) tramosLuz.forEach(q => { const alto = q.z - zl; if (alto <= 5) return;
+        add({ id: 'luz:' + q.m.id, rol: 'luz', modulo: q.m.id, tipo: 'Luz', x: q.x0, y: yl, z: zl, ancho: q.x1 - q.x0, fondo: .1, alto,
+          material: Math.abs(alto - (zc - zl)) < .01 ? PLAN_LUZ.id : PLAN_LUZ.id + '_' + Math.round(alto*10), etiqueta: 'luz', forma: { tipo: 'plano', eje: 'y' } }); }); }
     /* zoclo, cubierta, backsplash y tapetas con las reglas del alzado (RunLayout / cutRun): sin tapeta corrida van de muro
        a muro y con ella quedan entre las tapetas; se interrumpen en especiales (cubierta y backsplash), estufa y frigobar alto */
     const W = cfg.longitud, zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), pq = paquete();
@@ -2909,7 +2921,7 @@ function planDePiezas(c = cfg){
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
       materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); })
         .concat([...usados].map(k => ({ id: k, nombre: PREDETERMINADOS[k].nombre, rgb: PREDETERMINADOS[k].rgb.slice() })))
-        .concat(piezas.filter(q => q.rol === 'luz').slice(0, 1).map(q => ({ id: PLAN_LUZ.id, nombre: PLAN_LUZ.nombre, rgb: rgbLuz(), textura: texturaLuz(q.alto) })))
+        .concat([...new Map(piezas.filter(q => q.rol === 'luz').map(q => [q.material, q])).values()].map(q => ({ id: q.material, nombre: PLAN_LUZ.nombre + (q.material === PLAN_LUZ.id ? '' : ' ' + r2(q.alto)), rgb: rgbLuz(), textura: texturaLuz(q.alto) })))
         .concat(piezas.some(q => q.material === PLAN_TIRA.id) ? [{ id: PLAN_TIRA.id, nombre: PLAN_TIRA.nombre, rgb: rgbLuz() }] : []),
       piezas, pendiente: PLAN_PENDIENTE.slice() };
   } finally { cfg = previo; }
@@ -2979,7 +2991,7 @@ function pruebasPlanMX(){
     ok(JSON.stringify(cfg) === editor, nombre + ': el plan cambio la configuracion del editor');
     ok(p.esquema === PLAN_ESQUEMA && p.unidad === 'cm', nombre + ': esquema o unidad');
     /* B5: cada material con patron lleva su mosaico (PNG y medida en cm); los colores lisos, no */
-    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id); if (!cat) { ok(q.id === PLAN_LUZ.id ? !!q.textura : (q.id === PLAN_TIRA.id || !!PREDETERMINADOS[q.id]) && !q.textura, nombre + ': material fuera del catalogo ' + q.id); return; } const conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
+    p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id); if (!cat) { ok(q.id.startsWith(PLAN_LUZ.id) ? !!q.textura : (q.id === PLAN_TIRA.id || !!PREDETERMINADOS[q.id]) && !q.textura, nombre + ': material fuera del catalogo ' + q.id); return; } const conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
       ok(conPatron === !!q.textura, nombre + ': textura que no corresponde en ' + q.id);
       if (q.textura) ok(q.textura.png.startsWith('data:image/png;base64,') && q.textura.ancho > 0 && q.textura.alto > 0, nombre + ': textura invalida en ' + q.id); });
     ok(JSON.stringify(JSON.parse(JSON.stringify(p))) === JSON.stringify(p), nombre + ': no es JSON puro');
@@ -3234,8 +3246,10 @@ function validate(){
   validateDoors();
   /* campana, alto doble y cajas unidas */
   for (const m of row(true).filter(q => !q.reserved)) {
+    /* A95: un alto subido conserva al menos 25 cm de cuerpo */
+    if (elevAlto(m) > 0 && !hasCampana(m) && mheightOf(m) < 25 - .01) throw new Error(`Gabinete alto subido: su cuerpo quedaría de ${medida(mheightOf(m))}; el mínimo es ${medida(25)}.`);
     if (hasCampana(m)) {
-      const body = altoAltos() - (isDoble(m) ? m.altoSuperior : 0) - m.huecoCampana;
+      const body = altoAltos() - (isDoble(m) ? m.altoSuperior : 0) - huecoAlto(m);
       if (m.huecoCampana < 5 || m.huecoCampana > 40 || !m.soloCampana && (body < -.01 || body > .01 && body < 25)) throw new Error(`Campana: la canopy visible mide de ${medida(5)} a ${medida(40)} y el gabinete que la cubre necesita al menos ${medida(25)} (o ${medida(0)} para usar todo el hueco).`);
       if (m.fondoCampana < 30 || m.fondoCampana > 70) throw new Error(`Campana: el fondo debe estar entre ${medida(30)} y ${medida(70)}.`);
     }
@@ -4222,10 +4236,10 @@ function avisoCoccion(m){
   const lw = row(false), up = row(true); if (lw.length !== up.length) return '';
   const i = (m.upper ? up : lw).indexOf(m), bajo = lw[i], alto = up[i];
   if (!bajo || !alto || alto.reserved || !(bajo.tipo === 'Estufa' || bajo.parrilla)) return '';
-  const R = reg().campana, campana = hasCampana(alto), pide = campana ? R.protegida : R.combustible, libre = cfg.separacionAltos;
+  const R = reg().campana, campana = hasCampana(alto), pide = campana ? R.protegida : R.combustible, libre = cfg.separacionAltos + elevAlto(alto);
   if (libre >= pide - .01) return '';
   return `<div class="note-sm" style="color:#C2410C;margin-top:0">${campana ? 'La campana queda' : 'El gabinete alto queda'} a ${medida(libre)} de la ${bajo.tipo === 'Estufa' ? 'estufa' : 'parrilla'}; se recomiendan al menos ${medida(pide)} (${campana ? 'campana' : 'gabinete sin campana'}, NKBA).</div>`
-    + `<button class="btn btn-block" style="margin-top:6px" data-act="subirLibre" value="${pide}">Subir el libre sobre cubierta a ${medida(pide)}</button>`;
+    + `<button class="btn btn-block" style="margin-top:6px" data-act="subirAlto" value="${alto.id}|${Math.round((pide - cfg.separacionAltos)*100)/100}">Subir solo este gabinete alto a ${medida(pide)}</button>`;   /* A95: solo el alto de la columna */
 }
 function drawModule(m, x0, RX, X, Z, post){
   if (m.reserved) return;   /* columna reservada por un especial: no se dibuja ni se elige */
@@ -4234,12 +4248,12 @@ function drawModule(m, x0, RX, X, Z, post){
   if (m.tipo === 'Frigobar') { drawFridge(m, x0, RX, post); return; }
   if (m.tipo === 'Lavavajillas' && !m.upper) { drawDishwasher(m, x0, RX, post); return; }
   if (soloCamp(m)) {   /* A81: solo la campana en su hueco y la chimenea hasta el tope; sin cuerpo ni modulo superior */
-    const full = RX(x0, x0 + m.ancho, baseAltos(), topeAltos()), free = RX(x0, x0 + m.ancho, baseAltos(), baseAltos() + m.huecoCampana), sel = selection.has(m.id);
+    const full = RX(x0, x0 + m.ancho, baseAltos(), topeAltos()), free = RX(x0, x0 + m.ancho, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m)), sel = selection.has(m.id);
     drawCampana(m, full, free); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel); return; }
   const zb = cfg.baseBajos, z0 = m.upper ? baseAltos() : zb, z1 = m.upper ? baseAltos() + bodyH(m) : zb + cfg.altoBajos;
   const full = RX(x0, x0 + m.ancho, z0, z1), sel = selection.has(m.id), scale = frame.scale;
   /* espacio para campana: franja libre al pie del alto; el cuerpo queda encima */
-  const gap = hasCampana(m) ? m.huecoCampana*scale : 0, body = { x: full.x, y: full.y, w: full.w, h: full.h - gap };
+  const gap = huecoAlto(m)*scale, body = { x: full.x, y: full.y, w: full.w, h: full.h - gap };
   const mat = m.material || cfg.materialGeneral, grp = m.upper && sinPuertas(m) ? bodyGroupOf(m) : null;
   if (grp) { /* caja corrida: solo la ultima columna dibuja el cuerpo completo; sus piezas son del primero (BodyLead) */
     const last = grp.members[grp.members.length - 1];
@@ -4602,7 +4616,7 @@ function drawMeasure(X, Z){
           if (hasDrawers(m)) { const l = drawerLevels(m); for (let k = 0; k < l.length - 1; k++) dim(lx, Z(l[k+1]), lx, Z(l[k]), fmt(l[k] - l[k+1]), 'seg:' + m.id + ':' + k); }
           segments(m).forEach(([name, a, b]) => dim(lx, Z(a), lx, Z(b), fmt(b - a), 'tw:' + m.id + ':' + name));
         } else {
-          const z0 = upper ? baseAltos() + (hasCampana(m) ? m.huecoCampana : 0) : cfg.baseBajos, h = mheightOf(m);
+          const z0 = upper ? baseAltos() + huecoAlto(m) : cfg.baseBajos, h = mheightOf(m);
           const r = { x: X(x), y: Z(z0 + h), w: m.ancho*scale, h: h*scale };
           if (drawerType(m)) { const l = drawerLevels(m); for (let k = 0; k < l.length - 1; k++) dim(lx, Z(l[k+1]), lx, Z(l[k]), fmt(l[k] - l[k+1]), 'seg:' + m.id + ':' + k); }
           else dim(lx, r.y + r.h, lx, r.y, fmt(h), 'mheight:' + m.id);
@@ -5099,7 +5113,7 @@ function commitDimension(){
     else if (k === 'gap') c.separacionAltos = v;
     else if (k === 'split') setGripZ(byId(id), +i, v);
     else if (k === 'seg') setDrawerSegment(byId(id), +i, v);
-    else if (k === 'mheight') { const m = byId(id); setHeight(m.upper, m.upper ? v + (isDoble(m) ? m.altoSuperior : 0) + (hasCampana(m) ? m.huecoCampana : 0) : v); }
+    else if (k === 'mheight') { const m = byId(id); setHeight(m.upper, m.upper ? v + (isDoble(m) ? m.altoSuperior : 0) + huecoAlto(m) : v); }
     else if (k === 'tw') setSegment(byId(id), i, v);
     else if (k === 'mlift') { const m = byId(id), g = capGroupOf(m); (g ? g.lead : m).altoSuperior = v; }
     else if (k === 'upperBody' || k === 'upperLift') { const hs = k === 'upperLift' ? v : altoAltos() - v; row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)).forEach(q => q.altoSuperior = hs); }
@@ -5247,6 +5261,7 @@ function modulePanel(m){
   if (isDoble(m) && !bx && bodyGroupOf(m)) opts += `<div class="note-sm">Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o</div><button class="btn btn-block" style="margin-top:6px" data-act="editBox">Editar la caja corrida</button>`;
   html += section('Opciones', opts);
   if (m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
+  if (m.upper && elevAlto(m) > 0) html += section('Subido', `<div class="grid-2">${num('elevAlto', 'Sobre los demás altos', elevAlto(m), 'cm', 0, 60)}</div><div class="note-sm">Solo este gabinete alto empieza más arriba (aviso NKBA de cocción); 0 lo regresa con los demás.</div>`);
   if (hasCampana(m)) html += section('Campana', chk('soloCamp', !!m.soloCampana, 'Mostrar solo la campana (sin gabinete alto)') + (m.soloCampana ? `<div class="note-sm" style="margin-top:0">La columna lleva solo la campana: sin el gabinete alto${isDoble(m) ? ' ni el módulo superior' : ''}; la chimenea llega al tope.</div>` : '') + `<div class="grid-2" style="margin-top:8px">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
   if (isDoble(m) && !hasCampana(m)) {   /* A38: repisas y divisiones del gabinete inferior y del superior */
     const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS;
@@ -5541,6 +5556,8 @@ const ACT = {
   pasoRep: v => change(c => { c.pasoReparto = v; c.repartoAdaptado = false; }),
   lavaComp: (v, m) => change(() => { const t = byId(m.id); t.lavavajillasCompacto = v; applyWidth(t.id, ANCHO_TIPO.Lavavajillas(t)); }),
   subirLibre: v => change(c => c.separacionAltos = parseFloat(v), 'Revisar altura'),
+  subirAlto: v => { const [id, e] = String(v).split('|'); change(() => { const a = byId(id); if (a) a.elevacionAlto = Math.max(0, parseFloat(e) || 0); }, 'Revisar altura'); },
+  elevAlto: (v, m) => change(() => byId(m.id).elevacionAlto = Math.max(0, v), 'Revisar altura'),
   dpDesde: v => change(c => c.dosPuertasDesde = v),
   quem6: (v, m) => setWidth(m.id, v ? reg().estufa.seis : reg().estufa.cuatro),   /* como la cota de ancho: la columna completa toma el ancho nuevo */
   altoFrig: (v, m) => change(() => byId(m.id).altoFrigobar = v), tapFrig: (v, m) => change(() => byId(m.id).tapetaFrigobar = v),
@@ -6608,6 +6625,7 @@ const EN_T = [
   ["La campana queda a {0} de la estufa; se recomiendan al menos {1} (campana, NKBA).", "The range hood is {0} above the range; NKBA recommends at least {1} (hood)."],
   ["La campana queda a {0} de la parrilla; se recomiendan al menos {1} (campana, NKBA).", "The range hood is {0} above the cooktop; NKBA recommends at least {1} (hood)."],
   ["El gabinete alto queda a {0} de la estufa; se recomiendan al menos {1} (gabinete sin campana, NKBA).", "The wall cabinet is {0} above the range; NKBA recommends at least {1} (combustible, no hood)."],
+  ["Subir solo este gabinete alto a {0}", "Raise only this wall cabinet to {0}"],
   ["El gabinete alto queda a {0} de la parrilla; se recomiendan al menos {1} (gabinete sin campana, NKBA).", "The wall cabinet is {0} above the cooktop; NKBA recommends at least {1} (combustible, no hood)."],
   ["Subir el libre sobre cubierta a {0}", "Raise countertop-to-uppers to {0}"],
   ["Automático: dos puertas en más de {0} de ancho.", "Automatic: two doors when wider than {0}."],
