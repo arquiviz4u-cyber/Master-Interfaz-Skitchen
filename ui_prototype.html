@@ -213,6 +213,11 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A88. Nariz a inglete (08/10, usuario): la nariz se ve como una sola pieza
+       con la cubierta: tiene el espesor de la cubierta y ambas se cortan a 45
+       grados (perfil), sin junta horizontal al frente; la cama se retira al
+       menos ese espesor. Revit: nariz con el espesor de la cubierta y corte
+       a 45 grados en las familias.
    A87. Reparto homogeneo (08/10, usuario): en metrico, con tapetas, los
        gabinetes automaticos quedan iguales y los centimetros que no se
        reparten parejo van a las tapetas (mitad y mitad), en lugar de al
@@ -2606,22 +2611,28 @@ function planDePiezas(c = cfg){
         hueco = { x0: sx + (sm.ancho - bw)/2, x1: sx + (sm.ancho + bw)/2, y0: sepDe(sm) + sm.fondo - cfg.retiroTarja - bd, y1: sepDe(sm) + sm.fondo - cfg.retiroTarja, doble, m: sm, cx: sx + sm.ancho/2 };
       }
       /* losa con el hueco: alrededor de el, cuatro tiras (izquierda, derecha, detras y delante) */
-      const losa = (id, tipo, a, b, y0, y1, z0, z1) => {
-        const caja = (k, xa, xb, ya, yb) => add({ id: id + k, rol: 'cubierta', tipo, x: xa, y: ya, z: z0, ancho: xb - xa, fondo: yb - ya, alto: z1 - z0, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' });
+      /* inglete (A88): el tramo que llega al frente (y1) lleva su canto inferior cortado a 45 grados para recibir la nariz */
+      const losa = (id, tipo, a, b, y0, y1, z0, z1, inglete = false) => {
+        const caja = (k, xa, xb, ya, yb) => { const q = { id: id + k, rol: 'cubierta', tipo, x: xa, y: ya, z: z0, ancho: xb - xa, fondo: yb - ya, alto: z1 - z0, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' };
+          if (inglete && Math.abs(yb - y1) < .001 && yb - ya > z1 - z0 + .01) q.forma = { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [r2(yb - ya - (z1 - z0)), 0], [r2(yb - ya), r2(z1 - z0)], [0, r2(z1 - z0)]] };
+          add(q); };
         const h = hueco && hueco.x0 < b && hueco.x1 > a && hueco.y0 < y1 && hueco.y1 > y0 ? hueco : null;
         if (!h) { caja('', a, b, y0, y1); return; }
         caja(':izq', a, h.x0, y0, y1); caja(':der', h.x1, b, y0, y1); caja(':atras', h.x0, h.x1, y0, h.y0); caja(':frente', h.x0, h.x1, h.y1, y1);
       };
-      /* nariz (seccion del master; Mostrar_Nariz / Mostrar_Cama de Revit): losa del espesor arriba, nariz de 1.8 al frente hasta la
-         altura total y cama debajo de la losa, retirada del frente 2 cm (6.8 con tarja, Retiro_Frontal_Cama) */
+      /* nariz (seccion del master; Mostrar_Nariz / Mostrar_Cama de Revit): losa del espesor arriba, nariz al frente hasta la altura
+         total y cama debajo de la losa, retirada del frente 2 cm (6.8 con tarja, Retiro_Frontal_Cama). A88 (usuario, 08/10): la nariz
+         se ve como una sola pieza con la cubierta: tiene su espesor y se une a ella a inglete (45 grados), sin junta al frente; la cama
+         se retira al menos el espesor de la nariz */
       const D = cfg.isla ? cfg.islaAncho : dBajo + vueloEf(), esp = cfg.espesorCubierta, nariz = cfg.narizCubierta && pq > esp + .01;
       const barraIsla = cfg.isla && cfg.islaBarraElevada, yC = barraIsla ? cfg.islaBarraAncho : 0;   /* con barra, la cubierta llega al peralte */
       const cubX = cfg.isla ? cubXIsla() : [run0 - vI, run1 + vD];
       if (cfg.generarCubierta) cutRun(cubX[0], cubX[1], cortaCubierta).forEach(([a, b], k) => {
         if (!nariz) { losa('cubierta:' + k, 'Losa', a, b, yC, D, zBar - pq, zBar); return; }
-        losa('cubierta:' + k, 'Losa', a, b, yC, D, zBar - esp, zBar);
-        add({ id: 'cubierta:' + k + ':nariz', rol: 'cubierta', tipo: 'Nariz', x: a, y: D - t, z: zBar - pq, ancho: b - a, fondo: t, alto: pq - esp, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' });
-        losa('cubierta:' + k + ':cama', 'Cama', a, b, yC, D - (cfg.tipoTarja > 0 ? 6.8 : 2), zBar - pq, zBar - esp);
+        losa('cubierta:' + k, 'Losa', a, b, yC, D, zBar - esp, zBar, true);
+        add({ id: 'cubierta:' + k + ':nariz', rol: 'cubierta', tipo: 'Nariz', x: a, y: D - esp, z: zBar - pq, ancho: b - a, fondo: esp, alto: pq, material: groupMaterial('Cubierta'), etiqueta: 'cubierta',
+          forma: { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [esp, 0], [esp, r2(pq)], [0, r2(pq - esp)]] } });
+        losa('cubierta:' + k + ':cama', 'Cama', a, b, yC, D - Math.max(cfg.tipoTarja > 0 ? 6.8 : 2, esp), zBar - pq, zBar - esp);
       });
       /* tina de lamina (paredes y fondo): bajo cubierta llega a la base de la cubierta; de sobreponer sube hasta su cara y
          lleva ceja encima. Monomando detras de la tina */
@@ -2963,7 +2974,8 @@ function pruebasPlanMX(){
     const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && a.rol !== 'luz' && b.rol !== 'luz' && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado */
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
     const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) ||
-      a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago');   /* B19: el vastago entra en su cuerpo */
+      a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago') ||   /* B19: el vastago entra en su cuerpo */
+      a.tipo === 'Nariz' && b.tipo === 'Losa' && (b.id === a.id.replace(/:nariz$/, '') || b.id.startsWith(a.id.replace(/:nariz$/, '') + ':'));   /* A88: inglete */
     p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !choca(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
     /* bisagras: las de la regla de Revit en cada puerta (2 hasta 90 cm, 3 hasta 160, 4 hasta 200, 5 mas) */
     const ocultas = new Set((c.puertasOcultas || []).map(d => d.id));
