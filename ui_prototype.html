@@ -213,6 +213,10 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A114. Isla centrada en su espacio (08/10, usuario): alzado frontal, vista posterior y seccion se centran en el alto libre
+       bajo el titulo (islaSuelo: alto del dibujo mas lo que sobresale arriba y abajo; nunca mas abajo que antes) y a lo ancho
+       contando las cotas que salen de un lado (alto de la barra a la derecha, cotas de la barra elevada). Revit: centrar
+       PaintFront/PaintBack/PaintSection igual (hoy el suelo va pegado abajo).
    A113. [Revit OK P12.228] Frentes de piston sin jaladera (08/10, usuario): los gabinetes de piston (frente elevable, en el alto, el modulo
        superior o la puerta oculta) no llevan jaladera; solo la llevan las puertas abatibles, sencillas o dobles, y los cajones
        (estilos clasica y simple). En clasica el elevable conserva su marco shaker. Cambia A102 para el modulo superior de piston.
@@ -1831,6 +1835,8 @@ const panelesX0 = () => cfg.islaBarraElevada && cfg.islaBarraCascadaIzq ? (cfg.c
 const panelesX1 = () => cfg.longitud - (cfg.islaBarraElevada && cfg.islaBarraCascadaDer ? (cfg.cascadaDer ? Math.max(ajusteDer(), espesorBarra()) : 0) : ajusteDer());
 const panelTope = () => cfg.islaBarraElevada ? altoBarra() + cfg.islaBarraElevacion - espesorBarra() : cfg.baseBajos + cfg.altoBajos;
 const islaTopH = () => altoBarra() + (cfg.islaBarraElevada ? cfg.islaBarraElevacion : 0);
+/* A114 (usuario, 08/10): alzado, posterior y seccion de la isla centrados en el alto libre (bajo el titulo); h = alto del dibujo, arriba/abajo = lo que sobresale (cotas, guias) */
+const islaSuelo = (h, arriba, abajo, tope) => Math.min(tope, (48 + cssH)/2 + (h + arriba - abajo)/2);
 let sectionCut = NaN;   /* corte de la seccion (cm desde el extremo izquierdo); NaN = centro */
 const cutCm = () => isNaN(sectionCut) ? cfg.longitud/2 : Math.max(0, Math.min(cfg.longitud, sectionCut));
 /* Recalculate en isla: sin altos ni piezas de muro; costados de 2 cm o cascadas del grosor de la cubierta (o de la nariz) */
@@ -4087,7 +4093,7 @@ function centroLine(x, y0, y1){
 /* ALZADO FRONTAL: lado de los gabinetes; cascadas de cubierta o costados de 2 cm en los extremos */
 function drawIslandFront(){
   title('ALZADO FRONTAL', '· lado de los gabinetes');
-  const W = cfg.longitud, scale = islandScale(), ox = (cssW - W*scale)/2, ground = cssH - 65;
+  const W = cfg.longitud, scale = islandScale(), ox = (cssW - W*scale)/2 - 7, ground = islaSuelo(altoBarra()*scale, 57, 34, cssH - 65);   /* el alzado no dibuja la barra elevada: su tope son las cotas de ancho sobre la cubierta */
   const X = x => ox + x*scale, Z = z => ground - z*scale;
   const RX = (x0, x1, z0, z1) => { edges.push({ z: z0, id: edgeOwner }, { z: z1, id: edgeOwner }); return { x: X(x0), y: Z(z1), w: (x1-x0)*scale, h: (z1-z0)*scale }; };
   frame = { scale, ox, ground, X, Z, W };
@@ -4170,7 +4176,7 @@ function drawIslandPlan(){
 /* VISTA POSTERIOR: lado de los bancos, en espejo; paneles posteriores con su cadena de cotas, zoclo posterior y barra */
 function drawIslandBack(){
   title('VISTA POSTERIOR', '· lado de los bancos · el extremo izquierdo del alzado queda a la derecha');
-  const W = cfg.longitud, s = islandScale(), ox = (cssW - W*s)/2, ground = cssH - 65;
+  const W = cfg.longitud, s = islandScale(), ox = (cssW - W*s)/2 - (cfg.islaBarraElevada ? 39 : 7), ground = islaSuelo(islaTopH()*s, 5, 34, cssH - 65);   /* A114: las cotas de la barra elevada salen a la derecha */
   const X = x => ox + (W - x)*s, Z = z => ground - z*s;
   const RX = (x0, x1, z0, z1) => { edges.push({ z: z0, id: edgeOwner }, { z: z1, id: edgeOwner }); return { x: X(x1), y: Z(z1), w: (x1 - x0)*s, h: (z1 - z0)*s }; };
   frame = { scale: s, ox, ground, X, Z, W }; post = []; wallRect = null;
@@ -4213,7 +4219,7 @@ function drawIslandSection(){
   const cut = guideVal('corte', cutCm());
   title('SECCIÓN TRANSVERSAL', `· por la línea de corte de la planta, a ${fmt(cut)}${uS()} del extremo izquierdo · frente a la izquierda · bancos a la derecha`);
   const A = cfg.islaAncho, topH = islaTopH(), s = Math.min(Math.max(1, cssW - 330)/(A + 10), Math.max(1, cssH - 250)/(topH + 15));
-  const left = Math.max(120, (cssW - A*s)/2 - 20), ground = cssH - 105;
+  const left = Math.max(60, (cssW - A*s)/2 + (cfg.islaBarraElevada ? -6 : 13)), ground = islaSuelo(topH*s, 56, 85, cssH - 105);
   const XF = d => left + d*s, XB = d => left + (A - d)*s, Y = z => ground - z*s;
   frame = { scale: s, ground, Z: Y, X: XF, W: A, section: true }; post = []; wallRect = null;
   const zb = cfg.baseBajos, zBar = altoBarra(), flight = vueloEf(), esp = cfg.espesorCubierta, be = espesorBarra(), barra = cfg.islaBarraElevada, t = 1.8*s;
