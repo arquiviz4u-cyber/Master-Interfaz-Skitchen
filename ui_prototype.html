@@ -224,6 +224,12 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A123. Lista del editor (09/10, usuario): 1) boton de seccion alineado (en Revit tenia otro margen); 2) ayudas de la barra
+       inferior mas cortas y claras; 3) con la campana sola (sin gabinetes) el backsplash sube por el muro hasta el tope de los
+       altos (dibujo y plan de piezas); 4) sin boton «Subir solo este gabinete alto» en el aviso de coccion; 5) al poner
+       parrilla o estufa en un bajo, el alto de su columna lleva campana; 6) la tarja ya no sube los altos: al encender la
+       cubierta (tarja o «Generar cubierta») se conserva el alto de la cubierta y el bajo absorbe la cama de la nariz.
+       Revit: igual.
    A119. [Revit P12.238] Medir en tres pasos (08/10, usuario): primer clic, cotas de los gabinetes seleccionados (como antes); segundo
        clic, las de todos los muebles (cocina, isla, closet y puertas ocultas; el boton dice «Medir todo»); tercer clic,
        las quita. Revit: el mismo ciclo en su boton Medir.
@@ -2163,6 +2169,11 @@ function joinRight(id){ const ups = row(true), i = ups.findIndex(q => q.id === i
 const hasCampana = m => m.upper && !!m.campana && m.tipo !== 'Abierto' && !m.inferiorAbierto;
 /* A81 (usuario, 06/10): solo la campana: la columna no lleva el cuerpo del alto ni el modulo superior del alto doble; la chimenea llega al tope */
 const soloCamp = m => hasCampana(m) && !!m.soloCampana;
+/* A123 (usuario, 09/10): al poner parrilla o estufa en un bajo, el alto de su columna lleva campana (una vez; despues se puede quitar) */
+function campanaSobre(c, bajo){ const l = c.modulos.filter(q => !q.upper), h = c.modulos.filter(q => q.upper); if (l.length !== h.length) return; const a = h[l.indexOf(bajo)];
+  if (a && !a.reserved && a.tipo !== 'Abierto' && !a.campana) { a.campana = true; a.inferiorAbierto = false; } }
+/* A123 (usuario, 09/10): columnas de campana sola (sin gabinetes): [x0, x1] de cada una; ahi el backsplash sube por el muro hasta el tope de los altos */
+const columnasCampanaSola = () => { const r = []; let x = ajusteIzq(); row(true).forEach(m => { if (!m.reserved && soloCamp(m)) r.push([x, x + m.ancho]); x += m.ancho; }); return r; };
 /* A83 (usuario, 06/10): con gola (Moderna) los altos llevan siempre doble cama, con o sin LED: la cama del piso (con la ranura si hay LED)
    y encima una cama interior desde 1.8 cm tras el frente hasta el trasero (como LedUpgrade de Revit); deja el unero y oculta el LED */
 const conCama = m => m.upper && !m.reserved && !hasCampana(m) && (cfg.led || cfg.style === 'Moderna');
@@ -2930,7 +2941,9 @@ function planDePiezas(c = cfg){
           equipo(m, 'parrilla', 'Parrilla', px + (m.ancho - pw)/2, px + (m.ancho + pw)/2, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4 - pd, sepDe(m) + m.fondo - 4); }
         px += m.ancho; }); }
       if (cfg.backsplash) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
-        cutRun(run0, run1, isSpecial).forEach(([a, b], k) => add({ id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: top - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' })); }
+        cutRun(run0, run1, isSpecial).forEach(([a, b], k) => add({ id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: top - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' }));
+        /* A123: detras de la campana sola el backsplash sigue por el muro hasta el tope de los altos */
+        if (topeAltos() > top + .01) columnasCampanaSola().forEach(([a, b], k) => add({ id: 'backsplash:campana:' + k, rol: 'backsplash', x: a, y: 0, z: top, ancho: b - a, fondo: cfg.espesorBacksplash, alto: topeAltos() - top, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' })); }
     }
     /* ISLA (B16; drawIslandFront / Plan / Back / Section): costados o cascadas en los extremos, zoclo frontal con cierres hasta el
        zoclo posterior (o los paneles), paneles posteriores con su reparto (islandPanels) mirando a los bancos, zoclo posterior con
@@ -3887,7 +3900,7 @@ function drawElevation(){
 
   /* backsplash entre la cubierta y los altos */
   const bsTop = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
-  part('backsplash', cfg.backsplash, cutRun(run0, run1, isSpecial).map(([a, b]) => RX(a, b, zBar, bsTop)), r => {
+  part('backsplash', cfg.backsplash, cutRun(run0, run1, isSpecial).map(([a, b]) => RX(a, b, zBar, bsTop)).concat(columnasCampanaSola().filter(() => topeAltos() > bsTop + .01).map(([a, b]) => RX(a, b, bsTop, topeAltos()))), r => {   /* A123: detras de la campana sola sube al tope */
     fillMat(r.x, r.y, r.w, r.h, groupMaterial('Backsplash'), C.backsplash); outline(r, C.line, 1);
   }, post);
 
@@ -4677,7 +4690,7 @@ function avisoCoccion(m){
   const R = reg().campana, campana = hasCampana(alto), pide = campana ? R.protegida : R.combustible, libre = cfg.separacionAltos + elevAlto(alto);
   if (libre >= pide - .01) return '';
   return `<div class="note-sm" style="color:#C2410C;margin-top:0">${campana ? 'La campana queda' : 'El gabinete alto queda'} a ${medida(libre)} de la ${bajo.tipo === 'Estufa' ? 'estufa' : 'parrilla'}; se recomiendan al menos ${medida(pide)} (${campana ? 'campana' : 'gabinete sin campana'}, NKBA).</div>`
-    + `<button class="btn btn-block" style="margin-top:6px" data-act="subirAlto" value="${alto.id}|${Math.round((pide - cfg.separacionAltos)*100)/100}">Subir solo este gabinete alto a ${medida(pide)}</button>`;   /* A95: solo el alto de la columna */
+;   /* A123 (usuario, 09/10): sin boton para subir el alto; el alto se sube con su campo «Subido» o con la cota */
 }
 function drawModule(m, x0, RX, X, Z, post){
   if (m.reserved) return;   /* columna reservada por un especial: no se dibuja ni se elige */
@@ -5256,29 +5269,29 @@ function applyMaterial(id, key){
  * ======================================================================= */
 const PART_ORDER = ['sink', 'tap', 'gola', 'raisedbar', 'riser', 'fillerI', 'fillerD', 'cover', 'plinth', 'backsplash', 'fillerTop'];   /* A80: tapetas antes que la cubierta (en planta van debajo de ella) */
 const HINTS = {
-  dim: 'Cota editable · haz clic, escribe la medida y pulsa Enter.',
-  grip: 'División entre frentes · arrástrala para cambiar las alturas, o haz clic en su cota.',
-  def: 'Cocina · haz clic en un gabinete, la cubierta, el zoclo o una cota para editarlo · arrastra en vacío para seleccionar varios · los contornos punteados activan piezas ocultas.',
-  plan: 'Planta · haz clic en un gabinete, la cubierta o una cota · el botón de vistas cambia de esquema.',
-  cover: 'Cubierta · clic para editar espesor, nariz, vuelo · arrastra un material para cambiar su acabado.',
-  sink: 'Tarja · clic para editar sus medidas y el retiro frontal.',
+  dim: 'Cota · clic para escribir la medida.',
+  grip: 'División · arrástrala o haz clic en su cota.',
+  def: 'Cocina · clic en una pieza para editarla · arrastra en vacío para elegir varias · lo punteado está apagado: clic para activarlo.',
+  plan: 'Planta · clic en un gabinete, la cubierta o una cota.',
+  cover: 'Cubierta · clic: espesor, nariz y vuelo · suelta un material para su acabado.',
+  sink: 'Tarja · clic: medidas y retiro.',
   tap: 'Monomando · clic para mostrarlo u ocultarlo.',
-  plinth: 'Zoclo · clic para editar altura, retiro y cierres de extremo.',
-  backsplash: 'Backsplash · clic para editar su altura, espesor y la iluminación LED.',
-  gola: 'Franja gola · clic para elegir el perfil · arrastra un material sobre la franja.',
-  fillerI: 'Tapeta de extremo · clic para activarla y dar su ancho.',
-  fillerD: 'Tapeta de extremo · clic para activarla y dar su ancho.',
-  fillerTop: 'Tapeta superior · clic para activarla y dar su altura · doble clic la desactiva.',
-  wall: 'Muro · clic para editar la altura total y la colocación.',
-  ucap: 'Módulo superior · un clic selecciona la columna completa · doble clic para elegir puerta elevable, dos puertas o caja de repisas, sus repisas, su alto y unirlo con la columna vecina · arrastra un material sobre él · Supr lo quita.',
-  oven: 'Horno · clic para editar su alto libre, la rejilla y el microondas.',
-  micro: 'Microondas · clic para editar su alto libre o quitarlo.',
-  grille: 'Rejilla de ventilación · clic para editar su alto o quitarla.',
-  door: 'Puerta oculta · clic para editar ancho, abatimiento, gabinete de pistón, tapetas y zoclo · queda fuera de la cota del muro · Supr la quita.',
-  doorfiller: 'Tapeta lateral de la puerta oculta · clic para activarla y dar su ancho · Supr la quita.',
-  doortop: 'Tapeta superior de la puerta oculta · clic para activarla y dar su altura · Supr la quita.',
-  doorcap: 'Gabinete de pistón de la puerta oculta · clic para editar su alto o quitarlo.',
-  adddoor: 'Añadir una puerta oculta en este extremo: hoja de piso a techo que parece gabinete, fuera de la cota del muro.',
+  plinth: 'Zoclo · clic: altura, retiro y extremos.',
+  backsplash: 'Backsplash · clic: altura, espesor y LED.',
+  gola: 'Gola · clic: perfil · suelta un material para su acabado.',
+  fillerI: 'Tapeta · clic: activarla y su ancho.',
+  fillerD: 'Tapeta · clic: activarla y su ancho.',
+  fillerTop: 'Tapeta superior · clic: activarla y su altura · doble clic: quitarla.',
+  wall: 'Muro · clic: altura total y colocación.',
+  ucap: 'Módulo superior · clic: la columna · doble clic: tipo, alto, repisas y unir columnas · Supr lo quita.',
+  oven: 'Horno · clic: alto, rejilla y microondas.',
+  micro: 'Microondas · clic: alto o quitarlo.',
+  grille: 'Rejilla · clic: alto o quitarla.',
+  door: 'Puerta oculta · clic: ancho, abatimiento, pistón, tapetas y zoclo · Supr la quita.',
+  doorfiller: 'Tapeta de la puerta oculta · clic: activarla y su ancho · Supr la quita.',
+  doortop: 'Tapeta superior de la puerta oculta · clic: activarla y su altura · Supr la quita.',
+  doorcap: 'Pistón de la puerta oculta · clic: alto o quitarlo.',
+  adddoor: 'Añadir puerta oculta: hoja de piso a techo con aspecto de gabinete.',
 };
 const EQUIPOS = /^(oven|micro|grille|door|doorfiller|doortop|doorcap|adddoor|backpanel):/;
 /* parte fija bajo el punto, en el orden de prioridad del real (en planta la cubierta queda debajo de los gabinetes) */
@@ -5304,27 +5317,27 @@ function pick(p){
   return null;
 }
 const ISLA_HINTS = {
-  Alzado: 'Isla · haz clic en un gabinete, la cubierta, el zoclo o una cota para editarlo · arrastra en vacío para seleccionar varios · los contornos punteados activan piezas ocultas.',
-  Planta: 'Planta · haz clic en la cubierta, una cascada, la barra elevada o una cota (gabinetes, tramo intermedio, barra y ancho total) · los gabinetes se editan en el alzado frontal.',
-  Posterior: 'Vista posterior · haz clic en un panel, la barra elevada, una cascada o el zoclo · los gabinetes se editan en el alzado frontal.',
-  Seccion: 'Sección transversal · arrastra las guías: verde = fondo de los gabinetes, azul = paneles posteriores, naranja = zoclo posterior · la posición del corte se mueve en la planta (línea roja) · arrastra materiales sobre el gabinete, la cubierta, la barra o su peralte · las cotas en azul también se editan con clic.',
-  cover: 'Cubierta · clic para editar espesor, nariz, vuelo, ancho de isla, cascadas y barra elevada · arrastra un material para cambiar su acabado.',
+  Alzado: 'Isla · clic en una pieza para editarla · arrastra en vacío para elegir varias · lo punteado está apagado: clic para activarlo.',
+  Planta: 'Planta · clic en la cubierta, una cascada, la barra o una cota · los gabinetes se editan en el alzado.',
+  Posterior: 'Vista posterior · clic en un panel, la barra, una cascada o el zoclo.',
+  Seccion: 'Sección · arrastra las guías (verde: gabinetes, azul: paneles, naranja: zoclo) · el corte se mueve en la planta.',
+  cover: 'Cubierta · clic: espesor, nariz, vuelo, cascadas y barra · suelta un material para su acabado.',
   fillerI: 'Cascadas de cubierta · clic para activar cada lado · se seleccionan en conjunto · Supr las quita.',
   fillerD: 'Cascadas de cubierta · clic para activar cada lado · se seleccionan en conjunto · Supr las quita.',
-  raisedbar: 'Barra elevada · clic para editar ancho, elevación, vuelos laterales y su cascada propia · arrastra un material solo para la barra.',
-  riser: 'Barra elevada · clic para editar ancho, elevación, vuelos laterales y su cascada propia · arrastra un material solo para la barra.',
-  backpanel: 'Panel posterior · clic para editar su ancho, añadir o quitar paneles · haz clic en su cota para escribir la medida · arrastra un material desde la pestaña Materiales.',
+  raisedbar: 'Barra elevada · clic: ancho, elevación, vuelos y cascada · suelta un material solo para la barra.',
+  riser: 'Barra elevada · clic: ancho, elevación, vuelos y cascada · suelta un material solo para la barra.',
+  backpanel: 'Panel posterior · clic: ancho y paneles · clic en su cota para escribirla.',
 };
 function updateHint(){
   if (matDrag) return;
-  let t = cfg.isla ? ISLA_HINTS[view] : view === 'Planta' ? HINTS.plan : cfg.closet ? 'Closet · haz clic en un módulo, el zoclo, una tapeta o una cota para editarlo · las puertas se eligen en la pestaña Estilo · arrastra en vacío para seleccionar varios' : HINTS.def;
+  let t = cfg.isla ? ISLA_HINTS[view] : view === 'Planta' ? HINTS.plan : cfg.closet ? 'Closet · clic en una pieza para editarla · las puertas se eligen en Estilo · arrastra en vacío para elegir varias.' : HINTS.def;
   if (hover) {
     const [kind, key] = [hover.slice(0, hover.indexOf(':')), hover.slice(hover.indexOf(':') + 1)];
     if (kind === 'dim') t = HINTS.dim; else if (kind === 'grip') t = HINTS.grip;
     else if (kind === 'part') { const k0 = key.includes(':') ? key.slice(0, key.indexOf(':')) : key; if (cfg.isla && ISLA_HINTS[k0]) t = ISLA_HINTS[k0]; else if (HINTS[k0]) t = HINTS[k0]; }
-    else if (kind === 'guide') t = key === 'corteA' ? 'Línea de sección · arrástrala para elegir por dónde se corta la sección del alzado.' : key === 'corte' ? 'Línea de corte · arrástrala para elegir por dónde se corta la sección transversal.' : ISLA_HINTS.Seccion;
-    else if (kind === 'piece') t = pieceName(hover) + ' · doble clic para seleccionarla (después, Ctrl + clic suma piezas) · un clic selecciona el gabinete · arrastra un material sobre la pieza.';
-    else if (kind === 'mod') { const m = byId(key); if (m) t = `${nombreModulo(m)} · ${fmt(m.ancho)}${uS()} · clic para seleccionarlo y editarlo a la derecha · Ctrl + clic suma a la selección · arrástralo sobre otro para intercambiarlos · Supr lo elimina.`; }
+    else if (kind === 'guide') t = key === 'corteA' || key === 'corte' ? 'Línea de corte · arrástrala para mover la sección.' : ISLA_HINTS.Seccion;
+    else if (kind === 'piece') t = pieceName(hover) + ' · doble clic: elegirla (Ctrl + clic suma) · suelta un material sobre ella.';
+    else if (kind === 'mod') { const m = byId(key); if (m) t = `${nombreModulo(m)} · ${fmt(m.ancho)}${uS()} · clic: editar · Ctrl + clic: sumar · arrástralo sobre otro para intercambiar · Supr: quitar.`; }
   }
   setStatus(t);
 }
@@ -5985,7 +5998,7 @@ const ACT = {
       m.tipo = v; m.frenteSup = m.frenteMed = 0; m.frentes = []; m.inferiorAbierto = false;
       if (cfg.closet && v === 'Repisas' && m.repisasEspecial < 3) m.repisasEspecial = 5;
       if (ANCHO_TIPO[v]) { if (l.length === h.length) h[l.indexOf(m)].fijo = false; m.ancho = ANCHO_TIPO[v](Object.assign({}, m, { tipo: v })); m.fijo = true; }
-      if (v === 'Estufa') m.parrilla = false; });
+      if (v === 'Estufa') { m.parrilla = false; campanaSobre(cfg, m); } });
     focusPanel = null;
   }),
   /* especiales */
@@ -6020,7 +6033,7 @@ const ACT = {
   dpDesde: v => change(c => c.dosPuertasDesde = v),
   quem6: (v, m) => setWidth(m.id, v ? reg().estufa.seis : reg().estufa.cuatro),   /* como la cota de ancho: la columna completa toma el ancho nuevo */
   altoFrig: (v, m) => change(() => byId(m.id).altoFrigobar = v), tapFrig: (v, m) => change(() => byId(m.id).tapetaFrigobar = v),
-  parr: (v, m) => change(c => { const q = byId(m.id); q.parrilla = v; if (v) { q.preparadoTarja = false; quitarTarja(c, m.id); } }),   /* parrilla y tarja se excluyen (A36) */ parrAncho: (v, m) => change(() => byId(m.id).parrillaAncho = v),
+  parr: (v, m) => change(c => { const q = byId(m.id); q.parrilla = v; if (v) { q.preparadoTarja = false; quitarTarja(c, m.id); campanaSobre(c, q); } }),   /* parrilla y tarja se excluyen (A36) */ parrAncho: (v, m) => change(() => byId(m.id).parrillaAncho = v),
   nariz: v => change(c => { const bar = altoBarra(); c.narizCubierta = v; c.altoBajos = bar - c.baseBajos - paquete(); }, 'Revisar altura'),
   altNariz: v => change(c => { const bar = altoBarra(); c.alturaNariz = v; c.altoBajos = bar - c.baseBajos - paquete(); }, 'Revisar altura'),
   nCaj: (v, m) => change(() => { const t = byId(m.id); t.numCajones = Math.max(1, Math.min(6, Math.round(v))); t.frentes = []; }),
@@ -6116,10 +6129,10 @@ const ACT = {
   extBox: () => { const bx = currentBox(); if (!bx) return; const lastId = bx.members[bx.members.length - 1].id, asPart = !!partBox(); change(() => { byId(lastId).unirCuerpo = true; joinRight(lastId); });
     const nb = bodyGroups().find(g => g.members.some(q => q.id === lastId)); if (nb && !asPart) selection = new Set(nb.members.map(q => q.id)); render(); }, aPano: v => change(c => c.cubiertaAPano = v),
   prep: (v, m) => change(c => { const q = byId(m.id); q.preparadoTarja = v; if (!v) quitarTarja(c, m.id); else q.parrilla = false; }),   /* sin preparar, la tarja se quita (A36) */
-  tarja: (v, m) => change(c => { c.moduloTarja = m.id; c.tipoTarja = v === 'Tarja sencilla' ? 1 : v === 'Tarja doble' ? 2 : 0; if (c.tipoTarja) c.generarCubierta = true; if (c.tipoTarja === 2 && m.ancho !== anchoTarjaDoble()) applyWidth(m.id, anchoTarjaDoble()); if (c.tipoTarja) byId(m.id).parrilla = false; }),
+  tarja: (v, m) => change(c => { c.moduloTarja = m.id; c.tipoTarja = v === 'Tarja sencilla' ? 1 : v === 'Tarja doble' ? 2 : 0; if (c.tipoTarja && !c.generarCubierta) { const bar = altoBarra(); c.generarCubierta = true; c.altoBajos = bar - c.baseBajos - paquete(); }   /* A123: con nariz, la cama ya no sube los altos */ if (c.tipoTarja === 2 && m.ancho !== anchoTarjaDoble()) applyWidth(m.id, anchoTarjaDoble()); if (c.tipoTarja) byId(m.id).parrilla = false; }),
   bajoCub: v => change(c => { c.tarjaBajoCubierta = v; c.retiroTarja = v ? 10 : 7; }),
   muro: v => change(c => c.alturaMuro = v, 'Revisar altura'), piso: v => change(c => c.desfasePiso = v), sepPost: v => change(c => c.separacionPosterior = v),
-  genCub: v => change(c => c.generarCubierta = v), espCub: v => change(c => c.espesorCubierta = v, 'Revisar altura'), vuelo: v => change(c => c.vuelo = v),
+  genCub: v => change(c => { const bar = altoBarra(); c.generarCubierta = v; c.altoBajos = bar - c.baseBajos - paquete(); }),   /* A123: el alto de la cubierta se conserva */ espCub: v => change(c => c.espesorCubierta = v, 'Revisar altura'), vuelo: v => change(c => c.vuelo = v),
   tAncho: v => change(c => c.tarjaAncho = v), tFondo: v => change(c => c.tarjaFondo = v), tProf: v => change(c => c.tarjaProf = v), tRetiro: v => change(c => c.retiroTarja = v),
   mono: v => change(c => c.monomando = v), quitarTarja: () => { change(c => { c.moduloTarja = null; c.tipoTarja = 0; }); selectedPart = 'cover'; render(); },
   genZoc: v => change(c => c.generarZoclos = v), retZoc: v => change(c => c.retiroZoclo = v),
@@ -6838,6 +6851,53 @@ const EN = {
   'Medir todo': 'Measure all',
   'Sección: muestra u oculta en el alzado la sección lateral del gabinete elegido (o del primero), con su línea de corte': 'Section: shows or hides, next to the elevation, the side section of the selected cabinet (or the first one), with its cut line',
   'SECCIÓN': 'SECTION',
+  'División': 'Divider',
+  'arrástrala o haz clic en su cota.': 'drag it or click its dimension.',
+  'clic en una pieza para editarla': 'click a part to edit it',
+  'arrastra en vacío para elegir varias': 'drag on empty space to select several',
+  'lo punteado está apagado: clic para activarlo.': 'dashed parts are off: click to turn them on.',
+  'clic en un gabinete, la cubierta o una cota.': 'click a cabinet, the countertop or a dimension.',
+  'clic: espesor, nariz y vuelo': 'click: thickness, nosing and overhang',
+  'suelta un material para su acabado.': 'drop a material for its finish.',
+  'clic: medidas y retiro.': 'click: size and setback.',
+  'clic: altura, retiro y extremos.': 'click: height, setback and ends.',
+  'clic: altura, espesor y LED.': 'click: height, thickness and LED.',
+  'clic: perfil': 'click: profile',
+  'clic: activarla y su ancho.': 'click: turn it on and set its width.',
+  'clic: activarla y su altura': 'click: turn it on and set its height',
+  'doble clic: quitarla.': 'double-click: remove it.',
+  'clic: altura total y colocación.': 'click: total height and placement.',
+  'clic: la columna': 'click: the column',
+  'doble clic: tipo, alto, repisas y unir columnas': 'double-click: type, height, shelves and joining columns',
+  'Supr lo quita.': 'Del removes it.',
+  'clic: alto, rejilla y microondas.': 'click: height, vent and microwave.',
+  'clic: alto o quitarlo.': 'click: height or remove it.',
+  'clic: alto o quitarla.': 'click: height or remove it.',
+  'clic: ancho, abatimiento, pistón, tapetas y zoclo': 'click: width, swing, lift-up, fillers and plinth',
+  'Supr la quita.': 'Del removes it.',
+  'Tapeta de la puerta oculta': 'Hidden door filler',
+  'clic: activarla y su ancho': 'click: turn it on and set its width',
+  'Pistón de la puerta oculta': 'Hidden door lift-up cabinet',
+  'clic en la cubierta, una cascada, la barra o una cota': 'click the countertop, a waterfall, the bar or a dimension',
+  'los gabinetes se editan en el alzado.': 'cabinets are edited in the elevation.',
+  'clic en un panel, la barra, una cascada o el zoclo.': 'click a panel, the bar, a waterfall or the plinth.',
+  'arrastra las guías (verde: gabinetes, azul: paneles, naranja: zoclo)': 'drag the guides (green: cabinets, blue: panels, orange: plinth)',
+  'el corte se mueve en la planta.': 'the cut moves in the plan.',
+  'clic: espesor, nariz, vuelo, cascadas y barra': 'click: thickness, nosing, overhang, waterfalls and bar',
+  'clic: ancho, elevación, vuelos y cascada': 'click: width, height, overhangs and waterfall',
+  'suelta un material solo para la barra.': 'drop a material for the bar only.',
+  'clic: ancho y paneles': 'click: width and panels',
+  'clic en su cota para escribirla.': 'click its dimension to type it.',
+  'las puertas se eligen en Estilo': 'doors are chosen in Style',
+  'arrastra en vacío para elegir varias.': 'drag on empty space to select several.',
+  'Línea de corte': 'Cut line',
+  'arrástrala para mover la sección.': 'drag it to move the section.',
+  'doble clic: elegirla (Ctrl + clic suma)': 'double-click: select it (Ctrl + click adds)',
+  'suelta un material sobre ella.': 'drop a material on it.',
+  'clic: editar': 'click: edit',
+  'Ctrl + clic: sumar': 'Ctrl + click: add',
+  'arrástralo sobre otro para intercambiar': 'drag it onto another to swap',
+  'Supr: quitar.': 'Del: remove.',
   'Cesto': 'Bin',
   'Línea de sección · arrástrala para elegir por dónde se corta la sección del alzado.': 'Section line · drag it to choose where the elevation section is cut.',
   'Melamina 1.8 cm': 'Melamine 1.8 cm',
