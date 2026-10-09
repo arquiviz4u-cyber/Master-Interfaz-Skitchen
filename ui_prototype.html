@@ -212,6 +212,11 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A122. [Revit: P12.246] Perfiles de gola con L y C y holgura comun (09/10, usuario): cada perfil lleva su L superior
+       (hasta el lecho bajo de la cubierta o la nariz) y su C entre cajones, cada uno con profundidad y alto, y una sola holgura
+       para los dedos, la misma arriba y entre cajones. Fabrica: aluminio L 26 x 57 mm, C 26 x 74 mm; melamina L 40 x 63 mm,
+       C 40 x 96 mm. La holgura de fabrica (aluminio 40, melamina 30 mm) sale de esas medidas con el mismo traslape arriba y abajo
+       del C. En Ajustes, las cotas del corte se editan en el dibujo y en mm (sin campos aparte). Cambia A121.
    A121. [Revit OK P12.245] Perfiles de gola editables en Ajustes (09/10, usuario): para aluminio y para melamina,
        profundidad del canal desde el pano del cuerpo (fabrica 2.6 y 4.2 cm, como el master) y alto del agarre arriba (L, 3.5) y
        entre cajones (C, 3.0), con el dibujo acotado de cada perfil. Son preferencias del usuario (prefs.perfiles), no del
@@ -1289,6 +1294,8 @@
 
   /* ---- panel de contexto de partes ---- */
   .note-sm { font-size: 11.5px; color: #6B7680; line-height: 1.45; margin-top: 10px; }
+  .perfil-gola input.cota-in { position: absolute !important; transform: translate(-50%, -50%); width: 40px !important; min-width: 0 !important; height: 18px !important; min-height: 0 !important; margin: 0 !important; padding: 0 2px !important; box-shadow: none !important; font: 600 11px "Inter", sans-serif !important; text-align: center; color: inherit; background: rgba(255,255,255,.75) !important; border: 1px dashed rgba(38,96,150,.6) !important; border-radius: 3px !important; cursor: text; }
+  .perfil-gola input.cota-in:hover { border-style: solid !important; } .perfil-gola input.cota-in:focus { outline: none; border: 1px solid #266096 !important; background: #fff !important; color: #1d2b36; }   /* A122 */
   .radios { display: flex; gap: 8px; }
   .radios .opt { flex: 1; margin-bottom: 0; }
 
@@ -1578,7 +1585,9 @@ const PREFS_DEF = { frentesA111: false, region: 'MX', pasoReparto: 'modular', id
   cotaRemate: 'oblicuo', cotaTexto: 11.5, cotaUnidad: 'totales', cotaColor: 'producto',
   inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .3, espesorFrente: 1.8, style: 'Moderna', materialGeneral: null },
   /* A121 (usuario, 09/10): perfiles de gola editables en Ajustes: profundidad del canal desde el pano del cuerpo y alto del agarre arriba (L) y entre cajones (C) */
-  perfiles: { aluminio: { fondo: 2.6, alto: 3.5, altoEntre: 3.0 }, melamina: { fondo: 4.2, alto: 3.5, altoEntre: 3.0 } },
+  /* A122 (usuario, 09/10): cada perfil con su L superior y su C entre cajones (profundidad y alto del perfil) y una sola holgura para los dedos,
+     la misma bajo la cubierta y entre cajones. El traslape tras los frentes sale de ahi: L = altoL - holgura; C = (altoC - holgura) / 2 */
+  perfiles: { aluminio: { fondoL: 2.6, altoL: 5.7, fondoC: 2.6, altoC: 7.4, holgura: 4.0 }, melamina: { fondoL: 4.0, altoL: 6.3, fondoC: 4.0, altoC: 9.6, holgura: 3.0 } },
   iman: true, imanTol: 1.5, resaltado: true, preguntarGuardar: true,
   exportAncho: 3840, exportFormato: 'png', exportCotas: false, exportProyeccion: false, exportPrefijo: '', exportPrompt: '', licencia: '' };
 const mergePrefs = (base, over) => { for (const k in over) { if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k] && typeof base[k] === 'object') mergePrefs(base[k], over[k]); else if (k in base) base[k] = over[k]; } return base; };
@@ -1990,7 +1999,7 @@ function closetFronts(m){
     else r.push({ kind: 'Puerta', x0: hol, x1: m.ancho - hol, z0: hol, z1: H - hol, hingeRight: m.invertir });
   }
   const dr = items.filter(i => i.kind === 'Cajon'), topZ = Math.max(-1, ...dr.filter(i => !i.tray).map(i => i.z1));
-  dr.forEach(i => { const gola = !i.tray && cfg.style === 'Moderna', g = gola ? (i.z1 === topZ ? perfilGola().alto : perfilGola().altoEntre) : hol;   /* A121 */
+  dr.forEach(i => { const gola = !i.tray && cfg.style === 'Moderna', g = gola ? perfilGola().holgura : hol;   /* A122 */
     if (gola) r.push(i.z1 === topZ ? { kind: 'Gola', x0: t + hol, x1: m.ancho - t - hol, z0: i.z1 - 5.65, z1: i.z1 } : { kind: 'Gola', x0: t + hol, x1: m.ancho - t - hol, z0: i.z1 - g/2 - 3.7, z1: i.z1 - g/2 + 3.7 });
     r.push({ kind: 'Cajon', x0: t + hol, x1: m.ancho - t - hol, z0: i.z0 + hol, z1: i.z1 - g, tray: !!i.tray }); });
   return r;
@@ -2249,8 +2258,9 @@ const sepFrentes = () => cfg.separacionFrentes > 0 ? cfg.separacionFrentes : .3,
 const espFrente = () => cfg.espesorFrente > 0 ? cfg.espesorFrente : 1.8;
 /* A121: el perfil de gola elegido (aluminio o melamina) de Ajustes */
 const perfilGola = () => (prefs.perfiles || PREFS_DEF.perfiles)[cfg.gola === 'Melamina' ? 'melamina' : 'aluminio'];
-const agarre = () => cfg.style === 'Moderna' ? perfilGola().alto : sepFrentes();
-const agarreEntre = () => cfg.style === 'Moderna' ? perfilGola().altoEntre : sepFrentes();
+const agarre = () => cfg.style === 'Moderna' ? perfilGola().holgura : sepFrentes();   /* A122: la misma holgura arriba y entre cajones */
+const agarreEntre = () => cfg.style === 'Moderna' ? perfilGola().holgura : sepFrentes();
+const traslapeL = () => Math.max(.5, perfilGola().altoL - perfilGola().holgura), traslapeC = () => Math.max(.5, (perfilGola().altoC - perfilGola().holgura)/2);
 /* Body: alto del cuerpo de frentes. Altos: sin el modulo superior; alacena: su cajonera; torre: bajo la rejilla */
 const bodyH = m => m.upper ? altoAltos() - (isDoble(m) ? m.altoSuperior : 0) : m.tipo === 'Alacena' ? m.altoCajonesAlacena : isTower(m) ? m.baseHorno - grille(m) : cfg.altoBajos;
 const topGap = m => isTower(m) ? agarreEntre() : agarre();
@@ -2480,7 +2490,7 @@ const cantoJaladera = (w, h) => cfg.style === 'Clasica' ? marcoShaker(w, h)/2 : 
    oculto (caja interior de 14 cm arriba, dentro del extraible, que sale con el) */
 const PLAN_CESTO = { cajon: 15, oculto: 14 };
 const botesCesto = m => Math.max(1, Math.floor((m.ancho - 2*PLAN_CUERPO.lateral - 2*PLAN_CAJA.holgura) / Math.max(1, m.anchoBasura)));
-const golaHondo = () => perfilGola().fondo;   /* A121: de Ajustes (fabrica: aluminio 2.6, melamina 4.2 = 2.6 + 1.8 - 0.2, mismo canal libre) */
+const golaHondo = (superior = false) => superior ? perfilGola().fondoL : perfilGola().fondoC;   /* A122: profundidad del perfil L o del C, de Ajustes */
 /* LED bajo los altos (usuario, 03/10): la cama corrida es el piso de los altos (laterales y trasero apoyan sobre ella y las puertas
    alinean con su cara inferior); el perfil LED de 1.7 x 0.7 cm va embutido en una ranura por debajo de la cama */
 const PLAN_LED = { ancho: 1.7, hondo: .7, retiro: 8 }, PLAN_JUNTA = { ancho: .4, salida: .2 };   /* retiro: del borde del mueble al inicio del canal */
@@ -2651,8 +2661,8 @@ function planDePiezas(c = cfg){
     const muescas = [];
     const gola = (m, xa0, xb0) => golaStrips(m).forEach(([gz, gh, s0, s1], k) => {
       const xa = s0 === undefined ? xa0 : xa0 + s0, xb = s1 === undefined ? xb0 : xa0 + s1;
-      const G = PLAN_GOLA, mel = cfg.gola === 'Melamina', y1 = sep + m.fondo, y0 = y1 - golaHondo(), base = m.id + ':gola:' + k;
-      const superior = k === 0, z0 = gz - G.traslape, z1 = superior ? gz + gh : gz + gh + G.traslape, forma = superior ? cfg.perfil : 'C';
+      const G = PLAN_GOLA, mel = cfg.gola === 'Melamina', y1 = sep + m.fondo, y0 = y1 - golaHondo(k === 0), base = m.id + ':gola:' + k;
+      const superior = k === 0, z0 = gz - (superior ? traslapeL() : traslapeC()), z1 = superior ? gz + gh : gz + gh + traslapeC(), forma = superior ? cfg.perfil : 'C';   /* A122 */
       const e = mel ? G.melamina : G.lamina, mat = groupMaterial('Gola') || null;   /* A54: el mismo material en fondo y perfil */
       add({ id: base, rol: 'herraje', modulo: m.id, tipo: 'Gola', x: xa, y: y0, z: z0, ancho: xb - xa, fondo: e, alto: z1 - z0, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' });
       const aleta = (lado, z) => add({ id: base + ':perfil:' + lado, rol: 'herraje', modulo: m.id, tipo: 'Perfil', x: xa, y: y0 + e, z, ancho: xb - xa, fondo: y1 - y0 - e, alto: e, material: mat, etiqueta: 'herrajes' });
@@ -2826,7 +2836,7 @@ function planDePiezas(c = cfg){
            van en la cama del piso, medidas desde su canto); sin gola la cama va completa */
         /* A93 (usuario, 08/10): la caja de repisas (alto sin puertas) lleva una sola cama, completa hasta el frente (sin unero ni cama
            interior: un solo marco) y con la tira si hay LED. La cama sigue al material del fondo de su caja, como el resto de la caja (A64) */
-        const unero = cfg.style === 'Moderna' && !sinPuertas(q.m) ? golaHondo() : 0, r0 = ranuraLed(y1 - unero);
+        const unero = cfg.style === 'Moderna' && !sinPuertas(q.m) ? golaHondo(true) : 0, r0 = ranuraLed(y1 - unero);
         const dueno = (sinPuertas(q.m) && bodyGroupOf(q.m) || { members: [q.m] }).members[0], fondoCaja = (dueno.materialesPaneles || {})['cuerpo.fondo'];
         add(Object.assign({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep - unero, alto: e, material: fondoCaja || matDe(q.m), etiqueta: 'gabinetes' },
           cfg.led ? { ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } } : {}));
@@ -7019,7 +7029,7 @@ const EN = {
   'Cotas': 'Dimensions',
   'Valores de inicio': 'Starting values',
   'Comportamiento': 'Behavior',
-  'Perfiles de gola': 'Gola profiles', 'Profundidad (ancho del canal)': 'Depth (channel width)', 'Alto arriba (L)': 'Top height (L)', 'Alto entre cajones (C)': 'Height between drawers (C)', 'Perfiles de fábrica': 'Factory profiles', 
+  'Perfiles de gola': 'Gola profiles', 'Perfiles de fábrica': 'Factory profiles', 'Estilo moderno. Toca una cota para cambiarla. La holgura es la misma arriba y entre cajones.': 'Modern style. Tap a dimension to change it. The finger gap is the same at the top and between drawers.', 'Medidas en mm · punteado: paño del cuerpo': 'Sizes in mm · dashed: cabinet body face', 
   'Licencia y acerca de': 'License and about',
   'Son tuyos, no del proyecto: valen para todas tus cocinas, islas y closets.': 'These are your personal settings, not the project\'s — they apply to every kitchen, island, and closet you create.',
   'Toda la interfaz: paneles, ayudas, mensajes y rótulos del dibujo. No se traducen los nombres que pones tú (materiales propios y configuraciones).': 'The whole interface: panels, help, messages and drawing labels. Names you give (own materials and configurations) are not translated.',
@@ -7407,26 +7417,32 @@ function aplicarRegionPrefs(v){
 /* E2: medidas con que el prototipo abre cada comando (el plugin toma las del muro o del rectangulo) */
 const PROTO = { MX: { cocina: 300, isla: [240, 90], closet: 240 }, US: { cocina: inch(120), isla: [inch(96), inch(42)], closet: inch(96) } };
 const proto = () => PROTO[prefs.region] || PROTO.MX;
-/* A121: corte acotado de un perfil de gola (aluminio o melamina): cubierta, gola L arriba, cajon, gola C entre cajones y cajon; cotas de
-   profundidad del canal (desde el pano del cuerpo) y de los dos altos del agarre */
+/* A121 + A122: corte de un perfil de gola (aluminio o melamina): cubierta, L arriba, cajon, C entre cajones y cajon. Las cotas son campos
+   (en mm) que se editan en el mismo dibujo: profundidad y alto de cada perfil y la holgura para los dedos */
+const mmTxt = cm => (Math.round(cm*100)/10).toString();
 function svgPerfilGola(tipo, P){
-  const mel = tipo === 'melamina', e = mel ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, f = P.fondo, hc = P.altoEntre, hl = P.alto, tr = PLAN_GOLA.traslape, fr = 7;
-  const zU = hc + fr, zT = zU + hl, s = 12, W = 300, X = x => 150 + x*s, Y = z => 30 + (zT + 3 - z)*s, H = Math.round(Y(-7.6) + 40);
+  const mel = tipo === 'melamina', e = mel ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, g0 = P.holgura, tL = Math.max(.5, P.altoL - g0), tC = Math.max(.5, (P.altoC - g0)/2), fr = Math.max(6, tL + tC + 2);   /* frente dibujado: que no se encimen el C y el pie del L */
+  const zU = g0 + fr, zT = zU + g0, s = 10.5, W = 300, X = x => 165 + x*s, Y = z => 40 + (zT + 3 - z)*s, H = Math.round(Y(-tC - 4) + 30);
   const rect = (x0, x1, z0, z1, fill, stroke) => `<rect x="${X(Math.min(x0, x1)).toFixed(1)}" y="${Y(Math.max(z0, z1)).toFixed(1)}" width="${(Math.abs(x1 - x0)*s).toFixed(1)}" height="${(Math.abs(z1 - z0)*s).toFixed(1)}" fill="${fill}" stroke="${stroke || 'none'}" stroke-width="1"/>`;
   const tick = (x, z) => `<line x1="${X(x) - 4}" y1="${Y(z) + 4}" x2="${X(x) + 4}" y2="${Y(z) - 4}" stroke="currentColor" stroke-width="1.3"/>`;
-  const cotaH = (x0, x1, z, v) => `<line x1="${X(x0)}" y1="${Y(z)}" x2="${X(x1)}" y2="${Y(z)}" stroke="currentColor"/>` + tick(x0, z) + tick(x1, z) + `<text x="${(X(x0) + X(x1))/2}" y="${Y(z) + 15}" font-size="12" fill="currentColor" text-anchor="middle">${esc(medida(v))}</text>`;
-  const cotaV = (x, z0, z1, v, txt) => `<line x1="${X(x)}" y1="${Y(z0)}" x2="${X(x)}" y2="${Y(z1)}" stroke="currentColor"/>` + tick(x, z0) + tick(x, z1) + `<text x="${X(x) + 8}" y="${(Y(z0) + Y(z1))/2 + 4}" font-size="12" fill="currentColor">${esc(medida(v))} ${txt}</text>`;
+  const linea = (x0, z0, x1, z1) => `<line x1="${X(x0)}" y1="${Y(z0)}" x2="${X(x1)}" y2="${Y(z1)}" stroke="currentColor"/>` + tick(x0, z0) + tick(x1, z1);
+  const campos = [];
+  const campo = (x, z, clave, v, titulo) => campos.push(`<input class="cota-in" type="text" inputmode="decimal" data-perfil="${tipo}" data-campo="${clave}" value="${mmTxt(v)}" title="${titulo} (mm)" style="left:${(X(x)/W*100).toFixed(2)}%;top:${(Y(z)/H*100).toFixed(2)}%">`);
   const cuerpo = 'rgba(150,150,150,.25)', frente = 'rgba(38,96,150,.22)', perfil = mel ? 'rgba(196,160,105,.85)' : 'rgba(125,129,135,.95)', libre = 'rgba(255,255,255,.9)';
-  let g = rect(-9, 0, -6, zT, cuerpo);   /* lateral del cuerpo, detras de los canales */
-  /* gola C entre cajones */
-  g += rect(-f + e, 0, -tr + e, hc + tr - e, libre) + rect(-f, -f + e, -tr, hc + tr, perfil, 'currentColor') + rect(-f + e, 0, -tr, -tr + e, perfil, 'currentColor') + rect(-f + e, 0, hc + tr - e, hc + tr, perfil, 'currentColor');
-  /* gola L arriba, hasta la cubierta */
-  g += rect(-f + e, 0, zU - tr + e, zT, libre) + rect(-f, -f + e, zU - tr, zT, perfil, 'currentColor') + rect(-f + e, 0, zU - tr, zU - tr + e, perfil, 'currentColor');
-  g += rect(.3, 2.1, -6, 0, frente, 'currentColor') + rect(.3, 2.1, hc, zU, frente, 'currentColor') + rect(-9, 4.5, zT, zT + 3, 'rgba(150,150,150,.6)', 'currentColor');   /* frentes y cubierta */
-  g += `<line x1="${X(0)}" y1="${Y(-6)}" x2="${X(0)}" y2="${Y(zT)}" stroke="currentColor" stroke-dasharray="3 3" opacity=".6"/>`;   /* pano del cuerpo */
-  g += cotaH(-f, 0, -7.6, f) + cotaV(4.2, zU, zT, hl, 'L') + cotaV(4.2, 0, hc, hc, 'C');
-  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:${W}px;display:block;margin:4px auto 0" role="img" aria-label="Perfil de gola ${mel ? 'de melamina' : 'de aluminio'}">${g}`
-    + `<text x="${X(-9)}" y="${H - 4}" font-size="11" fill="currentColor" opacity=".75">Punteado: paño del cuerpo</text></svg>`;
+  const fL = P.fondoL, fC = P.fondoC;
+  let g = rect(-9, 0, -tC - 3, zT, cuerpo);   /* lateral del cuerpo */
+  g += rect(-fC + e, 0, -tC + e, g0 + tC - e, libre) + rect(-fC, -fC + e, -tC, g0 + tC, perfil, 'currentColor') + rect(-fC + e, 0, -tC, -tC + e, perfil, 'currentColor') + rect(-fC + e, 0, g0 + tC - e, g0 + tC, perfil, 'currentColor');   /* C */
+  g += rect(-fL + e, 0, zU - tL + e, zT, libre) + rect(-fL, -fL + e, zU - tL, zT, perfil, 'currentColor') + rect(-fL + e, 0, zU - tL, zU - tL + e, perfil, 'currentColor');   /* L */
+  g += rect(.3, 2.1, -tC - 3, 0, frente, 'currentColor') + rect(.3, 2.1, g0, zU, frente, 'currentColor') + rect(-9, 4.5, zT, zT + 3, 'rgba(150,150,150,.6)', 'currentColor');   /* frentes y cubierta */
+  g += `<line x1="${X(0)}" y1="${Y(-tC - 3)}" x2="${X(0)}" y2="${Y(zT)}" stroke="currentColor" stroke-dasharray="3 3" opacity=".6"/>`;   /* pano del cuerpo */
+  g += linea(-fL, zT + 4.6, 0, zT + 4.6); campo(-fL/2, zT + 4.6 + 1.3, 'fondoL', fL, 'Profundidad del perfil L');
+  g += linea(-fC, -tC - 3.8, 0, -tC - 3.8); campo(-fC/2, -tC - 3.8 - 1.4, 'fondoC', fC, 'Profundidad del perfil C');
+  g += linea(-11, zU - tL, -11, zT); campo(-13.4, (zU - tL + zT)/2, 'altoL', P.altoL, 'Alto del perfil L');
+  g += linea(-11, -tC, -11, g0 + tC); campo(-13.4, g0/2, 'altoC', P.altoC, 'Alto del perfil C');
+  g += linea(4.6, zU, 4.6, zT) + linea(4.6, 0, 4.6, g0); campo(7.4, (zU + zT)/2, 'holgura', g0, 'Holgura para los dedos'); campo(7.4, g0/2, 'holgura', g0, 'Holgura para los dedos');
+  g += `<text x="${X(-14)}" y="${Y(zT + 3) - 2}" font-size="11" fill="currentColor">L</text><text x="${X(-14)}" y="${Y(g0 + tC) - 4}" font-size="11" fill="currentColor">C</text>`;
+  return `<div class="perfil-gola" style="position:relative;max-width:${W}px;margin:4px auto 0"><svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="Perfil de gola ${mel ? 'de melamina' : 'de aluminio'}">${g}`
+    + `<text x="${X(-14)}" y="${H - 6}" font-size="11" fill="currentColor" opacity=".75">Medidas en mm · punteado: paño del cuerpo</text></svg>${campos.join('')}</div>`;
 }
 function renderPrefs(){
   const el = document.getElementById('prefsPanel'), P = prefs, I = P.inicio, u = P.unidad;
@@ -7456,10 +7472,8 @@ function renderPrefs(){
       + `<div class="grid-2">${len('inicio.alturaMuro', 'Altura de muro', I.alturaMuro)}${len('inicio.baseBajos', 'Zoclo', I.baseBajos)}${len('inicio.altoBajos', 'Alto de bajos', I.altoBajos)}${len('inicio.espesorCubierta', 'Espesor de cubierta', I.espesorCubierta)}${len('inicio.separacionAltos', 'Libre sobre cubierta', I.separacionAltos)}${len('inicio.tapeta', 'Tapetas laterales', I.tapeta)}${len('inicio.fondoBajos', 'Fondo de bajos', I.fondoBajos)}${len('inicio.fondoAltos', 'Fondo de altos', I.fondoAltos)}${len('inicio.separacionFrentes', 'Separación entre frentes', I.separacionFrentes)}${len('inicio.espesorFrente', 'Espesor de frentes', I.espesorFrente)}</div>`
       + `<div class="grid-2" style="margin-top:10px">${select('inicio.style', [['Moderna', 'Moderna'], ['Clasica', 'Clásica'], ['Simple', 'Simple']], I.style, 'Estilo de frentes')}${select('inicio.materialGeneral', mats, I.materialGeneral || '', 'Material general')}</div>`
       + `<div class="grid-2" style="margin-top:10px"><button class="btn btn-block" id="prefsFromCfg">Tomar los de la actual</button><button class="btn btn-block" id="prefsIniReset">Valores de fábrica</button></div>`)}
-    ${section('Perfiles de gola', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Estilo moderno. Profundidad del canal desde el paño del cuerpo y alto del agarre. Valen para todas tus cocinas: la gola de bajos, cajones y alacenas y el uñero de los altos.</div>`
-      + ['aluminio', 'melamina'].map(k => { const Q = (P.perfiles || PREFS_DEF.perfiles)[k]; return `<div class="p-label" style="margin-top:10px">${k === 'aluminio' ? 'Aluminio' : 'Melamina'}</div>`
-        + svgPerfilGola(k, Q)
-        + `<div class="grid-2" style="margin-top:6px">${len('perfiles.' + k + '.fondo', 'Profundidad (ancho del canal)', Q.fondo)}${len('perfiles.' + k + '.alto', 'Alto arriba (L)', Q.alto)}${len('perfiles.' + k + '.altoEntre', 'Alto entre cajones (C)', Q.altoEntre)}</div>`; }).join('')
+    ${section('Perfiles de gola', `<div class="note-sm" style="margin-top:0;margin-bottom:6px">Estilo moderno. Toca una cota para cambiarla. La holgura es la misma arriba y entre cajones.</div>`
+      + ['aluminio', 'melamina'].map(k => `<div class="p-label" style="margin-top:10px">${k === 'aluminio' ? 'Aluminio' : 'Melamina'}</div>` + svgPerfilGola(k, (P.perfiles || PREFS_DEF.perfiles)[k])).join('')
       + `<button class="btn btn-block" style="margin-top:10px" id="prefsPerfilesReset">Perfiles de fábrica</button>`)}
     ${section('Comportamiento', check('iman', P.iman, 'Imán al arrastrar divisiones') + (P.iman ? `<div class="sub"><div class="grid-2">${len('imanTol', 'Tolerancia del imán', P.imanTol)}</div></div>` : '')
       + check('resaltado', P.resaltado, 'Resaltar al pasar el mouse') + check('preguntarGuardar', P.preguntarGuardar, 'Preguntar si se guarda al cerrar o generar'))}
@@ -7478,7 +7492,6 @@ function renderPrefs(){
     const path = inp.dataset.pref.split('.');
     let v = inp.type === 'checkbox' ? inp.checked : inp.dataset.len ? parseLen(inp.value) : inp.value;
     if (inp.dataset.len && (isNaN(v) || v < 0)) { renderPrefs(); return; }
-    if (path[0] === 'perfiles' && (v < (path[2] === 'fondo' ? 1.5 : 2) || v > (path[2] === 'fondo' ? 8 : 6))) { setStatus(path[2] === 'fondo' ? 'La profundidad del canal va de 1.5 a 8 cm.' : 'El alto del agarre va de 2 a 6 cm.'); renderPrefs(); return; }   /* A121 */
     let o = prefs; for (let k = 0; k < path.length - 1; k++) o = o[path[k]];
     const last = path[path.length - 1], old = o[last];
     if (typeof old === 'number' && typeof v === 'string') v = parseFloat(v);
@@ -7498,6 +7511,14 @@ function renderPrefs(){
   });
   document.getElementById('prefsIniReset').addEventListener('click', () => { prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION[prefs.region] || PREFS_DEF.inicio)); savePrefs(); renderPrefs(); });
   document.getElementById('prefsPerfilesReset').addEventListener('click', () => { prefs.perfiles = JSON.parse(JSON.stringify(PREFS_DEF.perfiles)); savePrefs(); render(); renderPrefs(); });   /* A121 */
+  /* A122: cotas editables del perfil, en mm (tambien acepta 5.7 cm) */
+  el.querySelectorAll('.cota-in').forEach(inp => inp.addEventListener('change', () => {
+    const txt = inp.value.trim().toLowerCase().replace(',', '.'), num = parseFloat(txt), cm = /cm$/.test(txt) ? num : num/10, k = inp.dataset.perfil, c = inp.dataset.campo;
+    const Q = Object.assign({}, prefs.perfiles[k], { [c]: cm }), lim = { fondoL: [1.5, 8], fondoC: [1.5, 8], altoL: [2.5, 12], altoC: [3, 15], holgura: [2, 6] }[c];
+    let err = isNaN(cm) ? 'Escribe la medida en mm.' : cm < lim[0] || cm > lim[1] ? `Entre ${mmTxt(lim[0])} y ${mmTxt(lim[1])} mm.` : Q.altoL < Q.holgura + .5 ? 'El perfil L debe medir al menos 5 mm más que la holgura.' : Q.altoC < Q.holgura + 1 ? 'El perfil C debe medir al menos 10 mm más que la holgura.' : '';
+    if (err) { setStatus(err); renderPrefs(); return; }
+    prefs.perfiles[k] = Q; savePrefs(); render(); renderPrefs();
+  }));
   const rc = document.getElementById('prefsRegionCfg');
   if (rc) rc.addEventListener('click', () => { const v = prefs.region; change(c => { c.region = v; c.pasoReparto = v === 'US' ? prefs.pasoReparto : 'entero'; c.repartoAdaptado = false; c.modulos.forEach(m => { if (!ANCHO_TIPO[m.tipo]) m.fijo = false; }); }, 'Región');
     renderPrefs(); setStatus(v === 'US' ? 'La distribución actual usa ahora las reglas de Estados Unidos.' : 'La distribución actual usa ahora las reglas de México.'); });
