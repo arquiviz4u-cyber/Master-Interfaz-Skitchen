@@ -224,6 +224,9 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A129. Idioma por region (09/10, usuario): al elegir la region en Ajustes el idioma cambia solo (US ingles, MX espanol) y
+       despues se puede cambiar a mano. Corrige E1 («independiente del idioma»): la nota de Region dice ahora que fija el idioma.
+       Revit: igual (radio de Region de AjustesTab).
    A128. [Revit P12.255] Tarja doble con dos puertas (09/10, usuario): el bajo de la tarja doble y los altos de encima (su centro cae sobre
        el bajo) llevan dos puertas en automatico (dosPuertasTarja); el usuario lo puede cambiar (dosPuertasManual manda).
        Al quitar la tarja doble o moverla, vuelven a una puerta (o a lo que diga «Dos puertas desde»). Nota en el panel.
@@ -795,7 +798,7 @@
   E. Mercado EE. UU. (version en ingles). Informe «reports/Convenciones EE UU
      version ingles.md» (04/10/2026). Hechos en el master; faltan Revit y,
      donde se dice, SketchUp. Lo demas entra con el HTML.
-   E1. [Revit OK P12.212] Region MX | US (prefs.region), independiente del idioma, en Ajustes;
+   E1. [Revit OK P12.212] Region MX | US (prefs.region), en Ajustes (A129: propone el idioma, que despues se cambia a mano);
        cada configuracion guarda la suya (cfg.region, cfg.pasoReparto; lo
        guardado sin region es MX). Al elegirla se proponen unidad, redondeo,
        iman y valores de inicio; «Aplicar a la distribucion actual».
@@ -7344,7 +7347,7 @@ const EN_T = [
   ["La nueva distancia no admite estos módulos entre sus anchos mínimos y {0}. Ajusta la cantidad o el equipo.", "The new length does not fit these cabinets between their minimum widths and {0}. Change the count or the appliances."],
   ["Activa una tapeta para absorber el sobrante del reparto en pasos de {0} (o elige «A medida» en el muro).", "Turn on a filler to take the space left by the {0} steps (or choose “Custom” on the wall)."],
   ["Los gabinetes se reparten en pasos de {0}; lo que no llena un paso va a las tapetas.", "Automatic cabinets are sized in {0} steps; whatever doesn't fill a step goes to the fillers."],
-  ["Fija la unidad, los valores de inicio, el reparto de anchos{0} y los límites. Aplica a lo nuevo; la actual conserva la suya ({1}).", "Separate from the language: it sets the unit, the starting values, cabinet sizing{0}, and cabinet limits. It applies to new kitchens, islands, and closets; the current one keeps its own ({1})."],
+  ["Fija el idioma, la unidad, los valores de inicio, el reparto de anchos{0} y los límites. Aplica a lo nuevo; la actual conserva la suya ({1}).", "Sets the language, the unit, the starting values, cabinet sizing{0} and the limits. It applies to new designs; the current one keeps its own ({1})."],
   ["Entre repisas quedan {0}: menos de los 35 cm recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended 35 cm. They are generated anyway."],
   ["Entre repisas quedan {0}: menos de los {1} recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended {1}. They are generated anyway."],
   ["Entre repisas quedan {0}: menos de los 25 cm recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended 25 cm. They are generated anyway."],
@@ -7607,6 +7610,7 @@ const PASOS_REPARTO = [['modular', 'Modular (pasos de 3")'], ['pulgada', 'Por pu
 function aplicarRegionPrefs(v){
   prefs.unidad = v === 'US' ? 'inft' : 'cm'; prefs.paso.in = 16; prefs.paso.inft = 16; prefs.paso.ftin = 16; prefs.imanTol = v === 'US' ? inch(.5) : 1.5;
   prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION[v]));
+  prefs.idioma = v === 'US' ? 'en' : 'es';   /* A129 (usuario, 09/10): la region propone el idioma (US ingles, MX espanol); despues se cambia a mano */
 }
 /* A127 (usuario, 09/10): al aplicar la region a la distribucion actual, cada medida de la cocina y de sus modulos que sigue en el
    valor de fabrica de la region anterior pasa al de la nueva (espesores, separaciones, tapetas, alturas, fondos, equipos); lo que el
@@ -7670,7 +7674,7 @@ function renderPrefs(){
       <div class="note-sm">Son tuyos, no del proyecto: valen para todo lo que diseñes.</div></div>
     ${section('Región', radio('region', [['MX', 'México (métrico)'], ['US', 'Estados Unidos (pulgadas)']], P.region)
       + (P.region === 'US' ? select('pasoReparto', PASOS_REPARTO, P.pasoReparto, 'Reparto de anchos') : '')
-      + `<div class="note-sm">Fija la unidad, los valores de inicio, el reparto de anchos${P.region === 'US' ? ' (módulos de 3", 1" o 1/16")' : ' (cm enteros)'} y los límites. Aplica a lo nuevo; la actual conserva la suya (${cfg.region === 'US' ? 'Estados Unidos' : 'México'}).</div>`
+      + `<div class="note-sm">Fija el idioma, la unidad, los valores de inicio, el reparto de anchos${P.region === 'US' ? ' (módulos de 3", 1" o 1/16")' : ' (cm enteros)'} y los límites. Aplica a lo nuevo; la actual conserva la suya (${cfg.region === 'US' ? 'Estados Unidos' : 'México'}).</div>`
       + (cfg.region !== P.region ? `<button class="btn btn-block" style="margin-top:8px" id="prefsRegionCfg">Aplicar a la distribución actual</button>` : ''))}
     ${section('Idioma', radio('idioma', [['es', 'Español'], ['en', 'English']], P.idioma) + `<div class="note-sm">Toda la interfaz. Tus nombres (materiales y configuraciones) no se traducen.</div>`)}
     ${section('Unidades', select('unidad', [['cm', 'Centímetros (cm)'], ['mm', 'Milímetros (mm)'], ['in', 'Pulgadas fraccionarias (in)'], ['inft', 'Pulgadas, con pies en las totales (in + ft-in)'], ['ftin', 'Pies y pulgadas (ft-in)']], u)
@@ -7709,7 +7713,7 @@ function renderPrefs(){
     if (typeof old === 'number' && typeof v === 'string') v = parseFloat(v);
     if (last === 'materialGeneral' && v === '') v = null;
     o[last] = v;
-    if (path.length === 1 && last === 'region') aplicarRegionPrefs(v);   /* E1: unidad y valores de inicio de la region */
+    if (path.length === 1 && last === 'region') aplicarRegionPrefs(v);   /* E1: unidad y valores de inicio de la region; A129: tambien el idioma */
     savePrefs(); render(); renderPrefs();
   }));
   const done = () => closePrefs();
