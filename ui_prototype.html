@@ -224,7 +224,7 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
-   A127. Cambiar de region (09/10, usuario, tras probar la P12.253): al pulsar «Aplicar a la distribucion actual», cada medida
+   A127. [Revit P12.254] Cambiar de region (09/10, usuario, tras probar la P12.253): al pulsar «Aplicar a la distribucion actual», cada medida
        de la cocina y de sus modulos que sigue en el valor de fabrica de la region anterior (espesor y separacion de frentes,
        tapetas, alturas, fondos, cubierta, zoclo, backsplash, tarja, equipos, laterales) pasa al de la nueva; las que el usuario
        cambio se quedan; los anchos los vuelve a repartir la region (convertirRegion). El cambio de region en Ajustes no toca
@@ -7596,14 +7596,14 @@ function aplicarRegionPrefs(v){
 }
 /* A127 (usuario, 09/10): al aplicar la region a la distribucion actual, cada medida de la cocina y de sus modulos que sigue en el
    valor de fabrica de la region anterior pasa al de la nueva (espesores, separaciones, tapetas, alturas, fondos, equipos); lo que el
-   usuario cambio se queda. Los anchos no: los reparte la region. Referencias: defaultConfig de cada region con sus valores de inicio */
+   usuario cambio se queda. Los anchos no (los reparte la region) ni lo que viene del muro o de la isla dibujada (altura del muro, largo y fondo de la isla). Referencias: defaultConfig de cada region con sus valores de inicio */
 function convertirRegion(c, de, a){
   if (de === a) return 0;
   const ref = r => { const pr = prefs.region, pi = prefs.inicio; prefs.region = r; prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION[r]));
     try { const d = defaultConfig(300); return { c: d, lo: d.modulos.find(m => !m.upper), hi: d.modulos.find(m => m.upper) }; } finally { prefs.region = pr; prefs.inicio = pi; } };
   const A = ref(de), B = ref(a), num = v => typeof v === 'number' && isFinite(v), igual = (x, y) => Math.abs(x - y) < .01;
   let n = 0;
-  const pasa = (obj, d, b) => Object.keys(d).forEach(k => { if (k === 'ancho' || k === 'longitud') return;
+  const pasa = (obj, d, b) => Object.keys(d).forEach(k => { if (['ancho', 'longitud', 'alturaMuro', 'islaAncho'].includes(k)) return;   /* medidas del muro o del rectangulo dibujado */
     if (num(obj[k]) && num(d[k]) && num(b[k]) && igual(obj[k], d[k]) && !igual(d[k], b[k])) { obj[k] = b[k]; n++; } });
   pasa(c, A.c, B.c);
   (c.modulos || []).forEach(m => pasa(m, m.upper ? A.hi : A.lo, m.upper ? B.hi : B.lo));
