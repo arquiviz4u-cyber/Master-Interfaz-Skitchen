@@ -224,6 +224,11 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A127. Cambiar de region (09/10, usuario, tras probar la P12.253): al pulsar «Aplicar a la distribucion actual», cada medida
+       de la cocina y de sus modulos que sigue en el valor de fabrica de la region anterior (espesor y separacion de frentes,
+       tapetas, alturas, fondos, cubierta, zoclo, backsplash, tarja, equipos, laterales) pasa al de la nueva; las que el usuario
+       cambio se quedan; los anchos los vuelve a repartir la region (convertirRegion). El cambio de region en Ajustes no toca
+       el idioma (E1). Revit: Regiones.Inicio("US") tambien con espesor de frente 3/4" y separacion 1/8"; misma conversion.
    A126. [Revit P12.250-251 (2, 3) y P12.252 (1); SketchUp 2 en interaccion.rb] Tras probar la P12.249 (09/10, usuario): 1) la seccion dibuja la caja de cajon como sale en 3D (cajaDeCajon: B18,
        entre la aleta de abajo y la de arriba del perfil de gola, con libreGola), sin cruzarse con el perfil; 2) Interactuar: al
        hacer clic en un cajon se abren todos los de su columna en cascada (abre.grupo «<modulo>:cajones», abre.fraccion: abajo
@@ -6802,6 +6807,8 @@ const EN = {
   'A medida (1/16")': 'Custom (1/16")',
   'La distribución actual usa ahora las reglas de Estados Unidos.': 'The current layout now uses the United States rules.',
   'La distribución actual usa ahora las reglas de México.': 'The current layout now uses the Mexico rules.',
+  'La distribución actual usa ahora las reglas de Estados Unidos. Espesores y medidas de fábrica pasaron a los suyos.': 'The current layout now uses the United States rules. Factory thicknesses and sizes switched to its own.',
+  'La distribución actual usa ahora las reglas de México. Espesores y medidas de fábrica pasaron a los suyos.': 'The current layout now uses the Mexico rules. Factory thicknesses and sizes switched to its own.',
   'Ancho fijo': 'Fixed width',
   'Volver a automático': 'Back to automatic',
   'A paño de gabinetes (solo en laterales)': 'Flush with cabinets (sides only)',
@@ -7587,6 +7594,21 @@ function aplicarRegionPrefs(v){
   prefs.unidad = v === 'US' ? 'inft' : 'cm'; prefs.paso.in = 16; prefs.paso.inft = 16; prefs.paso.ftin = 16; prefs.imanTol = v === 'US' ? inch(.5) : 1.5;
   prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION[v]));
 }
+/* A127 (usuario, 09/10): al aplicar la region a la distribucion actual, cada medida de la cocina y de sus modulos que sigue en el
+   valor de fabrica de la region anterior pasa al de la nueva (espesores, separaciones, tapetas, alturas, fondos, equipos); lo que el
+   usuario cambio se queda. Los anchos no: los reparte la region. Referencias: defaultConfig de cada region con sus valores de inicio */
+function convertirRegion(c, de, a){
+  if (de === a) return 0;
+  const ref = r => { const pr = prefs.region, pi = prefs.inicio; prefs.region = r; prefs.inicio = JSON.parse(JSON.stringify(INICIO_REGION[r]));
+    try { const d = defaultConfig(300); return { c: d, lo: d.modulos.find(m => !m.upper), hi: d.modulos.find(m => m.upper) }; } finally { prefs.region = pr; prefs.inicio = pi; } };
+  const A = ref(de), B = ref(a), num = v => typeof v === 'number' && isFinite(v), igual = (x, y) => Math.abs(x - y) < .01;
+  let n = 0;
+  const pasa = (obj, d, b) => Object.keys(d).forEach(k => { if (k === 'ancho' || k === 'longitud') return;
+    if (num(obj[k]) && num(d[k]) && num(b[k]) && igual(obj[k], d[k]) && !igual(d[k], b[k])) { obj[k] = b[k]; n++; } });
+  pasa(c, A.c, B.c);
+  (c.modulos || []).forEach(m => pasa(m, m.upper ? A.hi : A.lo, m.upper ? B.hi : B.lo));
+  return n;
+}
 /* E2: medidas con que el prototipo abre cada comando (el plugin toma las del muro o del rectangulo) */
 const PROTO = { MX: { cocina: 300, isla: [240, 90], closet: 240 }, US: { cocina: inch(120), isla: [inch(96), inch(42)], closet: inch(96) } };
 const proto = () => PROTO[prefs.region] || PROTO.MX;
@@ -7701,8 +7723,8 @@ function renderPrefs(){
   if (secs[0]) secs[0].insertAdjacentHTML('afterend', `<div class="tab-heads pf-tabs">${PREFS_TABS.map(([k, t]) => `<button type="button" data-pftab="${k}" class="${k === prefsTab ? 'active' : ''}">${t}</button>`).join('')}</div>`);
   el.querySelectorAll('[data-pftab]').forEach(b => b.addEventListener('click', () => { prefsTab = b.dataset.pftab; renderPrefs(); }));
   const rc = document.getElementById('prefsRegionCfg');
-  if (rc) rc.addEventListener('click', () => { const v = prefs.region; change(c => { c.region = v; c.pasoReparto = v === 'US' ? prefs.pasoReparto : 'entero'; c.repartoAdaptado = false; c.modulos.forEach(m => { if (!ANCHO_TIPO[m.tipo]) m.fijo = false; }); }, 'Región');
-    renderPrefs(); setStatus(v === 'US' ? 'La distribución actual usa ahora las reglas de Estados Unidos.' : 'La distribución actual usa ahora las reglas de México.'); });
+  if (rc) rc.addEventListener('click', () => { const v = prefs.region; let nConv = 0; change(c => { nConv = convertirRegion(c, c.region || 'MX', v); /* A127 */ c.region = v; c.pasoReparto = v === 'US' ? prefs.pasoReparto : 'entero'; c.repartoAdaptado = false; c.modulos.forEach(m => { if (!ANCHO_TIPO[m.tipo]) m.fijo = false; }); }, 'Región');
+    renderPrefs(); setStatus((v === 'US' ? 'La distribución actual usa ahora las reglas de Estados Unidos.' : 'La distribución actual usa ahora las reglas de México.') + (nConv ? ' Espesores y medidas de fábrica pasaron a los suyos.' : '')); });
   document.getElementById('prefsActivar').addEventListener('click', () => showDialog('Licencia', 'La activación con Gumroad llega con la capa comercial. Por ahora la clave solo se guarda.', [{ text: 'Aceptar', primary: true }], 'info'));
   document.getElementById('prefsUpdate').addEventListener('click', () => showDialog('Actualizaciones', 'Maqueta: aquí se consultará si hay una versión nueva del plugin.', [{ text: 'Aceptar', primary: true }], 'info'));
   trUI();
