@@ -214,8 +214,9 @@
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
    A115. Seccion lateral en el alzado (08/10, usuario): boton de solo icono (una linea de seccion: trazo y punto,
-       extremos gruesos y flechas) junto al tipo de vista, que muestra u oculta, junto al alzado, la seccion del gabinete elegido (o del primero) a la misma escala y con el mismo piso; en el
-       alzado marca la linea de corte A con flechas hacia la seccion. Cocina: bajo o torre con frentes, cajones, repisas,
+       extremos con guion grueso, sin flechas) junto al tipo de vista, que muestra u oculta, junto al alzado, la seccion del gabinete elegido (o del primero) a la misma escala y con el mismo piso; en el
+       alzado marca la linea de seccion (trazo y punto con guiones gruesos en los extremos, sin letra) y se arrastra como
+       guia; la seccion la sigue (cocina y closet: corteAlzado; isla: el corte de la planta). Cocina: bajo o torre con frentes, cajones, repisas,
        cubierta con vuelo, zoclo con su retiro, backsplash; alto con su modulo superior (fondo propio, A82) o la campana sola
        (A81); cotas de fondo del bajo, de la cubierta y del alto. Closet: cuerpo con maletero, barras como circulos, repisas,
        cajones, frentes, correderas y zoclo; cota de fondo. Isla: la seccion transversal existente por la linea de corte de
@@ -1385,7 +1386,7 @@
       <span id="viewLabel">Alzado</span>
     </button>
     <button class="btn btn-icon btn-toggle" id="btnSection" title="Secci&oacute;n: muestra u oculta en el alzado la secci&oacute;n lateral del gabinete elegido (o del primero), con su l&iacute;nea de corte">   <!-- A115: solo icono, junto al tipo de vista -->
-      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M7 4.5v11" stroke="#266096" stroke-width="1.3" stroke-dasharray="3.5 1.8 1 1.8"/><path d="M4 2.5h7M4 17.5h7" stroke="#266096" stroke-width="2.6"/><path d="M11 .2l6 2.3-6 2.3ZM11 15.2l6 2.3-6 2.3Z" fill="#266096"/></svg>
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 6.5v7" stroke="#266096" stroke-width="1.2" stroke-dasharray="3 1.5 1 1.5"/><path d="M8 1.5v4M8 14.5v4M6.8 1.5h7M6.8 18.5h7" stroke="#266096" stroke-width="2.6"/></svg>
     </button>
     <button class="btn btn-icon btn-toggle" id="btnConfigs" title="Guardar y cargar configuraciones">
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 2h11l4 4v12H3V2Z" fill="#266096"/><rect x="6" y="2" width="7" height="5" fill="#fff"/><rect x="5" y="11" width="10" height="7" fill="#fff"/><rect x="10" y="3" width="2" height="3" fill="#266096"/></svg>
@@ -1848,6 +1849,7 @@ const islaTopH = () => altoBarra() + (cfg.islaBarraElevada ? cfg.islaBarraElevac
 /* A114 (usuario, 08/10): alzado, posterior y seccion de la isla centrados en el alto libre (bajo el titulo); h = alto del dibujo, arriba/abajo = lo que sobresale (cotas, guias) */
 const islaSuelo = (h, arriba, abajo, tope) => Math.min(tope, (48 + cssH)/2 + (h + arriba - abajo)/2);
 let sectionCut = NaN;   /* corte de la seccion (cm desde el extremo izquierdo); NaN = centro */
+let corteAlzado = NaN;   /* A115: linea de seccion del alzado de cocina y closet (cm); NaN = centro del gabinete elegido o del primero */
 const cutCm = () => isNaN(sectionCut) ? cfg.longitud/2 : Math.max(0, Math.min(cfg.longitud, sectionCut));
 /* Recalculate en isla: sin altos ni piezas de muro; costados de 2 cm o cascadas del grosor de la cubierta (o de la nariz) */
 function islandRecalc(){
@@ -3901,7 +3903,7 @@ function drawElevation(){
   }
   dim(X(0), ground + 36, X(W), ground + 36, fmt(W) + uS(), 'length');
   if (measure) drawMeasure(X, Z);
-  if (sec) { const xc = corteX(); marcaCorte(X(xc), top - 8, ground + 12); drawSeccionCocina(X(W + eR) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
+  if (sec) { const xc = guideVal('corteA', corteX()); marcaCorte(X(xc), top - 8, ground + 12, 'corteA'); drawSeccionCocina(X(W + eR) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
 }
 
@@ -3932,6 +3934,7 @@ function drawSinkTap(RX, X, Z, scale, post){
 const seccionVisible = () => seccionOn && !exporting && view === 'Alzado';
 const SEC_HUECO = 64, SEC_DER = 46;   /* px entre las cotas derechas del alzado y la seccion, y a la derecha de la seccion */
 function corteX(){
+  if (!isNaN(corteAlzado)) return Math.max(0, Math.min(cfg.longitud, corteAlzado));   /* arrastrada como guia */
   let x = ajusteIzq(); for (const m of row(false)) { if (selection.has(m.id)) return x + m.ancho/2; x += m.ancho; }
   x = ajusteIzq(); for (const m of row(true)) { if (selection.has(m.id)) return x + m.ancho/2; x += m.ancho; }
   const first = row(false)[0] || row(true)[0]; return first ? ajusteIzq() + first.ancho/2 : cfg.longitud/2;
@@ -3939,13 +3942,15 @@ function corteX(){
 function moduloEn(upper, xc){ let x = ajusteIzq(); for (const m of row(upper)) { if (xc >= x - .01 && xc <= x + m.ancho + .01) return m; x += m.ancho; } return null; }
 const fondoSeccion = () => Math.max(30, ...cfg.modulos.map(m => m.fondo + (m.upper ? 0 : vueloEf() + 4)), ...cfg.modulos.filter(m => m.fondoSuperior > 0).map(m => m.fondoSuperior));
 /* linea de corte sobre el alzado: punteada, con las flechas mirando hacia la seccion y la letra A */
-function marcaCorte(xp, y0, y1){
-  ctx.save(); ctx.setLineDash([7, 4]); ctx.strokeStyle = C.select; ctx.lineWidth = 1.4; line(xp, y0, xp, y1); ctx.restore();
-  ctx.fillStyle = C.select; ctx.font = "700 12px 'Inter'"; ctx.textBaseline = 'middle';
-  for (const y of [y0, y1]) { ctx.lineWidth = 2; ctx.strokeStyle = C.select; line(xp, y, xp + 14, y); ctx.beginPath(); ctx.moveTo(xp + 14, y - 4); ctx.lineTo(xp + 20, y); ctx.lineTo(xp + 14, y + 4); ctx.closePath(); ctx.fill(); ctx.fillText('A', xp - 12, y); }
-  ctx.textBaseline = 'alphabetic'; ctx.lineWidth = 1;
+function marcaCorte(xp, y0, y1, key){
+  const on = drag && drag.kind === 'guide' && drag.key === key || hover === 'guide:' + key, col = on ? C.select : C.ink;
+  ctx.save(); ctx.strokeStyle = col; ctx.setLineDash([12, 3, 2, 3]); ctx.lineWidth = 1; line(xp, y0 + 12, xp, y1 - 12); ctx.setLineDash([]);
+  ctx.lineWidth = 3; ctx.lineCap = 'butt';
+  for (const [y, d] of [[y0, 1], [y1, -1]]) { line(xp, y, xp, y + 12*d); line(xp - 1.5, y, xp + 10, y); }   /* guion grueso y pie hacia la seccion */
+  ctx.restore();
+  if (!exporting) guideHits.push({ rect: { x: xp - 6, y: y0, w: 12, h: y1 - y0 }, key });
 }
-function tituloSeccion(xl, xr, y){ ctx.fillStyle = C.title; ctx.font = "600 12px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('SECCIÓN A', (xl + xr)/2, y); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
+function tituloSeccion(xl, xr, y){ ctx.fillStyle = C.title; ctx.font = "600 12px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('SECCIÓN', (xl + xr)/2, y); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
 /* cocina: bajo (o torre) con cubierta, zoclo y backsplash; alto (y su modulo superior) contra el muro */
 function drawSeccionCocina(xw, s, Z, xc){
   const P = d => xw - d*s, t = Math.max(1, 1.8*s), zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), H = cfg.alturaMuro;
@@ -4053,7 +4058,7 @@ function drawClosetElevation(){
   dim(X(0) - 34, ground, X(0) - 34, top, fmt(H) + uS(), 'wall');
   dim(X(W) + 40, ground, X(W) + 40, Z(cfg.baseBajos + cfg.altoBajos), fmt(cfg.baseBajos + cfg.altoBajos) + uS(), 'closetAlto');
   dim(X(0), ground + 36, X(W), ground + 36, fmt(W) + uS(), 'length');
-  if (sec) { const xc = corteX(); marcaCorte(X(xc), top - 8, ground + 12); drawSeccionCloset(X(W) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
+  if (sec) { const xc = guideVal('corteA', corteX()); marcaCorte(X(xc), top - 8, ground + 12, 'corteA'); drawSeccionCloset(X(W) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
 }
 /* Medir en closet (master; en el real Medir no actua en closet): cadena editable a la izquierda (zoclo, escritorio,
@@ -4231,7 +4236,7 @@ function drawIslandFront(){
   const yTop = Z(zBar) - 30; x = aI; lows.forEach(m => { dim(X(x), yTop, X(x + m.ancho), yTop, fmt(m.ancho), 'width:' + m.id); x += m.ancho; });
   dim(X(0), ground + 30, X(W), ground + 30, fmt(W) + uS(), 'length');
   dim(X(W) + 30, ground, X(W) + 30, Z(zBar), fmt(zBar), 'bar');
-  if (sec) { const fr = frame, cut = cutCm(); marcaCorte(X(cut), Z(islaTopH()) - 72, ground + 48);   /* por encima de las cotas de ancho y del rotulo centro, por debajo del largo */ drawIslandSection({ s: scale, left: X(W) + G, ground }); frame = fr; }
+  if (sec) { const fr = frame, cut = guideVal('corte', cutCm()); marcaCorte(X(cut), Z(islaTopH()) - 72, ground + 48, 'corte');   /* por encima de las cotas de ancho y del rotulo centro, por debajo del largo */ drawIslandSection({ s: scale, left: X(W) + G, ground }); frame = fr; }
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
 }
 /* PLANTA de isla: frente arriba, lado de los bancos abajo; barra elevada, cara posterior y linea de corte de la seccion */
@@ -5197,7 +5202,7 @@ function updateHint(){
     const [kind, key] = [hover.slice(0, hover.indexOf(':')), hover.slice(hover.indexOf(':') + 1)];
     if (kind === 'dim') t = HINTS.dim; else if (kind === 'grip') t = HINTS.grip;
     else if (kind === 'part') { const k0 = key.includes(':') ? key.slice(0, key.indexOf(':')) : key; if (cfg.isla && ISLA_HINTS[k0]) t = ISLA_HINTS[k0]; else if (HINTS[k0]) t = HINTS[k0]; }
-    else if (kind === 'guide') t = key === 'corte' ? 'Línea de corte · arrástrala para elegir por dónde se corta la sección transversal.' : ISLA_HINTS.Seccion;
+    else if (kind === 'guide') t = key === 'corteA' ? 'Línea de sección · arrástrala para elegir por dónde se corta la sección del alzado.' : key === 'corte' ? 'Línea de corte · arrástrala para elegir por dónde se corta la sección transversal.' : ISLA_HINTS.Seccion;
     else if (kind === 'piece') t = pieceName(hover) + ' · doble clic para seleccionarla (después, Ctrl + clic suma piezas) · un clic selecciona el gabinete · arrastra un material sobre la pieza.';
     else if (kind === 'mod') { const m = byId(key); if (m) t = `${nombreModulo(m)} · ${fmt(m.ancho)}${uS()} · clic para seleccionarlo y editarlo a la derecha · Ctrl + clic suma a la selección · arrástralo sobre otro para intercambiarlos · Supr lo elimina.`; }
   }
@@ -5223,7 +5228,7 @@ canvas.addEventListener('mousedown', e => {
   if (add) { const nd = newDoor(add.key.endsWith('R')); change(c => c.puertasOcultas.push(nd)); if (doorById(nd.id)) selectPart('door:' + nd.id); return; }
   /* guias de la seccion de isla y linea de corte de la planta: se arrastran */
   const gd = topmost(guideHits, p);
-  if (gd) { const v0 = { corte: cutCm(), islaV: islaEspEf(), islaZ: islaZocloCara() - islaEspEf(), islaD: (row(false)[0] || {}).fondo || 60 }[gd.key]; drag = { kind: 'guide', key: gd.key, value: v0 }; return; }
+  if (gd) { const v0 = { corte: cutCm(), corteA: corteX(), islaV: islaEspEf(), islaZ: islaZocloCara() - islaEspEf(), islaD: (row(false)[0] || {}).fondo || 60 }[gd.key]; drag = { kind: 'guide', key: gd.key, value: v0 }; return; }
   /* equipos de la torre, piezas de la puerta oculta y paneles posteriores de la isla: un clic en cualquier vista */
   { const eq0 = topmost(partHits.filter(q => EQUIPOS.test(q.key) && !q.key.startsWith('adddoor:')), p); if (eq0 && view !== 'Alzado') { selectPart(eq0.key); return; } }
   if (view === 'Alzado') {
@@ -5296,7 +5301,7 @@ canvas.addEventListener('mousemove', e => {
   if (drag && drag.kind === 'box') { drag.x1 = p.x; drag.y1 = p.y; drawCanvas(); return; }
   if (drag && drag.kind === 'guide') {   /* ContextMouseMove de las guias de la isla */
     const k = drag.key, A = cfg.islaAncho, xf = (p.x - frame.X(0))/frame.scale, dist = A - xf;
-    if (k === 'corte') drag.value = Math.max(0, Math.min(cfg.longitud, Math.round(xf)));
+    if (k === 'corte' || k === 'corteA') drag.value = Math.max(0, Math.min(cfg.longitud, Math.round(xf)));
     else if (k === 'islaD') drag.value = Math.max(50, Math.min(Math.min(70, A - vueloEf() - islaEspEf() - 1.8), Math.round(xf - vueloEf())));
     else if (k === 'islaV') { const mx = islaEspMax(); drag.value = Math.max(Math.min(0, mx), Math.min(mx, Math.round(dist*2)/2)); }
     else if (k === 'islaZ') drag.value = Math.max(0, Math.min(60, Math.round((dist - islaEspEf())*2)/2));
@@ -5313,6 +5318,7 @@ window.addEventListener('mouseup', () => {
   if (d.kind === 'module') { if (d.over) { swap(d.id, d.over); setStatus('Módulos intercambiados.'); } else drawCanvas(); return; }
   if (d.kind === 'guide') {
     if (d.key === 'corte') { sectionCut = d.value; render(); return; }
+    if (d.key === 'corteA') { corteAlzado = d.value; render(); return; }
     change(c => { if (d.key === 'islaV') c.islaEspacioBancos = d.value; else if (d.key === 'islaD') row(false).forEach(m => m.fondo = d.value); else c.islaRetiroZocloPosterior = d.value; });
     return;
   }
@@ -6707,7 +6713,8 @@ const EN = {
   'Medir': 'Measure',
   'Medir: muestra cotas editables de alto y de frentes sobre los gabinetes seleccionados': 'Measure: shows editable height and front dimensions on the selected cabinets',
   'Sección: muestra u oculta en el alzado la sección lateral del gabinete elegido (o del primero), con su línea de corte': 'Section: shows or hides, next to the elevation, the side section of the selected cabinet (or the first one), with its cut line',
-  'SECCIÓN A': 'SECTION A',
+  'SECCIÓN': 'SECTION',
+  'Línea de sección · arrástrala para elegir por dónde se corta la sección del alzado.': 'Section line · drag it to choose where the elevation section is cut.',
   'Melamina 1.8 cm': 'Melamine 1.8 cm',
   'Microondas': 'Microwave',
   'Microondas encima del horno': 'Microwave above the oven',
@@ -7187,7 +7194,7 @@ document.querySelectorAll('.cmdsel button').forEach(b => b.addEventListener('cli
     : `El prototipo abre una cocina en muro de ${medida(proto().cocina)}. ¿Continuar? La distribución actual se descarta.`, [
     { text: 'Continuar', primary: true, action: () => {
       const cat = cfg.catalogo, P = proto(); cfg = cmd === 'isla' ? defaultIsland(P.isla[0], P.isla[1]) : cmd === 'closet' ? defaultCloset(P.closet) : defaultConfig(P.cocina); cfg.catalogo = cat;
-      recalculate(); undoStack = []; redoStack = []; sectionCut = NaN; view = 'Alzado';
+      recalculate(); undoStack = []; redoStack = []; sectionCut = NaN; corteAlzado = NaN; view = 'Alzado';
       selection = new Set(row(false).length ? [row(false)[0].id] : []); selectedPart = null; focusPanel = null; upperFocus = null; pieces.clear();
       syncCommandUI(); render(); } },
     { text: 'Cancelar', cancel: true }], 'question');
@@ -7387,7 +7394,7 @@ function sketchupAbrir(crear, error, estado){
   const before = JSON.stringify(cfg);
   try { cfg = crear(); recalculate(); validate(); firmaGenerada = firmaCfg(); }
   catch (err) { cfg = JSON.parse(before); recalculate(); showDialog('SketchUp', error + err.message); return; }
-  undoStack = []; redoStack = []; sectionCut = NaN; view = 'Alzado';
+  undoStack = []; redoStack = []; sectionCut = NaN; corteAlzado = NaN; view = 'Alzado';
   selection = new Set(row(false).length ? [row(false)[0].id] : []); selectedPart = null; focusPanel = null; upperFocus = null; pieces.clear();
   syncCommandUI(); render(); setStatus(estado); liveUI();
 }
