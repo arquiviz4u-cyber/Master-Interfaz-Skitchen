@@ -766,11 +766,11 @@
      Render IA quedan fuera (en pausa por el usuario). Cada punto se marca
      al resolverse en el master y despues en Revit.
      ISLA
-   F1. Medir con luces libres. [M] no: la isla oculta el boton (syncCommandUI,
+   F1. [Master OK 08/10] Medir con luces libres. [M] no: la isla oculta el boton (syncCommandUI,
        btnMeasure) y drawIslandFront no lee measure. [R] no: Layout.cs:84
        measure.Visible=!island; Planta, Posterior y Seccion no llaman
        DrawMeasures. (Reportado por el usuario: «no muestra cotas interiores».)
-   F2. Vista Interior (boton Puertas). [M] no: boton oculto (el dibujo con
+   F2. [Master OK 08/10] Vista Interior (boton Puertas). [M] no: boton oculto (el dibujo con
        showDoors=false ya funciona: interiores y piezas). [R] no: mismo
        Layout.cs:84.
    F3. Modo Plano sin materiales. [M] si, en todas sus vistas. [R] no:
@@ -789,16 +789,17 @@
        panel posterior, «Barra elevada +x cm» y «a N cm» del titulo de la
        seccion quedan en cm.
      CLOSET
-   F9. Medir completo. [M] parcial (cotas cseg y mitades de puerta). [R]
+   F9. [Master OK 08/10: barras y ancho interior] Medir completo. [M] parcial (cotas cseg y mitades de puerta). [R]
        parcial: luces libres solo entre repisas y zapatera (AjustesTab.cs:
        259-260); faltan barras, cajones y ancho interior; un Colgado sin
        tableros no muestra ninguna. (Reportado por el usuario.)
-   F10. Vista Interior con luces libres y piezas. [M] no (el closet no usa
+   F10. [Master OK 08/10: luces en Medir, piezas en F12] Vista Interior con luces libres y piezas. [M] no (el closet no usa
        drawInterior). [R] no: Layout.cs:204 interiorView=...&&!m.Closet.
    F11. Modo Plano sin materiales. [M] si. [R] no: DrawCloset
        (PreviewSymbols.cs:72) y las hojas correderas (Layout.cs:233) pintan
        tableros y frentes con colores fijos de madera. (Reportado.)
-   F12. Material por pieza (repisas, cajones, frentes, fondo; fondo pinta su
+   F12. [Master OK 08/10: fondo, repisas y zapateras; cajones y frentes siguen con el modulo]
+       Material por pieza (repisas, cajones, frentes, fondo; fondo pinta su
        caja, A64). [M] no. [R] no: solo el modulo completo, zoclo y tapetas.
    F13. Gola de los cajones como destino de material. [R] no (GolaStrips
        sale para el closet).
@@ -3968,6 +3969,10 @@ function drawClosetMeasure(X, Z, s){
       const mx = X(x + m.ancho) - 14; let top = blocks[0][1];
       blocks.slice(1).forEach(([b0, b1]) => { if (b0 - top > 1) dim(mx, Z(zc + top), mx, Z(zc + b0), fmt(b0 - top), null); top = Math.max(top, b1); });
       if (m.maletero && AC - t - H > 1) dim(mx, Z(zc + H), mx, Z(zc + AC - t), fmt(AC - t - H), null);
+      /* F9 (usuario, 08/10): altura de cada barra (del piso del cuerpo al eje de la barra) y ancho interior entre laterales */
+      const bx = X(x + m.ancho/2) + 10;
+      closetItems(m).filter(i => i.kind === 'Barra').forEach(i => { const zr = (i.z0 + i.z1)/2; if (zr - t > 1) dim(bx, Z(zc + t), bx, Z(zc + zr), fmt(zr - t), null); });
+      if (m.tipo !== 'Vanity') { const yi = Z(zc + H - t) + 16; dim(X(x) + t*s, yi, X(x + m.ancho) - t*s, yi, fmt(m.ancho - 2*t), null); }
       if (cfg.puertasCloset === 'Abatibles' && !m.closetSinPuertas && m.tipo !== 'Vanity' && m.ancho > 60) {
         const ym = Z(zc + t) - 14, x0 = X(x), xm = X(x + m.ancho/2), x1 = X(x + m.ancho);
         dim(x0, ym, xm, ym, fmt(m.ancho/2), 'halfw:' + m.id); dim(xm, ym, x1, ym, fmt(m.ancho/2), 'halfw:' + m.id);
@@ -3984,7 +3989,12 @@ function drawClosetModule(m, x0, RX, X, Z, post){
   fillMat(full.x, full.y, full.w, full.h, mt, sel ? C.selFill : C.front);
   if (sel && mt && !flat) { ctx.fillStyle = C.selOverlay; ctx.fillRect(full.x, full.y, full.w, full.h); }
   const BX = (a, b, z0, z1) => RX(x0 + a, x0 + b, zc + z0, zc + z1);
-  const board = (q, o = true) => { ctx.fillStyle = flat ? C.flat : C.board; ctx.fillRect(q.x, q.y, q.w, q.h); if (o) outline(q, C.line, 1); };
+  const board = (q, o = true, mt2 = null) => { if (mt2 && !flat) fillMat(q.x, q.y, q.w, q.h, mt2, C.board); else { ctx.fillStyle = flat ? C.flat : C.board; ctx.fillRect(q.x, q.y, q.w, q.h); } if (o) outline(q, C.line, 1); };
+  /* F10/F12 (usuario, 08/10): fondo, repisas y zapateras son piezas con material propio (zona cuerpo); el fondo pinta su caja (A64) */
+  const mp = m.materialesPaneles || {}, propio = k => mp['cuerpo.' + k] || (k !== 'fondo' && mp['cuerpo.fondo']) || null;
+  const pieza = (q, k) => { if (showDoors && !m.closetSinPuertas) return;   /* como en cocina: con puertas el material va al modulo; las piezas se eligen en Interior */
+    const pk = 'cuerpo.' + k, pkey = 'piece:' + m.id + ':' + pk; materialHits.push({ rect: q, key: 'panel:' + m.id + ':' + pk }); pieceHits.push({ rect: q, key: pkey });
+    if (pieceSelected(pkey)) post.push(() => { ctx.fillStyle = C.pieceFill; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.select, 2); }); else if (hover === pkey) post.push(() => outline(q, C.hoverPart, 1.5)); };
   const txt = (tx, xx, yy, color = C.muted) => { ctx.fillStyle = color; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(tx, xx, yy); ctx.textBaseline = 'alphabetic'; };
   const dashBox = (a, b, z0, z1) => { const q = BX(a, b, z0, z1); ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.box; ctx.lineWidth = .8; ctx.strokeRect(q.x, q.y, q.w, q.h); ctx.restore(); };
   if (m.maletero) { board(BX(0, t, H, AC), false); board(BX(m.ancho - t, m.ancho, H, AC), false); board(BX(0, m.ancho, AC - t, AC), false); const mr = BX(0, m.ancho, H, AC); outline(mr, C.line, 1); txt(`Maletero ${fmt(m.altoMaletero)}${uS()}`, mr.x + 3, mr.y + 3); }
@@ -4007,12 +4017,14 @@ function drawClosetModule(m, x0, RX, X, Z, post){
     ctx.fillStyle = flat ? C.flat : C.mirror; ctx.fill(); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
     txt('Vanity · cajón bajo el escritorio', full.x + 3, full.y + full.h - 17);
   } else {
+    { const fq = BX(t, m.ancho - t, t, H - t); if (propio('fondo') && !flat) fillMat(fq.x, fq.y, fq.w, fq.h, propio('fondo'), C.front); pieza(fq, 'fondo'); }   /* F12: el fondo interior */
     board(BX(0, t, 0, H), false); board(BX(m.ancho - t, m.ancho, 0, H), false); board(BX(0, m.ancho, H - t, H), false); board(BX(0, m.ancho, 0, t), false);
+    let nb = 0;
     items.forEach(i => { const q = BX(t, m.ancho - t, i.z0, i.z1);
       if (i.kind === 'Barra') { ctx.fillStyle = C.rod; ctx.fillRect(q.x, q.y, q.w, Math.max(2, q.h)); }
-      else if (i.kind === 'Repisa') { board(q); if (cfg.closetLed) { const gl = { x: q.x, y: q.y + q.h, w: q.w, h: Math.min(10*s, 18) };   /* B27: LED bajo la repisa */
+      else if (i.kind === 'Repisa') { const k = 'repisa.' + (++nb); board(q, true, propio(k)); pieza(q, k); if (cfg.closetLed) { const gl = { x: q.x, y: q.y + q.h, w: q.w, h: Math.min(10*s, 18) };   /* B27: LED bajo la repisa */
         ctx.fillStyle = C.ledFill; ctx.fillRect(gl.x, gl.y, gl.w, gl.h); ctx.strokeStyle = C.ledLine; ctx.lineWidth = 2; line(gl.x + 2, gl.y + 1, gl.x + gl.w - 2, gl.y + 1); ctx.lineWidth = 1; } }
-      else if (i.kind === 'Zapatera') { board(q); board({ x: q.x, y: q.y - 3, w: q.w, h: 3 }); }
+      else if (i.kind === 'Zapatera') { const k = 'repisa.' + (++nb); board(q, true, propio(k)); board({ x: q.x, y: q.y - 3, w: q.w, h: 3 }, true, propio(k)); pieza(q, k); }
       else dashBox(t + 2, m.ancho - t - 2, i.z0, Math.max(i.z0 + 4, i.z1 - 3)); });
     fr.forEach(f => { const q = BX(f.x0, f.x1, f.z0, f.z1);
       if (f.kind === 'Gola') { ctx.fillStyle = C.rod; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); }
@@ -4099,6 +4111,7 @@ function drawIslandFront(){
   part('cover', cfg.generarCubierta, cutRun(cfg.cascadaIzq ? aI : -v, cfg.cascadaDer ? W - aD : W + v, cortaCubierta).map(([a, b]) => RX(a, b, zBar - paquete(), zBar)), paintCover, post);
   post.forEach(f => f());
   drawGripsAndGuide(X, Z, scale);
+  if (measure) drawMeasure(X, Z);   /* F1: tramos de los cajones, alto del cuerpo, luces libres en Interior y mitades de puerta */
   const yTop = Z(zBar) - 30; x = aI; lows.forEach(m => { dim(X(x), yTop, X(x + m.ancho), yTop, fmt(m.ancho), 'width:' + m.id); x += m.ancho; });
   dim(X(0), ground + 30, X(W), ground + 30, fmt(W) + uS(), 'length');
   dim(X(W) + 30, ground, X(W) + 30, Z(zBar), fmt(zBar), 'bar');
@@ -7037,8 +7050,9 @@ function syncCommandUI(){
   document.getElementById('prodName').innerHTML = closet ? '<b>Draw</b>drobe' : '<b>Skit</b>chen';
   document.title = closet ? 'Drawdrobe · Closet' : isla ? 'Skitchen · Isla' : 'Skitchen · Cocina';
   document.querySelectorAll('.cmdsel button').forEach(b => b.classList.toggle('on', b.dataset.cmd === (isla ? 'isla' : closet ? 'closet' : 'muro')));
-  document.getElementById('btnDoors').style.display = isla ? 'none' : '';
-  document.getElementById('btnMeasure').style.display = isla ? 'none' : '';
+  /* F1/F2 (usuario, 08/10): la isla tambien tiene vista Interior y Medir (en su alzado frontal) */
+  document.getElementById('btnDoors').style.display = '';
+  document.getElementById('btnMeasure').style.display = '';
   if (isla) { showDoors = true; measure = false; document.getElementById('btnDoors').classList.add('active'); document.getElementById('doorsLabel').textContent = 'Puertas'; document.getElementById('btnMeasure').classList.remove('active'); }
   if (!viewList().some(q => q[0] === view)) view = 'Alzado';
   document.getElementById('viewLabel').textContent = viewName(view); trUI();
