@@ -224,6 +224,12 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A124. Lista del editor 2 (09/10, usuario): 1) notas de los paneles mas cortas (unas 40); 2) las cotas del perfil de gola
+       dicen «mm»; 3) Ajustes por pestanas: General (region, idioma, unidades, comportamiento), Cotas, Gabinetes (valores de
+       inicio y perfiles de gola), Exportar y Licencia; 4) X para cerrar el editor de la muestra (color y patron); 5) el
+       backsplash con la campana sola se ve continuo: un solo relleno y el contorno de la union (contornoUnion), columnas
+       vecinas unidas; 6) quitar la parrilla, o cambiar la estufa por otro mueble, quita la campana del alto de su columna.
+       Revit: igual.
    A123. [Revit P12.247] Lista del editor (09/10, usuario): 1) boton de seccion alineado (en Revit tenia otro margen); 2) ayudas de la barra
        inferior mas cortas y claras; 3) con la campana sola (sin gabinetes) el backsplash sube por el muro hasta el tope de los
        altos (dibujo y plan de piezas); 4) sin boton «Subir solo este gabinete alto» en el aviso de coccion; 5) al poner
@@ -1111,6 +1117,7 @@
   .tab-heads button:hover { color: var(--text); box-shadow: inset 0 -2px #D5DCE2; }
   .tab-heads button.active { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px var(--ink); }
   .tab-heads button.active svg { opacity: 1; }
+  .pf-tabs { padding: 0; margin: 0 0 4px; flex-wrap: wrap; } .pf-tabs button { height: 34px; flex: 1 1 auto; font-size: 12px; }   /* A124 */
   .tab-heads button:focus-visible { outline: 2px solid var(--select); outline-offset: -2px; }
   .tab-body { flex: 1; overflow-y: auto; }
   .tab-page { display: none; height: 100%; }
@@ -1300,7 +1307,7 @@
 
   /* ---- panel de contexto de partes ---- */
   .note-sm { font-size: 11.5px; color: #6B7680; line-height: 1.45; margin-top: 10px; }
-  .perfil-gola input.cota-in { position: absolute !important; transform: translate(-50%, -50%); width: 40px !important; min-width: 0 !important; height: 18px !important; min-height: 0 !important; margin: 0 !important; padding: 0 2px !important; box-shadow: none !important; font: 600 11px "Inter", sans-serif !important; text-align: center; color: inherit; background: rgba(255,255,255,.75) !important; border: 1px dashed rgba(38,96,150,.6) !important; border-radius: 3px !important; cursor: text; }
+  .perfil-gola input.cota-in { position: absolute !important; transform: translate(-50%, -50%); width: 54px !important; min-width: 0 !important; height: 18px !important; min-height: 0 !important; margin: 0 !important; padding: 0 2px !important; box-shadow: none !important; font: 600 11px "Inter", sans-serif !important; text-align: center; color: inherit; background: rgba(255,255,255,.75) !important; border: 1px dashed rgba(38,96,150,.6) !important; border-radius: 3px !important; cursor: text; }
   .perfil-gola input.cota-in:hover { border-style: solid !important; } .perfil-gola input.cota-in:focus { outline: none; border: 1px solid #266096 !important; background: #fff !important; color: #1d2b36; }   /* A122 */
   .radios { display: flex; gap: 8px; }
   .radios .opt { flex: 1; margin-bottom: 0; }
@@ -2169,11 +2176,24 @@ function joinRight(id){ const ups = row(true), i = ups.findIndex(q => q.id === i
 const hasCampana = m => m.upper && !!m.campana && m.tipo !== 'Abierto' && !m.inferiorAbierto;
 /* A81 (usuario, 06/10): solo la campana: la columna no lleva el cuerpo del alto ni el modulo superior del alto doble; la chimenea llega al tope */
 const soloCamp = m => hasCampana(m) && !!m.soloCampana;
+/* A124: contorno de una union de rectangulos que se tocan (sin las aristas compartidas) */
+function contornoUnion(rs, color, w){
+  const e = .6, segs = [];
+  const quita = (a0, a1, cortes) => { let out = [[a0, a1]]; cortes.forEach(([c0, c1]) => { out = out.flatMap(([u0, u1]) => c1 <= u0 + e || c0 >= u1 - e ? [[u0, u1]] : [[u0, Math.max(u0, c0)], [Math.min(u1, c1), u1]].filter(([p, q]) => q - p > e)); }); return out; };
+  rs.forEach((r, i) => { const o = rs.filter((_, j) => j !== i), x1 = r.x + r.w, y1 = r.y + r.h;
+    quita(r.x, x1, o.filter(q => Math.abs(q.y + q.h - r.y) < e).map(q => [q.x, q.x + q.w])).forEach(([a, b]) => segs.push([a, r.y, b, r.y]));
+    quita(r.x, x1, o.filter(q => Math.abs(q.y - y1) < e).map(q => [q.x, q.x + q.w])).forEach(([a, b]) => segs.push([a, y1, b, y1]));
+    quita(r.y, y1, o.filter(q => Math.abs(q.x + q.w - r.x) < e).map(q => [q.y, q.y + q.h])).forEach(([a, b]) => segs.push([r.x, a, r.x, b]));
+    quita(r.y, y1, o.filter(q => Math.abs(q.x - x1) < e).map(q => [q.y, q.y + q.h])).forEach(([a, b]) => segs.push([x1, a, x1, b])); });
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w; segs.forEach(([a, b, c, d]) => line(a, b, c, d)); ctx.restore();
+}
 /* A123 (usuario, 09/10): al poner parrilla o estufa en un bajo, el alto de su columna lleva campana (una vez; despues se puede quitar) */
+function campanaFuera(c, bajo){ const l = c.modulos.filter(q => !q.upper), h = c.modulos.filter(q => q.upper); if (l.length !== h.length) return; const a = h[l.indexOf(bajo)];   /* A124 (usuario, 09/10): sin parrilla ni estufa, sin campana */
+  if (a && a.campana) { a.campana = false; a.soloCampana = false; } }
 function campanaSobre(c, bajo){ const l = c.modulos.filter(q => !q.upper), h = c.modulos.filter(q => q.upper); if (l.length !== h.length) return; const a = h[l.indexOf(bajo)];
   if (a && !a.reserved && a.tipo !== 'Abierto' && !a.campana) { a.campana = true; a.inferiorAbierto = false; } }
 /* A123 (usuario, 09/10): columnas de campana sola (sin gabinetes): [x0, x1] de cada una; ahi el backsplash sube por el muro hasta el tope de los altos */
-const columnasCampanaSola = () => { const r = []; let x = ajusteIzq(); row(true).forEach(m => { if (!m.reserved && soloCamp(m)) r.push([x, x + m.ancho]); x += m.ancho; }); return r; };
+const columnasCampanaSola = () => { const r = []; let x = ajusteIzq(); row(true).forEach(m => { if (!m.reserved && soloCamp(m)) { if (r.length && Math.abs(r[r.length - 1][1] - x) < .01) r[r.length - 1][1] = x + m.ancho; else r.push([x, x + m.ancho]); } x += m.ancho; }); return r; };   /* A124: vecinas unidas */
 /* A83 (usuario, 06/10): con gola (Moderna) los altos llevan siempre doble cama, con o sin LED: la cama del piso (con la ranura si hay LED)
    y encima una cama interior desde 1.8 cm tras el frente hasta el trasero (como LedUpgrade de Revit); deja el unero y oculta el LED */
 const conCama = m => m.upper && !m.reserved && !hasCampana(m) && (cfg.led || cfg.style === 'Moderna');
@@ -3900,9 +3920,12 @@ function drawElevation(){
 
   /* backsplash entre la cubierta y los altos */
   const bsTop = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
-  part('backsplash', cfg.backsplash, cutRun(run0, run1, isSpecial).map(([a, b]) => RX(a, b, zBar, bsTop)).concat(columnasCampanaSola().filter(() => topeAltos() > bsTop + .01).map(([a, b]) => RX(a, b, bsTop, topeAltos()))), r => {   /* A123: detras de la campana sola sube al tope */
-    fillMat(r.x, r.y, r.w, r.h, groupMaterial('Backsplash'), C.backsplash); outline(r, C.line, 1);
-  }, post);
+  /* A123: detras de la campana sola sube al tope. A124 (usuario, 09/10): un solo relleno y el contorno de la union, sin lineas divisorias */
+  const bsRects = cutRun(run0, run1, isSpecial).map(([a, b]) => RX(a, b, zBar, bsTop)).concat(columnasCampanaSola().filter(() => topeAltos() > bsTop + .01).map(([a, b]) => RX(a, b, bsTop, topeAltos())));
+  if (cfg.backsplash && bsRects.length) { const bb = bsRects.reduce((q, r) => ({ x0: Math.min(q.x0, r.x), y0: Math.min(q.y0, r.y), x1: Math.max(q.x1, r.x + r.w), y1: Math.max(q.y1, r.y + r.h) }), { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 });
+    ctx.save(); ctx.beginPath(); bsRects.forEach(r => ctx.rect(r.x, r.y, r.w, r.h)); ctx.clip(); fillMat(bb.x0, bb.y0, bb.x1 - bb.x0, bb.y1 - bb.y0, groupMaterial('Backsplash'), C.backsplash); ctx.restore();
+    contornoUnion(bsRects, C.line, 1); }
+  part('backsplash', cfg.backsplash, bsRects, () => {}, post);
 
   /* tapetas laterales: por fila baja y alta, o de piso a techo (TapetasCorridas). Junto a un especial la baja va del piso a su
      tope y la alta no existe (columna reservada). Inactivas: banda angosta punteada */
@@ -5696,8 +5719,8 @@ function closetPanel(m){
   if (T === 'ZapateraBaja' || T === 'Completo') html += section('Zapatera', `<div class="grid-2">${num('cAltoZap', 'Alto de la zapatera baja', m.altoZapatera, 'cm', 40, 200)}</div>`);
   if (T === 'Vanity') html += section('Vanity', `<div class="grid-2">${num('cEsc', 'Alto del escritorio', m.altoEscritorio, 'cm', 65, 95)}${num('cAltoCaj', 'Alto del cajón', m.altoCajonCloset, 'cm', 8, 30)}</div>`
     + `<label class="field" style="margin-top:10px"><span>Espejo</span></label>` + sel('cEspejo', [['Rectangular', 'Rectangular'], ['Circular', 'Circular'], ['Capsula', 'Cápsula']], m.espejo)
-    + `<div class="grid-2" style="margin-top:10px">${num('cRepAlta', 'Repisa alta (0 = sin repisa)', m.repisaAltaVanity, 'cm', 0, 290)}</div><div class="note-sm">Repisa alta medida desde el zoclo; con maletero es su piso. Escritorio a todo el ancho con un cajón sencillo con jaladera debajo, hueco libre para la silla, espejo pegado al muro y repisa alta.</div>`);
-  if (closetGrips(m).length) html += section('', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules del dibujo (maletero, zapatera, escritorio y cajones) o haz clic en su cota.</div>`);
+    + `<div class="grid-2" style="margin-top:10px">${num('cRepAlta', 'Repisa alta (0 = sin repisa)', m.repisaAltaVanity, 'cm', 0, 290)}</div><div class="note-sm">Escritorio a todo el ancho con un cajón, hueco para la silla, espejo y repisa alta (con maletero, es su piso).</div>`);
+  if (closetGrips(m).length) html += section('', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules o haz clic en su cota.</div>`);
   return html;
 }
 function modulePanel(m){
@@ -5728,18 +5751,18 @@ function modulePanel(m){
   if (isDoble(m) && !bx && bodyGroupOf(m)) opts += `<div class="note-sm">Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o</div><button class="btn btn-block" style="margin-top:6px" data-act="editBox">Editar la caja corrida</button>`;
   html += section('Opciones', opts);
   if (m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
-  if (m.upper && elevAlto(m) > 0) html += section('Subido', `<div class="grid-2">${num('elevAlto', 'Sobre los demás altos', elevAlto(m), 'cm', 0, 60)}</div><div class="note-sm">Solo este gabinete alto empieza más arriba (aviso NKBA de cocción); 0 lo regresa con los demás.</div>`);
+  if (m.upper && elevAlto(m) > 0) html += section('Subido', `<div class="grid-2">${num('elevAlto', 'Sobre los demás altos', elevAlto(m), 'cm', 0, 60)}</div><div class="note-sm">Solo este alto empieza más arriba; 0 lo alinea con los demás.</div>`);
   if (hasCampana(m)) html += section('Campana', chk('soloCamp', !!m.soloCampana, 'Mostrar solo la campana (sin gabinete alto)') + (m.soloCampana ? `<div class="note-sm" style="margin-top:0">La columna lleva solo la campana: sin el gabinete alto${isDoble(m) ? ' ni el módulo superior' : ''}; la chimenea llega al tope.</div>` : '') + `<div class="grid-2" style="margin-top:8px">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
   if (isDoble(m) && !hasCampana(m)) {   /* A38: repisas y divisiones del gabinete inferior y del superior */
     const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS;
-    html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Forma una caja corrida: repisas y divisiones se reparten en toda la caja.' : ''}</div>`
+    html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Caja corrida: repisas y divisiones en toda la caja.' : ''}</div>`
       + chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, bodyGroupOf(m) ? 99 : 4, 1)}</div></div>` : ''));
     html += section('Gabinete superior', `<div class="grid-2">${num('supRep', 'Repisas del gabinete superior', cl.repisasSuperior, 'u', 0, mxS, 1)}</div>` + shelfNote(cl.altoSuperior, cl.repisasSuperior)
       + chk('supDiv', cl.divisionSuperior, 'División vertical interna') + (cl.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', cl.divisionesSuperior || 1, 'u', 1, capJoined(cl) ? 99 : 4, 1)}</div></div>` : '')
       + `<div class="note-sm">${cl.tipoSuperior === 'Repisas' ? 'Caja de repisas abierta.' : 'Detrás de su puerta se ven en la vista Interior.'}</div>`);
   }
   if (isDoble(m) && !soloCamp(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuerta', 'Una puerta'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + (capLead(m).tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('supInv', !!capLead(m).bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : '')   /* A116: tambien con columnas unidas: va al primero del grupo */
-    + `<div class="note-sm">Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
+    + `<div class="note-sm">Doble clic en el dibujo: alto, material y unir columnas.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
   if (m.upper && !hasCampana(m) && !isDoble(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
     html += section('Repisas', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete alto', n, 'u', 0, 12, 1)}</div>`
       + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los ${medida(25)} recomendados. Se generan igual.</div>`
@@ -5754,23 +5777,23 @@ function modulePanel(m){
     + `<div style="margin-top:10px">${radios('espCon', [['Nada', 'Solo'], ['Puerta', '+ Puerta'], ['Cajones', '+ Cajones']], espCon(m))}</div>`
     + (espCon(m) !== 'Nada' ? `<div style="margin-top:8px">${radios('espLado', [['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], espIzq(m) ? 'Izquierda' : 'Derecha')}</div>`
       + (espCon(m) === 'Cajones' ? `<div class="grid-2" style="margin-top:10px">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div><div style="margin-top:8px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>` : '')
-      + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones'} en el resto de la columna, con una división en la misma carcasa.${espCon(m) === 'Cajones' ? ' Sus cajones se alinean con las cajoneras del mismo número y reparto.' : ''}</div>` : ''));
+      + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones'} en el resto, en la misma carcasa.${espCon(m) === 'Cajones' ? ' Sus cajones se alinean con las cajoneras iguales.' : ''}</div>` : ''));
   if (m.tipo === 'Basura') html += section('Cesto de basura', radios('cesto', [['extraible', 'Solo extraíble'], ['cajon', 'Cajón chico arriba'], ['oculto', 'Cajón oculto']], m.cestoVariante || 'extraible')
     + `<div class="grid-2" style="margin-top:10px">${num('anchoBote', 'Ancho del bote', m.anchoBasura, 'cm', 25, 60)}</div>`
-    + `<div class="note-sm">El extraíble ocupa todo el ancho de la columna (${botesCesto(m) === 1 ? 'un bote' : botesCesto(m) + ' botes'}). ${m.cestoVariante === 'cajon' ? `Cajón visible de ${medida(PLAN_CESTO.cajon)} arriba.` : m.cestoVariante === 'oculto' ? `Cajón oculto de ${medida(PLAN_CESTO.oculto)} detrás del frente, sale con el extraíble.` : ''}</div>`);
+    + `<div class="note-sm">Extraíble a todo el ancho (${botesCesto(m) === 1 ? 'un bote' : botesCesto(m) + ' botes'}). ${m.cestoVariante === 'cajon' ? `Cajón visible de ${medida(PLAN_CESTO.cajon)} arriba.` : m.cestoVariante === 'oculto' ? `Cajón oculto de ${medida(PLAN_CESTO.oculto)} tras el frente, sale con el extraíble.` : ''}</div>`);
   if (m.tipo === 'Lavavajillas') html += section('Lavavajillas', chk('lavaComp', m.lavavajillasCompacto, `Compacto (${medida(reg().lavaCompacto)})`)
-    + `<div class="note-sm">Hueco de ${medida(m.ancho)} del piso a la cubierta; el aparato trae su propio zoclo y el del mueble se corta.</div>` + avisoLavavajillas(m));
+    + `<div class="note-sm">Hueco de ${medida(m.ancho)} del piso a la cubierta; trae su propio zoclo.</div>` + avisoLavavajillas(m));
   if (!m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
   if (m.tipo === 'Estufa') html += section('Estufa', chk('quem6', m.ancho >= (reg().estufa.cuatro + reg().estufa.seis)/2, `6 quemadores (${medida(reg().estufa.seis)}); sin marcar, 4 (${medida(reg().estufa.cuatro)})`));
   if (m.tipo === 'Frigobar') html += section('Frigobar', `<div class="grid-2">${num('altoFrig', 'Alto del frigobar (desde el zoclo)', m.altoFrigobar, 'cm', 50, 120)}</div>`
-    + chk('tapFrig', m.tapetaFrigobar, 'Tapeta superior bajo la cubierta') + `<div class="note-sm">Si el frigobar supera el alto del gabinete, baja hasta el piso y el zoclo se interrumpe.</div>`);
+    + chk('tapFrig', m.tapetaFrigobar, 'Tapeta superior bajo la cubierta') + `<div class="note-sm">Si es más alto que el gabinete, baja al piso y corta el zoclo.</div>`);
   if (!m.upper && !esAparato(m)) html += section('Parrilla', chk('parr', m.parrilla, 'Parrilla de inducción encima')
     + (m.parrilla ? `<div class="grid-2" style="margin-top:10px">${num('parrAncho', 'Ancho de la parrilla', m.parrillaAncho, 'cm', reg().parrilla.min, reg().parrilla.max)}</div>` : ''));
   if (m.tipo === 'Cajones') html += section('Cajones', `<div class="grid-2">${num('nCaj', 'Número de cajones', m.numCajones, 'u', 1, 6, 1)}</div>`
     + `<div style="margin-top:10px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>`
-    + `<div class="note-sm">Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.</div>`
+    + `<div class="note-sm">Arrastra los puntos azules o haz clic en su cota.</div>`
     + ((m.frentes || []).some(v => v > 0) ? `<button class="btn btn-block" style="margin-top:10px" data-act="repartir">Repartir alturas de nuevo</button>` : ''));
-  else if (drawerType(m)) html += section('Cajón', `<div class="note-sm" style="margin-top:0">Arrastra el punto azul del dibujo para cambiar la altura del cajón, o haz clic en su cota.</div>`);
+  else if (drawerType(m)) html += section('Cajón', `<div class="note-sm" style="margin-top:0">Arrastra el punto azul o haz clic en su cota.</div>`);
   return html;
 }
 /* especial elegido: torre de hornos, alacena o especiero torre; con un cuerpo en foco, su propio panel */
@@ -5783,18 +5806,18 @@ function specialPanel(m){
   html += section('Función', tiles('tipo', tilesBajo(), tileTipo(m.tipo)), 'plegable');
   html += section('Medidas', (m.tipo === 'EspecieroTorre' ? '' : anchoFijo(m.fijo, 'fijoLibre'))
     + `<div class="grid-2" style="margin-top:10px">${num('topeEsp', 'Alto desde el piso', altoEsp(m), 'cm', 160, topeAltos())}${num('lat', 'Espesor laterales', m.espesorLaterales, 'cm', 1, 5)}</div>`);
-  if (isTower(m)) html += section('Torre', `<div class="note-sm" style="margin-top:0">Doble clic en el gabinete inferior o superior del dibujo para elegir puertas, cajones o repisas. Clic en el horno, el microondas o la rejilla para editarlos.</div><div class="grid-2" style="margin-top:10px">${num('aire', 'Aire posterior', m.aireHornos, 'cm', 5, 15)}</div>`);
+  if (isTower(m)) html += section('Torre', `<div class="note-sm" style="margin-top:0">Doble clic en un cuerpo para elegir puertas, cajones o repisas; clic en un equipo para editarlo.</div><div class="grid-2" style="margin-top:10px">${num('aire', 'Aire posterior', m.aireHornos, 'cm', 5, 15)}</div>`);
   else if (isRefri(m)) {
     html += section('Refrigerador', `<div class="info-card"><div class="info-row">Ancho libre <b>${fmt(anchoLibreRefri(m))}${uS()}</b></div></div>`
       + `<div class="grid-2" style="margin-top:10px">${num('anchoRefri', 'Ancho del refrigerador', anchoRefri(m), 'cm', 40, reg().ancho.max)}${num('huecoRefri', 'Alto libre refrigerador', m.huecoRefri, 'cm', 120, 300)}</div>`
-      + `<div class="note-sm">Se ajusta solo a la cota de la columna dejando al menos ${fmt(holguraRefri())}${uS()} de holgura; si lo escribes, la columna cambia a ese ancho más la holgura.</div>`
+      + `<div class="note-sm">Se ajusta a la columna con al menos ${fmt(holguraRefri())}${uS()} de holgura; si lo escribes, la columna se ajusta a él.</div>`
       + chk('supRefri', m.superiorRefri, 'Gabinete superior') + chk('latRefri', m.lateralesRefri, 'Tapetas laterales')
       + (m.superiorRefri ? chk('dos', m.dosPuertas, 'Dos puertas') + (m.dosPuertas ? '' : `<div class="sub">${chk('inv', m.invertir, 'Invertir abatimiento')}</div>`)
         + `<div class="grid-2" style="margin-top:10px">${num('repRefri', 'Repisas gabinete superior', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'), showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '') : ''));
   }
-  else if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en cada cuerpo o en la cajonera del dibujo para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`);
-  else html += section('Especiero', alturaEspeciero(m) + `<div class="note-sm">Torre de ${medida(reg().especieroTorre)} con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)'));
-  if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.</div>`);
+  else if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en un cuerpo o en la cajonera para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`);
+  else html += section('Especiero', alturaEspeciero(m) + `<div class="note-sm">Torre de ${medida(reg().especieroTorre)} con especiero de 5 repisas, del zoclo al tope.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)'));
+  if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules o haz clic en su cota.</div>`);
   return html;
 }
 function focusPanelHtml(m, zone, chip){
@@ -5820,7 +5843,7 @@ function piecePanel(){
   const list = [...pieces];
   let html = head(list.length === 1 ? pieceName(selectedPart) : list.length + ' piezas seleccionadas', null);
   const rows = list.slice(0, 8).map(pc => { const [, id, pk] = pc.split(':'), mm = mat(byId(id).materialesPaneles[pk]); return `<div class="info-row">${esc(pieceName(pc))} <b style="font-family:Inter;font-weight:600">${esc(mm ? mm.nombre : 'material del grupo')}</b></div>`; }).join('');
-  html += section('Material', `<div class="info-card">${rows}</div><div class="note-sm">Arrastra un material sobre una pieza seleccionada: se aplica a toda la selección. Ctrl + clic suma o quita piezas.</div>`);
+  html += section('Material', `<div class="info-card">${rows}</div><div class="note-sm">Suelta un material en una pieza elegida: va a toda la selección. Ctrl + clic suma o quita.</div>`);
   const [, id, pk] = selectedPart.split(':'), back = pk.endsWith('.fondo'), own = byId(id).materialesPaneles[pk];
   html += section('', `<div style="display:grid;gap:8px"><button class="btn btn-block" data-act="pzRepisas">Todas las repisas de este gabinete</button>
     <button class="btn btn-block" data-act="pzUsar" ${own ? '' : 'disabled'}>${back ? 'Usar su material en todos los fondos interiores' : 'Usar su material en todas las repisas de la cocina'}</button>
@@ -5834,12 +5857,12 @@ function capPanel(id){
   let html = head('Módulo superior', `${g.members.length === 1 ? '1 columna' : g.members.length + ' columnas unidas'} · ${fmt(g.width)}${uS()}`);
   html += section('Tipo', sel('capTipo', [['Piston','Puerta elevable (pistón)'],['Puerta','Una puerta'],['Puertas','Dos puertas'],['Repisas','Caja de repisas abierta']], m.tipoSuperior)
     + (m.tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('capBisDer', !!m.bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : ''));
-  html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}${num('capFondo', 'Fondo', m.fondoSuperior > 0 ? m.fondoSuperior : m.fondo, 'cm', 25, 70)}</div><div class="note-sm">El fondo del módulo superior es independiente del gabinete alto de abajo.</div>` + avisoDoble(m)
+  html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}${num('capFondo', 'Fondo', m.fondoSuperior > 0 ? m.fondoSuperior : m.fondo, 'cm', 25, 70)}</div><div class="note-sm">Su fondo no depende del alto de abajo.</div>` + avisoDoble(m)
     + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; la caja abierta, a 3 columnas.</div>`
     + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
     + (m.tipoSuperior === 'Piston' ? chk('capMostrar', m.mostrarPuertaSuperior, 'Mostrar puerta elevable') : ''));
   const cols = (next && !next.reserved ? `<button class="btn btn-block" data-act="capExt">Extender a la columna derecha</button>` : '') + (g.members.length > 1 ? `<button class="btn btn-block" data-act="capSep">Separar la última columna</button>` : '');
-  html += section('Columnas', (cols ? `<div style="display:grid;gap:8px;margin-bottom:10px">${cols}</div>` : '') + `<div class="note-sm" style="margin-top:0">Es un elemento independiente del gabinete alto. Arrastra un material sobre él; con doble clic se eligen sus repisas o su fondo.</div>`);
+  html += section('Columnas', (cols ? `<div style="display:grid;gap:8px;margin-bottom:10px">${cols}</div>` : '') + `<div class="note-sm" style="margin-top:0">Es independiente del gabinete alto. Suelta un material sobre él; doble clic elige sus repisas o su fondo.</div>`);
   return html + `<div class="p-foot" style="display:grid;gap:8px"><button class="btn btn-danger btn-block" data-act="capQuitar">Quitar módulo superior</button><button class="btn btn-block" data-act="capEditar">Editar el gabinete alto</button></div>`;
 }
 /* ---- paneles de la isla (RenderContext en modo isla) ---- */
@@ -5848,17 +5871,17 @@ const espNote = () => { const ef = islaEspEf(); if (Math.abs(ef - cfg.islaEspaci
 const zocPostBlock = () => chk('zocPost', cfg.islaZocloPosterior, 'Zoclo en la cara posterior') + (cfg.islaZocloPosterior ? `<div class="sub">${barraConCascada()
   ? '<div class="note-sm" style="margin-top:0">Zoclo posterior alineado con el paño inicial de la cascada de la barra elevada.</div>'
   : chk('zocPano', cfg.islaRetiroZocloPosterior < 0, 'Zoclo posterior a paño del respaldo de los gabinetes') + (cfg.islaRetiroZocloPosterior >= 0 ? `<div class="grid-2">${num('zocRet', 'Retiro respecto a los paneles', cfg.islaRetiroZocloPosterior, 'cm', 0, 60)}</div>` : '')}</div>` : '');
-const cascNote = extra => `<div class="note-sm">Cada cascada mide ${fmt(espesorCascada())}${uS()}${extra ? ' de grosor' : ''}: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes${extra ? ' y los paneles posteriores. Izquierda y derecha son las del alzado frontal' : ''}.</div>`;
+const cascNote = extra => `<div class="note-sm">Cada cascada mide ${fmt(espesorCascada())}${uS()}${extra ? ' de grosor' : ''}: el de la nariz o, sin nariz, el de la cubierta. Se descuenta del largo de los gabinetes${extra ? ' y de los paneles. Lados del alzado frontal' : ''}.</div>`;
 function islaPartPanel(key){
   const back = `<div class="p-foot"><button class="btn btn-block" data-act="closePart">Volver a los gabinetes</button></div>`;
   if (key === 'wall') return head('Isla y colocación', null) + section('Medidas', num('piso', 'Piso respecto al nivel', cfg.desfasePiso, 'cm', -300, 300))
-    + section('', `<div class="note-sm" style="margin-top:0">Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo. La cara posterior se edita en la vista Posterior.</div>`);
+    + section('', `<div class="note-sm" style="margin-top:0">Elige una pieza en el dibujo. La cara posterior se edita en la vista Posterior.</div>`);
   if (key === 'cascada') return head('Cascadas de cubierta', null) + section('Cascadas', chk('cascI', cfg.cascadaIzq, 'Cascada izquierda hasta el piso') + chk('cascD', cfg.cascadaDer, 'Cascada derecha hasta el piso') + cascNote(true)) + back;
   if (key === 'raisedbar') return head('Barra elevada', null)
     + section('Medidas', `<div class="grid-2">${num('barraAncho', 'Ancho', cfg.islaBarraAncho, 'cm', 5, 250)}${num('barraElev', 'Elevación sobre la cubierta', cfg.islaBarraElevacion, 'cm', 5, 40)}${num('barraEsp', 'Espesor (losa, peralte y cascada)', cfg.islaBarraEspesor, 'cm', 1, 10)}</div>`)
-    + section('Vuelos laterales', `<div class="grid-2">${num('barraVI', 'Izquierdo', cfg.islaBarraVueloIzq, 'cm', 0, 30)}${num('barraVD', 'Derecho', cfg.islaBarraVueloDer, 'cm', 0, 30)}</div><div class="note-sm">Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.</div>`)
+    + section('Vuelos laterales', `<div class="grid-2">${num('barraVI', 'Izquierdo', cfg.islaBarraVueloIzq, 'cm', 0, 30)}${num('barraVD', 'Derecho', cfg.islaBarraVueloDer, 'cm', 0, 30)}</div><div class="note-sm">0 = a paño de la cascada (o del canto de la cubierta); más, la saca por fuera. Lados del alzado frontal.</div>`)
     + section('Cascadas de la barra', chk('bCascI', cfg.islaBarraCascadaIzq, 'Cascada izquierda de la barra hasta el piso') + chk('bCascD', cfg.islaBarraCascadaDer, 'Cascada derecha de la barra hasta el piso')
-      + `<div class="note-sm">La cascada de la barra es independiente de las de la cubierta. Donde no hay cascada de cubierta, la de la barra cae por fuera del cuerpo de la isla. La barra admite su propio material: arrástralo sobre ella.</div>`)
+      + `<div class="note-sm">Su cascada no depende de las de la cubierta; sin cascada de cubierta, cae por fuera de la isla. Admite su propio material.</div>`)
     + section('', chk('ledPost', cfg.islaLedPosterior, 'Luz LED sobre los paneles posteriores') + (cfg.islaLedPosterior ? tonoLuzHTML() : ''))
     + `<div class="p-foot"><button class="btn btn-danger btn-block" data-act="quitarBarra">Quitar barra elevada</button></div>`;
   /* cubierta (con el bloque de isla) */
@@ -5872,7 +5895,7 @@ function islaPartPanel(key){
     + chk('barra', cfg.islaBarraElevada, 'Barra elevada al fondo') + (cfg.islaBarraElevada ? `<div class="sub"><div class="grid-2">${num('barraAncho', 'Ancho de la barra', cfg.islaBarraAncho, 'cm', 5, 250)}${num('barraElev', 'Elevación', cfg.islaBarraElevacion, 'cm', 5, 40)}</div></div>` : '')
     + cascNote(false));
   if (key !== 'cover') return null;   /* tarja y monomando: el panel de cocina */
-  html += section('', `<div class="note-sm" style="margin-top:0">La tarja y el monomando se configuran desde su gabinete, o haciendo clic sobre ellos en el dibujo.</div>`);
+  html += section('', `<div class="note-sm" style="margin-top:0">La tarja se configura desde su gabinete o con clic en el dibujo.</div>`);
   return html + `<div class="p-foot"><button class="btn btn-block" data-act="closePart">Volver a los gabinetes</button></div>`;
 }
 function backPanelHtml(id){
@@ -5880,7 +5903,7 @@ function backPanelHtml(id){
   return head('Panel posterior', `${cfg.islaPaneles.indexOf(q) + 1} de ${cfg.islaPaneles.length}`)
     + section('Panel', `<div class="grid-2">${num('bpAncho', 'Ancho del panel', q.ancho, 'cm', 10, 600)}</div>` + anchoFijo(q.fijo, 'bpLibre')
       + `<div class="grid-2" style="margin-top:10px"><button class="btn btn-block" data-act="bpAdd">+ Añadir panel</button><button class="btn btn-block" data-act="bpDel" ${cfg.islaPaneles.length < 2 ? 'disabled' : ''}>Eliminar panel</button></div>`
-      + `<div class="note-sm">La distribución posterior es independiente de los gabinetes del frente. Arrastra un material de la pestaña Materiales sobre cada panel.</div>`)
+      + `<div class="note-sm">Los paneles no dependen de los gabinetes del frente. Suelta un material sobre cada panel.</div>`)
     + section('Cara posterior', `<div class="grid-2">${num('islaEsp', 'Espacio para bancos', cfg.islaEspacioBancos, 'cm', 0, 150)}</div>` + espNote() + zocPostBlock() + chk('ledPost', cfg.islaLedPosterior, 'Luz LED sobre los paneles posteriores') + (cfg.islaLedPosterior ? tonoLuzHTML() : ''))
     + `<div class="p-foot"><button class="btn btn-block" data-act="closePart">Volver a los gabinetes</button></div>`;
 }
@@ -5889,7 +5912,7 @@ function doorPanel(key){
   const kind = key.slice(0, key.indexOf(':')), d = doorById(key.slice(kind.length + 1)); if (!d) { selectedPart = null; return ''; }
   const back = `<div class="p-foot"><button class="btn btn-block" data-act="hdEditar">Editar la puerta oculta</button></div>`;
   if (kind === 'doorcap') return head('Gabinete de pistón', 'Puerta oculta') + section('Gabinete de pistón de la puerta oculta', chk('hdPist', d.piston, 'Activo')
-    + `<div class="grid-2" style="margin-top:10px">${num('hdAltP', 'Alto', d.altoPiston, 'cm', 25, 60)}</div><div class="note-sm">Arrastra un material sobre la caja (vista Interior) o sobre su puerta (vista Puertas).</div>`) + back;
+    + `<div class="grid-2" style="margin-top:10px">${num('hdAltP', 'Alto', d.altoPiston, 'cm', 25, 60)}</div><div class="note-sm">Suelta un material en la caja (Interior) o en su puerta (Puertas).</div>`) + back;
   if (kind === 'doorfiller') return head('Tapeta lateral', 'Puerta oculta') + section('Tapeta lateral de la puerta oculta', chk('hdTapL', d.tapetaLateral, 'Activa')
     + `<div class="grid-2" style="margin-top:10px">${num('hdTapLW', 'Ancho', d.anchoTapeta, 'cm', 2, 15)}</div><div class="note-sm">Va de piso a tope, por fuera de la hoja.</div>`) + back;
   if (kind === 'doortop') return head('Tapeta superior', 'Puerta oculta') + section('Tapeta superior de la puerta oculta', chk('hdTapS', d.tapetaSuperior, 'Activa')
@@ -5904,7 +5927,7 @@ function doorPanel(key){
     + `<div class="info-card" style="margin-top:10px"><div class="info-row">Hoja <b>${fmt(d.ancho)} × ${fmt(leaf)}${uS()}</b></div></div>`);
   html += section('Gabinete de pistón', chk('hdPist', d.piston, 'Gabinete de pistón arriba') + (d.piston ? `<div class="grid-2" style="margin-top:10px">${num('hdAltP', 'Alto del gabinete', d.altoPiston, 'cm', 25, 60)}</div>` : ''));
   html += section('Tapetas', chk('hdTapL', d.tapetaLateral, 'Tapeta lateral') + (d.tapetaLateral ? `<div class="sub"><div class="grid-2">${num('hdTapLW', 'Ancho de la tapeta lateral', d.anchoTapeta, 'cm', 2, 15)}</div></div>` : '') + chk('hdTapS', d.tapetaSuperior, 'Tapeta superior'));
-  html += section('Juntas', `<div class="grid-2">${num('hdJH', 'Juntas horizontales (0 a ' + hdMaxHoriz(d) + ')', hdJoints(d).length, 'u', 0, hdMaxHoriz(d), 1)}${num('hdJV', 'Juntas verticales (0 a ' + hdMaxVert(d) + ')', hdNumVert(d), 'u', 0, hdMaxVert(d), 1)}</div><div class="note-sm">Arrastra los puntos azules de la hoja para mover las juntas, o haz clic en su cota.</div>`);
+  html += section('Juntas', `<div class="grid-2">${num('hdJH', 'Juntas horizontales (0 a ' + hdMaxHoriz(d) + ')', hdJoints(d).length, 'u', 0, hdMaxHoriz(d), 1)}${num('hdJV', 'Juntas verticales (0 a ' + hdMaxVert(d) + ')', hdNumVert(d), 'u', 0, hdMaxVert(d), 1)}</div><div class="note-sm">Arrastra los puntos azules de la hoja o haz clic en su cota.</div>`);
   return html + `<div class="p-foot"><button class="btn btn-danger btn-block" data-act="hdQuitar">Quitar puerta oculta</button></div>`;
 }
 /* horno, microondas y rejilla de la torre */
@@ -5917,7 +5940,7 @@ function equipPanel(key){
     let b = chk('micro', m.microondas, 'Incluir microondas') + chk('microSob', m.microSobreponer, 'Modelo de sobreponer (convencional)');
     if (m.microSobreponer) b += `<div class="grid-2" style="margin-top:10px">${num('microAncho', 'Ancho del modelo', m.microAncho, 'cm', 30, 70)}${num('microAlto', 'Alto del modelo', m.microAlto, 'cm', 20, 60)}</div><div class="note-sm">El nicho queda 5 cm más alto que el modelo: ${fmt(m.microAlto + 5)}${uS()}.</div>`;
     else b += `<div class="grid-2" style="margin-top:10px">${num('altoMicro', 'Alto libre del microondas', m.altoMicro, 'cm', 25, 70)}</div>`;
-    b += `<div class="grid-2" style="margin-top:10px">${num('elevMicro', 'Separación sobre el horno', m.elevacionMicro, 'cm', 0, 80)}</div><div class="note-sm">0 = pegado al horno; si no, 5 cm o más, cerrada con una tapa ciega. También puedes arrastrar el punto azul del microondas.</div>`;
+    b += `<div class="grid-2" style="margin-top:10px">${num('elevMicro', 'Separación sobre el horno', m.elevacionMicro, 'cm', 0, 80)}</div><div class="note-sm">0 = pegado al horno; si no, 5 cm o más, con tapa ciega. También se arrastra su punto azul.</div>`;
     html = head('Microondas', 'Torre de hornos') + section('Microondas', b);
   } else html = head('Rejilla de ventilación', 'Torre de hornos') + section('Rejilla', chk('rej', m.rejillaHorno, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('altoRej', 'Alto de la rejilla', m.altoRejilla, 'cm', 2, 15)}</div>`);
   return html + `<div class="p-foot"><button class="btn btn-block" data-act="editTorre">Editar la torre</button></div>`;
@@ -5946,19 +5969,19 @@ function partPanel(key){
   let html = head(T[key], null);
   if (key === 'wall') {
     if (cfg.closet) html += section('Iluminación', chk('closetLed', !!cfg.closetLed, 'LED bajo las repisas') + (cfg.closetLed ? posicionLedHTML('mueble') + tonoLuzHTML() : '')
-      + '<div class="note-sm">En SketchUp, los closets se generarán con Drawdrobe; la opción queda guardada en la configuración.</div>');   /* B27 */
+      + '<div class="note-sm">En SketchUp los closets saldrán con Drawdrobe; la opción queda guardada.</div>');   /* B27 */
     html += section('Medidas', num('muro', 'Altura total', cfg.alturaMuro, 'cm', 150, 360) + num('piso', 'Piso respecto al nivel', cfg.desfasePiso, 'cm', -300, 300) + num('sepPost', 'Separación posterior', cfg.separacionPosterior, 'cm', 0, 30));
     if (cfg.region === 'US') html += section('Reparto de anchos', sel('pasoRep', PASOS_REPARTO, cfg.pasoReparto || 'modular')   /* E4 */
-      + `<div class="note-sm">Los gabinetes automáticos se reparten en pasos de ${medida(pasoAncho())}; lo que no llena un paso va a las tapetas.</div>`);
+      + `<div class="note-sm">Los gabinetes se reparten en pasos de ${medida(pasoAncho())}; lo que no llena un paso va a las tapetas.</div>`);
     html += section('Puertas', `<div class="grid-2">${num('dpDesde', 'Dos puertas desde (0 = a mano)', cfg.dosPuertasDesde || 0, 'cm', 0, 120)}</div>`);   /* E12 */
-    html += section('', `<div class="note-sm" style="margin-top:0">El largo del tramo se edita con la cota inferior del dibujo.</div><div class="note-sm">Selecciona un mueble, cubierta, tarja, zoclo o tapeta en el dibujo. Los contornos punteados permiten activar piezas ocultas.</div>`);
+    html += section('', `<div class="note-sm" style="margin-top:0">El largo se edita en la cota inferior.</div><div class="note-sm">Elige una pieza en el dibujo. Lo punteado está apagado: clic para activarlo.</div>`);
   } else if (key === 'cover' || key === 'sink' || key === 'tap') {
     html += section('Cubierta', chk('nariz', cfg.narizCubierta, 'Cubierta con nariz')
       + (cfg.narizCubierta ? `<div class="grid-2" style="margin-top:10px">${num('altNariz', 'Altura total de nariz', cfg.alturaNariz, 'cm', cfg.espesorCubierta, 15)}</div><div class="note-sm" style="margin-bottom:8px">Cama automática: ${fmt(camaCubierta())}${uS()}. Conserva libre la gola.</div>` : '')
       + chk('genCub', cfg.generarCubierta, 'Generar cubierta') + chk('aPano', cfg.cubiertaAPano, 'A paño de gabinetes (solo en laterales)') + `<div class="grid-2" style="margin-top:10px">${num('espCub', 'Espesor', cfg.espesorCubierta, 'cm', 1, 10)}${num('vuelo', 'Vuelo', cfg.vuelo, 'cm', 0, 5)}</div>`);
     if (cfg.moduloTarja && cfg.tipoTarja > 0) html += section('Tarja', `<div class="grid-2">${num('tAncho', 'Ancho', cfg.tarjaAncho, 'cm', 40, 110)}${num('tFondo', 'Fondo', cfg.tarjaFondo, 'cm', 35, 60)}${num('tProf', 'Profundidad', cfg.tarjaProf, 'cm', 10, 30)}${num('tRetiro', 'Retiro frontal', cfg.retiroTarja, 'cm', 7, 15)}</div>`
       + chk('mono', cfg.monomando, 'Monomando') + chk('bajoCub', cfg.tarjaBajoCubierta, 'Bajo cubierta') + `<button class="btn btn-danger btn-block" style="margin-top:10px" data-act="quitarTarja">Quitar tarja</button>`);
-    else html += section('', `<div class="note-sm" style="margin-top:0">La tarja y el monomando se configuran desde su gabinete, o haciendo clic sobre ellos en el dibujo.</div>`);
+    else html += section('', `<div class="note-sm" style="margin-top:0">La tarja se configura desde su gabinete o con clic en el dibujo.</div>`);
   } else if (key === 'plinth') {
     html += section('Zoclo', chk('genZoc', cfg.generarZoclos, 'Generar zoclos') + `<div class="grid-2" style="margin-top:10px">${num('altoZoc', 'Altura', cfg.baseBajos, 'cm', 0, 30)}${num('retZoc', 'Retiro frontal', cfg.retiroZoclo, 'cm', 1, 20)}</div>`
       + chk('cerrI', cfg.cerrarZocloIzq, 'Cerrar extremo izquierdo') + chk('cerrD', cfg.cerrarZocloDer, 'Cerrar extremo derecho'));
@@ -5974,11 +5997,11 @@ function partPanel(key){
       + `<div class="note-sm">El sobrante decimal se absorbe en las tapetas activas. Perfil cerrado con tapas.</div>`);
     /* A89: base y tope de las dos tapetas (por cocina) */
     if (!cfg.isla) html += section('Las dos tapetas', `<div class="grid-2">${num('tapBase', 'Ancho base', Math.min(cfg.reservaIzq, cfg.reservaDer), 'cm', 1, 15)}${num('tapTope', 'Ancho máximo', cfg.topeTapeta || reg().tapetaMax, 'cm', 1, 20)}</div>`
-      + '<div class="note-sm">Los gabinetes se reparten iguales en centímetros enteros; lo que sobra va a las tapetas sin pasar del máximo. Si no cabe, algunos gabinetes quedan 1 cm más anchos.</div>');
+      + '<div class="note-sm">Gabinetes iguales en cm enteros; lo que sobra va a las tapetas (hasta su máximo) o, si no cabe, a algunos gabinetes, 1 cm más.</div>');
   } else if (key === 'fillerTop') {
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`);
   } else if (key === 'gola') {
-    html += section('Perfil de aluminio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Perfil de aluminio visible en 3D.</div>` + radios('perfil', [['L', 'Perfil L'], ['C', 'Perfil C']], cfg.perfil) + `<div class="note-sm">Arrastra un material sobre cualquier franja: se aplica a toda la gola (fondo y perfil).</div>`);
+    html += section('Perfil de aluminio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Perfil de aluminio visible en 3D.</div>` + radios('perfil', [['L', 'Perfil L'], ['C', 'Perfil C']], cfg.perfil) + `<div class="note-sm">Suelta un material en una franja: va a toda la gola.</div>`);
   }
   if (key !== 'wall') html += `<div class="p-foot"><button class="btn btn-block" data-act="closePart">Volver a los gabinetes</button></div>`;
   return html;
@@ -5995,10 +6018,11 @@ const ACT = {
       /* A52 (usuario): un bajo de puertas o de cajones que pasa a Especiero lo lleva con su puerta o sus cajones y su ancho */
       if (v === 'Especiero' && m.tipo !== 'Especiero') m.especieroCon = m.tipo === 'Cajones' ? 'Cajones' : m.tipo === 'Puertas' || m.tipo === 'C' ? 'Puerta' : 'Nada';
       if ((v === 'Especiero' || v === 'EspecieroTorre') && m.tipo !== 'Especiero' && m.tipo !== 'EspecieroTorre') m.extraible = true;   /* A74: extraible (cajon) de fabrica */
+      const eraEstufa = m.tipo === 'Estufa';   /* A124 */
       m.tipo = v; m.frenteSup = m.frenteMed = 0; m.frentes = []; m.inferiorAbierto = false;
       if (cfg.closet && v === 'Repisas' && m.repisasEspecial < 3) m.repisasEspecial = 5;
       if (ANCHO_TIPO[v]) { if (l.length === h.length) h[l.indexOf(m)].fijo = false; m.ancho = ANCHO_TIPO[v](Object.assign({}, m, { tipo: v })); m.fijo = true; }
-      if (v === 'Estufa') { m.parrilla = false; campanaSobre(cfg, m); } });
+      if (v === 'Estufa') { m.parrilla = false; campanaSobre(cfg, m); } else if (eraEstufa && !m.parrilla) campanaFuera(cfg, m); });
     focusPanel = null;
   }),
   /* especiales */
@@ -6033,7 +6057,7 @@ const ACT = {
   dpDesde: v => change(c => c.dosPuertasDesde = v),
   quem6: (v, m) => setWidth(m.id, v ? reg().estufa.seis : reg().estufa.cuatro),   /* como la cota de ancho: la columna completa toma el ancho nuevo */
   altoFrig: (v, m) => change(() => byId(m.id).altoFrigobar = v), tapFrig: (v, m) => change(() => byId(m.id).tapetaFrigobar = v),
-  parr: (v, m) => change(c => { const q = byId(m.id); q.parrilla = v; if (v) { q.preparadoTarja = false; quitarTarja(c, m.id); campanaSobre(c, q); } }),   /* parrilla y tarja se excluyen (A36) */ parrAncho: (v, m) => change(() => byId(m.id).parrillaAncho = v),
+  parr: (v, m) => change(c => { const q = byId(m.id); q.parrilla = v; if (v) { q.preparadoTarja = false; quitarTarja(c, m.id); campanaSobre(c, q); } else if (q.tipo !== 'Estufa') { campanaFuera(c, q); } }),   /* parrilla y tarja se excluyen (A36) */ parrAncho: (v, m) => change(() => byId(m.id).parrillaAncho = v),
   nariz: v => change(c => { const bar = altoBarra(); c.narizCubierta = v; c.altoBajos = bar - c.baseBajos - paquete(); }, 'Revisar altura'),
   altNariz: v => change(c => { const bar = altoBarra(); c.alturaNariz = v; c.altoBajos = bar - c.baseBajos - paquete(); }, 'Revisar altura'),
   nCaj: (v, m) => change(() => { const t = byId(m.id); t.numCajones = Math.max(1, Math.min(6, Math.round(v))); t.frentes = []; }),
@@ -6227,7 +6251,7 @@ function renderMatEditor(){
   const quick = QUICK_COLORS[m.categoria] || [];
   el.classList.add('open');
   el.innerHTML = `<div class="p-section">
-    <div class="ed-head"><div class="ed-preview" style="background:url(${swatchURL(m, 36, 36)}) center/cover"></div><div><div class="ed-title">Editar · ${m.categoria}</div><div class="ed-sub">${m.base ? 'Material base' : 'Material del proyecto'}</div></div></div>
+    <div class="ed-head"><div class="ed-preview" style="background:url(${swatchURL(m, 36, 36)}) center/cover"></div><div style="flex:1"><div class="ed-title">Editar · ${m.categoria}</div><div class="ed-sub">${m.base ? 'Material base' : 'Material del proyecto'}</div></div><button class="btn btn-icon btn-sm" id="matClose" title="Cerrar" aria-label="Cerrar">✕</button></div>
     <label class="field"><span>Nombre</span><input type="text" id="matName" value="${esc(m.nombre)}"></label>
     <div class="field"><span>Color</span><div class="grid-2">
       <button class="btn btn-sm" id="matColorBtn"><span class="dot" style="background:${rgbOf(m)}"></span>Color…</button>
@@ -6240,6 +6264,7 @@ function renderMatEditor(){
   const edit = (fn, msg) => { const id = m.id; change(c => fn(c.catalogo.find(q => q.id === id))); renderMatEditor(); if (msg) setStatus(msg); };
   const setRGB = (r, g, b) => edit(q => { q.r = r; q.g = g; q.b = b; });
   document.getElementById('matName').addEventListener('change', e => { const v = e.target.value.trim(); if (v) edit(q => q.nombre = v); });
+  document.getElementById('matClose').addEventListener('click', () => { editingSwatch = null; renderGallery(); renderMatEditor(); });   /* A124: X para cerrar */
   const input = document.getElementById('matColorInput');
   document.getElementById('matColorBtn').addEventListener('click', () => input.click());
   input.addEventListener('change', () => { const h = input.value; setRGB(parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)); });
@@ -6544,13 +6569,13 @@ const EN = {
   'Jaladera (puertas, elevables y cajón del vanity)': 'Pull (doors, lift-ups and vanity drawer)',
   'Puertas y cajones cierran a hueso y jaladera.': 'Overlay doors and drawers with pulls.',
   'Con abatibles el cuerpo retrocede el espesor de la hoja. Correderas: sistema Ducasse D52 al piso dentro de vano (riel inferior, guía superior bajo una tapeta de 8 cm, hojas casi a tope con 3 cm de traslape), sin zoclo. En estilo moderno los cajones llevan perfiles gola de aluminio (L superior con hueco de 35 mm, C intermedio con hueco de 30 mm); en clásico, jaladeras.': 'With hinged doors the section sets back by the leaf thickness. Sliding: Ducasse D52 floor system inside the opening (bottom rail, top guide under an 8 cm filler, leaves almost touching with 3 cm overlap), no toe kick. In the modern style drawers get aluminum gola profiles (L on top with a 35 mm gap, C in between with a 30 mm gap); in classic, pulls.',
-  'Cada cascada mide 3 cm: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes.': 'Each waterfall is 3 cm: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets.',
+  'Cada cascada mide 3 cm: el de la nariz o, sin nariz, el de la cubierta. Se descuenta del largo de los gabinetes.': 'Each waterfall is 3 cm: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets.',
   '+ Añadir alto': '+ Add upper',
   '+ Añadir bajo': '+ Add base',
   '+ Añadir módulo': '+ Add cabinet',
   '+ Añadir panel': '+ Add panel',
   '+ Añadir panel posterior': '+ Add back panel',
-  '0 = pegado al horno; si no, 5 cm o más, cerrada con una tapa ciega. También puedes arrastrar el punto azul del microondas.': '0 = tight to the oven; otherwise 5 cm or more, closed with a blank panel. You can also drag the microwave’s blue point.',
+  '0 = pegado al horno; si no, 5 cm o más, con tapa ciega. También se arrastra su punto azul.': '0 = tight to the oven; otherwise 5 cm or more, closed with a blank panel. You can also drag the microwave’s blue point.',
   '1 puerta': '1 door',
   '2 cajones': '2 drawers',
   '2 puertas': '2 doors',
@@ -6601,13 +6626,13 @@ const EN = {
   'Ancho del modelo': 'Model width',
   'Ancho del panel': 'Panel width',
   'Ancho total de la isla': 'Total island width',
-  'Arrastra el punto azul del dibujo para cambiar la altura del cajón, o haz clic en su cota.': 'Drag the blue point in the drawing to change the drawer height, or click its dimension.',
-  'Arrastra los puntos azules de la hoja para mover las juntas, o haz clic en su cota.': 'Drag the leaf’s blue points to move the reveals, or click their dimension.',
-  'Arrastra los puntos azules del dibujo (maletero, zapatera, escritorio y cajones) o haz clic en su cota.': 'Drag the blue points in the drawing (top storage, shoe rack, desk and drawers) or click their dimension.',
-  'Arrastra los puntos azules del dibujo para cambiar las alturas, o haz clic en su cota.': 'Drag the blue points in the drawing to change the heights, or click their dimension.',
-  'Arrastra un material sobre la caja (vista Interior) o sobre su puerta (vista Puertas).': 'Drag a material onto the box (Interior view) or its door (Doors view).',
-  'Arrastra un material sobre cualquier franja: se aplica a toda la gola (fondo y perfil).': 'Drag a material onto any strip: it applies to the whole gola (background and profile).',
-  'Arrastra un material sobre una pieza seleccionada: se aplica a toda la selección. Ctrl + clic suma o quita piezas.': 'Drag a material onto a selected part: it applies to the whole selection. Ctrl + click adds or removes parts.',
+  'Arrastra el punto azul o haz clic en su cota.': 'Drag the blue point in the drawing to change the drawer height, or click its dimension.',
+  'Arrastra los puntos azules de la hoja o haz clic en su cota.': 'Drag the leaf’s blue points to move the reveals, or click their dimension.',
+  'Arrastra los puntos azules o haz clic en su cota.': 'Drag the blue points in the drawing (top storage, shoe rack, desk and drawers) or click their dimension.',
+  'Arrastra los puntos azules o haz clic en su cota.': 'Drag the blue points in the drawing to change the heights, or click their dimension.',
+  'Suelta un material en la caja (Interior) o en su puerta (Puertas).': 'Drag a material onto the box (Interior view) or its door (Doors view).',
+  'Suelta un material en una franja: va a toda la gola.': 'Drag a material onto any strip: it applies to the whole gola (background and profile).',
+  'Suelta un material en una pieza elegida: va a toda la selección. Ctrl + clic suma o quita.': 'Drag a material onto a selected part: it applies to the whole selection. Ctrl + click adds or removes parts.',
   'Backsplash': 'Backsplash',
   'Bajo cubierta': 'Undermount',
   'Barra': 'Rod',
@@ -6656,12 +6681,12 @@ const EN = {
   'Comando:': 'Command:',
   'Completo': 'Combo tower',
   'Completo hasta los gabinetes altos': 'Full height up to the uppers',
-  'Con 0 la barra queda a paño de la cara exterior de la cascada (o del canto de la cubierta si ese lado no tiene cascada); un valor mayor la saca por fuera. Izquierda y derecha son las del alzado frontal.': 'With 0 the bar is flush with the waterfall’s outer face (or the countertop edge if that side has no waterfall); a larger value pushes it out. Left and right are those of the front elevation.',
+  '0 = a paño de la cascada (o del canto de la cubierta); más, la saca por fuera. Lados del alzado frontal.': 'With 0 the bar is flush with the waterfall’s outer face (or the countertop edge if that side has no waterfall); a larger value pushes it out. Left and right are those of the front elevation.',
   'Con barra elevada la cubierta usa un espesor único, sin nariz.': 'With a raised bar the countertop uses a single thickness, no built-up edge.',
   'Conservar este ancho': 'Keep this width',
   ' ni el módulo superior': ' or stacker',
   'Mostrar solo la campana (sin gabinete alto)': 'Show the range hood only (no wall cabinet)',
-  'El fondo del módulo superior es independiente del gabinete alto de abajo.': "The stacker's depth is independent from the wall cabinet below.",
+  'Su fondo no depende del alto de abajo.': "The stacker's depth is independent from the wall cabinet below.",
   'Subway 3×6"': '3×6" subway',
   'Ladrillo alineado 3×6"': '3×6" stacked',
   'Cuadro 8×8"': '8×8" square',
@@ -6677,7 +6702,7 @@ const EN = {
   'Los campos y las cotas aceptan escribir en esta unidad, o con su unidad: 60 cm, 600 mm, 23 5/8" o 1\'-11 5/8".': 'Fields and dimensions accept this unit, or a value with its unit: 60 cm, 600 mm, 23 5/8", or 1\'-11 5/8".',
   'Melamina 3/4"': 'Melamine 3/4"',
   'Largo de la barra (entre centros)': 'Bar pull length (center to center)',
-  'Repisa alta medida desde el zoclo; con maletero es su piso. Escritorio a todo el ancho con un cajón sencillo con jaladera debajo, hueco libre para la silla, espejo pegado al muro y repisa alta.': 'Top shelf measured from the toe kick; with top storage it is its floor. Full-width desk with a single drawer and pull below, knee space for the chair, a mirror on the wall, and a top shelf.',
+  'Escritorio a todo el ancho con un cajón, hueco para la silla, espejo y repisa alta (con maletero, es su piso).': 'Top shelf measured from the toe kick; with top storage it is its floor. Full-width desk with a single drawer and pull below, knee space for the chair, a mirror on the wall, and a top shelf.',
   'Región': 'Region',
   'México (métrico)': 'Mexico (metric)',
   'Estados Unidos (pulgadas)': 'United States (inches)',
@@ -6696,7 +6721,7 @@ const EN = {
   'Volver a automático': 'Back to automatic',
   'A paño de gabinetes (solo en laterales)': 'Flush with cabinets (sides only)',
   'Pistón': 'Lift-up',
-  'Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.': 'Double-click it in the drawing for its height, material and joining it to the next column.',
+  'Doble clic en el dibujo: alto, material y unir columnas.': 'Double-click it in the drawing for its height, material and joining it to the next column.',
   'Continuar': 'Continue',
   'Correderas para todo el tramo': 'Sliding for the whole run',
   'Ctrl + clic: selección · Arrastrar: mover · Supr: borrar': 'Ctrl + click: select · Drag: move · Del: delete',
@@ -6738,7 +6763,7 @@ const EN = {
   'Gabinete inferior': 'Lower cabinet',
   'Caja de repisas abierta.': 'Open shelves.',
   'Detrás de su puerta se ven en la vista Interior.': 'Behind its door they show in the Interior view.',
-  ' Forma una caja corrida: repisas y divisiones se reparten en toda la caja.': ' It forms a continuous box: shelves and dividers are spread over the whole box.',
+  ' Caja corrida: repisas y divisiones en toda la caja.': ' It forms a continuous box: shelves and dividers are spread over the whole box.',
   'Volver a las columnas': 'Back to the columns',
   'Editar la caja corrida': 'Edit the continuous box',
   'Divisiones': 'Dividers',
@@ -6749,8 +6774,8 @@ const EN = {
   'Descargar todo': 'Download all',
   'Deshacer (Ctrl+Z)': 'Undo (Ctrl+Z)',
   'División vertical interna': 'Inner vertical divider',
-  'Doble clic en cada cuerpo o en la cajonera del dibujo para configurarlos.': 'Double-click each section or the drawer unit in the drawing to set them up.',
-  'Doble clic en el gabinete inferior o superior del dibujo para elegir puertas, cajones o repisas. Clic en el horno, el microondas o la rejilla para editarlos.': 'Double-click the lower or upper cabinet in the drawing to choose doors, drawers or shelves. Click the oven, microwave or grille to edit them.',
+  'Doble clic en un cuerpo o en la cajonera para configurarlos.': 'Double-click each section or the drawer unit in the drawing to set them up.',
+  'Doble clic en un cuerpo para elegir puertas, cajones o repisas; clic en un equipo para editarlo.': 'Double-click the lower or upper cabinet in the drawing to choose doors, drawers or shelves. Click the oven, microwave or grille to edit them.',
   'Dos hojas a partir de 60 cm.': 'Two leaves from 60 cm.',
   'Dos puertas': 'Two doors',
   'Día / noche: lienzo e interfaz en oscuro': 'Day / night: dark canvas and interface',
@@ -6760,7 +6785,7 @@ const EN = {
   'Editar la puerta oculta': 'Edit the hidden door',
   'Editar la torre': 'Edit the tower',
   'El especiero lleva 5 repisas.': 'The spice rack has 5 shelves.',
-  'El largo del tramo se edita con la cota inferior del dibujo.': 'The run length is edited with the bottom dimension of the drawing.',
+  'El largo se edita en la cota inferior.': 'The run length is edited with the bottom dimension of the drawing.',
   'El sobrante decimal se absorbe en las tapetas activas. Perfil cerrado con tapas.': 'The decimal remainder goes into the active fillers. Closed profile with caps.',
   'Elevable': 'Lift-up',
   'Elevación': 'Rise',
@@ -6772,7 +6797,7 @@ const EN = {
   'En este proyecto': 'In this project',
   'Entre repisas se respetan 35 cm: en módulos bajos cabe una sola. Con puertas llega a 120 cm; la caja abierta, a 3 columnas.': '35 cm is kept between shelves: short cabinets fit only one. With doors it reaches 120 cm; the open box, 3 columns.',
   'Entrepaños de 27 cm como mínimo.': 'Shelf spaces of at least 27 cm.',
-  'Es un elemento independiente del gabinete alto. Arrastra un material sobre él; con doble clic se eligen sus repisas o su fondo.': 'It is separate from the upper cabinet. Drag a material onto it; double-click to pick its shelves or back.',
+  'Es independiente del gabinete alto. Suelta un material sobre él; doble clic elige sus repisas o su fondo.': 'It is separate from the upper cabinet. Drag a material onto it; double-click to pick its shelves or back.',
   'Es un elemento propio: doble clic sobre él en el dibujo para elegir pistón, dos puertas o caja de repisas, su alto y unirlo con la columna vecina.': 'It is its own element: double-click it in the drawing to choose lift-up, two doors or open shelves, its height, and to join it with the next column.',
   'Escala del patrón': 'Pattern scale',
   'Espacio para bancos': 'Stool space',
@@ -6809,7 +6834,7 @@ const EN = {
   'Gotero': 'Eyedropper',
   'Guardado': 'Saved',
   'Guardar / actualizar': 'Save / update',
-  'Guardar actualiza también el nombre. Tras generar se guarda automáticamente la configuración. Se conserva al guardar el modelo (RVT o SKP).': 'Saving also updates the name. The configuration is saved automatically after generating. It is kept when you save the model (RVT or SKP).',
+  'Guardar también actualiza el nombre. Al generar se guarda sola y queda en el modelo (RVT o SKP).': 'Saving also updates the name. The configuration is saved automatically after generating. It is kept when you save the model (RVT or SKP).',
   'Guardar como nueva': 'Save as new',
   'Guardar y cargar configuraciones': 'Save and load configurations',
   'Herrajes': 'Hardware',
@@ -6830,10 +6855,10 @@ const EN = {
   'L superior / C entre cajones.': 'L on top / C between drawers.',
   'LED al frente': 'LED at the front',
   'LED atrás': 'LED at the back',
-  'La cascada de la barra es independiente de las de la cubierta. Donde no hay cascada de cubierta, la de la barra cae por fuera del cuerpo de la isla. La barra admite su propio material: arrástralo sobre ella.': 'The bar waterfall is independent from the countertop ones. Where there is no countertop waterfall, the bar’s falls outside the island section. The bar takes its own material: drag it onto it.',
-  'La distribución posterior es independiente de los gabinetes del frente. Arrastra un material de la pestaña Materiales sobre cada panel.': 'The back layout is independent from the front cabinets. Drag a material from the Materials tab onto each panel.',
+  'Su cascada no depende de las de la cubierta; sin cascada de cubierta, cae por fuera de la isla. Admite su propio material.': 'The bar waterfall is independent from the countertop ones. Where there is no countertop waterfall, the bar’s falls outside the island section. The bar takes its own material: drag it onto it.',
+  'Los paneles no dependen de los gabinetes del frente. Suelta un material sobre cada panel.': 'The back layout is independent from the front cabinets. Drag a material from the Materials tab onto each panel.',
   'La misma altura de la tapeta superior de la cocina.': 'Same height as the kitchen’s top filler.',
-  'La tarja y el monomando se configuran desde su gabinete, o haciendo clic sobre ellos en el dibujo.': 'The sink and faucet are set from their cabinet, or by clicking them in the drawing.',
+  'La tarja se configura desde su gabinete o con clic en el dibujo.': 'The sink and faucet are set from their cabinet, or by clicking them in the drawing.',
   'Lado': 'Side',
   'Largo de la barra': 'Bar length',
   'Lateral piso a techo': 'Floor-to-ceiling end panel',
@@ -6851,6 +6876,9 @@ const EN = {
   'Medir todo': 'Measure all',
   'Sección: muestra u oculta en el alzado la sección lateral del gabinete elegido (o del primero), con su línea de corte': 'Section: shows or hides, next to the elevation, the side section of the selected cabinet (or the first one), with its cut line',
   'SECCIÓN': 'SECTION',
+  'Escribe en esta unidad o con otra: 60 cm, 600 mm, 23 5/8" o 1\'-11 5/8".': 'Type in this unit or another: 60 cm, 600 mm, 23 5/8" or 1\'-11 5/8".',
+  'En SketchUp los closets saldrán con Drawdrobe; la opción queda guardada.': 'In SketchUp, closets will come from Drawdrobe; the option is saved.',
+  'Solo este alto empieza más arriba; 0 lo alinea con los demás.': 'Only this wall cabinet starts higher; 0 aligns it with the rest.',
   'División': 'Divider',
   'arrástrala o haz clic en su cota.': 'drag it or click its dimension.',
   'clic en una pieza para editarla': 'click a part to edit it',
@@ -6964,13 +6992,13 @@ const EN = {
   'Retiro frontal': 'Front setback',
   'Retiro respecto a los paneles': 'Setback from the panels',
   'Sección': 'Section',
-  'Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo. La cara posterior se edita en la vista Posterior.': 'Select a cabinet, the countertop, a waterfall, the toe kick or the raised bar in the drawing. The back face is edited in the Rear elevation.',
-  'Selecciona un mueble, cubierta, tarja, zoclo o tapeta en el dibujo. Los contornos punteados permiten activar piezas ocultas.': 'Select a cabinet, countertop, sink, toe kick, or filler in the drawing. Dashed outlines are parts you can turn on.',
+  'Elige una pieza en el dibujo. La cara posterior se edita en la vista Posterior.': 'Select a cabinet, the countertop, a waterfall, the toe kick or the raised bar in the drawing. The back face is edited in the Rear elevation.',
+  'Elige una pieza en el dibujo. Lo punteado está apagado: clic para activarlo.': 'Select a cabinet, countertop, sink, toe kick, or filler in the drawing. Dashed outlines are parts you can turn on.',
   'Sencillo': 'Standard',
   'Separación posterior': 'Rear gap',
   'Separación sobre el horno': 'Gap above the oven',
   'Separar la última columna': 'Split the last column',
-  'Si el frigobar supera el alto del gabinete, baja hasta el piso y el zoclo se interrumpe.': 'If the wine cooler is taller than the cabinet, it goes down to the floor and the toe kick is cut.',
+  'Si es más alto que el gabinete, baja al piso y corta el zoclo.': 'If the wine cooler is taller than the cabinet, it goes down to the floor and the toe kick is cut.',
   'Simple': 'Simple',
   'Sin puertas': 'No doors',
   'Sin puertas en este módulo': 'No doors on this cabinet',
@@ -6995,7 +7023,7 @@ const EN = {
   'Tipo': 'Type',
   'Todas las repisas de este gabinete': 'All shelves in this cabinet',
   'Torre': 'Tower',
-  'Torre de 20 cm con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.': '20 cm tower with a 5-shelf spice section, from the toe kick to the top of the uppers.',
+  'Torre de 20 cm con especiero de 5 repisas, del zoclo al tope.': '20 cm tower with a 5-shelf spice section, from the toe kick to the top of the uppers.',
   'Torre de hornos': 'Oven cabinet',
   'Tramo': 'Run',
   'Unir con la columna derecha (caja corrida)': 'Join with the right column (continuous box)',
@@ -7056,7 +7084,7 @@ const EN = {
   'Hacia adentro': 'Inward',
   'Hacia afuera': 'Outward',
   'Simular la luz (SketchUp)': 'Simulate the light (SketchUp)', 'Las dos tapetas': 'Both fillers', 'Ancho base': 'Base width', 'Ancho máximo': 'Maximum width',
-  'Los gabinetes se reparten iguales en centímetros enteros; lo que sobra va a las tapetas sin pasar del máximo. Si no cabe, algunos gabinetes quedan 1 cm más anchos.': 'Cabinets are split evenly in whole centimeters; the remainder goes to the fillers up to the maximum. If it does not fit, some cabinets are 1 cm wider.', 'LED bajo las repisas': 'LED under the shelves',
+  'Gabinetes iguales en cm enteros; lo que sobra va a las tapetas (hasta su máximo) o, si no cabe, a algunos gabinetes, 1 cm más.': 'Cabinets are split evenly in whole centimeters; the remainder goes to the fillers up to the maximum. If it does not fit, some cabinets are 1 cm wider.', 'LED bajo las repisas': 'LED under the shelves',
   'Temperatura de color': 'Color temperature', 'Tono de la luz': 'Light tone',
   'Al frente': 'Front',
   'Al centro': 'Center',
@@ -7089,10 +7117,10 @@ const EN = {
   'Cotas': 'Dimensions',
   'Valores de inicio': 'Starting values',
   'Comportamiento': 'Behavior',
-  'Perfiles de gola': 'Gola profiles', 'Perfiles de fábrica': 'Factory profiles', 'Estilo moderno. Toca una cota para cambiarla. La holgura es la misma arriba y entre cajones.': 'Modern style. Tap a dimension to change it. The finger gap is the same at the top and between drawers.', 'Medidas en mm · punteado: paño del cuerpo': 'Sizes in mm · dashed: cabinet body face', 
+  'Perfiles de gola': 'Gola profiles', 'Perfiles de fábrica': 'Factory profiles', 'Estilo moderno. Toca una cota para cambiarla.': 'Modern style. Tap a dimension to change it. The finger gap is the same at the top and between drawers.', 'Medidas en mm · punteado: paño del cuerpo': 'Sizes in mm · dashed: cabinet body face', 
   'Licencia y acerca de': 'License and about',
-  'Son tuyos, no del proyecto: valen para todas tus cocinas, islas y closets.': 'These are your personal settings, not the project\'s — they apply to every kitchen, island, and closet you create.',
-  'Toda la interfaz: paneles, ayudas, mensajes y rótulos del dibujo. No se traducen los nombres que pones tú (materiales propios y configuraciones).': 'The whole interface: panels, help, messages and drawing labels. Names you give (own materials and configurations) are not translated.',
+  'Son tuyos, no del proyecto: valen para todo lo que diseñes.': 'These are your personal settings, not the project\'s — they apply to every kitchen, island, and closet you create.',
+  'Toda la interfaz. Tus nombres (materiales y configuraciones) no se traducen.': 'The whole interface: panels, help, messages and drawing labels. Names you give (own materials and configurations) are not translated.',
   'Centímetros (cm)': 'Centimeters (cm)',
   'Milímetros (mm)': 'Millimeters (mm)',
   'Pulgadas fraccionarias (in)': 'Fractional inches (in)',
@@ -7148,7 +7176,7 @@ const EN = {
 const EN_T = [
   ["La columna lleva solo la campana: sin el gabinete alto{0}; la chimenea llega al tope.", "This column has the range hood only: no wall cabinet{0}; the chimney runs to the top."],
   ["Compacto ({0})", "Compact ({0})"],
-  ["Hueco de {0} del piso a la cubierta; el aparato trae su propio zoclo y el del mueble se corta.", "{0} opening from the floor to the countertop; the appliance has its own toe kick, so the cabinet toe kick stops."],
+  ["Hueco de {0} del piso a la cubierta; trae su propio zoclo.", "{0} opening from the floor to the countertop; the appliance has its own toe kick, so the cabinet toe kick stops."],
   ["Sin tarja en la cocina: la NKBA pide el lavavajillas a {0} o menos de ella.", "No sink in the kitchen: NKBA wants the dishwasher within {0} of it."],
   ["El lavavajillas queda a {0} de la tarja; la NKBA recomienda {1} o menos.", "The dishwasher is {0} from the sink; NKBA recommends {1} or less."],
   ["La campana queda a {0} de la estufa; se recomiendan al menos {1} (campana, NKBA).", "The range hood is {0} above the range; NKBA recommends at least {1} (hood)."],
@@ -7162,7 +7190,7 @@ const EN_T = [
   ["En el plugin, Line-Island se dibuja como un rectángulo (dos esquinas o largo,ancho tecleado) y después se elige el lado largo de los gabinetes. El prototipo abre una isla de {0} × {1}. ¿Continuar? La distribución actual se descarta.", "In the plugin, Line-Island is drawn as a rectangle (two corners, or length,width typed in), then you pick the long side for the cabinets. The prototype opens a {0} × {1} island. Continue? The current layout will be discarded."],
   ["El prototipo abre una cocina en muro de {0}. ¿Continuar? La distribución actual se descarta.", "The prototype opens a kitchen on a {0} wall. Continue? The current layout will be discarded."],
   ["Mínimo {0} libres entre repisas: en este alto caben {1}. Detrás de las puertas se ven en la vista Interior.", "At least {0} clear between shelves: {1} fit at this height. Behind the doors they show in the Interior view."],
-  ["Torre de {0} con un cuerpo de especiero de 5 repisas, del zoclo al tope de los altos.", "A {0} tall pull-out with a 5-shelf spice section, from the toe kick to the top of the uppers."],
+  ["Torre de {0} con especiero de 5 repisas, del zoclo al tope.", "A {0} tall pull-out with a 5-shelf spice section, from the toe kick to the top of the uppers."],
   ["Dos hojas a partir de {0}.", "Two doors from {0} up."],
   ["El mismo ancho en todas las puertas y cajones; en un frente muy chico se reduce para que el tablero rehundido mida al menos {0}.", "The same width on every door and drawer; on a very small front it shrinks so the recessed panel is at least {0}."],
   ["Ejemplo: {0}", "Example: {0}"],
@@ -7209,8 +7237,8 @@ const EN_T = [
   ["6 quemadores ({0}); sin marcar, 4 ({1})", "6 burners ({0}); unchecked, 4 ({1})"],
   ["La nueva distancia no admite estos módulos entre sus anchos mínimos y {0}. Ajusta la cantidad o el equipo.", "The new length does not fit these cabinets between their minimum widths and {0}. Change the count or the appliances."],
   ["Activa una tapeta para absorber el sobrante del reparto en pasos de {0} (o elige «A medida» en el muro).", "Turn on a filler to take the space left by the {0} steps (or choose “Custom” on the wall)."],
-  ["Los gabinetes automáticos se reparten en pasos de {0}; lo que no llena un paso va a las tapetas.", "Automatic cabinets are sized in {0} steps; whatever doesn't fill a step goes to the fillers."],
-  ["Independiente del idioma: pone la unidad, los valores de inicio, el reparto de anchos{0} y los límites de los gabinetes. Vale para las cocinas, islas y closets nuevos; la actual conserva la suya ({1}).", "Separate from the language: it sets the unit, the starting values, cabinet sizing{0}, and cabinet limits. It applies to new kitchens, islands, and closets; the current one keeps its own ({1})."],
+  ["Los gabinetes se reparten en pasos de {0}; lo que no llena un paso va a las tapetas.", "Automatic cabinets are sized in {0} steps; whatever doesn't fill a step goes to the fillers."],
+  ["Fija la unidad, los valores de inicio, el reparto de anchos{0} y los límites. Aplica a lo nuevo; la actual conserva la suya ({1}).", "Separate from the language: it sets the unit, the starting values, cabinet sizing{0}, and cabinet limits. It applies to new kitchens, islands, and closets; the current one keeps its own ({1})."],
   ["Entre repisas quedan {0}: menos de los 35 cm recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended 35 cm. They are generated anyway."],
   ["Entre repisas quedan {0}: menos de los {1} recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended {1}. They are generated anyway."],
   ["Entre repisas quedan {0}: menos de los 25 cm recomendados. Se generan igual.", "Shelves are {0} apart: less than the recommended 25 cm. They are generated anyway."],
@@ -7232,8 +7260,8 @@ const EN_T = [
   ["Mínimo {0} libres entre repisas: en este alto caben {1}.", "At least {0} clear between shelves: {1} fit in this height."],
   ["Caben hasta {0}: entre repisas quedan al menos {1}. Detrás de las puertas se ven en la vista Interior.", "Up to {0} fit: at least {1} stay between shelves. Behind the doors they show in the Interior view."],
   ["Caben hasta {0}: entre repisas quedan al menos {1}.", "Up to {0} fit: at least {1} stay between shelves."],
-  ["Cada cascada mide {0}: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes {1}.", "Each waterfall is {0}: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets {1}."],
-  ["Cada cascada mide {0}: la altura de la nariz, o el espesor de cubierta si no hay nariz. Ese grosor se descuenta del largo para los gabinetes.", "Each waterfall is {0}: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets."],
+  ["Cada cascada mide {0}: el de la nariz o, sin nariz, el de la cubierta. Se descuenta del largo de los gabinetes {1}.", "Each waterfall is {0}: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets {1}."],
+  ["Cada cascada mide {0}: el de la nariz o, sin nariz, el de la cubierta. Se descuenta del largo de los gabinetes.", "Each waterfall is {0}: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets."],
   ["Cajones de alacena: cuerpo de {0} a {1}.", "Pantry drawers: section from {0} to {1}."],
   ["Cama automática: {0}. Conserva libre la gola.", "Automatic countertop substrate: {0}. The gola stays clear."],
   ["Cada módulo de closet admite hasta 120 cm ({0}): divide el tramo en más módulos.", "Each closet section takes up to 120 cm ({0}): split the run into more cabinets."],
@@ -7457,7 +7485,7 @@ function renderPresets(){
       <button class="btn btn-block" id="pSaveNew">Guardar como nueva</button>
       <button class="btn btn-danger btn-block" id="pDelete" ${items.length ? '' : 'disabled'}>Eliminar configuración</button>
     </div>
-    <div class="p-section"><div class="note-sm" style="margin-top:0">Guardar actualiza también el nombre. Tras generar se guarda automáticamente la configuración. Se conserva al guardar el modelo (RVT o SKP).</div></div>`;
+    <div class="p-section"><div class="note-sm" style="margin-top:0">Guardar también actualiza el nombre. Al generar se guarda sola y queda en el modelo (RVT o SKP).</div></div>`;
   const picked = () => catalog.find(p => p.id === document.getElementById('presetList').value);
   document.getElementById('saveClose').addEventListener('click', closeSettings);
   document.getElementById('pLoad').addEventListener('click', () => { const it = picked(); if (it && loadConfig(it)) { closeSettings(); setStatus('Configuración «' + it.name + '» cargada en este muro.'); } });
@@ -7487,7 +7515,7 @@ function svgPerfilGola(tipo, P){
   const tick = (x, z) => `<line x1="${X(x) - 4}" y1="${Y(z) + 4}" x2="${X(x) + 4}" y2="${Y(z) - 4}" stroke="currentColor" stroke-width="1.3"/>`;
   const linea = (x0, z0, x1, z1) => `<line x1="${X(x0)}" y1="${Y(z0)}" x2="${X(x1)}" y2="${Y(z1)}" stroke="currentColor"/>` + tick(x0, z0) + tick(x1, z1);
   const campos = [];
-  const campo = (x, z, clave, v, titulo) => campos.push(`<input class="cota-in" type="text" inputmode="decimal" data-perfil="${tipo}" data-campo="${clave}" value="${mmTxt(v)}" title="${titulo} (mm)" style="left:${(X(x)/W*100).toFixed(2)}%;top:${(Y(z)/H*100).toFixed(2)}%">`);
+  const campo = (x, z, clave, v, titulo) => campos.push(`<input class="cota-in" type="text" inputmode="decimal" data-perfil="${tipo}" data-campo="${clave}" value="${mmTxt(v)} mm" title="${titulo} (mm)" style="left:${(X(x)/W*100).toFixed(2)}%;top:${(Y(z)/H*100).toFixed(2)}%">`);
   const cuerpo = 'rgba(150,150,150,.25)', frente = 'rgba(38,96,150,.22)', perfil = mel ? 'rgba(196,160,105,.85)' : 'rgba(125,129,135,.95)', libre = 'rgba(255,255,255,.9)';
   const fL = P.fondoL, fC = P.fondoC;
   let g = rect(-9, 0, -tC - 3, zT, cuerpo);   /* lateral del cuerpo */
@@ -7504,6 +7532,9 @@ function svgPerfilGola(tipo, P){
   return `<div class="perfil-gola" style="position:relative;max-width:${W}px;margin:4px auto 0"><svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" role="img" aria-label="Perfil de gola ${mel ? 'de melamina' : 'de aluminio'}">${g}`
     + `<text x="${X(-14)}" y="${H - 6}" font-size="11" fill="currentColor" opacity=".75">Medidas en mm · punteado: paño del cuerpo</text></svg>${campos.join('')}</div>`;
 }
+/* A124 (usuario, 09/10): Ajustes por pestanas segun su tipo */
+let prefsTab = 'general';
+const PREFS_TABS = [['general', 'General', ['Región', 'Idioma', 'Unidades', 'Comportamiento']], ['cotas', 'Cotas', ['Cotas']], ['gabinetes', 'Gabinetes', ['Valores de inicio', 'Perfiles de gola']], ['exportar', 'Exportar', ['Exportar']], ['licencia', 'Licencia', ['Licencia y acerca de']]];
 function renderPrefs(){
   const el = document.getElementById('prefsPanel'), P = prefs, I = P.inicio, u = P.unidad;
   const radio = (path, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${String(v) === String(cur) ? ' on' : ''}"><input type="radio" name="pf-${path}" data-pref="${path}" value="${v}" ${String(v) === String(cur) ? 'checked' : ''}><div><div class="t">${t}</div></div></label>`).join('')}</div>`;
@@ -7515,16 +7546,16 @@ function renderPrefs(){
   const prodName = cfg.closet ? 'Drawdrobe' : 'Skitchen';
   el.innerHTML = `<div class="p-section"><div class="m-head"><div class="m-title">Ajustes</div>
       <button class="btn btn-icon btn-sm" id="prefsClose" title="Volver al editor" aria-label="Cerrar">✕</button></div>
-      <div class="note-sm">Son tuyos, no del proyecto: valen para todas tus cocinas, islas y closets.</div></div>
+      <div class="note-sm">Son tuyos, no del proyecto: valen para todo lo que diseñes.</div></div>
     ${section('Región', radio('region', [['MX', 'México (métrico)'], ['US', 'Estados Unidos (pulgadas)']], P.region)
       + (P.region === 'US' ? select('pasoReparto', PASOS_REPARTO, P.pasoReparto, 'Reparto de anchos') : '')
-      + `<div class="note-sm">Independiente del idioma: pone la unidad, los valores de inicio, el reparto de anchos${P.region === 'US' ? ' (módulos de 3", 1" o 1/16")' : ' (cm enteros)'} y los límites de los gabinetes. Vale para las cocinas, islas y closets nuevos; la actual conserva la suya (${cfg.region === 'US' ? 'Estados Unidos' : 'México'}).</div>`
+      + `<div class="note-sm">Fija la unidad, los valores de inicio, el reparto de anchos${P.region === 'US' ? ' (módulos de 3", 1" o 1/16")' : ' (cm enteros)'} y los límites. Aplica a lo nuevo; la actual conserva la suya (${cfg.region === 'US' ? 'Estados Unidos' : 'México'}).</div>`
       + (cfg.region !== P.region ? `<button class="btn btn-block" style="margin-top:8px" id="prefsRegionCfg">Aplicar a la distribución actual</button>` : ''))}
-    ${section('Idioma', radio('idioma', [['es', 'Español'], ['en', 'English']], P.idioma) + `<div class="note-sm">Toda la interfaz: paneles, ayudas, mensajes y rótulos del dibujo. No se traducen los nombres que pones tú (materiales propios y configuraciones).</div>`)}
+    ${section('Idioma', radio('idioma', [['es', 'Español'], ['en', 'English']], P.idioma) + `<div class="note-sm">Toda la interfaz. Tus nombres (materiales y configuraciones) no se traducen.</div>`)}
     ${section('Unidades', select('unidad', [['cm', 'Centímetros (cm)'], ['mm', 'Milímetros (mm)'], ['in', 'Pulgadas fraccionarias (in)'], ['inft', 'Pulgadas, con pies en las totales (in + ft-in)'], ['ftin', 'Pies y pulgadas (ft-in)']], u)
       + select('paso.' + u, pasos, P.paso[u], 'Redondeo')
       + `<div class="info-card" style="margin-top:10px"><div class="info-row">${P.region === 'US' ? 'Ejemplo: 24"' : 'Ejemplo: 60 cm'} <b class="pref-ex">${esc(medida(P.region === 'US' ? inch(24) : 60))}</b></div></div>`
-      + `<div class="note-sm">Los campos y las cotas aceptan escribir en esta unidad, o con su unidad: 60 cm, 600 mm, 23 5/8" o 1'-11 5/8".</div>`)}
+      + `<div class="note-sm">Escribe en esta unidad o con otra: 60 cm, 600 mm, 23 5/8" o 1'-11 5/8".</div>`)}
     ${section('Cotas', `<label class="field"><span>Remate</span></label>` + radio('cotaRemate', [['oblicuo', 'Oblicuo'], ['flecha', 'Flecha'], ['punto', 'Punto']], P.cotaRemate)
       + `<div class="grid-2" style="margin-top:10px">${select('cotaTexto', [[10, 'Pequeño'], [11.5, 'Normal'], [13, 'Grande']], P.cotaTexto, 'Tamaño del texto')}${select('cotaUnidad', [['totales', 'Solo en las totales'], ['todas', 'En todas'], ['ninguna', 'En ninguna']], P.cotaUnidad, 'Unidad en las cotas')}</div>`
       + `<label class="field" style="margin-top:10px"><span>Color</span></label>` + radio('cotaColor', [['producto', 'Color del producto'], ['negro', 'Negro']], P.cotaColor))}
@@ -7532,7 +7563,7 @@ function renderPrefs(){
       + `<div class="grid-2">${len('inicio.alturaMuro', 'Altura de muro', I.alturaMuro)}${len('inicio.baseBajos', 'Zoclo', I.baseBajos)}${len('inicio.altoBajos', 'Alto de bajos', I.altoBajos)}${len('inicio.espesorCubierta', 'Espesor de cubierta', I.espesorCubierta)}${len('inicio.separacionAltos', 'Libre sobre cubierta', I.separacionAltos)}${len('inicio.tapeta', 'Tapetas laterales', I.tapeta)}${len('inicio.fondoBajos', 'Fondo de bajos', I.fondoBajos)}${len('inicio.fondoAltos', 'Fondo de altos', I.fondoAltos)}${len('inicio.separacionFrentes', 'Separación entre frentes', I.separacionFrentes)}${len('inicio.espesorFrente', 'Espesor de frentes', I.espesorFrente)}</div>`
       + `<div class="grid-2" style="margin-top:10px">${select('inicio.style', [['Moderna', 'Moderna'], ['Clasica', 'Clásica'], ['Simple', 'Simple']], I.style, 'Estilo de frentes')}${select('inicio.materialGeneral', mats, I.materialGeneral || '', 'Material general')}</div>`
       + `<div class="grid-2" style="margin-top:10px"><button class="btn btn-block" id="prefsFromCfg">Tomar los de la actual</button><button class="btn btn-block" id="prefsIniReset">Valores de fábrica</button></div>`)}
-    ${section('Perfiles de gola', `<div class="note-sm" style="margin-top:0;margin-bottom:6px">Estilo moderno. Toca una cota para cambiarla. La holgura es la misma arriba y entre cajones.</div>`
+    ${section('Perfiles de gola', `<div class="note-sm" style="margin-top:0;margin-bottom:6px">Estilo moderno. Toca una cota para cambiarla.</div>`
       + ['aluminio', 'melamina'].map(k => `<div class="p-label" style="margin-top:10px">${k === 'aluminio' ? 'Aluminio' : 'Melamina'}</div>` + svgPerfilGola(k, (P.perfiles || PREFS_DEF.perfiles)[k])).join('')
       + `<button class="btn btn-block" style="margin-top:10px" id="prefsPerfilesReset">Perfiles de fábrica</button>`)}
     ${section('Comportamiento', check('iman', P.iman, 'Imán al arrastrar divisiones') + (P.iman ? `<div class="sub"><div class="grid-2">${len('imanTol', 'Tolerancia del imán', P.imanTol)}</div></div>` : '')
@@ -7579,6 +7610,11 @@ function renderPrefs(){
     if (err) { setStatus(err); renderPrefs(); return; }
     prefs.perfiles[k] = Q; savePrefs(); render(); renderPrefs();
   }));
+  /* A124: pestanas; cada seccion se muestra en la suya (el encabezado y Listo quedan siempre) */
+  const secs = [...el.querySelectorAll(':scope > .p-section')], tabOf = t => (PREFS_TABS.find(q => q[2].includes(t)) || [])[0];
+  secs.forEach(sec => { const lb = sec.querySelector(':scope > .p-label'); const t = lb && tabOf(lb.textContent.trim()); if (t) { sec.dataset.tab = t; if (t !== prefsTab) sec.style.display = 'none'; } });
+  if (secs[0]) secs[0].insertAdjacentHTML('afterend', `<div class="tab-heads pf-tabs">${PREFS_TABS.map(([k, t]) => `<button type="button" data-pftab="${k}" class="${k === prefsTab ? 'active' : ''}">${t}</button>`).join('')}</div>`);
+  el.querySelectorAll('[data-pftab]').forEach(b => b.addEventListener('click', () => { prefsTab = b.dataset.pftab; renderPrefs(); }));
   const rc = document.getElementById('prefsRegionCfg');
   if (rc) rc.addEventListener('click', () => { const v = prefs.region; change(c => { c.region = v; c.pasoReparto = v === 'US' ? prefs.pasoReparto : 'entero'; c.repartoAdaptado = false; c.modulos.forEach(m => { if (!ANCHO_TIPO[m.tipo]) m.fijo = false; }); }, 'Región');
     renderPrefs(); setStatus(v === 'US' ? 'La distribución actual usa ahora las reglas de Estados Unidos.' : 'La distribución actual usa ahora las reglas de México.'); });
