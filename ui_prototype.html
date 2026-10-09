@@ -224,6 +224,10 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A128. Tarja doble con dos puertas (09/10, usuario): el bajo de la tarja doble y los altos de encima (su centro cae sobre
+       el bajo) llevan dos puertas en automatico (dosPuertasTarja); el usuario lo puede cambiar (dosPuertasManual manda).
+       Al quitar la tarja doble o moverla, vuelven a una puerta (o a lo que diga «Dos puertas desde»). Nota en el panel.
+       Revit: LayoutState (despues de E12).
    A127. [Revit P12.254] Cambiar de region (09/10, usuario, tras probar la P12.253): al pulsar «Aplicar a la distribucion actual», cada medida
        de la cocina y de sus modulos que sigue en el valor de fabrica de la region anterior (espesor y separacion de frentes,
        tapetas, alturas, fondos, cubierta, zoclo, backsplash, tarja, equipos, laterales) pasa al de la nueva; las que el usuario
@@ -3536,6 +3540,14 @@ function recalculate(){
   }
   /* E12: con «Dos puertas desde» (US 24"), los gabinetes de puertas mas anchos llevan dos hojas, salvo que el usuario lo haya elegido */
   if (cfg.dosPuertasDesde > 0) for (const m of cfg.modulos) if (!m.dosPuertasManual && !m.reserved && !sinPuertas(m) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C')) m.dosPuertas = m.ancho > cfg.dosPuertasDesde + .01;
+  /* A128 (usuario, 09/10): la tarja doble pone dos puertas en su bajo y en los altos de encima (el centro del alto cae sobre el bajo de la
+     tarja); el usuario lo puede cambiar (dosPuertasManual). Al quitar o mover la tarja doble vuelven a una puerta o a «Dos puertas desde» */
+  { const sk = cfg.tipoTarja === 2 && !cfg.isla ? cfg.modulos.find(m => m.id === cfg.moduloTarja && !m.upper) : null, sobre = new Set();
+    if (sk) { let x = ajusteIzq(), s0 = 0, s1 = 0; for (const m of row(false)) { if (m === sk) { s0 = x; s1 = x + m.ancho; break; } x += m.ancho; }
+      x = ajusteIzq(); for (const m of row(true)) { const c = x + m.ancho/2; if (c > s0 + .01 && c < s1 - .01) sobre.add(m); x += m.ancho; } }
+    for (const m of cfg.modulos) { if (m.dosPuertasManual || m.reserved || sinPuertas(m) || !(m.upper || m.tipo === 'Puertas' || m.tipo === 'C')) continue;
+      if (m === sk || sobre.has(m)) { m.dosPuertas = true; m.dosPuertasTarja = true; }
+      else if (m.dosPuertasTarja) { delete m.dosPuertasTarja; m.dosPuertas = cfg.dosPuertasDesde > 0 && m.ancho > cfg.dosPuertasDesde + .01; } } }
   if (cfg.isla) islandPanels();
 }
 function validate(){
@@ -5830,7 +5842,8 @@ function modulePanel(m){
   if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);
   if (twoVis) sw.push(['tgDos', m.dosPuertas, 'Dos puertas', FI.DosPuertas]);
   if (sw.length) opts += toggles(sw);
-  if (twoVis && cfg.dosPuertasDesde > 0 && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas en más de ${medida(cfg.dosPuertasDesde)} de ancho.</div>`;
+  if (twoVis && m.dosPuertasTarja && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas por la tarja doble.</div>`;   /* A128 */
+  else if (twoVis && cfg.dosPuertasDesde > 0 && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas en más de ${medida(cfg.dosPuertasDesde)} de ancho.</div>`;
   if (twoVis && !m.dosPuertas) opts += chk('inv', m.invertir, 'Invertir abatimiento');
   /* con campana extractora la division se conserva aunque el modulo quede de una puerta (master; el real la oculta) */
   const divVis = !isDoble(m) && (m.upper ? (m.dosPuertas || sinPuertas(m) || hasCampana(m)) : m.dosPuertas && m.tipo === 'Puertas' && !m.preparadoTarja);   /* alto doble: en sus secciones (A38) */
@@ -6807,6 +6820,7 @@ const EN = {
   'A medida (1/16")': 'Custom (1/16")',
   'La distribución actual usa ahora las reglas de Estados Unidos.': 'The current layout now uses the United States rules.',
   'La distribución actual usa ahora las reglas de México.': 'The current layout now uses the Mexico rules.',
+  'Automático: dos puertas por la tarja doble.': 'Automatic: two doors for the double sink.',
   'La distribución actual usa ahora las reglas de Estados Unidos. Espesores y medidas de fábrica pasaron a los suyos.': 'The current layout now uses the United States rules. Factory thicknesses and sizes switched to its own.',
   'La distribución actual usa ahora las reglas de México. Espesores y medidas de fábrica pasaron a los suyos.': 'The current layout now uses the Mexico rules. Factory thicknesses and sizes switched to its own.',
   'Ancho fijo': 'Fixed width',
