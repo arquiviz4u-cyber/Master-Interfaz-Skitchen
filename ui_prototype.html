@@ -224,6 +224,10 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A130. Arrastrar un bajo mueve su columna (09/10, usuario, tras probar la P12.255): al intercambiar arrastrando la tarja,
+       la estufa o la parrilla, el alto de encima se quedaba en su sitio (con sus dos puertas o su campana). Ahora, con
+       filas alineadas (tantos altos como bajos), arrastrar un bajo mueve la columna completa: el alto de encima va con el.
+       Arrastrar un alto sigue moviendo solo el alto (A57). Revit: LayoutState.Swap.
    A129. [Revit P12.257] Idioma por region (09/10, usuario): al elegir la region en Ajustes el idioma cambia solo (US ingles, MX espanol) y
        despues se puede cambiar a mano. Corrige E1 («independiente del idioma»): la nota de Region dice ahora que fija el idioma.
        Revit: igual (radio de Region de AjustesTab).
@@ -3702,8 +3706,9 @@ function swap(sourceId, targetId){
     const picked = new Set([...selection, sourceId]);
     const idx = r.map((m, i) => picked.has(m.id) ? i : -1).filter(i => i >= 0), dest = idx.map(i => i + delta);
     if (dest.some(i => i < 0 || i >= r.length) || dest.some(i => idx.includes(i))) throw new Error('El grupo debe caber en posiciones libres de la misma selección.');
-    /* con especiales la columna se mueve completa: el alto (o su reserva) acompaña al bajo */
-    const o0 = row(!src.upper), mirror = o0.length === r.length && cfg.modulos.some(isSpecial);
+    /* con especiales la columna se mueve completa: el alto (o su reserva) acompaña al bajo. A130 (usuario, 09/10): al arrastrar un bajo
+       con filas alineadas tambien va su alto (la tarja con sus altos de dos puertas, la estufa o la parrilla con su campana) */
+    const o0 = row(!src.upper), mirror = o0.length === r.length && (!src.upper || cfg.modulos.some(isSpecial));
     idx.forEach((a, n) => { const ia = cfg.modulos.indexOf(r[a]), ib = cfg.modulos.indexOf(r[dest[n]]); cfg.modulos[ia] = r[dest[n]]; cfg.modulos[ib] = r[a];
       if (mirror) { const ja = cfg.modulos.indexOf(o0[a]), jb = cfg.modulos.indexOf(o0[dest[n]]); cfg.modulos[ja] = o0[dest[n]]; cfg.modulos[jb] = o0[a]; } });
     /* (A57) los bajos mandan el ancho de la columna: un alto arrastrado toma el de su nueva columna, asi la tarja doble,
