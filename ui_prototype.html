@@ -213,6 +213,13 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A115. Seccion lateral en el alzado (08/10, usuario): boton Seccion (icono de linea de corte con flechas) que muestra u
+       oculta, junto al alzado, la seccion del gabinete elegido (o del primero) a la misma escala y con el mismo piso; en el
+       alzado marca la linea de corte A con flechas hacia la seccion. Cocina: bajo o torre con frentes, cajones, repisas,
+       cubierta con vuelo, zoclo con su retiro, backsplash; alto con su modulo superior (fondo propio, A82) o la campana sola
+       (A81); cotas de fondo del bajo, de la cubierta y del alto. Closet: cuerpo con maletero, barras como circulos, repisas,
+       cajones, frentes, correderas y zoclo; cota de fondo. Isla: la seccion transversal existente por la linea de corte de
+       la planta, sin guias. Solo en la vista Alzado y nunca al exportar. Revit: boton igual en la barra del editor.
    A114. Isla centrada en su espacio (08/10, usuario): alzado frontal, vista posterior y seccion se centran en el alto libre
        bajo el titulo (islaSuelo: alto del dibujo mas lo que sobresale arriba y abajo; nunca mas abajo que antes) y a lo ancho
        contando las cotas que salen de un lado (alto de la barra a la derecha, cotas de la barra elevada). Revit: centrar
@@ -1395,6 +1402,10 @@
     <button class="btn btn-toggle" id="btnFlat" title="Plano: dibuja la previa sin colores ni texturas, como un plano, para leer mejor las cotas">
       <svg width="18" height="14" viewBox="0 0 22 17" fill="none"><rect x="1" y="1" width="20" height="15" stroke="#266096" stroke-width="1.4"/><path d="M13 1v15M13 7H21M1 11H13" stroke="#266096" stroke-width="1.1"/></svg>
       Plano
+    </button>
+    <button class="btn btn-toggle" id="btnSection" title="Secci&oacute;n: muestra u oculta en el alzado la secci&oacute;n lateral del gabinete elegido (o del primero), con su l&iacute;nea de corte">
+      <svg width="20" height="16" viewBox="0 0 24 20" fill="none"><path d="M6 1v18" stroke="#266096" stroke-width="1.4" stroke-dasharray="3 2"/><path d="M6 3h6M6 17h6" stroke="#266096" stroke-width="1.4"/><path d="M12 .8l4 2.2-4 2.2ZM12 14.8l4 2.2-4 2.2Z" fill="#266096"/><path d="M18 5h5v10h-5Z" fill="#DED2BC" stroke="#266096" stroke-width="1.1"/><path d="M17 9h7" stroke="#266096" stroke-width="1.1"/></svg>
+      Sección
     </button>
     <button class="btn btn-toggle" id="btnMeasure" title="Medir: muestra cotas editables de alto y de frentes sobre los gabinetes seleccionados">
       <svg width="22" height="13" viewBox="0 0 26 16" fill="none"><rect x="1" y="4" width="23" height="8" stroke="#266096" stroke-width="1.5"/><path d="M5 4v5M9 4v3M13 4v5M17 4v3M21 4v5" stroke="#266096" stroke-width="1.5"/></svg>
@@ -3650,7 +3661,7 @@ let selection = new Set([row(false)[0].id]);  /* el real arranca con el primer m
 let focusPanel = null, upperFocus = null, pieces = new Set(), justActivated = null;
 const pieceSelected = key => !!selectedPart && selectedPart.startsWith('piece:') && pieces.has(key);
 let selectedPart = null;   /* 'wall' | 'cover' | 'sink' | 'tap' | 'plinth' | 'backsplash' | 'fillerI' | 'fillerD' | 'gola' */
-let view = 'Alzado', showDoors = true, flat = false, measure = false;
+let view = 'Alzado', showDoors = true, flat = false, measure = false, seccionOn = false;   /* A115: seccion lateral junto al alzado */
 let hover = null, drag = null, matDrag = null, dimensionKey = null, editingSwatch = null;
 
 /* =======================================================================
@@ -3809,8 +3820,9 @@ function drawElevation(){
   const W = cfg.longitud, H = cfg.alturaMuro, highs = row(true), lows = row(false);
   const L = 74, R = 112, T = 96, B = 66;
   const eL = hdExtra(false), eR = hdExtra(true), Wt = W + eL + eR;   /* las puertas ocultas quedan fuera de la cota del muro */
-  const scale = Math.min((cssW-L-R)/Wt, (cssH-T-B)/H);
-  const ox = L + ((cssW-L-R) - Wt*scale)/2 + eL*scale, top = T + ((cssH-T-B) - H*scale)/2, ground = top + H*scale;
+  const sec = seccionVisible(), Ds = sec ? fondoSeccion() : 0, Rs = sec ? R - 12 + SEC_HUECO + SEC_DER : R;   /* A115: la seccion ocupa la derecha */
+  const scale = Math.min((cssW-L-Rs)/(Wt + Ds), (cssH-T-B)/H);
+  const ox = L + ((cssW-L-Rs) - (Wt + Ds)*scale)/2 + eL*scale, top = T + ((cssH-T-B) - H*scale)/2, ground = top + H*scale;
   const X = x => ox + x*scale, Z = z => ground - z*scale;
   const RX = (x0, x1, z0, z1) => { edges.push({ z: z0, id: edgeOwner }, { z: z1, id: edgeOwner }); return { x: X(x0), y: Z(z1), w: (x1-x0)*scale, h: (z1-z0)*scale }; };
   frame = { scale, ox, ground, X, Z, W };
@@ -3890,6 +3902,7 @@ function drawElevation(){
   }
   dim(X(0), ground + 36, X(W), ground + 36, fmt(W) + uS(), 'length');
   if (measure) drawMeasure(X, Z);
+  if (sec) { const xc = corteX(); marcaCorte(X(xc), top - 8, ground + 12); drawSeccionCocina(X(W + eR) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
 }
 
@@ -3914,11 +3927,105 @@ function drawSinkTap(RX, X, Z, scale, post){
   }
 
 }
+/* ---------------- A115: SECCION LATERAL junto al alzado (cocina, closet e isla) ----------------
+   El boton Seccion la muestra u oculta. Corta por el centro del primer gabinete elegido (bajo o alto) o, sin seleccion, del
+   primero; en la isla por la linea de corte de la planta. Misma escala y mismo piso que el alzado; frente a la izquierda, muro a la derecha. */
+const seccionVisible = () => seccionOn && !exporting && view === 'Alzado';
+const SEC_HUECO = 64, SEC_DER = 46;   /* px entre las cotas derechas del alzado y la seccion, y a la derecha de la seccion */
+function corteX(){
+  let x = ajusteIzq(); for (const m of row(false)) { if (selection.has(m.id)) return x + m.ancho/2; x += m.ancho; }
+  x = ajusteIzq(); for (const m of row(true)) { if (selection.has(m.id)) return x + m.ancho/2; x += m.ancho; }
+  const first = row(false)[0] || row(true)[0]; return first ? ajusteIzq() + first.ancho/2 : cfg.longitud/2;
+}
+function moduloEn(upper, xc){ let x = ajusteIzq(); for (const m of row(upper)) { if (xc >= x - .01 && xc <= x + m.ancho + .01) return m; x += m.ancho; } return null; }
+const fondoSeccion = () => Math.max(30, ...cfg.modulos.map(m => m.fondo + (m.upper ? 0 : vueloEf() + 4)), ...cfg.modulos.filter(m => m.fondoSuperior > 0).map(m => m.fondoSuperior));
+/* linea de corte sobre el alzado: punteada, con las flechas mirando hacia la seccion y la letra A */
+function marcaCorte(xp, y0, y1){
+  ctx.save(); ctx.setLineDash([7, 4]); ctx.strokeStyle = C.select; ctx.lineWidth = 1.4; line(xp, y0, xp, y1); ctx.restore();
+  ctx.fillStyle = C.select; ctx.font = "700 12px 'Inter'"; ctx.textBaseline = 'middle';
+  for (const y of [y0, y1]) { ctx.lineWidth = 2; ctx.strokeStyle = C.select; line(xp, y, xp + 14, y); ctx.beginPath(); ctx.moveTo(xp + 14, y - 4); ctx.lineTo(xp + 20, y); ctx.lineTo(xp + 14, y + 4); ctx.closePath(); ctx.fill(); ctx.fillText('A', xp - 12, y); }
+  ctx.textBaseline = 'alphabetic'; ctx.lineWidth = 1;
+}
+function tituloSeccion(xl, xr, y){ ctx.fillStyle = C.title; ctx.font = "600 12px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('SECCIÓN A', (xl + xr)/2, y); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
+/* cocina: bajo (o torre) con cubierta, zoclo y backsplash; alto (y su modulo superior) contra el muro */
+function drawSeccionCocina(xw, s, Z, xc){
+  const P = d => xw - d*s, t = Math.max(1, 1.8*s), zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), H = cfg.alturaMuro;
+  const wood = dark ? '#5C5546' : 'rgb(232,224,207)', drawerC = dark ? '#4A5058' : 'rgb(215,220,224)';
+  const brd = (r, mm) => { if (r.w <= 0 || r.h <= 0) return; fillMat(r.x, r.y, r.w, r.h, flat ? null : mm, wood); outline(r, C.line, 1); };
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(P(fondoSeccion()) - 16, Z(0), xw + 16, Z(0)); line(P(fondoSeccion()) - 16, Z(H), xw + 16, Z(H));
+  ctx.fillStyle = dark ? '#3A3F44' : '#E4E6E8'; ctx.fillRect(xw, Z(H), 7, H*s); ctx.lineWidth = 1.5; line(xw, Z(H), xw, Z(0)); ctx.lineWidth = 1;   /* muro */
+  const caja = (m, z0, z1, D, conRepisas) => {   /* costado cortado: techo, piso, trasera, frentes, cajones y repisas */
+    const mm = m.material || cfg.materialGeneral, body = { x: P(D), y: Z(z1), w: D*s, h: (z1 - z0)*s };
+    ctx.fillStyle = selection.has(m.id) ? C.selFill : C.front; ctx.fillRect(body.x, body.y, body.w, body.h);
+    brd({ x: body.x, y: body.y, w: body.w, h: t }, mm); brd({ x: body.x, y: Z(z0) - t, w: body.w, h: t }, mm); brd({ x: xw - t, y: body.y, w: t, h: body.h }, mm);
+    const fr = fronts(m).filter(f => f.kind !== 'Gola' && f.z1 > z0 - .5 && f.z0 < z1 + .5);
+    fr.forEach(f => { brd({ x: body.x - t, y: Z(f.z1), w: t, h: (f.z1 - f.z0)*s }, mm);
+      if (f.kind === 'Cajon' && !f.fijo) { const za = Math.max(f.z0 + 4, f.z1 - 3), q = { x: body.x + 2, y: Z(za), w: Math.max(2, body.w - t - 6*s), h: (za - f.z0 - 1)*s }; ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });
+    const n = conRepisas && !fr.some(f => f.kind === 'Cajon') ? shelvesOf(m) : 0, inner = z1 - z0 - 3.6;
+    for (let k = 1; k <= n; k++) brd({ x: body.x + 2, y: Z(z0 + 1.8 + inner*k/(n + 1) + .9), w: body.w - 2*t, h: t }, mm);
+    outline(body, C.line, 1); if (selection.has(m.id)) post.push(() => outline(body, C.accent, 2.5));
+    hits.push({ rect: body, module: m }); return body;
+  };
+  const low = moduloEn(false, xc), up = moduloEn(true, xc), out = { low, up };
+  if (low && !low.reserved) {
+    const D = low.fondo;
+    if (isSpecial(low)) caja(low, zb, zTop, D, true);
+    else {
+      caja(low, zb, zb + cfg.altoBajos, D, true);
+      if (cfg.generarCubierta) part('cover', true, [{ x: P(D + vueloEf()), y: Z(zBar), w: (D + vueloEf())*s, h: paquete()*s }], paintCover, post);
+      if (cfg.backsplash) { const bsTop = cfg.backsplashCompleto && up ? zBA : zBar + cfg.altoBacksplash, e = Math.max(.5, cfg.espesorBacksplash || 1);
+        part('backsplash', true, [{ x: P(e), y: Z(bsTop), w: e*s, h: (bsTop - zBar)*s }], r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Backsplash'), C.backsplash); outline(r, C.line, 1); }, post); }
+    }
+    if (cfg.generarZoclos && zb > 0) part('plinth', true, [{ x: P(D - cfg.retiroZoclo), y: Z(zb), w: t, h: zb*s }], paintZoclo, post);
+    out.D = D;
+  }
+  if (up && !up.reserved && !(low && isSpecial(low))) {
+    if (soloCamp(up)) { const q = { x: P(up.fondo), y: Z(zTop), w: up.fondo*s, h: (zTop - zBA)*s }; outline(q, C.hood, 1, [4, 3]); }
+    else {
+      const hs = isDoble(up) ? up.altoSuperior : 0;
+      caja(up, zBA, zTop - hs, up.fondo, true);
+      if (hs > 0) caja(up, zTop - hs, zTop, up.fondoSuperior > 0 ? up.fondoSuperior : up.fondo, false);
+    }
+    out.Du = up.fondo;
+  }
+  post.forEach(f => f()); post = [];
+  const xl = P(fondoSeccion());
+  tituloSeccion(xl, xw, Z(H) - 38);
+  if (out.D) { dim(P(out.D), Z(0) + 30, xw, Z(0) + 30, fmt(out.D), null); if (cfg.generarCubierta && !isSpecial(low) && vueloEf() > .1) dim(P(out.D + vueloEf()), Z(0) + 56, xw, Z(0) + 56, fmt(out.D + vueloEf()), null); }
+  if (out.Du && !soloCamp(up)) dim(P(out.Du), Z(H) - 12, xw, Z(H) - 12, fmt(out.Du), null);
+}
+/* closet: cuerpo cortado con barras (circulos), repisas, cajones, maletero, frentes y zoclo */
+function drawSeccionCloset(xw, s, Z, xc){
+  const m = moduloEn(false, xc), H0 = cfg.alturaMuro, P = d => xw - d*s, t = Math.max(1, cfg.espesorCloset*s);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(P(fondoSeccion()) - 16, Z(0), xw + 16, Z(0)); line(P(fondoSeccion()) - 16, Z(H0), xw + 16, Z(H0));
+  ctx.fillStyle = dark ? '#3A3F44' : '#E4E6E8'; ctx.fillRect(xw, Z(H0), 7, H0*s); ctx.lineWidth = 1.5; line(xw, Z(H0), xw, Z(0)); ctx.lineWidth = 1;
+  tituloSeccion(P(fondoSeccion()), xw, Z(H0) - 38);
+  if (!m) return;
+  const zc = closetZoclo(), AC = closetAltoCuerpo(), H = closetBody(m), D = m.fondo, mm = m.material || cfg.materialGeneral;
+  const brd = (z0, z1, d0 = 0, d1 = D) => { const r = { x: P(d1), y: Z(zc + z1), w: (d1 - d0)*s, h: (z1 - z0)*s }; fillMat(r.x, r.y, r.w, r.h, flat ? null : mm, C.board); outline(r, C.line, 1); };
+  const body = { x: P(D), y: Z(zc + AC), w: D*s, h: AC*s };
+  ctx.fillStyle = selection.has(m.id) ? C.selFill : C.front; ctx.fillRect(body.x, body.y, body.w, body.h);
+  const tc = cfg.espesorCloset;
+  brd(AC - tc, AC); brd(0, tc); brd(0, AC, 0, tc); if (m.maletero) brd(H - tc, H);
+  closetItems(m).forEach(i => {
+    if (i.kind === 'Barra') { ctx.beginPath(); ctx.arc(P(D/2), Z(zc + (i.z0 + i.z1)/2), Math.max(2.5, 1.25*s), 0, Math.PI*2); ctx.fillStyle = C.rod; ctx.fill(); ctx.strokeStyle = C.line; ctx.stroke(); }
+    else if (i.kind === 'Repisa' || i.kind === 'Zapatera') brd(i.z0, i.z1, tc, D);
+    else { const q = { x: P(D - 2), y: Z(zc + Math.max(i.z0 + 4, i.z1 - 3)), w: (D - 4 - tc)*s, h: (Math.max(i.z0 + 4, i.z1 - 3) - i.z0)*s }; ctx.fillStyle = dark ? '#4A5058' : 'rgb(215,220,224)'; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); }
+  });
+  closetFronts(m).filter(f => f.kind !== 'Gola' && (showDoors || f.kind === 'Cajon')).forEach(f => { const r = { x: body.x - t, y: Z(zc + f.z1), w: t, h: (f.z1 - f.z0)*s }; ctx.fillStyle = flat ? C.flat : C.closetFront; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1); });
+  if (closetSliding() && showDoors) { ctx.fillStyle = dark ? 'rgba(107,97,80,.6)' : 'rgba(205,190,160,.6)'; [0, 1].forEach(k => { const r = { x: body.x - (k + 1)*(t + 2), y: Z(AC - 8), w: t, h: (AC - 9)*s }; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1); }); }
+  if (zc > 0 && cfg.generarZoclos) part('plinth', true, [{ x: P(D - cfg.retiroZoclo), y: Z(zc), w: t, h: zc*s }], paintZoclo, post);
+  outline(body, C.line, 1); if (selection.has(m.id)) outline(body, C.accent, 2.5);
+  hits.push({ rect: body, module: m });
+  post.forEach(f => f()); post = [];
+  dim(P(D), Z(0) + 30, xw, Z(0) + 30, fmt(D), null);
+}
 /* ---------------- CLOSET: alzado (PaintPreview + DrawCloset) ---------------- */
 function drawClosetElevation(){
   title('ALZADO', '');
   const W = cfg.longitud, H = cfg.alturaMuro, L = 74, R = 112, T = 96, B = 66;
-  const scale = Math.min((cssW-L-R)/W, (cssH-T-B)/H), ox = L + ((cssW-L-R) - W*scale)/2, top = T + ((cssH-T-B) - H*scale)/2, ground = top + H*scale;
+  const sec = seccionVisible(), Ds = sec ? fondoSeccion() : 0, Rs = sec ? R - 12 + SEC_HUECO + SEC_DER : R;   /* A115 */
+  const scale = Math.min((cssW-L-Rs)/(W + Ds), (cssH-T-B)/H), ox = L + ((cssW-L-Rs) - (W + Ds)*scale)/2, top = T + ((cssH-T-B) - H*scale)/2, ground = top + H*scale;
   const X = x => ox + x*scale, Z = z => ground - z*scale;
   const RX = (x0, x1, z0, z1) => { edges.push({ z: z0, id: edgeOwner }, { z: z1, id: edgeOwner }); return { x: X(x0), y: Z(z1), w: (x1-x0)*scale, h: (z1-z0)*scale }; };
   frame = { scale, ox, ground, X, Z, W }; post = [];
@@ -3947,6 +4054,7 @@ function drawClosetElevation(){
   dim(X(0) - 34, ground, X(0) - 34, top, fmt(H) + uS(), 'wall');
   dim(X(W) + 40, ground, X(W) + 40, Z(cfg.baseBajos + cfg.altoBajos), fmt(cfg.baseBajos + cfg.altoBajos) + uS(), 'closetAlto');
   dim(X(0), ground + 36, X(W), ground + 36, fmt(W) + uS(), 'length');
+  if (sec) { const xc = corteX(); marcaCorte(X(xc), top - 8, ground + 12); drawSeccionCloset(X(W) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
 }
 /* Medir en closet (master; en el real Medir no actua en closet): cadena editable a la izquierda (zoclo, escritorio,
@@ -4093,7 +4201,10 @@ function centroLine(x, y0, y1){
 /* ALZADO FRONTAL: lado de los gabinetes; cascadas de cubierta o costados de 2 cm en los extremos */
 function drawIslandFront(){
   title('ALZADO FRONTAL', '· lado de los gabinetes');
-  const W = cfg.longitud, scale = islandScale(), ox = (cssW - W*scale)/2 - 7, ground = islaSuelo(altoBarra()*scale, 57, 34, cssH - 65);   /* el alzado no dibuja la barra elevada: su tope son las cotas de ancho sobre la cubierta */
+  const sec = seccionVisible(), A = cfg.islaAncho, G = 110;   /* A115: la seccion transversal a la derecha, a la misma escala */
+  const W = cfg.longitud, scale = sec ? Math.min(islandScale(), Math.max(.1, cssW - 220 - G)/(W + A)) : islandScale();
+  const ox = sec ? (cssW - (W + A)*scale - G)/2 - (cfg.islaBarraElevada ? 30 : 0) : (cssW - W*scale)/2 - 7;
+  const ground = sec ? islaSuelo(islaTopH()*scale, 57, 85, cssH - 105) : islaSuelo(altoBarra()*scale, 57, 34, cssH - 65);   /* el alzado no dibuja la barra elevada: su tope son las cotas de ancho sobre la cubierta */
   const X = x => ox + x*scale, Z = z => ground - z*scale;
   const RX = (x0, x1, z0, z1) => { edges.push({ z: z0, id: edgeOwner }, { z: z1, id: edgeOwner }); return { x: X(x0), y: Z(z1), w: (x1-x0)*scale, h: (z1-z0)*scale }; };
   frame = { scale, ox, ground, X, Z, W };
@@ -4121,6 +4232,7 @@ function drawIslandFront(){
   const yTop = Z(zBar) - 30; x = aI; lows.forEach(m => { dim(X(x), yTop, X(x + m.ancho), yTop, fmt(m.ancho), 'width:' + m.id); x += m.ancho; });
   dim(X(0), ground + 30, X(W), ground + 30, fmt(W) + uS(), 'length');
   dim(X(W) + 30, ground, X(W) + 30, Z(zBar), fmt(zBar), 'bar');
+  if (sec) { const fr = frame, cut = cutCm(); marcaCorte(X(cut), Z(islaTopH()) - 72, ground + 48);   /* por encima de las cotas de ancho y del rotulo centro, por debajo del largo */ drawIslandSection({ s: scale, left: X(W) + G, ground }); frame = fr; }
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
 }
 /* PLANTA de isla: frente arriba, lado de los bancos abajo; barra elevada, cara posterior y linea de corte de la seccion */
@@ -4215,13 +4327,13 @@ function drawIslandBack(){
   if (cfg.islaBarraElevada) { dim(xe + 62, ground, xe + 62, Z(topH), fmt(topH) + uS(), 'barraAlto'); dim(xe + 94, Z(zBar), xe + 94, Z(topH), '+' + fmt(cfg.islaBarraElevacion), 'barraElev'); }
 }
 /* SECCION TRANSVERSAL por la linea de corte: frente a la izquierda, bancos a la derecha, con guias arrastrables */
-function drawIslandSection(){
+function drawIslandSection(inset){   /* inset (A115): dibujada junto al alzado frontal, sin titulo ni guias */
   const cut = guideVal('corte', cutCm());
-  title('SECCIÓN TRANSVERSAL', `· por la línea de corte de la planta, a ${fmt(cut)}${uS()} del extremo izquierdo · frente a la izquierda · bancos a la derecha`);
-  const A = cfg.islaAncho, topH = islaTopH(), s = Math.min(Math.max(1, cssW - 330)/(A + 10), Math.max(1, cssH - 250)/(topH + 15));
-  const left = Math.max(60, (cssW - A*s)/2 + (cfg.islaBarraElevada ? -6 : 13)), ground = islaSuelo(topH*s, 56, 85, cssH - 105);
+  if (!inset) title('SECCIÓN TRANSVERSAL', `· por la línea de corte de la planta, a ${fmt(cut)}${uS()} del extremo izquierdo · frente a la izquierda · bancos a la derecha`);
+  const A = cfg.islaAncho, topH = islaTopH(), s = inset ? inset.s : Math.min(Math.max(1, cssW - 330)/(A + 10), Math.max(1, cssH - 250)/(topH + 15));
+  const left = inset ? inset.left : Math.max(60, (cssW - A*s)/2 + (cfg.islaBarraElevada ? -6 : 13)), ground = inset ? inset.ground : islaSuelo(topH*s, 56, 85, cssH - 105);
   const XF = d => left + d*s, XB = d => left + (A - d)*s, Y = z => ground - z*s;
-  frame = { scale: s, ground, Z: Y, X: XF, W: A, section: true }; post = []; wallRect = null;
+  if (inset) post = []; else { frame = { scale: s, ground, Z: Y, X: XF, W: A, section: true }; post = []; wallRect = null; }
   const zb = cfg.baseBajos, zBar = altoBarra(), flight = vueloEf(), esp = cfg.espesorCubierta, be = espesorBarra(), barra = cfg.islaBarraElevada, t = 1.8*s;
   let x = ajusteIzq(), mod = null; for (const m of row(false)) { if (cut >= x && cut <= x + m.ancho) { mod = m; break; } x += m.ancho; }
   if (!mod) mod = row(false)[0];
@@ -4261,7 +4373,8 @@ function drawIslandSection(){
     if (zFace - V > .2) { const st = { x: XB(zFace + 1.8), y: Y(pz + 1.8), w: XB(V + 1.8) - XB(zFace + 1.8), h: t }; ctx.fillStyle = C.front; ctx.fillRect(st.x, st.y, st.w, st.h); outline(st, C.line, 1); }
   }
   if (cfg.islaLedPosterior && V > 2.5) { ctx.fillStyle = C.ledLine; ctx.fillRect(XB(V - 1), Y(pt - .2), Math.max(3, s), Math.max(3, s)); }
-  if (!exporting) {
+  if (inset) tituloSeccion(XF(0), XB(0), Y(topH) - 50);
+  if (!exporting && !inset) {
     const guide = (gx, y0, y1, color, text, key, tx) => { ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = color; ctx.lineWidth = 1.6; line(gx, y0, gx, y1); ctx.restore();
       ctx.fillStyle = color; ctx.font = "600 11px 'Inter'"; ctx.textBaseline = 'bottom'; ctx.fillText(text, tx, y0 - 2); ctx.textBaseline = 'alphabetic';
       guideHits.push({ rect: { x: gx - 6, y: y0, w: 12, h: y1 - y0 }, key }); };
@@ -6594,6 +6707,8 @@ const EN = {
   'Medidas': 'Dimensions',
   'Medir': 'Measure',
   'Medir: muestra cotas editables de alto y de frentes sobre los gabinetes seleccionados': 'Measure: shows editable height and front dimensions on the selected cabinets',
+  'Sección: muestra u oculta en el alzado la sección lateral del gabinete elegido (o del primero), con su línea de corte': 'Section: shows or hides, next to the elevation, the side section of the selected cabinet (or the first one), with its cut line',
+  'SECCIÓN A': 'SECTION A',
   'Melamina 1.8 cm': 'Melamine 1.8 cm',
   'Microondas': 'Microwave',
   'Microondas encima del horno': 'Microwave above the oven',
@@ -7047,6 +7162,7 @@ function openViewMenu(){
 document.getElementById('btnDoors').addEventListener('click', () => { showDoors = !showDoors; document.getElementById('btnDoors').classList.toggle('active', showDoors); document.getElementById('doorsLabel').textContent = showDoors ? 'Puertas' : 'Interior'; drawCanvas(); trUI(); if (typeof liveUI === 'function') liveUI(); });
 document.getElementById('btnFlat').addEventListener('click', () => { flat = !flat; document.getElementById('btnFlat').classList.toggle('active', flat); drawCanvas(); });
 document.getElementById('btnMeasure').addEventListener('click', () => { measure = !measure; document.getElementById('btnMeasure').classList.toggle('active', measure); drawCanvas(); });
+document.getElementById('btnSection').addEventListener('click', () => { seccionOn = !seccionOn; document.getElementById('btnSection').classList.toggle('active', seccionOn); drawCanvas(); });
 /* comando que abre el editor (en los plugins lo decide el boton de la cinta; aqui se simula) */
 function syncCommandUI(){
   const isla = !!cfg.isla, closet = !!cfg.closet;
