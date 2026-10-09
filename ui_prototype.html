@@ -213,6 +213,10 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A118. Repisas de torres y especieros en la seccion (08/10, usuario): la torre de hornos corta su cuerpo inferior y
+       superior con sus repisas (zoneShelves inferior/superior; el piston sin repisas, con su tablero); alacena y especiero
+       torre, cada cuerpo con las suyas (Elevable: repisasElevable; Especiero: 5 niveles) y su tablero divisorio; el
+       refrigerador, las de su gabinete superior; el especiero bajo, los niveles del extraible. Revit: igual.
    A116. Correcciones de la seccion y de Medir (08/10, usuario):
        a) La cubierta con nariz se corta como se genera (cubiertaSeccion, cocina e isla): losa del espesor y nariz al frente
           hasta la altura total, una sola pieza unida a inglete (A88), y la cama debajo al pano de la nariz (A100).
@@ -3992,17 +3996,29 @@ function drawSeccionCocina(xw, s, Z, xc){
     outline(body, C.line, 1); if (selection.has(m.id)) post.push(() => outline(body, C.accent, 2.5));
     hits.push({ rect: body, module: m }); return body;
   };
+  /* A118 (usuario, 08/10): repisas de un tramo [a, b] (como drawShelves: n repartidas en su luz) y, si no es el primero, su tablero divisorio */
+  const repisas = (m, a, b, n, D, d0 = 0, div = false) => { const mm = m.material || cfg.materialGeneral, inner = b - a - 3.6;
+    if (div) brd({ x: P(D), y: Z(a + 1.8), w: (D - d0)*s - t, h: t }, mm);
+    for (let k = 1; k <= n; k++) brd({ x: P(D) + 2, y: Z(a + 1.8 + inner*k/(n + 1) + .9), w: (D - d0)*s - t - 2, h: t }, mm); };
   const low = moduloEn(false, xc), up = moduloEn(true, xc), out = { low, up };
   if (low && !low.reserved) {
     const D = low.fondo, tipo = low.tipo;
     if (isRefri(low)) {   /* hueco del refrigerador y, encima, su gabinete */
       proy(0, D, 0, low.huecoRefri, 'Refrigerador');
-      if (low.superiorRefri && altoEsp(low) - low.huecoRefri > 1) caja(low, low.huecoRefri, altoEsp(low), D, false);
+      if (low.superiorRefri && altoEsp(low) - low.huecoRefri > 1) { caja(low, low.huecoRefri, altoEsp(low), D, false); repisas(low, low.huecoRefri, altoEsp(low), zoneShelves(low, 'superior'), D); }
       hits.push({ rect: { x: P(D), y: Z(altoEsp(low)), w: D*s, h: altoEsp(low)*s }, module: low });
     } else if (isSpecial(low)) {   /* torre de hornos, alacena y especiero torre */
       caja(low, zb, altoEsp(low), D, false);
-      if (isTower(low)) segments(low).forEach(([n, a, b]) => { if (n === 'oven') proy(2, D - 2, a, b, 'Horno'); else if (n === 'micro') proy(2, D - 2, a, b, 'Micro'); });
-      if (tipo === 'EspecieroTorre') proy(3, D - 3, zb + 4, altoEsp(low) - 4, 'Especiero');
+      if (isTower(low)) segments(low).forEach(([n, a, b]) => {   /* A118: cuerpo inferior y superior con sus repisas; hornos y micro en proyeccion */
+        if (n === 'oven') proy(2, D - 2, a, b, 'Horno'); else if (n === 'micro') proy(2, D - 2, a, b, 'Micro');
+        else if (n === 'body') repisas(low, a, b, zoneShelves(low, 'inferior'), D);
+        else if (n === 'upper') repisas(low, a, b, zoneShelves(low, 'superior'), D, 0, a > zb + .5);
+        else if (n === 'lift') repisas(low, a, b, 0, D, 0, true); });
+      else {   /* alacena y especiero torre: cada cuerpo con sus repisas (Elevable: las suyas; Especiero: 5 niveles) */
+        const parts = pantryHeights(low); let at = pantryStart(low);
+        parts.forEach((h, j) => { const bt = bodyType(low, j, parts.length), n = bt === 'Elevable' ? low.repisasElevable : bt.startsWith('Especiero') ? 5 : zoneShelves(low, 'cuerpo' + (j + 1));
+          repisas(low, at, at + h, n, D, 0, at > zb + .5); if (bt.startsWith('Especiero')) proy(3, D - 3, at + 2, at + h - 2, 'Especiero'); at += h; });
+      }
     } else if (tipo === 'Estufa') {   /* aparato del piso a la cubierta; corta la cubierta y el zoclo */
       const q = { x: P(D), y: Z(zBar), w: D*s, h: zBar*s }; ctx.fillStyle = flat ? C.flat : C.metal; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1);
       ctx.fillStyle = C.stove; ctx.fillRect(q.x, q.y - Math.max(2, s), q.w, Math.max(2, s));
@@ -4019,7 +4035,7 @@ function drawSeccionCocina(xw, s, Z, xc){
     } else {
       caja(low, zb, zb + A, D, true);
       if (tipo === 'Basura') proy(D*.25, D - 3, zb + 3, zb + A*.75, 'Cesto');
-      else if (tipo === 'Especiero') proy(3, D - 3, zb + 4, zb + A - 6, 'Especiero');
+      else if (tipo === 'Especiero') { proy(3, D - 3, zb + 4, zb + A - 6, 'Especiero'); repisas(low, zb + 4, zb + A - 6, 4, D - 3, 3); }   /* A118: niveles del extraible */
     }
     if (!cortaCubierta(low) && cfg.generarCubierta) {
       cubiertaSeccion(P(D + vueloEf()), xw, Z, s, post);
