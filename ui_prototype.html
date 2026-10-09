@@ -761,6 +761,59 @@
        de corte en 1/16" con cubrecanto y hojas de 4x8, avisos NKBA de zonas
        de apoyo y pasillo, face frame (no: decision de producto).
 
+  F. Isla y closet con lo que ya funciona en Skitchen (08/10, usuario).
+     Checklist de paridad; [M] = master (y SketchUp), [R] = Revit. Exportar y
+     Render IA quedan fuera (en pausa por el usuario). Cada punto se marca
+     al resolverse en el master y despues en Revit.
+     ISLA
+   F1. Medir con luces libres. [M] no: la isla oculta el boton (syncCommandUI,
+       btnMeasure) y drawIslandFront no lee measure. [R] no: Layout.cs:84
+       measure.Visible=!island; Planta, Posterior y Seccion no llaman
+       DrawMeasures. (Reportado por el usuario: «no muestra cotas interiores».)
+   F2. Vista Interior (boton Puertas). [M] no: boton oculto (el dibujo con
+       showDoors=false ya funciona: interiores y piezas). [R] no: mismo
+       Layout.cs:84.
+   F3. Modo Plano sin materiales. [M] si, en todas sus vistas. [R] no:
+       PaintBack y PaintSection (LayoutContext.cs:57, 61, 81, 91) y los
+       costados del alzado (Layout.cs:195) pintan con MaterialSwatches.Paint
+       sin mirar flat. (Reportado por el usuario.)
+   F4. Material por pieza. [M] si en Interior (cuando tenga boton). [R]
+       parcial: los costados de la vista posterior no reciben material y la
+       Seccion solo ofrece «todos los gabinetes».
+   F5. Piezas ocultas punteadas y recuadro de seleccion en Posterior y
+       Seccion. [R] no (DrawParts y dragBox solo en alzado y planta).
+   F6. Tema oscuro en Planta, Posterior y Seccion. [R] parcial: colores fijos
+       (Pen 95,105,112 y fondo blanco).
+   F7. Cota de profundidad editable en Planta y Seccion. [R] sin clave.
+   F8. Unidades de la region en rotulos. [R] no: «+elevacion», ancho del
+       panel posterior, «Barra elevada +x cm» y «a N cm» del titulo de la
+       seccion quedan en cm.
+     CLOSET
+   F9. Medir completo. [M] parcial (cotas cseg y mitades de puerta). [R]
+       parcial: luces libres solo entre repisas y zapatera (AjustesTab.cs:
+       259-260); faltan barras, cajones y ancho interior; un Colgado sin
+       tableros no muestra ninguna. (Reportado por el usuario.)
+   F10. Vista Interior con luces libres y piezas. [M] no (el closet no usa
+       drawInterior). [R] no: Layout.cs:204 interiorView=...&&!m.Closet.
+   F11. Modo Plano sin materiales. [M] si. [R] no: DrawCloset
+       (PreviewSymbols.cs:72) y las hojas correderas (Layout.cs:233) pintan
+       tableros y frentes con colores fijos de madera. (Reportado.)
+   F12. Material por pieza (repisas, cajones, frentes, fondo; fondo pinta su
+       caja, A64). [M] no. [R] no: solo el modulo completo, zoclo y tapetas.
+   F13. Gola de los cajones como destino de material. [R] no (GolaStrips
+       sale para el closet).
+   F14. Panel de contexto del tramo propio del closet. [R] cae en «Muro y
+       colocacion» de la cocina; revisar que ofrece.
+   F15. Planta propia del closet (cuerpos, barras, hojas). [R] usa la planta
+       de cocina sin dibujo de closet.
+   F16. Tema oscuro. [R] DrawCloset con colores fijos.
+   F17. Iman de los grips con los niveles de los vecinos. [R] EdgeLevels y
+       AlignLevels no dan niveles en closet.
+   F18. Unidades de la region en rotulos. [R] «Maletero x cm» en cm.
+     COMUN
+   F19. Etiqueta de los grips en la unidad de Ajustes. [R] DrawSplitLabel
+       escribe «cm» a mano (cocina, isla y closet).
+
   CONTENIDO ACTUAL DEL MASTER
   ===========================
   Modelo (LayoutState/Config): muro 240, tramo con largo propio, tapetas que
