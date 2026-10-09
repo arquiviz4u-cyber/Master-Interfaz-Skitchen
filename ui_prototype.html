@@ -224,6 +224,12 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A125. Lista del editor 3 (09/10, usuario): 1) la franja gola ya no lleva la linea clara del perfil (no tomaba el material);
+       2) backsplash de una pieza en el modelo: el tramo y lo que sube tras la campana sola son un solo perfil (forma perfil,
+       eje y); 3) la seccion corta los perfiles de gola (canal, alma y aletas, L o C), las jaladeras (clasica y simple) y la
+       doble cama de los altos con gola (cama del piso hasta el unero e interior al pano); 4) vista «Sección» en el boton de
+       vistas de cocina y closet (la seccion sola, grande y centrada); 5) Medir en la seccion: cadena de alturas (y barras en
+       el closet). Revit: igual (el backsplash de una pieza como DirectShape en los tramos con campana sola).
    A124. [Revit P12.248] Lista del editor 2 (09/10, usuario): 1) notas de los paneles mas cortas (unas 40); 2) las cotas del perfil de gola
        dicen «mm»; 3) Ajustes por pestanas: General (region, idioma, unidades, comportamiento), Cotas, Gabinetes (valores de
        inicio y perfiles de gola), Exportar y Licencia; 4) X para cerrar el editor de la muestra (color y patron); 5) el
@@ -2961,9 +2967,18 @@ function planDePiezas(c = cfg){
           equipo(m, 'parrilla', 'Parrilla', px + (m.ancho - pw)/2, px + (m.ancho + pw)/2, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4 - pd, sepDe(m) + m.fondo - 4); }
         px += m.ancho; }); }
       if (cfg.backsplash) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
-        cutRun(run0, run1, isSpecial).forEach(([a, b], k) => add({ id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: top - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' }));
-        /* A123: detras de la campana sola el backsplash sigue por el muro hasta el tope de los altos */
-        if (topeAltos() > top + .01) columnasCampanaSola().forEach(([a, b], k) => add({ id: 'backsplash:campana:' + k, rol: 'backsplash', x: a, y: 0, z: top, ancho: b - a, fondo: cfg.espesorBacksplash, alto: topeAltos() - top, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' })); }
+        /* A123: detras de la campana sola el backsplash sigue por el muro hasta el tope de los altos. A125 (usuario, 09/10): de una
+           pieza: el tramo y sus subidas son un solo perfil (forma perfil, eje y: puntos [x, z] desde la esquina de la caja) */
+        const zt = topeAltos(), cols = zt > top + .01 ? columnasCampanaSola() : [];
+        cutRun(run0, run1, isSpecial).forEach(([a, b], k) => {
+          const sube = cols.map(([c0, c1]) => [Math.max(a, c0), Math.min(b, c1)]).filter(([c0, c1]) => c1 - c0 > .01).sort((p, q) => q[0] - p[0]);
+          const pieza = { id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: (sube.length ? zt : top) - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' };
+          if (sube.length) { const h = top - zBar, H = zt - zBar, W = b - a, pts = [[0, 0], [W, 0]];
+            let x = W; sube.forEach(([c0, c1]) => { pts.push([x, h], [c1 - a, h], [c1 - a, H], [c0 - a, H], [c0 - a, h]); x = c0 - a; }); pts.push([x, h], [0, h]);
+            const lim = pts.map(q => q.map(r2)).filter((q, i, arr) => i === 0 || q[0] !== arr[i - 1][0] || q[1] !== arr[i - 1][1]);
+            const sinColineales = lim.filter((q, i, arr) => { const a0 = arr[(i - 1 + arr.length) % arr.length], a1 = arr[(i + 1) % arr.length]; return !((a0[0] === q[0] && q[0] === a1[0]) || (a0[1] === q[1] && q[1] === a1[1])); });
+            pieza.forma = { tipo: 'perfil', eje: 'y', puntos: sinColineales }; }
+          add(pieza); }); }
     }
     /* ISLA (B16; drawIslandFront / Plan / Back / Section): costados o cascadas en los extremos, zoclo frontal con cierres hasta el
        zoclo posterior (o los paneles), paneles posteriores con su reparto (islandPanels) mirando a los bancos, zoclo posterior con
@@ -3891,7 +3906,7 @@ function drawCanvasCore(){
   Object.assign(C, dark && !exporting ? DARK : LIGHT);
   if (cfg.closet) Object.assign(C, dark && !exporting ? CLOSET_DARK : CLOSET_LIGHT);
   if (cfg.isla) { if (view === 'Planta') drawIslandPlan(); else if (view === 'Posterior') drawIslandBack(); else if (view === 'Seccion') drawIslandSection(); else drawIslandFront(); }
-  else if (view === 'Planta') drawPlan(); else if (cfg.closet) drawClosetElevation(); else drawElevation();
+  else if (view === 'Planta') drawPlan(); else if (view === 'Seccion') drawSeccionVista(); else if (cfg.closet) drawClosetElevation(); else drawElevation();
   if (matDrag) drawMaterialDrag();
 }
 
@@ -4014,7 +4029,7 @@ function drawSinkTap(RX, X, Z, scale, post){
 /* ---------------- A115: SECCION LATERAL junto al alzado (cocina, closet e isla) ----------------
    El boton Seccion la muestra u oculta. Corta por el centro del primer gabinete elegido (bajo o alto) o, sin seleccion, del
    primero; en la isla por la linea de corte de la planta. Misma escala y mismo piso que el alzado; frente a la izquierda, muro a la derecha. */
-const seccionVisible = () => seccionOn && !exporting && view === 'Alzado';
+const seccionVisible = () => seccionOn && !exporting && view === 'Alzado';   /* en la vista Seccion se dibuja sola (A125) */
 const SEC_HUECO = 64, SEC_DER = 46;   /* px entre las cotas derechas del alzado y la seccion, y a la derecha de la seccion */
 function corteX(){
   if (!isNaN(corteAlzado)) return Math.max(0, Math.min(cfg.longitud, corteAlzado));   /* arrastrada como guia */
@@ -4053,6 +4068,12 @@ function drawSeccionCocina(xw, s, Z, xc){
       if (f.kind === 'Cajon' && !f.fijo) { const za = Math.max(f.z0 + 4, f.z1 - 3), q = { x: body.x + 2, y: Z(za), w: Math.max(2, body.w - t - 6*s), h: (za - f.z0 - 1)*s }; ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });
     const n = conRepisas && !fr.some(f => f.kind === 'Cajon') ? shelvesOf(m) : 0, inner = z1 - z0 - 3.6;
     for (let k = 1; k <= n; k++) brd({ x: body.x + 2, y: Z(z0 + 1.8 + inner*k/(n + 1) + .9), w: body.w - 2*t, h: t }, mm);
+    /* A125 (usuario, 09/10): jaladeras en corte (clasica y simple): salen del frente; puertas a lo largo, cajones de canto, boton */
+    if (cfg.style !== 'Moderna') fr.forEach(f => { if (f.kind === 'Elevable' || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
+      const L = cfg.largoJaladera, vert = f.kind === 'Puerta', ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0), sale = 2.5;
+      const cz = vert ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.arriba ? f.z1 - ck : (f.z0 + f.z1)/2;
+      const hz = cfg.jaladera === 'Boton' ? 1.2 : vert ? L/2 : .6, q = { x: body.x - t - sale*s, y: Z(cz + hz), w: sale*s, h: 2*hz*s };
+      post.push(() => { ctx.fillStyle = colorJaladera(); ctx.fillRect(q.x, q.y, q.w, Math.max(2, q.h)); }); });
     outline(body, C.line, 1); if (selection.has(m.id)) post.push(() => outline(body, C.accent, 2.5));
     hits.push({ rect: body, module: m }); return body;
   };
@@ -4094,6 +4115,14 @@ function drawSeccionCocina(xw, s, Z, xc){
       hits.push({ rect: { x: P(D), y: Z(zb + A), w: D*s, h: A*s }, module: low });
     } else {
       caja(low, zb, zb + A, D, true);
+      /* A125: perfiles de gola cortados (L arriba o el que diga el perfil, C entre cajones): canal libre, alma al fondo y aletas */
+      golaStrips(low).forEach(([gz, gh], k) => { const sup = k === 0, fo = golaHondo(sup), forma = sup ? cfg.perfil : 'C', e = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina;
+        const z0 = gz - (sup ? traslapeL() : traslapeC()), z1 = sup ? gz + gh : gz + gh + traslapeC(), gm = groupMaterial('Gola'), ee = Math.max(e*s, 1.5);
+        const canal = { x: P(D) - t, y: Z(gz + gh), w: fo*s + t, h: gh*s }; ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(canal.x, canal.y, canal.w, canal.h);
+        const pinta = q => { fillMat(q.x, q.y, q.w, q.h, gm, C.gola); };
+        pinta({ x: P(D - fo), y: Z(z1), w: ee, h: (z1 - z0)*s });   /* alma */
+        pinta({ x: P(D - fo), y: Z(z0) - ee, w: fo*s, h: ee });   /* aleta de abajo */
+        if (forma === 'C') pinta({ x: P(D - fo), y: Z(z1), w: fo*s, h: ee });   /* aleta de arriba */ });
       if (tipo === 'Basura') proy(D*.25, D - 3, zb + 3, zb + A*.75, 'Cesto');
       else if (tipo === 'Especiero') { proy(3, D - 3, zb + 4, zb + A - 6, 'Especiero'); repisas(low, zb + 4, zb + A - 6, 4, D - 3, 3); }   /* A118: niveles del extraible */
     }
@@ -4121,7 +4150,11 @@ function drawSeccionCocina(xw, s, Z, xc){
     }
     if (!soloCamp(up)) {
       const hs = isDoble(up) ? up.altoSuperior : 0;
-      caja(up, z0, zTop - hs, up.fondo, !camp);
+      const ub = caja(up, z0, zTop - hs, up.fondo, !camp);
+      /* A125: doble cama de los altos con gola (A83/A91): la del piso se queda en el unero (golaHondo del L) y la interior llega al pano */
+      if (conCama(up) && cfg.style === 'Moderna' && !sinPuertas(up)) { const un = golaHondo(true), mm = up.material || cfg.materialGeneral;
+        const piso = { x: P(up.fondo - un), y: Z(z0) - t, w: (up.fondo - un)*s, h: t }; ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(ub.x, Z(z0) - t, ub.w, t);
+        brd(piso, mm); brd({ x: ub.x, y: Z(z0) - 2*t, w: ub.w, h: t }, mm); }
       if (hs > 0) caja(up, zTop - hs, zTop, up.fondoSuperior > 0 ? up.fondoSuperior : up.fondo, false);
     }
     out.Du = up.fondo;
@@ -4131,6 +4164,20 @@ function drawSeccionCocina(xw, s, Z, xc){
   tituloSeccion(xl, xw, Z(H) - 38);
   if (out.D) { dim(P(out.D), Z(0) + 30, xw, Z(0) + 30, fmt(out.D), null); if (cfg.generarCubierta && !cortaCubierta(low) && vueloEf() > .1) dim(P(out.D + vueloEf()), Z(0) + 56, xw, Z(0) + 56, fmt(out.D + vueloEf()), null); }
   if (out.Du && !soloCamp(up)) dim(P(out.Du), Z(H) - 12, xw, Z(H) - 12, fmt(out.Du), null);
+  /* A125 (usuario, 09/10): Medir en la seccion: cadena de alturas (zoclo, bajo, cubierta, libre, hueco, alto, tapeta) */
+  if (measure) { const lv = [0]; if (low && !low.reserved) { if (isSpecial(low)) lv.push(zb, altoEsp(low)); else { if (zb > 0) lv.push(zb); lv.push(zb + A); if (!cortaCubierta(low) && cfg.generarCubierta) lv.push(zBar); } }
+    if (up && !up.reserved && !(low && isSpecial(low))) { lv.push(zBA, zBA + huecoAlto(up)); if (isDoble(up) && !soloCamp(up)) lv.push(zTop - up.altoSuperior); lv.push(zTop); }
+    lv.push(H); const u = [...new Set(lv.map(v => Math.round(v*100)/100))].sort((p, q) => p - q), xm = xl - 30;
+    for (let k = 0; k + 1 < u.length; k++) if (u[k + 1] - u[k] > .4) dim(xm, Z(u[k]), xm, Z(u[k + 1]), fmt(u[k + 1] - u[k]), null); }
+}
+/* A125 (usuario, 09/10): vista Seccion de cocina y closet: la seccion lateral sola, grande y centrada; corta por el gabinete elegido
+   (o el primero) o por la linea de corte arrastrada en el alzado */
+function drawSeccionVista(){
+  const xc = corteX(), low = moduloEn(false, xc), H = cfg.alturaMuro, Ds = fondoSeccion();
+  title('SECCIÓN', `· por ${low ? nombreModulo(low) : 'el tramo'}, a ${fmt(xc)}${uS()} del extremo izquierdo · el corte se mueve en el alzado`);
+  const s = Math.max(.1, Math.min((cssW - 260)/Ds, (cssH - 170)/H)), ground = Math.min(cssH - 80, (48 + cssH)/2 + (H*s + 50 - 80)/2), Z = z => ground - z*s, xw = cssW/2 + Ds*s/2;
+  frame = { scale: s, ground, X: x => x, Z, W: 0, section: true }; post = []; wallRect = null;
+  if (cfg.closet) drawSeccionCloset(xw, s, Z, xc); else drawSeccionCocina(xw, s, Z, xc);
 }
 /* closet: cuerpo cortado con barras (circulos), repisas, cajones, maletero, frentes y zoclo */
 function drawSeccionCloset(xw, s, Z, xc){
@@ -4157,6 +4204,9 @@ function drawSeccionCloset(xw, s, Z, xc){
   hits.push({ rect: body, module: m });
   post.forEach(f => f()); post = [];
   dim(P(D), Z(0) + 30, xw, Z(0) + 30, fmt(D), null);
+  if (measure) { const u = [...new Set([0, zc, zc + H, zc + AC, H0].map(v => Math.round(v*100)/100))].sort((p, q) => p - q), xm = P(fondoSeccion()) - 30;   /* A125: Medir en la seccion */
+    for (let k = 0; k + 1 < u.length; k++) if (u[k + 1] - u[k] > .4) dim(xm, Z(u[k]), xm, Z(u[k + 1]), fmt(u[k + 1] - u[k]), null);
+    closetItems(m).filter(i => i.kind === 'Barra').forEach(i => { const zr = (i.z0 + i.z1)/2; dim(P(D/2) + 10, Z(zc + tc), P(D/2) + 10, Z(zc + zr), fmt(zr - tc), null); }); }
 }
 /* ---------------- CLOSET: alzado (PaintPreview + DrawCloset) ---------------- */
 function drawClosetElevation(){
@@ -4653,8 +4703,7 @@ function drawGola(m, x0, RX, post){
   golaStrips(m).forEach(([z, h, s0 = 0, s1 = m.ancho]) => {   /* A51: una franja puede cubrir solo parte del ancho */
     const r = RX(x0 + s0, x0 + s1, z, z + h);
     fillMat(r.x, r.y, r.w, r.h, groupMaterial('Gola'), C.gola); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(r.x, r.y, r.w, r.h);
-    const band = { x: r.x, y: r.y, w: r.w, h: Math.min(4, r.h/3) };
-    ctx.save(); ctx.globalAlpha = .55; ctx.fillStyle = C.perfil; ctx.fillRect(band.x, band.y, band.w, band.h); ctx.restore();
+    /* A125 (usuario, 09/10): sin la linea clara que sugeria el perfil: no tomaba el material y no se entendia; la franja es de un solo material */
     partHits.push({ rect: r, key: 'gola', active: true });
     if (selectedPart === 'gola') post.push(() => outline(r, C.select, 2));
     else if (hover === 'part:gola') post.push(() => outline(r, C.hoverPart, 1.5));
@@ -7356,7 +7405,7 @@ window.addEventListener('mouseup', () => {
 });
 /* boton de vistas (Layout.cs): clic = siguiente vista; mantener pulsado 380 ms = menu para elegirla */
 /* vistas: cocina Alzado/Planta; isla Alzado frontal, Planta, Vista posterior y Sección */
-const viewList = () => cfg.isla ? [['Alzado', 'Alzado frontal'], ['Planta', 'Planta'], ['Posterior', 'Vista posterior'], ['Seccion', 'Sección']] : [['Alzado', 'Alzado'], ['Planta', 'Planta']];
+const viewList = () => cfg.isla ? [['Alzado', 'Alzado frontal'], ['Planta', 'Planta'], ['Posterior', 'Vista posterior'], ['Seccion', 'Sección']] : [['Alzado', 'Alzado'], ['Planta', 'Planta'], ['Seccion', 'Sección']];   /* A125: seccion tambien en cocina y closet */
 const viewName = v => (viewList().find(q => q[0] === v) || [v, v])[1];
 function setView(v){
   view = v; if (selectedPart === 'wall') selectedPart = null;
