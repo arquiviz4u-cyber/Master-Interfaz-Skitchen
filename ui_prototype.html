@@ -816,15 +816,15 @@
        PaintBack y PaintSection (LayoutContext.cs:57, 61, 81, 91) y los
        costados del alzado (Layout.cs:195) pintan con MaterialSwatches.Paint
        sin mirar flat. (Reportado por el usuario.)
-   F4. Material por pieza. [M] si en Interior (cuando tenga boton). [R]
+   F4. [Master y Revit P12.243: costados de la Posterior y gabinete cortado con su material (mod:)] Material por pieza. [M] si en Interior (cuando tenga boton). [R]
        parcial: los costados de la vista posterior no reciben material y la
        Seccion solo ofrece «todos los gabinetes».
-   F5. Piezas ocultas punteadas y recuadro de seleccion en Posterior y
+   F5. [Sin cambio: el master no lo tiene en Posterior ni Seccion] Piezas ocultas punteadas y recuadro de seleccion en Posterior y
        Seccion. [R] no (DrawParts y dragBox solo en alzado y planta).
-   F6. Tema oscuro en Planta, Posterior y Seccion. [R] parcial: colores fijos
+   F6. [Revit P12.242] Tema oscuro en Planta, Posterior y Seccion. [R] parcial: colores fijos
        (Pen 95,105,112 y fondo blanco).
-   F7. Cota de profundidad editable en Planta y Seccion. [R] sin clave.
-   F8. Unidades de la region en rotulos. [R] no: «+elevacion», ancho del
+   F7. [Revit P12.242: clave islaD] Cota de profundidad editable en Planta y Seccion. [R] sin clave.
+   F8. [Revit P12.242] Unidades de la region en rotulos. [R] no: «+elevacion», ancho del
        panel posterior, «Barra elevada +x cm» y «a N cm» del titulo de la
        seccion quedan en cm.
      CLOSET
@@ -840,18 +840,18 @@
    F12. [Master OK 08/10: fondo, repisas y zapateras; cajones y frentes siguen con el modulo] [Revit P12.241]
        Material por pieza (repisas, cajones, frentes, fondo; fondo pinta su
        caja, A64). [M] no. [R] no: solo el modulo completo, zoclo y tapetas.
-   F13. Gola de los cajones como destino de material. [R] no (GolaStrips
+   F13. [Master y Revit P12.243] Gola de los cajones como destino de material. [R] no (GolaStrips
        sale para el closet).
-   F14. Panel de contexto del tramo propio del closet. [R] cae en «Muro y
+   F14. [Revit P12.243: «Closet y colocacion»] Panel de contexto del tramo propio del closet. [R] cae en «Muro y
        colocacion» de la cocina; revisar que ofrece.
-   F15. Planta propia del closet (cuerpos, barras, hojas). [R] usa la planta
+   F15. [Sin cambio: el master tampoco la tiene] Planta propia del closet (cuerpos, barras, hojas). [R] usa la planta
        de cocina sin dibujo de closet.
-   F16. Tema oscuro. [R] DrawCloset con colores fijos.
-   F17. Iman de los grips con los niveles de los vecinos. [R] EdgeLevels y
+   F16. [Revit P12.242] Tema oscuro. [R] DrawCloset con colores fijos.
+   F17. [Ya funciona: ClosetLevels de los vecinos] Iman de los grips con los niveles de los vecinos. [R] EdgeLevels y
        AlignLevels no dan niveles en closet.
-   F18. Unidades de la region en rotulos. [R] «Maletero x cm» en cm.
+   F18. [Revit P12.242] Unidades de la region en rotulos. [R] «Maletero x cm» en cm.
      COMUN
-   F19. Etiqueta de los grips en la unidad de Ajustes. [R] DrawSplitLabel
+   F19. [Revit P12.242] Etiqueta de los grips en la unidad de Ajustes. [R] DrawSplitLabel
        escribe «cm» a mano (cocina, isla y closet).
 
   CONTENIDO ACTUAL DEL MASTER
@@ -4223,7 +4223,7 @@ function drawClosetModule(m, x0, RX, X, Z, post){
       else if (i.kind === 'Zapatera') { const k = 'repisa.' + (++nb); board(q, true, propio(k)); board({ x: q.x, y: q.y - 3, w: q.w, h: 3 }, true, propio(k)); pieza(q, k); }
       else dashBox(t + 2, m.ancho - t - 2, i.z0, Math.max(i.z0 + 4, i.z1 - 3)); });
     fr.forEach(f => { const q = BX(f.x0, f.x1, f.z0, f.z1);
-      if (f.kind === 'Gola') { ctx.fillStyle = C.rod; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); }
+      if (f.kind === 'Gola') { fillMat(q.x, q.y, q.w, q.h, groupMaterial('Gola'), C.rod); outline(q, C.line, 1); materialHits.push({ rect: q, key: 'Gola' }); }   /* F13: material Gola */
       else if (f.kind === 'Cajon') { ctx.fillStyle = flat ? C.flat : C.closetFront; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); }
       else if (showDoors) leaf(f, q); });
     txt(closetLabel(m), full.x + 3, full.y + full.h - 17);
@@ -4408,7 +4408,7 @@ function drawIslandBack(){
   for (const left of [true, false]) {
     const w = left ? aI : aD, x0 = left ? 0 : W - w, casc = left ? cfg.cascadaIzq : cfg.cascadaDer, bcasc = cfg.islaBarraElevada && (left ? cfg.islaBarraCascadaIzq : cfg.islaBarraCascadaDer);
     if (!casc) { const adj = left ? lows[0] : lows[lows.length - 1], r = RX(x0, x0 + w, cfg.generarZoclos ? zb : 0, zb + cfg.altoBajos);
-      fillMat(r.x, r.y, r.w, r.h, adj && (adj.material || cfg.materialGeneral), C.front); outline(r, C.line, 1); ipart(RX(x0, x0 + w, 0, zBar), left ? 'fillerI' : 'fillerD', false); }
+      fillMat(r.x, r.y, r.w, r.h, adj && (adj.material || cfg.materialGeneral), C.front); outline(r, C.line, 1); if (adj) materialHits.push({ rect: r, key: 'mod:' + adj.id });   /* F4 */ ipart(RX(x0, x0 + w, 0, zBar), left ? 'fillerI' : 'fillerD', false); }
     else if (bcasc) { const r = RX(left ? 0 : W - be, left ? be : W, 0, topH - be); fillMat(r.x, r.y, r.w, r.h, groupMaterial('BarraElevada'), C.cubierta); outline(r, C.line, 1); ipart(r, 'raisedbar'); }
     else { const r = RX(x0, x0 + w, 0, zBar); paintCover(r); ipart(r, left ? 'fillerI' : 'fillerD', true); }
   }
@@ -4450,7 +4450,7 @@ function drawIslandSection(inset){   /* inset (A115): dibujada junto al alzado f
     for (let k = 1; k <= n; k++) board({ x: body.x + 2, y: Y(zb + 1.8 + inner*k/(n + 1) + .9), w: body.w - t - 2, h: t });
     if (selection.has(mod.id)) { ctx.fillStyle = 'rgba(219,238,248,.35)'; ctx.fillRect(body.x, body.y, body.w, body.h); post.push(() => outline(body, C.accent, 3)); }
     ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText(`${nombreModulo(mod)} · ${fmt(mod.ancho)}${uS()}`, body.x + 4, body.y + t + 4); ctx.textBaseline = 'alphabetic';
-    materialHits.push({ rect: body, key: 'mods:all' }); hits.push({ rect: body, module: mod });
+    materialHits.push({ rect: body, key: 'mod:' + mod.id }); hits.push({ rect: body, module: mod });   /* F4: el gabinete cortado, no todos */
   }
   if (cfg.generarZoclos && zb > 0) part('plinth', true, [{ x: XF(flight + cfg.retiroZoclo), y: Y(zb), w: t, h: zb*s }], paintZoclo, post);
   const rise = barra ? cfg.islaBarraAncho : 0;
