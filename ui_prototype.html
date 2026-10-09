@@ -224,6 +224,14 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A126. Tras probar la P12.249 (09/10, usuario): 1) la seccion dibuja la caja de cajon como sale en 3D (cajaDeCajon: B18,
+       entre la aleta de abajo y la de arriba del perfil de gola, con libreGola), sin cruzarse con el perfil; 2) Interactuar: al
+       hacer clic en un cajon se abren todos los de su columna en cascada (abre.grupo «<modulo>:cajones», abre.fraccion: abajo
+       100 %, cada uno de arriba 1 - k*min(0.3, 0.7/(n-1)); 3 cajones: 100/70/40); en el especiero con cajones sus cajones ya no
+       son independientes entre si, solo el extraible del especiero; el cesto sigue como A106; 3) la tapeta superior sigue el
+       saque de cada columna (fondo del alto, de su modulo superior con fondo propio o de la torre), tramos del mismo fondo en
+       una pieza; en Revit ademas la puerta del modulo superior con fondo propio debe quedar al pano de su caja.
+       Revit: 1 en el editor; 2 y 3 en el generador e Interactuar. SketchUp: 2 en interaccion.rb.
    A125. [Revit P12.249] Lista del editor 3 (09/10, usuario): 1) la franja gola ya no lleva la linea clara del perfil (no tomaba el material);
        2) backsplash de una pieza en el modelo: el tramo y lo que sube tras la campana sola son un solo perfil (forma perfil,
        eje y); 3) la seccion corta los perfiles de gola (canal, alma y aletas, L o C), las jaladeras (clasica y simple) y la
@@ -2182,6 +2190,14 @@ function joinRight(id){ const ups = row(true), i = ups.findIndex(q => q.id === i
 const hasCampana = m => m.upper && !!m.campana && m.tipo !== 'Abierto' && !m.inferiorAbierto;
 /* A81 (usuario, 06/10): solo la campana: la columna no lleva el cuerpo del alto ni el modulo superior del alto doble; la chimenea llega al tope */
 const soloCamp = m => hasCampana(m) && !!m.soloCampana;
+/* A126 (usuario, 09/10): perfiles de gola de un bajo como [z0, z1] (de la aleta de abajo a la de arriba), igual que las muescas del plan */
+const perfilesGola = m => golaStrips(m).map(([gz, gh], k) => { const sup = k === 0; return [gz - (sup ? traslapeL() : traslapeC()), sup ? gz + gh : gz + gh + traslapeC()]; });
+/* caja de un cajon (cajaCajon + B18): de su frente, libre arriba, y recortada entre los perfiles que cruza */
+function cajaDeCajon(m, f, zIn0, zIn1){
+  const c = PLAN_CAJA; let a = Math.max(f.z0, zIn0 + .5), b = Math.min(Math.max(a + 4, f.z1 - c.libreArriba), zIn1 - .5);
+  perfilesGola(m).forEach(([p0, p1]) => { if (p0 < b - .01 && p1 > a + .01) { if ((p0 + p1)/2 < (a + b)/2) a = Math.max(a, p1 + c.libreGola); else b = Math.min(b, p0 - c.libreGola); } });
+  if (b - a < 4) b = a + 4; return [a, b];
+}
 /* A124: contorno de una union de rectangulos que se tocan (sin las aristas compartidas) */
 function contornoUnion(rs, color, w){
   const e = .6, segs = [];
@@ -3051,7 +3067,17 @@ function planDePiezas(c = cfg){
       if (d.tapetaSuperior && cfg.alturaMuro - top > .1) { const x0 = d.tapetaLateral ? Math.min(s0, f0) : s0, x1 = d.tapetaLateral ? Math.max(s1, f1) : s1;
         add({ id: d.id + ':tapeta:superior', rol: 'tapeta', modulo: d.id, x: x0, y: 0, z: top, ancho: x1 - x0, fondo: d.fondo, alto: cfg.alturaMuro - top, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' }); }
     });
-    if (highs.length && cfg.tapetaSuperior) add({ id: 'tapeta:superior', rol: 'tapeta', x: run0, y: 0, z: zTop, ancho: run1 - run0, fondo: dAlto, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
+    /* A126 (usuario, 09/10): la tapeta superior sigue el saque de cada columna: el frente del alto (o de su modulo superior con fondo
+       propio, A82) o el de la torre que llega al tope; tramos seguidos del mismo fondo son una pieza */
+    if (highs.length && cfg.tapetaSuperior) {
+      const tramosTs = []; let xc = ajusteIzq();
+      highs.forEach((u, i) => { const bajo = lows.length === highs.length ? lows[i] : null;
+        const f = u.reserved && bajo && isSpecial(bajo) ? bajo.fondo : isDoble(u) && u.fondoSuperior > 0 ? u.fondoSuperior : u.fondo;
+        tramosTs.push([xc, xc + u.ancho, sep + f + t]); xc += u.ancho; });
+      if (tramosTs.length) { tramosTs[0][0] = run0; tramosTs[tramosTs.length - 1][1] = run1; }
+      const unidos = []; tramosTs.forEach(q => { const u = unidos[unidos.length - 1]; if (u && Math.abs(u[2] - q[2]) < .01 && Math.abs(u[1] - q[0]) < .01) u[1] = q[1]; else unidos.push(q.slice()); });
+      unidos.forEach(([a, b, fo], k) => add({ id: 'tapeta:superior' + (unidos.length > 1 ? ':' + k : ''), rol: 'tapeta', x: a, y: 0, z: zTop, ancho: b - a, fondo: fo, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' }));
+    }
     /* B18 (usuario, 03/10): la caja de cajon sale hacia la habitacion; su alto deja libre cada perfil de gola del modulo que cruza
        (la C entre cajones sube PLAN_GOLA.traslape detras del frente de arriba): la caja empieza sobre la aleta de abajo y termina
        bajo la de arriba, con PLAN_CAJA.libreGola */
@@ -3093,6 +3119,16 @@ function planDePiezas(c = cfg){
       if (mod && ['Especiero', 'Basura'].includes(mod.tipo)) principal.abre.independiente = true;
       if (dentroDe.has(d)) principal.abre.dentroDe = dentroDe.get(d);
     });
+    /* A126 (usuario, 09/10): al hacer clic en un cajon se abren todos los de su columna (abre.grupo) en cascada: el de hasta abajo
+       al 100 % del recorrido y los de arriba cada vez menos (abre.fraccion = 1 - k*min(0.3, 0.7/(n-1))). En el especiero con cajones
+       sus cajones abren juntos; solo el extraible del especiero sigue independiente. El cesto sigue como en A106 */
+    const gruposCajon = new Map();
+    movibles.forEach(qs => { const pr = qs.find(q => q.abre && q.abre.tipo === 'Cajon'); if (!pr) return; const mod = cfg.modulos.find(q => q.id === pr.modulo);
+      if (!mod || mod.tipo === 'Basura' || pr.abre.dentroDe) return;
+      if (mod.tipo === 'Especiero') { if (pr.alto >= .6*cfg.altoBajos) return; delete pr.abre.independiente; }
+      const k = mod.id + ':cajones'; if (!gruposCajon.has(k)) gruposCajon.set(k, []); gruposCajon.get(k).push(pr); });
+    gruposCajon.forEach((ps, k) => { ps.sort((a, b) => a.z - b.z); const n = ps.length, paso = n > 1 ? Math.min(.3, .7/(n - 1)) : 0;
+      ps.forEach((p, i) => { p.abre.grupo = k; p.abre.fraccion = r2(1 - i*paso); }); });
     /* B19 herrajes de detalle intermedio (usuario, 03/10: reconocibles y con pocas caras; los de la competencia pesan demasiado).
        forma: la geometria dentro de la caja de la pieza, en cm desde su esquina menor y en ejes del plan: cilindro (de, a, diametro,
        lados) o perfil (puntos del poligono en el plano normal a eje, extruido a todo el largo de la caja). Ruby solo la construye.
@@ -4065,7 +4101,7 @@ function drawSeccionCocina(xw, s, Z, xc){
     brd({ x: body.x, y: body.y, w: body.w, h: t }, mm); brd({ x: body.x, y: Z(z0) - t, w: body.w, h: t }, mm); brd({ x: xw - t, y: body.y, w: t, h: body.h }, mm);
     const fr = fronts(m).filter(f => f.kind !== 'Gola' && f.z1 > z0 - .5 && f.z0 < z1 + .5);
     fr.forEach(f => { brd({ x: body.x - t, y: Z(f.z1), w: t, h: (f.z1 - f.z0)*s }, mm);
-      if (f.kind === 'Cajon' && !f.fijo) { const za = Math.max(f.z0 + 4, f.z1 - 3), q = { x: body.x + 2, y: Z(za), w: Math.max(2, body.w - t - 6*s), h: (za - f.z0 - 1)*s }; ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });
+      if (f.kind === 'Cajon' && !f.fijo) { const [ca, cb] = cajaDeCajon(m, f, z0 + 1.8, z1 - 1.8), q = { x: body.x + 2, y: Z(cb), w: Math.max(2, body.w - t - 6*s), h: (cb - ca)*s }; ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });   /* A126: como en 3D */
     const n = conRepisas && !fr.some(f => f.kind === 'Cajon') ? shelvesOf(m) : 0, inner = z1 - z0 - 3.6;
     for (let k = 1; k <= n; k++) brd({ x: body.x + 2, y: Z(z0 + 1.8 + inner*k/(n + 1) + .9), w: body.w - 2*t, h: t }, mm);
     /* A125 (usuario, 09/10): jaladeras en corte (clasica y simple): salen del frente; puertas a lo largo, cajones de canto, boton */
