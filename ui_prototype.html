@@ -213,6 +213,19 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A116. Correcciones de la seccion y de Medir (08/10, usuario):
+       a) La cubierta con nariz se corta como se genera (cubiertaSeccion, cocina e isla): losa del espesor y nariz al frente
+          hasta la altura total, una sola pieza unida a inglete (A88), y la cama debajo al pano de la nariz (A100).
+       b) Medir: en Interior las mitades de puerta (halfw) van arriba del gabinete y ya no las tapan las luces entre
+          divisiones; tambien salen en los especiales con dos puertas (torre, refri, alacena) y en el modulo superior de
+          dos puertas (sus dos hojas).
+       c) La seccion proyecta (punteado, con nombre) los equipos y especiales: refrigerador y su gabinete, hornos y micro de
+          la torre, especiero torre, estufa (corta cubierta y zoclo), lavavajillas con su panel, frigobar de vinos con su
+          tapeta, cesto, especiero, tarja con monomando, parrilla sobre la cubierta y la campana (con chimenea si va sola);
+          el alto con campana empieza sobre su hueco.
+       d) Modulo superior de una puerta: «Invertir abatimiento» en el panel del gabinete (seccion Modulo superior) y en el
+          del modulo superior (antes «Bisagra a la derecha»); con columnas unidas va al primero del grupo y se copia al resto.
+       Revit: las cuatro.
    A115. Seccion lateral en el alzado (08/10, usuario): boton de solo icono (una linea de seccion: trazo y punto,
        extremos con guion grueso, sin flechas) junto al tipo de vista, que muestra u oculta, junto al alzado, la seccion del gabinete elegido (o del primero) a la misma escala y con el mismo piso; en el
        alzado marca la linea de seccion (trazo y punto con guiones gruesos en los extremos, sin letra) y se arrastra como
@@ -225,6 +238,12 @@
        bajo el titulo (islaSuelo: alto del dibujo mas lo que sobresale arriba y abajo; nunca mas abajo que antes) y a lo ancho
        contando las cotas que salen de un lado (alto de la barra a la derecha, cotas de la barra elevada). Revit: centrar
        PaintFront/PaintBack/PaintSection igual (hoy el suelo va pegado abajo).
+   A114. [Por hacer en el master] Isla a inglete (08/10, usuario, tras validar A88 en Revit): la misma regla de 45 grados en
+       la cubierta de la isla: la cascada se une a la cubierta a inglete (el canto superior de la cascada y el extremo de la
+       cubierta cortados a 45 grados, sin junta en la cara superior ni en el costado) y la nariz de la isla (frente y, en Revit, los
+       retornos de los extremos sin cascada) tambien a inglete con la cubierta. Por definir: la esquina donde se juntan nariz
+       frontal, cascada (o retorno) y cubierta. Revit: hoy la cascada es un tablero recto bajo el extremo de la cubierta y los
+       retornos, piezas rectas bajo la losa.
    A113. [Revit OK P12.228] Frentes de piston sin jaladera (08/10, usuario): los gabinetes de piston (frente elevable, en el alto, el modulo
        superior o la puerta oculta) no llevan jaladera; solo la llevan las puertas abatibles, sencillas o dobles, y los cajones
        (estilos clasica y simple). En clasica el elevable conserva su marco shaker. Cambia A102 para el modulo superior de piston.
@@ -328,7 +347,7 @@
        el reparto parejo (A87) solo manda a las tapetas lo que cabe bajo el
        tope y el resto vuelve a los gabinetes (algunos 1 cm mas). Absorcion de
        ajustes entre 2 cm y el tope. US: tope 3". Revit: mismos valores.
-   A88. [Revit P12.235: inglete de 45 grados con losa y nariz de perfil (P12.234 no unia en familia); sin probar; retornos de isla aun rectos] Nariz a inglete (08/10, usuario): la nariz se ve como una sola pieza
+   A88. [Revit OK P12.235: inglete de 45 grados con losa y nariz de perfil; validado 08/10] Nariz a inglete (08/10, usuario): la nariz se ve como una sola pieza
        con la cubierta: tiene el espesor de la cubierta y ambas se cortan a 45
        grados (perfil), sin junta horizontal al frente; la cama se retira al
        menos ese espesor. Revit: nariz con el espesor de la cubierta y corte
@@ -3953,9 +3972,12 @@ function marcaCorte(xp, y0, y1, key){
 function tituloSeccion(xl, xr, y){ ctx.fillStyle = C.title; ctx.font = "600 12px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('SECCIÓN', (xl + xr)/2, y); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
 /* cocina: bajo (o torre) con cubierta, zoclo y backsplash; alto (y su modulo superior) contra el muro */
 function drawSeccionCocina(xw, s, Z, xc){
-  const P = d => xw - d*s, t = Math.max(1, 1.8*s), zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), H = cfg.alturaMuro;
+  const P = d => xw - d*s, t = Math.max(1, 1.8*s), zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), H = cfg.alturaMuro, A = cfg.altoBajos;
   const wood = dark ? '#5C5546' : 'rgb(232,224,207)', drawerC = dark ? '#4A5058' : 'rgb(215,220,224)';
   const brd = (r, mm) => { if (r.w <= 0 || r.h <= 0) return; fillMat(r.x, r.y, r.w, r.h, flat ? null : mm, wood); outline(r, C.line, 1); };
+  /* A116 (usuario, 08/10): equipos y especiales en proyeccion (punteado), con su nombre */
+  const proy = (d0, d1, z0, z1, txt) => { const q = { x: P(d1), y: Z(z1), w: (d1 - d0)*s, h: (z1 - z0)*s }; if (q.w <= 0 || q.h <= 0) return;
+    post.push(() => { outline(q, C.hood, 1.2, [4, 3]); if (txt && q.h > 14) { ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(txt, q.x + 3, q.y + 3); ctx.textBaseline = 'alphabetic'; } }); };
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(P(fondoSeccion()) - 16, Z(0), xw + 16, Z(0)); line(P(fondoSeccion()) - 16, Z(H), xw + 16, Z(H));
   ctx.fillStyle = dark ? '#3A3F44' : '#E4E6E8'; ctx.fillRect(xw, Z(H), 7, H*s); ctx.lineWidth = 1.5; line(xw, Z(H), xw, Z(0)); ctx.lineWidth = 1;   /* muro */
   const caja = (m, z0, z1, D, conRepisas) => {   /* costado cortado: techo, piso, trasera, frentes, cajones y repisas */
@@ -3972,22 +3994,58 @@ function drawSeccionCocina(xw, s, Z, xc){
   };
   const low = moduloEn(false, xc), up = moduloEn(true, xc), out = { low, up };
   if (low && !low.reserved) {
-    const D = low.fondo;
-    if (isSpecial(low)) caja(low, zb, zTop, D, true);
-    else {
-      caja(low, zb, zb + cfg.altoBajos, D, true);
-      if (cfg.generarCubierta) part('cover', true, [{ x: P(D + vueloEf()), y: Z(zBar), w: (D + vueloEf())*s, h: paquete()*s }], paintCover, post);
+    const D = low.fondo, tipo = low.tipo;
+    if (isRefri(low)) {   /* hueco del refrigerador y, encima, su gabinete */
+      proy(0, D, 0, low.huecoRefri, 'Refrigerador');
+      if (low.superiorRefri && altoEsp(low) - low.huecoRefri > 1) caja(low, low.huecoRefri, altoEsp(low), D, false);
+      hits.push({ rect: { x: P(D), y: Z(altoEsp(low)), w: D*s, h: altoEsp(low)*s }, module: low });
+    } else if (isSpecial(low)) {   /* torre de hornos, alacena y especiero torre */
+      caja(low, zb, altoEsp(low), D, false);
+      if (isTower(low)) segments(low).forEach(([n, a, b]) => { if (n === 'oven') proy(2, D - 2, a, b, 'Horno'); else if (n === 'micro') proy(2, D - 2, a, b, 'Micro'); });
+      if (tipo === 'EspecieroTorre') proy(3, D - 3, zb + 4, altoEsp(low) - 4, 'Especiero');
+    } else if (tipo === 'Estufa') {   /* aparato del piso a la cubierta; corta la cubierta y el zoclo */
+      const q = { x: P(D), y: Z(zBar), w: D*s, h: zBar*s }; ctx.fillStyle = flat ? C.flat : C.metal; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1);
+      ctx.fillStyle = C.stove; ctx.fillRect(q.x, q.y - Math.max(2, s), q.w, Math.max(2, s));
+      proy(3, D - 3, zb + 4, zb + A*.6, 'Horno'); hits.push({ rect: q, module: low });
+    } else if (tipo === 'Lavavajillas') {   /* aparato del piso a la cubierta, con su panel al frente */
+      proy(1, D, 0, zBar - paquete(), 'Lavavajillas');
+      brd({ x: P(D) - t, y: Z(zb + A), w: t, h: A*s }, low.material || cfg.materialGeneral);
+      hits.push({ rect: { x: P(D), y: Z(zBar - paquete()), w: D*s, h: (zBar - paquete())*s }, module: low });
+    } else if (tipo === 'Frigobar') {   /* aparato en el hueco del gabinete; si es mas alto baja hacia el piso */
+      const fh = Math.min(low.altoFrigobar, zb + A), z0 = fh > A ? zb + A - fh : zb;
+      proy(1, D, z0, z0 + fh, 'Vinos');
+      if (fh < A && low.tapetaFrigobar) brd({ x: P(D) - t, y: Z(zb + A), w: t, h: (A - fh)*s }, groupMaterial('Tapetas'));
+      hits.push({ rect: { x: P(D), y: Z(zb + A), w: D*s, h: A*s }, module: low });
+    } else {
+      caja(low, zb, zb + A, D, true);
+      if (tipo === 'Basura') proy(D*.25, D - 3, zb + 3, zb + A*.75, 'Cesto');
+      else if (tipo === 'Especiero') proy(3, D - 3, zb + 4, zb + A - 6, 'Especiero');
+    }
+    if (!cortaCubierta(low) && cfg.generarCubierta) {
+      cubiertaSeccion(P(D + vueloEf()), xw, Z, s, post);
+      if (cfg.moduloTarja === low.id && cfg.tipoTarja > 0) {   /* tarja (como en el alzado: bajo la cubierta) y monomando detras */
+        const bd = Math.min(cfg.tarjaFondo, D - cfg.retiroTarja - 4), d1 = D - cfg.retiroTarja, zt = zBar - paquete();
+        proy(d1 - bd, d1, zt - cfg.tarjaProf, zt, 'Tarja');
+        if (cfg.monomando) post.push(() => { const tx = P(d1 - bd - 4), hgt = 16*s; ctx.strokeStyle = C.tap; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, Z(zBar)); ctx.lineTo(tx, Z(zBar) - hgt); ctx.lineTo(tx - 8*s, Z(zBar) - hgt); ctx.lineTo(tx - 8*s, Z(zBar) - hgt + 3*s); ctx.stroke(); ctx.lineCap = 'butt'; ctx.lineWidth = 1; });
+      }
+      if (low.parrilla) { const pd = Math.min(52, D - 8), q = { x: P(D - 4), y: Z(zBar) - Math.max(2, .6*s), w: pd*s, h: Math.max(2, .6*s) }; post.push(() => { ctx.fillStyle = C.stove; ctx.fillRect(q.x, q.y, q.w, q.h); }); }
       if (cfg.backsplash) { const bsTop = cfg.backsplashCompleto && up ? zBA : zBar + cfg.altoBacksplash, e = Math.max(.5, cfg.espesorBacksplash || 1);
         part('backsplash', true, [{ x: P(e), y: Z(bsTop), w: e*s, h: (bsTop - zBar)*s }], r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Backsplash'), C.backsplash); outline(r, C.line, 1); }, post); }
     }
-    if (cfg.generarZoclos && zb > 0) part('plinth', true, [{ x: P(D - cfg.retiroZoclo), y: Z(zb), w: t, h: zb*s }], paintZoclo, post);
+    if (cfg.generarZoclos && zb > 0 && !cortaZoclo(low)) part('plinth', true, [{ x: P(D - cfg.retiroZoclo), y: Z(zb), w: t, h: zb*s }], paintZoclo, post);
     out.D = D;
   }
   if (up && !up.reserved && !(low && isSpecial(low))) {
-    if (soloCamp(up)) { const q = { x: P(up.fondo), y: Z(zTop), w: up.fondo*s, h: (zTop - zBA)*s }; outline(q, C.hood, 1, [4, 3]); }
-    else {
+    const z0 = zBA + huecoAlto(up), camp = hasCampana(up);
+    if (camp) {   /* campana en el hueco bajo el alto (o sola, con su chimenea hasta el tope) */
+      const zc = soloCamp(up) ? zBA + (up.huecoCampana || 0) : z0, hd = Math.max(up.fondo, 45), a = zBA, b = Math.min(zc, zBA + 30);
+      post.push(() => { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.hood; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(xw, Z(b)); ctx.lineTo(P(up.fondo), Z(b)); ctx.lineTo(P(hd), Z(a)); ctx.lineTo(xw, Z(a)); ctx.stroke();
+        if (soloCamp(up)) ctx.strokeRect(P(25), Z(zTop), 25*s, (zTop - b)*s); ctx.restore();
+        ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText('Campana', P(hd) + 3, Z(b) + 2); ctx.textBaseline = 'alphabetic'; });
+    }
+    if (!soloCamp(up)) {
       const hs = isDoble(up) ? up.altoSuperior : 0;
-      caja(up, zBA, zTop - hs, up.fondo, true);
+      caja(up, z0, zTop - hs, up.fondo, !camp);
       if (hs > 0) caja(up, zTop - hs, zTop, up.fondoSuperior > 0 ? up.fondoSuperior : up.fondo, false);
     }
     out.Du = up.fondo;
@@ -3995,7 +4053,7 @@ function drawSeccionCocina(xw, s, Z, xc){
   post.forEach(f => f()); post = [];
   const xl = P(fondoSeccion());
   tituloSeccion(xl, xw, Z(H) - 38);
-  if (out.D) { dim(P(out.D), Z(0) + 30, xw, Z(0) + 30, fmt(out.D), null); if (cfg.generarCubierta && !isSpecial(low) && vueloEf() > .1) dim(P(out.D + vueloEf()), Z(0) + 56, xw, Z(0) + 56, fmt(out.D + vueloEf()), null); }
+  if (out.D) { dim(P(out.D), Z(0) + 30, xw, Z(0) + 30, fmt(out.D), null); if (cfg.generarCubierta && !cortaCubierta(low) && vueloEf() > .1) dim(P(out.D + vueloEf()), Z(0) + 56, xw, Z(0) + 56, fmt(out.D + vueloEf()), null); }
   if (out.Du && !soloCamp(up)) dim(P(out.Du), Z(H) - 12, xw, Z(H) - 12, fmt(out.Du), null);
 }
 /* closet: cuerpo cortado con barras (circulos), repisas, cajones, maletero, frentes y zoclo */
@@ -4197,6 +4255,22 @@ function ipart(rect, key, active = true){
 }
 const paintCover = r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Cubierta'), C.cubierta); outline(r, C.line, 1); };
 const paintZoclo = r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Zoclo'), C.zocalo); };
+/* A116 (usuario, 08/10): cubierta cortada de xf (frente) a xb (fondo), igual que se genera: sin nariz, el paquete; con nariz, losa del
+   espesor y nariz al frente hasta la altura total como una sola pieza unida a inglete (A88) y la cama debajo, al pano de la nariz (A100) */
+function cubiertaSeccion(xf, xb, Y, s, post){
+  const zBar = altoBarra(), esp = cfg.espesorCubierta, pq = paquete(), nariz = cfg.narizCubierta && pq > esp + .01, e = esp*s;
+  const all = { x: xf, y: Y(zBar), w: xb - xf, h: pq*s };
+  part('cover', true, [all], () => {
+    if (!nariz) { paintCover(all); return; }
+    const cama = { x: xf + e, y: Y(zBar - esp), w: xb - xf - e, h: (pq - esp)*s };
+    fillMat(cama.x, cama.y, cama.w, cama.h, groupMaterial('Cubierta'), C.cubierta); outline(cama, C.line, 1);
+    const pts = [[xf, Y(zBar)], [xb, Y(zBar)], [xb, Y(zBar - esp)], [xf + e, Y(zBar - esp)], [xf + e, Y(zBar - pq)], [xf, Y(zBar - pq)]];
+    const path = () => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); };
+    ctx.save(); path(); ctx.clip(); fillMat(all.x, all.y, all.w, all.h, groupMaterial('Cubierta'), C.cubierta); ctx.restore();
+    path(); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke();
+    ctx.lineWidth = .8; line(xf, Y(zBar), xf + e, Y(zBar - esp)); ctx.lineWidth = 1;   /* union a inglete */
+  }, post);
+}
 function centroLine(x, y0, y1){
   if (exporting) return;
   ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = 'rgba(90,150,200,.6)'; ctx.lineWidth = 1; line(x, y0, x, y1); ctx.restore();
@@ -4360,8 +4434,7 @@ function drawIslandSection(inset){   /* inset (A115): dibujada junto al alzado f
   }
   if (cfg.generarZoclos && zb > 0) part('plinth', true, [{ x: XF(flight + cfg.retiroZoclo), y: Y(zb), w: t, h: zb*s }], paintZoclo, post);
   const rise = barra ? cfg.islaBarraAncho : 0;
-  part('cover', cfg.generarCubierta, [{ x: XF(0), y: Y(zBar), w: XB(rise) - XF(0), h: esp*s }], paintCover, post);
-  if (!barra && cfg.narizCubierta && cfg.generarCubierta) paintCover({ x: XF(0), y: Y(zBar - esp), w: t, h: (cfg.alturaNariz - esp)*s });
+  if (cfg.generarCubierta) cubiertaSeccion(XF(0), XB(rise), Y, s, post);   /* A116: nariz al pano, como se genera */
   if ((cfg.cascadaIzq || cfg.cascadaDer) && proyOn()) outline({ x: XF(0), y: Y(zBar), w: XB(0) - XF(0), h: zBar*s }, C.box, 1, [5, 3]);   /* proyeccion de las cascadas */
   if (barra) {
     const bf = barraFondo(), slab = { x: XB(bf), y: Y(topH), w: bf*s, h: be*s }, riser = { x: XB(bf), y: Y(topH - be), w: be*s, h: (topH - be - zBar)*s };
@@ -4945,6 +5018,11 @@ function drawMeasure(X, Z){
         if (isSpecial(m)) {   /* un tramo editable por cuerpo, hueco o equipo; los cajones de division a division */
           if (hasDrawers(m)) { const l = drawerLevels(m); for (let k = 0; k < l.length - 1; k++) dim(lx, Z(l[k+1]), lx, Z(l[k]), fmt(l[k] - l[k+1]), 'seg:' + m.id + ':' + k); }
           segments(m).forEach(([name, a, b]) => dim(lx, Z(a), lx, Z(b), fmt(b - a), 'tw:' + m.id + ':' + name));
+          /* A116: cada par de puertas del especial (torre, refri, alacena) con sus dos mitades */
+          const fr = fronts(m).filter(f => f.kind === 'Puerta'), done = new Set();
+          fr.forEach(f => { const k = Math.round(f.z0*10); if (done.has(k) || fr.filter(q => Math.round(q.z0*10) === k).length !== 2) return; done.add(k);
+            const ym = showDoors ? Z(f.z0) - 14 : Z(f.z1) + 16, x0 = X(x), xm = X(x + m.ancho/2), x1 = X(x + m.ancho);
+            dim(x0, ym, xm, ym, fmt(m.ancho/2), 'halfw:' + m.id); dim(xm, ym, x1, ym, fmt(m.ancho/2), 'halfw:' + m.id); });
         } else {
           const z0 = upper ? baseAltos() + huecoAlto(m) : cfg.baseBajos, h = mheightOf(m);
           const r = { x: X(x), y: Z(z0 + h), w: m.ancho*scale, h: h*scale };
@@ -4955,7 +5033,8 @@ function drawMeasure(X, Z){
           if (grp) { if (grp.members[grp.members.length - 1] === m) drawGaps(grp.members[0], { x: X(grp.x0), y: r.y, w: grp.width*scale, h: r.h }, scale); }   /* caja corrida: repisas y divisiones de la caja (A43) */
           else if (!showDoors || sinPuertas(m)) drawGaps(m, r, scale);
           if (m.dosPuertas && !sinPuertas(m) && (!drawerType(m) || m.tipo === 'C')) {
-            const ym = r.y + r.h - 14; dim(r.x, ym, r.x + r.w/2, ym, fmt(m.ancho/2), 'halfw:' + m.id); dim(r.x + r.w/2, ym, r.x + r.w, ym, fmt(m.ancho/2), 'halfw:' + m.id);
+            const ym = showDoors ? r.y + r.h - 14 : r.y + 16;   /* A116: en Interior van arriba; abajo quedan las luces entre divisiones */
+            dim(r.x, ym, r.x + r.w/2, ym, fmt(m.ancho/2), 'halfw:' + m.id); dim(r.x + r.w/2, ym, r.x + r.w, ym, fmt(m.ancho/2), 'halfw:' + m.id);
           }
         }
       }
@@ -4977,6 +5056,7 @@ function drawMeasure(X, Z){
     dim(cr.x + 12, cr.y + cr.h, cr.x + 12, cr.y, fmt(cap.altoSuperior), 'mlift:' + cap.id);
     dim(cr.x, cr.y + cr.h - 14, cr.x + cr.w, cr.y + cr.h - 14, fmt(g.width), 'boxw:' + g.members[0].id);   /* A107 */
     if (!showDoors || cap.tipoSuperior === 'Repisas') gapsOf(cr, cap.repisasSuperior, cap.divisionSuperior ? Math.max(1, cap.divisionesSuperior || 1) : 0, scale);
+    if (cap.tipoSuperior === 'Puertas') { const ym = cr.y + 14, xm = cr.x + cr.w/2; dim(cr.x, ym, xm, ym, fmt(g.width/2), null); dim(xm, ym, cr.x + cr.w, ym, fmt(g.width/2), null); }   /* A116: sus dos hojas */
   }
 }
 const drawGaps = (m, q, scale) => gapsOf(q, hasDrawers(m) ? 0 : shelvesOf(m), !drawerType(m) && hasDivider(m) ? Math.max(1, m.divisiones || 1) : 0, scale);
@@ -5605,7 +5685,8 @@ function modulePanel(m){
       + chk('supDiv', cl.divisionSuperior, 'División vertical interna') + (cl.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', cl.divisionesSuperior || 1, 'u', 1, capJoined(cl) ? 99 : 4, 1)}</div></div>` : '')
       + `<div class="note-sm">${cl.tipoSuperior === 'Repisas' ? 'Caja de repisas abierta.' : 'Detrás de su puerta se ven en la vista Interior.'}</div>`);
   }
-  if (isDoble(m) && !soloCamp(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuerta', 'Una puerta'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + `<div class="note-sm">Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
+  if (isDoble(m) && !soloCamp(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuerta', 'Una puerta'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + (capLead(m).tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('supInv', !!capLead(m).bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : '')   /* A116: tambien con columnas unidas: va al primero del grupo */
+    + `<div class="note-sm">Doble clic sobre él en el dibujo para su alto, material y unirlo con la columna vecina.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
   if (m.upper && !hasCampana(m) && !isDoble(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
     html += section('Repisas', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete alto', n, 'u', 0, 12, 1)}</div>`
       + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los ${medida(25)} recomendados. Se generan igual.</div>`
@@ -5699,7 +5780,7 @@ function capPanel(id){
   const up = row(true), last = g.members[g.members.length - 1], next = up[up.indexOf(last) + 1];
   let html = head('Módulo superior', `${g.members.length === 1 ? '1 columna' : g.members.length + ' columnas unidas'} · ${fmt(g.width)}${uS()}`);
   html += section('Tipo', sel('capTipo', [['Piston','Puerta elevable (pistón)'],['Puerta','Una puerta'],['Puertas','Dos puertas'],['Repisas','Caja de repisas abierta']], m.tipoSuperior)
-    + (m.tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('capBisDer', !!m.bisagraDerechaSuperior, 'Bisagra a la derecha')}</div>` : ''));
+    + (m.tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('capBisDer', !!m.bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : ''));
   html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}${num('capFondo', 'Fondo', m.fondoSuperior > 0 ? m.fondoSuperior : m.fondo, 'cm', 25, 70)}</div><div class="note-sm">El fondo del módulo superior es independiente del gabinete alto de abajo.</div>` + avisoDoble(m)
     + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; la caja abierta, a 3 columnas.</div>`
     + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
@@ -5979,6 +6060,7 @@ const ACT = {
   pzEditar: () => { const id = selectedPart.split(':')[1]; selectedPart = null; pieces.clear(); selection = new Set([id]); render(); },
   fijo: (v, m) => setFixed(m.id, v), fijoLibre: (v, m) => setFixed(m.id, false),
   dos: (v, m) => change(() => { const t = byId(m.id); t.dosPuertas = v; t.dosPuertasManual = true; }),   /* E12: elegido a mano */ tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m),
+  supInv: (v, m) => change(() => { capLead(byId(m.id)).bisagraDerechaSuperior = v; }),
   supTipo: (v, m) => change(() => { const l = capLead(byId(m.id)); l.tipoSuperior = v; if (v === 'Repisas' && l.repisasSuperior < 1) l.repisasSuperior = 1; }),
   inv: (v, m) => change(() => byId(m.id).invertir = v),
   div: (v, m) => change(() => boxTargets(m).forEach(id => byId(id).division = v)),
@@ -6714,6 +6796,7 @@ const EN = {
   'Medir: muestra cotas editables de alto y de frentes sobre los gabinetes seleccionados': 'Measure: shows editable height and front dimensions on the selected cabinets',
   'Sección: muestra u oculta en el alzado la sección lateral del gabinete elegido (o del primero), con su línea de corte': 'Section: shows or hides, next to the elevation, the side section of the selected cabinet (or the first one), with its cut line',
   'SECCIÓN': 'SECTION',
+  'Cesto': 'Bin',
   'Línea de sección · arrástrala para elegir por dónde se corta la sección del alzado.': 'Section line · drag it to choose where the elevation section is cut.',
   'Melamina 1.8 cm': 'Melamine 1.8 cm',
   'Microondas': 'Microwave',
