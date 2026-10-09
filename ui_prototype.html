@@ -213,6 +213,9 @@
        Master (06/10): casilla «Mostrar solo la campana» en la seccion Campana
        (m.soloCampana, tambien en el alto sencillo con campana): sin cuerpo,
        sin modulo superior ni sus secciones; la chimenea llega al tope.
+   A119. Medir en tres pasos (08/10, usuario): primer clic, cotas de los gabinetes seleccionados (como antes); segundo
+       clic, las de todos los muebles (cocina, isla, closet y puertas ocultas; el boton dice «Medir todo»); tercer clic,
+       las quita. Revit: el mismo ciclo en su boton Medir.
    A118. Repisas de torres y especieros en la seccion (08/10, usuario): la torre de hornos corta su cuerpo inferior y
        superior con sus repisas (zoneShelves inferior/superior; el piston sin repisas, con su tablero); alacena y especiero
        torre, cada cuerpo con las suyas (Elevable: repisasElevable; Especiero: 5 niveles) y su tablero divisorio; el
@@ -1431,9 +1434,9 @@
       <svg width="18" height="14" viewBox="0 0 22 17" fill="none"><rect x="1" y="1" width="20" height="15" stroke="#266096" stroke-width="1.4"/><path d="M13 1v15M13 7H21M1 11H13" stroke="#266096" stroke-width="1.1"/></svg>
       Plano
     </button>
-    <button class="btn btn-toggle" id="btnMeasure" title="Medir: muestra cotas editables de alto y de frentes sobre los gabinetes seleccionados">
+    <button class="btn btn-toggle" id="btnMeasure" title="Medir: primer clic, cotas de los gabinetes seleccionados; segundo clic, las de todos los muebles; tercer clic, las quita">
       <svg width="22" height="13" viewBox="0 0 26 16" fill="none"><rect x="1" y="4" width="23" height="8" stroke="#266096" stroke-width="1.5"/><path d="M5 4v5M9 4v3M13 4v5M17 4v3M21 4v5" stroke="#266096" stroke-width="1.5"/></svg>
-      Medir
+      <span id="measureLabel">Medir</span>
     </button>
     <span class="sep"></span>
     <button class="btn" id="btnExport" title="Exportar vistas: guarda el alzado, el alzado interior y la planta como PNG limpios (sin cotas ni selecci&oacute;n) y un texto con estilo y materiales, para generar un render con IA">
@@ -3686,7 +3689,7 @@ let selection = new Set([row(false)[0].id]);  /* el real arranca con el primer m
 let focusPanel = null, upperFocus = null, pieces = new Set(), justActivated = null;
 const pieceSelected = key => !!selectedPart && selectedPart.startsWith('piece:') && pieces.has(key);
 let selectedPart = null;   /* 'wall' | 'cover' | 'sink' | 'tap' | 'plinth' | 'backsplash' | 'fillerI' | 'fillerD' | 'gola' */
-let view = 'Alzado', showDoors = true, flat = false, measure = false, seccionOn = false;   /* A115: seccion lateral junto al alzado */
+let view = 'Alzado', showDoors = true, flat = false, measure = false, medirTodo = false, seccionOn = false;   /* A119: Medir en tres pasos (elegidos, todos, apagado) */   /* A115: seccion lateral junto al alzado */
 let hover = null, drag = null, matDrag = null, dimensionKey = null, editingSwatch = null;
 
 /* =======================================================================
@@ -4152,7 +4155,7 @@ function closetSegments(m){
 function drawClosetMeasure(X, Z, s){
   const zc = closetZoclo(), t = cfg.espesorCloset; let x = ajusteIzq();
   row(false).forEach(m => {
-    if (selection.has(m.id)) {
+    if (medirTodo || selection.has(m.id)) {   /* A119 */
       const lx = X(x) + 12, H = closetBody(m), AC = closetAltoCuerpo();
       closetSegments(m).forEach(([a, b, k]) => dim(lx, Z(a), lx, Z(b), fmt(b - a), k ? `cseg:${m.id}:${k}` : null));
       /* luces libres: entre piso, repisas, zapateras, bloque de cajones, escritorio y techo (y dentro del maletero) */
@@ -4549,7 +4552,8 @@ function drawHiddenDoors(X, Z, RX, scale, post){
           ctx.fillStyle = on ? C.paperHover : C.labelBg; ctx.fillRect(box.x, box.y, box.w, box.h); if (on) outline(box, C.ink, 1);
           ctx.fillStyle = C.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(t, box.x + 4, cy + .5); ctx.textBaseline = 'alphabetic'; dimHits.push({ rect: box, key }); } };
       post.push(() => { hdJoints(d).forEach((jz, k) => grip(600 + k, jz, 'doorj:' + d.id + ':' + k)); if (d.piston) grip(650, zc, null); });
-      if (measure) post.push(() => {
+    }
+    if (measure && (medirTodo || selectedPart === 'door:' + d.id)) post.push(() => {   /* A119: con Medir todo, todas las puertas ocultas */
         if (!showDoors) { const vy = leaf.y + leaf.h - 14; dim(leaf.x, vy, leaf.x + leaf.w, vy, fmt(d.ancho), null); dim(leaf.x + 14, leaf.y + leaf.h, leaf.x + 14, leaf.y, fmt(zc), null); if (cap) gapsOf(cap, 0, false, scale); }
         else { /* cadena de junta a junta y, con junta vertical, las dos mitades */
           const lv = hdLevels(d), mx = leaf.x + leaf.w - 14;
@@ -4557,7 +4561,6 @@ function drawHiddenDoors(X, Z, RX, scale, post){
           if (d.piston) dim(mx, leaf.y, mx, Z(top), fmt(d.altoPiston), 'doorp:' + d.id);
           if (hdNumVert(d) === 1) { const ym = Z(bottom) - 14; dim(leaf.x, ym, leaf.x + leaf.w/2, ym, fmt(d.ancho/2), 'doorhalf:' + d.id); dim(leaf.x + leaf.w/2, ym, leaf.x + leaf.w, ym, fmt(d.ancho/2), 'doorhalf:' + d.id); }
         } });
-    }
     /* la cota superior incluye la tapeta lateral */
     dim(all.x, Z(cfg.alturaMuro) - 26, all.x + all.w, Z(cfg.alturaMuro) - 26, fmt(d.ancho + (d.tapetaLateral ? d.anchoTapeta : 0)), 'doorw:' + d.id);
     edgeOwner = null;
@@ -5030,7 +5033,7 @@ function drawMeasure(X, Z){
   for (const upper of [false, true]) {
     let x = ajusteIzq();
     row(upper).forEach(m => {
-      if (selection.has(m.id) && !m.reserved) {
+      if ((medirTodo || selection.has(m.id)) && !m.reserved) {   /* A119 */
         const lx = X(x) + 12;
         if (isSpecial(m)) {   /* un tramo editable por cuerpo, hueco o equipo; los cajones de division a division */
           if (hasDrawers(m)) { const l = drawerLevels(m); for (let k = 0; k < l.length - 1; k++) dim(lx, Z(l[k+1]), lx, Z(l[k]), fmt(l[k] - l[k+1]), 'seg:' + m.id + ':' + k); }
@@ -6811,6 +6814,8 @@ const EN = {
   'Medidas': 'Dimensions',
   'Medir': 'Measure',
   'Medir: muestra cotas editables de alto y de frentes sobre los gabinetes seleccionados': 'Measure: shows editable height and front dimensions on the selected cabinets',
+  'Medir: primer clic, cotas de los gabinetes seleccionados; segundo clic, las de todos los muebles; tercer clic, las quita': 'Measure: first click, dimensions of the selected cabinets; second click, of all the furniture; third click, hides them',
+  'Medir todo': 'Measure all',
   'Sección: muestra u oculta en el alzado la sección lateral del gabinete elegido (o del primero), con su línea de corte': 'Section: shows or hides, next to the elevation, the side section of the selected cabinet (or the first one), with its cut line',
   'SECCIÓN': 'SECTION',
   'Cesto': 'Bin',
@@ -7267,7 +7272,10 @@ function openViewMenu(){
 })();
 document.getElementById('btnDoors').addEventListener('click', () => { showDoors = !showDoors; document.getElementById('btnDoors').classList.toggle('active', showDoors); document.getElementById('doorsLabel').textContent = showDoors ? 'Puertas' : 'Interior'; drawCanvas(); trUI(); if (typeof liveUI === 'function') liveUI(); });
 document.getElementById('btnFlat').addEventListener('click', () => { flat = !flat; document.getElementById('btnFlat').classList.toggle('active', flat); drawCanvas(); });
-document.getElementById('btnMeasure').addEventListener('click', () => { measure = !measure; document.getElementById('btnMeasure').classList.toggle('active', measure); drawCanvas(); });
+/* A119 (usuario, 08/10): primer clic, los elegidos; segundo, todos los muebles; tercero, apagado */
+function syncMeasureUI(){ document.getElementById('btnMeasure').classList.toggle('active', measure); document.getElementById('measureLabel').textContent = measure && medirTodo ? 'Medir todo' : 'Medir'; trUI(); }
+document.getElementById('btnMeasure').addEventListener('click', () => { if (!measure) { measure = true; medirTodo = false; } else if (!medirTodo) medirTodo = true; else { measure = false; medirTodo = false; }
+  syncMeasureUI(); drawCanvas(); setStatus(!measure ? 'Medir apagado.' : medirTodo ? 'Medir: cotas de todos los muebles.' : 'Medir: cotas de los gabinetes seleccionados.'); });
 document.getElementById('btnSection').addEventListener('click', () => { seccionOn = !seccionOn; document.getElementById('btnSection').classList.toggle('active', seccionOn); drawCanvas(); });
 /* comando que abre el editor (en los plugins lo decide el boton de la cinta; aqui se simula) */
 function syncCommandUI(){
@@ -7281,7 +7289,7 @@ function syncCommandUI(){
   /* F1/F2 (usuario, 08/10): la isla tambien tiene vista Interior y Medir (en su alzado frontal) */
   document.getElementById('btnDoors').style.display = '';
   document.getElementById('btnMeasure').style.display = '';
-  if (isla) { showDoors = true; measure = false; document.getElementById('btnDoors').classList.add('active'); document.getElementById('doorsLabel').textContent = 'Puertas'; document.getElementById('btnMeasure').classList.remove('active'); }
+  if (isla) { showDoors = true; measure = false; medirTodo = false; document.getElementById('btnDoors').classList.add('active'); document.getElementById('doorsLabel').textContent = 'Puertas'; document.getElementById('btnMeasure').classList.remove('active'); document.getElementById('measureLabel').textContent = 'Medir'; }
   if (!viewList().some(q => q[0] === view)) view = 'Alzado';
   document.getElementById('viewLabel').textContent = viewName(view); trUI();
 }
