@@ -201,6 +201,8 @@
        del espesor del zoclo en cada union de gabinetes y en los extremos sin cierre. Patas (referencia Hafele Axilo 78: placa
        9.2 x 7.9 x 2.5, columna de 3.5, base de 7.8, de 9 a 12 cm con la de 10): cuatro por gabinete y seis desde 76 cm (30"),
        eje a 5 cm de laterales y trasero, las delanteras con el eje 4.5 cm detras del zoclo (clip); zoclo, retiro y cierres como hoy.
+       Corte (usuario 10/10, detalleZoclo): madera, larguero atras cortado y travesano de la union mas alla del corte; patas, la
+       delantera y la trasera (placa, columna y base, en negro) y el clip al zoclo; en el corte de cocina y en el de la isla.
    A83. [Revit OK P12.216] Doble cama en los altos con gola (06/10,
        usuario): en estilo Moderna (con gola) los gabinetes altos llevan
        siempre doble cama abajo, haya LED o no (hoy solo la llevan con LED
@@ -4231,6 +4233,21 @@ function marcaCorte(xp, y0, y1, key){
 }
 function tituloSeccion(xl, xr, y){ ctx.fillStyle = C.title; ctx.font = "600 12px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('SECCIÓN', (xl + xr)/2, y); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
 /* cocina: bajo (o torre) con cubierta, zoclo y backsplash; alto (y su modulo superior) contra el muro */
+/* A84 (usuario, 10/10): detalle del zoclo en el corte. fx(f): borde izquierdo en pixeles a f cm del frente del gabinete (el frente
+   queda a la izquierda); D: fondo del gabinete. Madera: larguero atras cortado (si lo hay) y el travesano de la union visto mas alla
+   del corte. Patas: la delantera (clip al zoclo) y la trasera vistas mas alla del corte, con placa, columna y base (PLAN_PATA) */
+function detalleZoclo(fx, Zf, s, D, larguero){
+  const zb = cfg.baseBajos, t = 1.8, zf = cfg.retiroZoclo + t;   /* cara posterior del zoclo desde el frente */
+  const rect = (f0, f1, z0, z1) => ({ x: fx(f0), y: Zf(z1), w: (f1 - f0)*s, h: (z1 - z0)*s });
+  if (cfg.tipoZoclo === 'patas') { const P = PLAN_PATA, [, pf, ph] = P.placa, negro = dark ? '#1E2124' : '#3A3D42';
+    const ejes = [Math.max(P.borde, Math.min(D - P.borde, zf + P.clip)), D - P.borde], piezas = [];
+    ejes.forEach(f => piezas.push(rect(f - pf/2, f + pf/2, zb - ph, zb), rect(f - P.columna/2, f + P.columna/2, P.baseAlto, zb - ph), rect(f - P.base/2, f + P.base/2, 0, P.baseAlto)));
+    piezas.push(rect(zf, ejes[0] - P.columna/2, zb*.45, zb*.45 + 1));   /* clip del zoclo a la columna delantera */
+    post.push(() => piezas.forEach(q => { if (q.w <= 0 || q.h <= 0) return; ctx.fillStyle = negro; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); }));
+    return; }
+  if (larguero) part('plinth', true, [rect(D - t, D, 0, zb)], paintZoclo, post);
+  const tr = rect(zf, larguero ? D - t : D, 0, zb); if (tr.w > 0) post.push(() => outline(tr, C.line, 1));   /* travesano de la union, mas alla del corte */
+}
 function drawSeccionCocina(xw, s, Z, xc){
   const P = d => xw - d*s, t = Math.max(1, 1.8*s), zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), H = cfg.alturaMuro, A = cfg.altoBajos;
   const wood = dark ? '#5C5546' : 'rgb(232,224,207)', drawerC = dark ? '#4A5058' : 'rgb(215,220,224)';
@@ -4318,7 +4335,8 @@ function drawSeccionCocina(xw, s, Z, xc){
       if (cfg.backsplash) { const bsTop = cfg.backsplashCompleto && up ? zBA : zBar + cfg.altoBacksplash, e = Math.max(.5, cfg.espesorBacksplash || 1);
         part('backsplash', true, [{ x: P(e), y: Z(bsTop), w: e*s, h: (bsTop - zBar)*s }], r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Backsplash'), C.backsplash); outline(r, C.line, 1); }, post); }
     }
-    if (cfg.generarZoclos && zb > 0 && !cortaZoclo(low)) part('plinth', true, [{ x: P(D - cfg.retiroZoclo), y: Z(zb), w: t, h: zb*s }], paintZoclo, post);
+    if (cfg.generarZoclos && zb > 0 && !cortaZoclo(low)) { part('plinth', true, [{ x: P(D - cfg.retiroZoclo), y: Z(zb), w: t, h: zb*s }], paintZoclo, post);
+      detalleZoclo(f => P(D - f), Z, s, D, true); }   /* A84 */
     out.D = D;
   }
   if (up && !up.reserved && !(low && isSpecial(low))) {
@@ -4739,7 +4757,8 @@ function drawIslandSection(inset){   /* inset (A115): dibujada junto al alzado f
     ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText(`${nombreModulo(mod)} · ${fmt(mod.ancho)}${uS()}`, body.x + 4, body.y + t + 4); ctx.textBaseline = 'alphabetic';
     materialHits.push({ rect: body, key: 'mod:' + mod.id }); hits.push({ rect: body, module: mod });   /* F4: el gabinete cortado, no todos */
   }
-  if (cfg.generarZoclos && zb > 0) part('plinth', true, [{ x: XF(flight + cfg.retiroZoclo), y: Y(zb), w: t, h: zb*s }], paintZoclo, post);
+  if (cfg.generarZoclos && zb > 0) { part('plinth', true, [{ x: XF(flight + cfg.retiroZoclo), y: Y(zb), w: t, h: zb*s }], paintZoclo, post);
+    if (mod) detalleZoclo(f => XF(flight + f), Y, s, D, false); }   /* A84: en la isla cierran atras el zoclo posterior o los paneles */
   const rise = barra ? cfg.islaBarraAncho : 0;
   if (cfg.generarCubierta) cubiertaSeccion(XF(0), XB(rise), Y, s, post);   /* A116: nariz al pano, como se genera */
   if ((cfg.cascadaIzq || cfg.cascadaDer) && proyOn()) outline({ x: XF(0), y: Y(zBar), w: XB(0) - XF(0), h: zBar*s }, C.box, 1, [5, 3]);   /* proyeccion de las cascadas */
