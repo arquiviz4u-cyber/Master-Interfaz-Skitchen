@@ -224,6 +224,10 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A132. Tarja doble bajo cubierta (10/10, usuario): con tarja doble, marcar «Bajo cubierta» ensancha su gabinete a 90 cm (MX;
+       US sigue en 36", que ya cabe) y al quitarlo vuelve a 85; elegir la tarja doble con «Bajo cubierta» ya marcado tambien da 90
+       (anchoTarjaDoble segun cfg.tarjaBajoCubierta, region tarjaDobleBajo). La tina de 82 colgada bajo la cubierta no cabe en un
+       gabinete de 85 (81.4 por dentro). Revit: igual, y su advertencia dice «gabinete» en lugar de «módulo».
    A131. [Revit P12.259] Seccion del editor (10/10, usuario, tras probar P12.245-258): 1) las aletas del perfil de gola van del frente al alma
        (se dibujaban del alma hacia el muro, al reves); 2) Revit: con alto doble y fondo propio, las puertas del alto de abajo
        se dibujaban al pano de la caja superior (el filtro de frentes tomaba los que solo tocan el borde) y la cota de arriba
@@ -1601,12 +1605,12 @@ const PULG = 2.54, DIECISEISAVO = PULG/16, inch = v => Math.round(v*PULG*1e6)/1e
 const REGIONES = {
   MX: { ancho: { min: 30, max: 120, objetivo: 60 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 3, tapetaMin: 2, tapetaMax: 5, especialMin: 45,
     closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90 },
-    tarjaDoble: 85, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20,
+    tarjaDoble: 85, tarjaDobleBajo: 90, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20,
     lava: 60, lavaCompacto: 45, campana: { protegida: 60, combustible: 75 }, dosPuertasDesde: 0 },
   US: { ancho: { min: inch(12), max: inch(48), objetivo: inch(30) }, pasos: { modular: inch(3), pulgada: inch(1), medida: DIECISEISAVO }, pasoDef: 'modular',
     tapetaCorta: inch(1), tapetaMin: inch(.5), tapetaMax: inch(3), especialMin: inch(18),
     closet: { min: inch(18), max: inch(48), objetivo: inch(36), reserva: inch(2) }, estufa: { cuatro: inch(30), seis: inch(36), min: inch(20), max: inch(48) },
-    parrilla: { min: inch(12), max: inch(48) }, tarjaDoble: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
+    parrilla: { min: inch(12), max: inch(48) }, tarjaDoble: inch(36), tarjaDobleBajo: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
     especieroTorre: inch(12), especiero: inch(9), lava: inch(24), lavaCompacto: inch(18), campana: { protegida: inch(24), combustible: inch(30) }, dosPuertasDesde: inch(24) } };
 /* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
 const INICIO_REGION = {
@@ -3694,7 +3698,7 @@ function applyWidth(id, value){
 }
 function setWidth(id, value){ change(() => applyWidth(id, value), 'Revisar ancho'); }
 /* tarja doble: la columna toma 85 cm al elegirla (A35) */
-const anchoTarjaDoble = () => reg().tarjaDoble;   /* E3: MX 85 cm; US 36" */
+const anchoTarjaDoble = () => cfg.tarjaBajoCubierta ? reg().tarjaDobleBajo : reg().tarjaDoble;   /* E3: MX 85 cm; US 36". A132 (usuario, 10/10): bajo cubierta, MX 90 cm (la tina cuelga dentro del gabinete); US sigue en 36" */
 /* quita la tarja si esta en ese modulo (A36) */
 const quitarTarja = (c, id) => { if (c.moduloTarja === id) { c.moduloTarja = null; c.tipoTarja = 0; } };
 function setFixed(id, value){
@@ -6270,7 +6274,7 @@ const ACT = {
     const nb = bodyGroups().find(g => g.members.some(q => q.id === lastId)); if (nb && !asPart) selection = new Set(nb.members.map(q => q.id)); render(); }, aPano: v => change(c => c.cubiertaAPano = v),
   prep: (v, m) => change(c => { const q = byId(m.id); q.preparadoTarja = v; if (!v) quitarTarja(c, m.id); else q.parrilla = false; }),   /* sin preparar, la tarja se quita (A36) */
   tarja: (v, m) => change(c => { c.moduloTarja = m.id; c.tipoTarja = v === 'Tarja sencilla' ? 1 : v === 'Tarja doble' ? 2 : 0; if (c.tipoTarja && !c.generarCubierta) { const bar = altoBarra(); c.generarCubierta = true; c.altoBajos = bar - c.baseBajos - paquete(); }   /* A123: con nariz, la cama ya no sube los altos */ if (c.tipoTarja === 2 && m.ancho !== anchoTarjaDoble()) applyWidth(m.id, anchoTarjaDoble()); if (c.tipoTarja) byId(m.id).parrilla = false; }),
-  bajoCub: v => change(c => { c.tarjaBajoCubierta = v; c.retiroTarja = v ? 10 : 7; }),
+  bajoCub: v => change(c => { c.tarjaBajoCubierta = v; c.retiroTarja = v ? 10 : 7; const tm = c.tipoTarja === 2 && byId(c.moduloTarja); if (tm && tm.ancho !== anchoTarjaDoble()) applyWidth(tm.id, anchoTarjaDoble()); }),   /* A132: la tarja doble bajo cubierta ensancha su gabinete a 90 cm (y vuelve a 85 al quitarlo) */
   muro: v => change(c => c.alturaMuro = v, 'Revisar altura'), piso: v => change(c => c.desfasePiso = v), sepPost: v => change(c => c.separacionPosterior = v),
   genCub: v => change(c => { const bar = altoBarra(); c.generarCubierta = v; c.altoBajos = bar - c.baseBajos - paquete(); }),   /* A123: el alto de la cubierta se conserva */ espCub: v => change(c => c.espesorCubierta = v, 'Revisar altura'), vuelo: v => change(c => c.vuelo = v),
   tAncho: v => change(c => c.tarjaAncho = v), tFondo: v => change(c => c.tarjaFondo = v), tProf: v => change(c => c.tarjaProf = v), tRetiro: v => change(c => c.retiroTarja = v),
