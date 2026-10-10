@@ -228,6 +228,7 @@
        (se dibujaban del alma hacia el muro, al reves); 2) Revit: con alto doble y fondo propio, las puertas del alto de abajo
        se dibujaban al pano de la caja superior (el filtro de frentes tomaba los que solo tocan el borde) y la cota de arriba
        daba el fondo del alto en lugar del de la caja superior. El master ya dibujaba bien el punto 2.
+       Master (09/10, Interfaz Master): el mismo filtro de frentes de caja() (traslape real) y la cota de arriba con fondoSuperior.
    A130. [Revit P12.258] Arrastrar un bajo mueve su columna (09/10, usuario, tras probar la P12.255): al intercambiar arrastrando la tarja,
        la estufa o la parrilla, el alto de encima se quedaba en su sitio (con sus dos puertas o su campana). Ahora, con
        filas alineadas (tantos altos como bajos), arrastrar un bajo mueve la columna completa: el alto de encima va con el.
@@ -4128,7 +4129,7 @@ function drawSeccionCocina(xw, s, Z, xc){
     const mm = m.material || cfg.materialGeneral, body = { x: P(D), y: Z(z1), w: D*s, h: (z1 - z0)*s };
     ctx.fillStyle = selection.has(m.id) ? C.selFill : C.front; ctx.fillRect(body.x, body.y, body.w, body.h);
     brd({ x: body.x, y: body.y, w: body.w, h: t }, mm); brd({ x: body.x, y: Z(z0) - t, w: body.w, h: t }, mm); brd({ x: xw - t, y: body.y, w: t, h: body.h }, mm);
-    const fr = fronts(m).filter(f => f.kind !== 'Gola' && f.z1 > z0 - .5 && f.z0 < z1 + .5);
+    const fr = fronts(m).filter(f => f.kind !== 'Gola' && f.z1 > z0 + .5 && f.z0 < z1 - .5);   /* A131: traslape real; los frentes que solo tocan el borde son de la otra caja */
     fr.forEach(f => { brd({ x: body.x - t, y: Z(f.z1), w: t, h: (f.z1 - f.z0)*s }, mm);
       if (f.kind === 'Cajon' && !f.fijo) { const [ca, cb] = cajaDeCajon(m, f, z0 + 1.8, z1 - 1.8), q = { x: body.x + 2, y: Z(cb), w: Math.max(2, body.w - t - 6*s), h: (cb - ca)*s }; ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });   /* A126: como en 3D */
     const n = conRepisas && !fr.some(f => f.kind === 'Cajon') ? shelvesOf(m) : 0, inner = z1 - z0 - 3.6;
@@ -4222,7 +4223,7 @@ function drawSeccionCocina(xw, s, Z, xc){
         brd(piso, mm); brd({ x: ub.x, y: Z(z0) - 2*t, w: ub.w, h: t }, mm); }
       if (hs > 0) caja(up, zTop - hs, zTop, up.fondoSuperior > 0 ? up.fondoSuperior : up.fondo, false);
     }
-    out.Du = up.fondo;
+    out.Du = isDoble(up) && up.fondoSuperior > 0 && !soloCamp(up) ? up.fondoSuperior : up.fondo;   /* A131: la cota de arriba es la del modulo superior */
   }
   post.forEach(f => f()); post = [];
   const xl = P(fondoSeccion());
