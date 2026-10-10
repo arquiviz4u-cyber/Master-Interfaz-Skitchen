@@ -224,6 +224,10 @@
        Retiro_Agarre_Gola, Alto_Agarre_Gola y Alto_Agarre_Entre_Gola de las familias baja y alta.
    A120. [Revit OK: ya lo hacia, familias de origen con trasera de 0.9] Trasera de 0.9 cm en MX (09/10, usuario): el
        master usaba 1.8 (PLAN_CUERPO.fondo); queda en 0.9 como las familias de Revit. EE. UU. sigue en 1/2" (E14).
+   A131. Seccion del editor (10/10, usuario, tras probar P12.245-258): 1) las aletas del perfil de gola van del frente al alma
+       (se dibujaban del alma hacia el muro, al reves); 2) Revit: con alto doble y fondo propio, las puertas del alto de abajo
+       se dibujaban al pano de la caja superior (el filtro de frentes tomaba los que solo tocan el borde) y la cota de arriba
+       daba el fondo del alto en lugar del de la caja superior. El master ya dibujaba bien el punto 2.
    A130. [Revit P12.258] Arrastrar un bajo mueve su columna (09/10, usuario, tras probar la P12.255): al intercambiar arrastrando la tarja,
        la estufa o la parrilla, el alto de encima se quedaba en su sitio (con sus dos puertas o su campana). Ahora, con
        filas alineadas (tantos altos como bajos), arrastrar un bajo mueve la columna completa: el alto de encima va con el.
@@ -4182,8 +4186,8 @@ function drawSeccionCocina(xw, s, Z, xc){
         const canal = { x: P(D) - t, y: Z(gz + gh), w: fo*s + t, h: gh*s }; ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(canal.x, canal.y, canal.w, canal.h);
         const pinta = q => { fillMat(q.x, q.y, q.w, q.h, gm, C.gola); };
         pinta({ x: P(D - fo), y: Z(z1), w: ee, h: (z1 - z0)*s });   /* alma */
-        pinta({ x: P(D - fo), y: Z(z0) - ee, w: fo*s, h: ee });   /* aleta de abajo */
-        if (forma === 'C') pinta({ x: P(D - fo), y: Z(z1), w: fo*s, h: ee });   /* aleta de arriba */ });
+        pinta({ x: P(D), y: Z(z0) - ee, w: fo*s, h: ee });   /* aleta de abajo: del frente al alma (A131) */
+        if (forma === 'C') pinta({ x: P(D), y: Z(z1), w: fo*s, h: ee });   /* aleta de arriba: del frente al alma (A131) */ });
       if (tipo === 'Basura') proy(D*.25, D - 3, zb + 3, zb + A*.75, 'Cesto');
       else if (tipo === 'Especiero') { proy(3, D - 3, zb + 4, zb + A - 6, 'Especiero'); repisas(low, zb + 4, zb + A - 6, 4, D - 3, 3); }   /* A118: niveles del extraible */
     }
