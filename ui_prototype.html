@@ -227,8 +227,9 @@
    A133. [Revit pendiente] Parrilla con tolerancia de instalacion real (10/10, usuario): la placa conserva su ancho y puede volar
        sobre los gabinetes vecinos (antes se recortaba al ancho del gabinete menos 4); lo que manda es su hueco en la cubierta
        (ancho menos 2 cm de labio por lado, US 3/4"), que no pasa del ancho de la estructura del gabinete. En esquina (muro o tapeta
-       corrida al final del tramo, especial o estufa al lado, fin de la cubierta de la isla) el borde queda al menos a 5 cm (US 2")
-       del limite y la placa se recorre hacia el lado libre; si asi el hueco no cabe, la validacion lo dice. parrillaEn(m) da placa,
+       corrida al final del tramo, especial o estufa al lado, fin de la cubierta de la isla) la placa se recorre hacia el lado libre
+       buscando 5 cm (US 2") del limite sin sacar el hueco del gabinete; si no los alcanza es aviso en el panel, y es error solo si
+       choca con la esquina o si el hueco es mas ancho que el gabinete. parrillaEn(m) da placa,
        hueco y recorrido; planta (placa encima de los vecinos y hueco punteado), alzado y plan de piezas (pieza Parrilla con hueco).
        Nota bajo «Ancho de la parrilla» con el hueco, el maximo centrado y el recorrido.
    A132. [Revit P12.260] Tarja doble bajo cubierta (10/10, usuario): con tarja doble, marcar «Bajo cubierta» ensancha su gabinete a 90 cm (MX;
@@ -2208,12 +2209,14 @@ const isSpecial = m => isTower(m) || isPantry(m) || isRefri(m);
 const cortaCubierta = m => isSpecial(m) || m.tipo === 'Estufa';
 const notaParrilla = m => { const pe = parrillaEn(m), R = reg().parrilla;
   return `<div class="note">Hueco de ${medida(pe.hueco)} (${medida(R.labio)} de labio por lado); el gabinete admite hasta ${medida(m.ancho + 2*R.labio)} de parrilla centrada.</div>`
-    + (Math.abs(pe.dx) > .01 ? `<div class="note">Recorrida ${medida(Math.abs(pe.dx))} a la ${pe.dx > 0 ? 'derecha' : 'izquierda'}: queda a ${medida(R.esquina)} de la esquina.</div>` : ''); };
+    + (Math.abs(pe.dx) > .01 ? `<div class="note">Recorrida ${medida(Math.abs(pe.dx))} a la ${pe.dx > 0 ? 'derecha' : 'izquierda'} por la esquina.</div>` : '')
+    + (pe.holgura < R.esquina - .01 && pe.holgura > -.01 ? `<div class="note" style="color:#C2410C">Queda a ${medida(pe.holgura)} de la esquina; se recomiendan ${medida(R.esquina)}.</div>` : ''); };
 /* A133 (usuario, 10/10): parrilla con tolerancia de instalacion real. La placa conserva su ancho y puede volar sobre los gabinetes
    vecinos; lo que manda es su hueco en la cubierta (ancho menos el labio de cristal por lado), que no pasa del ancho de la
    estructura del gabinete. En esquina (muro o tapeta corrida al final del tramo, especial o estufa al lado, fin de la cubierta de la isla) el borde
-   queda al menos a parrilla.esquina del limite y la placa se recorre hacia el lado libre. Devuelve la placa [x0, x1], el hueco
-   [h0, h1], el recorrido dx y el error si no cabe (x a lo largo del tramo, como el alzado). */
+   busca quedar a parrilla.esquina del limite recorriendose hacia el lado libre, sin sacar el hueco del gabinete; si no alcanza esa
+   distancia es solo aviso (holgura), y es error si choca con la esquina o si el hueco es mas ancho que el gabinete. Devuelve la placa
+   [x0, x1], el hueco [h0, h1], el recorrido dx, la holgura a la esquina y el error (x a lo largo del tramo, como el alzado). */
 const parrillaEn = m => {
   const lows = row(false), i = lows.indexOf(m), R = reg().parrilla, W = cfg.longitud, pw = m.parrillaAncho;
   let x = ajusteIzq(); for (let k = 0; k < i; k++) x += lows[k].ancho;
@@ -2222,13 +2225,12 @@ const parrillaEn = m => {
   const c0 = x + (m.ancho - pw)/2; let a = c0;
   if (der !== null && a + pw > der - R.esquina) a = der - R.esquina - pw;
   if (izq !== null && a < izq + R.esquina) a = izq + R.esquina;
-  const h0 = a + R.labio, h1 = a + pw - R.labio, hueco = pw - 2*R.labio;
+  a = Math.max(x - R.labio, Math.min(x + m.ancho - pw + R.labio, a));   /* el recorrido no saca el hueco del gabinete */
+  const hueco = pw - 2*R.labio, holgura = Math.min(izq === null ? 1e9 : a - izq, der === null ? 1e9 : der - a - pw);
   let error = '';
-  if (izq !== null && der !== null && pw > der - izq - 2*R.esquina + .01) error = `La parrilla de ${medida(pw)} no cabe en su esquina: deja ${medida(R.esquina)} por lado (máximo ${medida(der - izq - 2*R.esquina)}).`;
-  else if (h0 < x - .01 || h1 > x + m.ancho + .01) error = Math.abs(a - c0) > .01
-    ? `El hueco de la parrilla (${medida(hueco)}) no cabe en su gabinete al recorrerla ${medida(Math.abs(a - c0))} de la esquina; ensancha el gabinete o usa una parrilla más chica.`
-    : `El hueco de la parrilla (${medida(hueco)}) es más ancho que su gabinete (${medida(m.ancho)}).`;
-  return { x0: a, x1: a + pw, h0, h1, dx: a - c0, hueco, error };
+  if (hueco > m.ancho + .01) error = `El hueco de la parrilla (${medida(hueco)}) es más ancho que su gabinete (${medida(m.ancho)}).`;
+  else if (holgura < -.01) error = `La parrilla de ${medida(pw)} no cabe junto a la esquina: chocaría con ella o su hueco saldría del gabinete.`;
+  return { x0: a, x1: a + pw, h0: a + R.labio, h1: a + pw - R.labio, dx: a - c0, hueco, holgura, error };
 };
 /* E6: aparatos bajo cubierta sin carcasa: estufa, frigobar y lavavajillas (este lleva su propio zoclo: el del mueble se corta) */
 const esAparato = m => !m.upper && (m.tipo === 'Estufa' || m.tipo === 'Frigobar' || m.tipo === 'Lavavajillas');
@@ -7394,12 +7396,12 @@ const EN_T = [
   ["{0} quedaría de {1} y el máximo es {2}. Añade un módulo o fija otros anchos.", "{0} would be {1} wide; the maximum is {2}. Add a cabinet or lock other widths."],
   ["La estufa mide de {0} a {1} de ancho ({2} con 4 quemadores, {3} con 6).", "The range is {0} to {1} wide ({2} with 4 burners, {3} with 6)."],
   ["La parrilla mide de {0} a {1} de ancho.", "The cooktop is {0} to {1} wide."],
-  ["La parrilla de {0} no cabe en su esquina: deja {1} por lado (máximo {2}).", "The {0} cooktop does not fit in its corner: it needs {1} per side (maximum {2})."],
-  ["El hueco de la parrilla ({0}) no cabe en su gabinete al recorrerla {1} de la esquina; ensancha el gabinete o usa una parrilla más chica.", "The cooktop cutout ({0}) does not fit in its cabinet once shifted {1} from the corner; widen the cabinet or use a smaller cooktop."],
+  ["La parrilla de {0} no cabe junto a la esquina: chocaría con ella o su hueco saldría del gabinete.", "The {0} cooktop does not fit next to the corner: it would hit it or its cutout would leave the cabinet."],
   ["El hueco de la parrilla ({0}) es más ancho que su gabinete ({1}).", "The cooktop cutout ({0}) is wider than its cabinet ({1})."],
   ["Hueco de {0} ({1} de labio por lado); el gabinete admite hasta {2} de parrilla centrada.", "Cutout {0} ({1} lip per side); the cabinet takes a centered cooktop up to {2}."],
-  ["Recorrida {0} a la derecha: queda a {1} de la esquina.", "Shifted {0} to the right: it stays {1} from the corner."],
-  ["Recorrida {0} a la izquierda: queda a {1} de la esquina.", "Shifted {0} to the left: it stays {1} from the corner."],
+  ["Recorrida {0} a la derecha por la esquina.", "Shifted {0} to the right because of the corner."],
+  ["Recorrida {0} a la izquierda por la esquina.", "Shifted {0} to the left because of the corner."],
+  ["Queda a {0} de la esquina; se recomiendan {1}.", "It sits {0} from the corner; {1} is recommended."],
   ["Módulo superior unido: con puertas no puede pasar de {0}; separa columnas o usa caja de repisas.", "Joined stacker: with doors it cannot exceed {0}; split the columns or use open shelves."],
   ["Con puertas llega a {0}; la caja abierta, a 3 columnas.", "With doors it reaches {0}; open shelves, 3 columns."],
   ["6 quemadores ({0}); sin marcar, 4 ({1})", "6 burners ({0}); unchecked, 4 ({1})"],
