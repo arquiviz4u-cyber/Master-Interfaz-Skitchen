@@ -2272,6 +2272,22 @@ function huellaEsquina(k){
   return [R.lado, R.lado];
 }
 const esquinaDe = m => m && m.esquina && cfg.esquinas ? cfg.esquinas[m.esquina.k] : null;
+/* marco de cada cara en la planta general: origen (extremo izquierdo de su muro), d a lo largo del muro y n hacia la habitacion.
+   Cara 0: d = (1, 0) y la habitacion en +y; la siguiente arranca en el extremo derecho y gira hacia la habitacion (d' = n, n' = -d) */
+function marcosCaras(){ const out = []; let O = [0, 0], d = [1, 0], n = [0, 1];
+  for (let k = 0; k < cfg.caras.length; k++) { out.push({ O, d, n, angulo: Math.round(Math.atan2(d[1], d[0])*180/Math.PI) }); const L = caraDe(k).longitud;
+    O = [O[0] + d[0]*L, O[1] + d[1]*L]; const nd = n; n = [-d[0], -d[1]]; d = nd; }
+  return out; }
+const enMarco = (f, x, y) => [f.O[0] + f.d[0]*x + f.n[0]*y, f.O[1] + f.d[1]*x + f.n[1]*y];
+/* planta del esquinero k (bajo) en el marco de la cara k: x a lo largo de su muro (la esquina en x = LA), y hacia la habitacion.
+   Ciego: caja separada del muro de la otra cara; carrusel y alacena en L: L; diagonal: pentagono con el frente a 45 grados */
+function plantaEsquina(k){
+  const e = cfg.esquinas[k], R = reg().esquina, LA = caraDe(k).longitud, fA = fondoCara(caraDe(k), false), fB = fondoCara(caraDe(k + 1), false), [wA, wB] = huellaEsquina(k);
+  if (e.tipo === 'ciego') return e.duena !== 1 ? [[LA - wA, 0], [LA - wA + R.ciego, 0], [LA - wA + R.ciego, fA], [LA - wA, fA]]
+    : [[LA - fB, wB - R.ciego], [LA, wB - R.ciego], [LA, wB], [LA - fB, wB]];
+  if (e.tipo === 'diagonal' || e.tipo === 'alacena' && e.alacena === 'diagonal') return [[LA - wA, 0], [LA, 0], [LA, wB], [LA - fB, wB], [LA - wA, fA]];
+  return [[LA - wA, 0], [LA, 0], [LA, wB], [LA - fB, wB], [LA - fB, fA], [LA - wA, fA]];
+}
 /* anchos de los modulos de esquina de la cara activa y sin tapeta del lado de la esquina */
 function aplicarEsquinas(){
   if (!multiCara()) { cfg.modulos = cfg.modulos.filter(m => !m.esquina); return; }
@@ -5609,6 +5625,27 @@ function drawPlan(){
   if (lows.length) dim(X(W + eR) + 34, wallY, X(W + eR) + 34, Y(dLow), fmt(dLow) + uS(), 'pdepth:low');
   if (highs.length) dim(X(W + eR) + 70, wallY, X(W + eR) + 70, Y(dUp), fmt(dUp) + uS(), 'pdepth:up');
   dim(X(0), Y(dLow) + 40, X(W), Y(dLow) + 40, fmt(W) + uS(), 'length');
+  if (multiCara()) planGeneral();   /* A134 */
+}
+/* A134: planta general de la cocina en L o en U (recuadro arriba a la izquierda): muros, gabinetes bajos de cada cara y los esquineros;
+   la cara activa resaltada. Las caras se editan una a la vez en el alzado y la planta de arriba */
+function planGeneral(){
+  const marcos = marcosCaras(), polis = [];
+  cfg.caras.forEach((q0, k) => { const q = caraDe(k), f = marcos[k]; let x = q.tapetaIzq ? (q.reservaIzq || 0) : 0;
+    q.modulos.filter(m => !m.upper).forEach(m => { if (!m.esquina && !m.reserved) polis.push({ k, p: [[x, 0], [x + m.ancho, 0], [x + m.ancho, m.fondo], [x, m.fondo]].map(([a, b]) => enMarco(f, a, b)) }); x += m.ancho; }); });
+  cfg.esquinas.forEach((e, k) => polis.push({ k: -1, esq: true, p: plantaEsquina(k).map(([a, b]) => enMarco(marcos[k], a, b)) }));
+  const muros = marcos.map((f, k) => [f.O, enMarco(f, caraDe(k).longitud, 0)]), pts = polis.flatMap(q => q.p).concat(muros.flat());
+  const x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])), y1 = Math.max(...pts.map(p => p[1]));
+  const bw = 230, bh = 170, pad = 14, sc = Math.min((bw - 2*pad)/(x1 - x0 || 1), (bh - 2*pad - 12)/(y1 - y0 || 1)), bx = 16, by = 40;
+  const P = ([x, y]) => [bx + pad + (x - x0)*sc, by + pad + 12 + (y - y0)*sc];
+  ctx.save(); ctx.fillStyle = dark ? 'rgba(30,33,36,.92)' : 'rgba(255,255,255,.94)'; ctx.fillRect(bx, by, bw, bh); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(bx + .5, by + .5, bw - 1, bh - 1);
+  ctx.fillStyle = C.muted; ctx.font = "600 10px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText('PLANTA GENERAL', bx + 8, by + 6);
+  const poly = (p, fill, stroke, w = 1) => { ctx.beginPath(); p.map(P).forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); };
+  polis.forEach(q => poly(q.p, q.esq ? (dark ? '#5A5040' : '#E8D9B8') : q.k === cfg.cara ? C.planSel : (dark ? '#2C3036' : '#F2F3F4'), C.line));
+  muros.forEach(([a, b], k) => { ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = k === cfg.cara ? C.accent : C.wallLine; ctx.lineWidth = k === cfg.cara ? 3 : 2; ctx.stroke();
+    const m = P([(a[0] + b[0])/2, (a[1] + b[1])/2]), f = marcos[k]; ctx.fillStyle = k === cfg.cara ? C.accent : C.muted; ctx.font = "600 10px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(k + 1), m[0] - f.n[0]*9, m[1] - f.n[1]*9); });
+  ctx.restore(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 }
 
 /* arrastre de material: destino resaltado y rotulo «Material → destino» (MaterialTab.DrawMaterialDrag) */
@@ -6723,7 +6760,7 @@ function renderStyle(){
  * TOOLBAR / PESTANAS / ESTADO
  * ======================================================================= */
 const EN = {
-  "Recta": "Straight", "En L": "L-shaped", "En U": "U-shaped", "Esquinero": "Corner cabinet", "Ciego": "Blind corner", "Carrusel en L": "L-shaped lazy Susan", "Diagonal": "Diagonal",
+  "PLANTA GENERAL": "OVERALL PLAN", "Recta": "Straight", "En L": "L-shaped", "En U": "U-shaped", "Esquinero": "Corner cabinet", "Ciego": "Blind corner", "Carrusel en L": "L-shaped lazy Susan", "Diagonal": "Diagonal",
   "Alacena esquinera": "Corner pantry", "Alacena": "Pantry", "En L, puerta plegable": "L-shaped, bi-fold door", "Diagonal, una puerta": "Diagonal, single door",
   "Oculta, puerta de piso a techo": "Hidden, floor-to-ceiling door", "Herraje": "Hardware", "Herraje extraíble (LeMans / Magic Corner)": "Pull-out fitting (LeMans / Magic Corner)",
   "Alto de la esquina": "Corner wall cabinet", "Sigue al bajo": "Matches the base", "Sin alto": "No wall cabinet", "Gabinete ciego en": "Blind cabinet on", "Puerta en": "Door on",
