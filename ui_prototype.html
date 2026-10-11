@@ -288,6 +288,9 @@
        diagonal y ciego) lleva bajo la cubierta fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa; la
        cubierta lleva cama solo con nariz; 5b) la gola del esquinero se une a inglete con la de las caras: arranca en el limite de la
        columna y va a la profundidad del perfil de las caras (alma entre hondo - e y hondo; antes estaba un espesor mas adentro).
+   A164. (11/10, usuario, tras probar P12.283-294): 1) la faja del frente diagonal del esquinero (bajo la cubierta) es una sola pieza que
+       llega a los laterales de los dos lados (antes dejaba un triangulo en cada extremo); 2) la cama bajo la cubierta con nariz
+       lleva otro material que la cubierta: el grupo «Cama» (de fabrica DEF_CAMA, tablero), en las caras y en la diamante.
    A161. [Master hecho 11/10; SketchUp sin cambios (todo en el plan); Revit pendiente] Tras probar el A160 (11/10, usuario, 4 capturas):
        1) el especiero anexado salia aplastado (condimentero) o con un solo nivel (madera) junto a una torre o alacena con cajones:
        golaStrips del mueble con especiero tomaba la gola de los cajones a todo el ancho y cortaba su caja en la primera; ahora las
@@ -3127,8 +3130,8 @@ const PREDETERMINADOS = {
   DEF_FRENTE: { nombre: 'Frente predeterminado', rgb: [255, 255, 255] }, DEF_CUERPO: { nombre: 'Cuerpo predeterminado', rgb: [250, 250, 248] },
   DEF_TAPETA: { nombre: 'Tapeta predeterminada', rgb: [218, 190, 146] }, DEF_ZOCLO: { nombre: 'Zoclo predeterminado', rgb: [90, 90, 85] },
   DEF_CUBIERTA: { nombre: 'Cubierta predeterminada', rgb: [180, 185, 186] }, DEF_BACKSPLASH: { nombre: 'Backsplash predeterminado', rgb: [229, 222, 211] },
-  DEF_GOLA: { nombre: 'Gola predeterminada', rgb: [75, 75, 72] } };
-const predeterminadoDe = q => q.rol === 'frente' ? 'DEF_FRENTE' : ['panel', 'repisa', 'division', 'caja'].includes(q.rol) ? 'DEF_CUERPO'
+  DEF_GOLA: { nombre: 'Gola predeterminada', rgb: [75, 75, 72] }, DEF_CAMA: { nombre: 'Cama de cubierta', rgb: [190, 172, 140] } };   /* A164 */
+const predeterminadoDe = q => q.rol === 'cubierta' && q.tipo === 'Cama' ? 'DEF_CAMA' : q.rol === 'frente' ? 'DEF_FRENTE' : ['panel', 'repisa', 'division', 'caja'].includes(q.rol) ? 'DEF_CUERPO'
   : q.rol === 'tapeta' ? (q.etiqueta === 'tapetas' ? 'DEF_TAPETA' : 'DEF_FRENTE') : q.rol === 'zoclo' ? 'DEF_ZOCLO' : q.rol === 'cubierta' ? 'DEF_CUBIERTA'
   : q.rol === 'backsplash' ? 'DEF_BACKSPLASH' : q.rol === 'herraje' && (q.tipo === 'Gola' || q.tipo === 'Perfil') ? 'DEF_GOLA' : null;
 function planDePiezas(c = cfg){
@@ -3641,7 +3644,7 @@ function planDePiezas(c = cfg){
       /* losa con el hueco: alrededor de el, cuatro tiras (izquierda, derecha, detras y delante) */
       /* inglete (A88): el tramo que llega al frente (y1) lleva su canto inferior cortado a 45 grados para recibir la nariz */
       const losa = (id, tipo, a, b, y0, y1, z0, z1, inglete = false) => {
-        const caja = (k, xa, xb, ya, yb) => { const q = { id: id + k, rol: 'cubierta', tipo, x: xa, y: ya, z: z0, ancho: xb - xa, fondo: yb - ya, alto: z1 - z0, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' };
+        const caja = (k, xa, xb, ya, yb) => { const q = { id: id + k, rol: 'cubierta', tipo, x: xa, y: ya, z: z0, ancho: xb - xa, fondo: yb - ya, alto: z1 - z0, material: tipo === 'Cama' ? groupMaterial('Cama') || null : groupMaterial('Cubierta'), etiqueta: 'cubierta' };   /* A164: la cama con su material */
           if (inglete && Math.abs(yb - y1) < .001 && yb - ya > z1 - z0 + .01) q.forma = { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [r2(yb - ya - (z1 - z0)), 0], [r2(yb - ya), r2(z1 - z0)], [0, r2(z1 - z0)]] };
           add(q); return q; };
         const h = hueco && hueco.x0 < b && hueco.x1 > a && hueco.y0 < y1 && hueco.y1 > y0 ? hueco : null;
@@ -5895,7 +5898,9 @@ function esquinerosPlan(add, r2, sep, tf){
        cada muro) en lugar de la tapa completa, como los bajos de las caras (A86) */
     if (techo && fajas) { const F = reg().fajas.ancho, zt0 = z1 - e1;
       if (conDiag && !cd) { const q1 = [LA - a + e1, fa - ng], p1 = [LA - fb + ng, b - e1], L2 = Math.hypot(p1[0] - q1[0], p1[1] - q1[1]) || 1, u = [(p1[1] - q1[1])/L2*F, -(p1[0] - q1[0])/L2*F];
-        losa(pre + ':faja:frente', 'panel', 'Faja', modulo, [q1, p1, [p1[0] + u[0], p1[1] + u[1]], [q1[0] + u[0], q1[1] + u[1]]], zt0, z1, mat, et); }
+        const dd = [(p1[0] - q1[0])/L2, (p1[1] - q1[1])/L2], i0 = [q1[0] + u[0], q1[1] + u[1]];   /* A164: una pieza hasta los laterales de los dos lados */
+        const qa = [q1[0], i0[1] + dd[1]*(q1[0] - i0[0])/(dd[0] || 1e-9)], pb = [i0[0] + dd[0]*(p1[1] - i0[1])/(dd[1] || 1e-9), p1[1]];
+        losa(pre + ':faja:frente', 'panel', 'Faja', modulo, [q1, p1, pb, qa], zt0, z1, mat, et); }
       else { caja(pre + ':faja:frente:a', 'panel', 'Faja', modulo, LA - a + e1, LA - fb + ng, fa - ng - F, fa - ng, zt0, z1, mat, et); caja(pre + ':faja:frente:b', 'panel', 'Faja', modulo, LA - fb + ng, LA - fb + ng + F, fa - ng - F, b - e1, zt0, z1, mat, et); }
       caja(pre + ':faja:atras:a', 'panel', 'Faja', modulo, LA - a + e1, LA - ef, ef, ef + F, zt0, z1, mat, et); caja(pre + ':faja:atras:b', 'panel', 'Faja', modulo, LA - ef - F, LA - ef, ef + F, b - e1, zt0, z1, mat, et); }
     else if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, canal > 0 ? interior(fa - ng, fb - ng) : inner, z1 - e1, z1, mat, et);   /* A158: ng */
@@ -5964,7 +5969,7 @@ function esquinerosPlan(add, r2, sep, tf){
       if (cfg.narizCubierta && pq > esp + .01) { const k2 = esp*(Math.SQRT2 - 1), q1 = [LA - wA + k2, dA - esp], q2 = [LA - dB + esp, wB - k2];
         losa(id + ':cubierta', 'cubierta', 'Diamante', modB, dia, zT - esp, zT, cub, 'cubierta');
         losa(id + ':cubierta:nariz', 'cubierta', 'Nariz', modB, [[LA - wA, dA - esp], [LA - wA, dA], [LA - dB, wB], [LA - dB + esp, wB], q2, q1], zT - pq, zT - esp, cub, 'cubierta');
-        losa(id + ':cubierta:cama', 'cubierta', 'Cama', modB, [[LA - wA, -sep], [LA, -sep], [LA, wB], [LA - dB + esp, wB], q2, q1, [LA - wA, dA - esp]], zT - pq, zT - esp, cub, 'cubierta'); }
+        losa(id + ':cubierta:cama', 'cubierta', 'Cama', modB, [[LA - wA, -sep], [LA, -sep], [LA, wB], [LA - dB + esp, wB], q2, q1, [LA - wA, dA - esp]], zT - pq, zT - esp, groupMaterial('Cama') || 'DEF_CAMA', 'cubierta'); }   /* A164 */
       else losa(id + ':cubierta', 'cubierta', 'Diamante', modB, dia, zT - pq, zT, cub, 'cubierta'); }
     if (e.tipo === 'carrusel') {   /* dos charolas de 3/4 de giro (sin el cuarto que mira a la puerta) y su poste */
       const cx = LA - Math.min(wA, wB)/2, cy = Math.min(wA, wB)/2, rr = Math.max(10, Math.min(wA, wB)/2 - ef - 3), arco = [[cx, cy]];
