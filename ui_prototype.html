@@ -278,6 +278,11 @@
        clic: esa cara. Los botones de caras del panel pasan a las pestanas; esquinero y planta general nombran las caras con letra.
    A136. [Master hecho 11/10; Revit pendiente] En el alzado, lo de la otra cara en la columna de esquina se ve de perfil, no en corte:
        costado del gabinete (bajo y alto) con su material, canto del frente encima y, en bajos, costado del zoclo retirado.
+   A139. [Master hecho 11/10; SketchUp con abre.grados; Revit pendiente] Ajustes de A138 tras probar (11/10, usuario):
+       1) la puerta con la bisagra del usuario abre 98.75 grados sobre el eje que sale de su cazoleta (abre.grados);
+       antes 90 sobre un eje estimado y el canto entraba al lateral; 2) el condimentero va a su medida: la gola de
+       los cajones de al lado ya no lo achica; 3) SketchUp: el clic en un cajon abre todo su grupo (A126), no solo el
+       cajon pulsado. Medidas de los herrajes tomadas del catalogo de la biblioteca.
    A138. [Master hecho 11/10; SketchUp con la biblioteca de herrajes; Revit pendiente] Herrajes tal cual (11/10, usuario):
        bisagras (cerrada y abierta), correderas (fija, media y movil), herraje condimentero y botes del cesto son los
        modelos del usuario (G:/Sketchup/Kitchen), en la biblioteca de Skitchen (modelos/*.skp); el plan dice el archivo
@@ -2782,12 +2787,14 @@ const PLAN_CESTO = { cajon: 15, oculto: 14 };
    lateral = cara de la placa contra el lateral, trasCara = cara posterior de la puerta, giro = eje de la puerta que lleva la cazoleta
    de su lugar cerrado al abierto. Corredera de 50 cm (se estira a su largo comercial); lateral = cara contra el lateral */
 const MODELO = {
-  bisagra: { cerrada: [[1.03, -7.98, .24], [4.98, .01, 6.64]], abierta: [[1.46, -10.84, .26], [4.88, .09, 6.66]],
-             lateral: 4.68, trasCara: -6.3, centroZ: 3.44, giro: [4.5075, -7.4675] },
-  corredera: { fija: [[.14, 0, 0], [1.27, 49.84, 2.87]], media: [[.16, 6.49, .32], [1.09, 49.84, 2.55]], movil: [[0, .67, .67], [.67, 50, 2.2]],
-               lateral: 1.27, largo: 50, alto: 2.87 },
-  condimentero: { caja: [[.5, 0, 0], [9.5, 46.18, 47]], centroX: 5, tira: 1.31 },
-  bote: { sencillo: [27.86, 39.57, 45.52], doble: [39.57, 26.74, 46.43], frenteSencillo: 6.48, frenteDoble: 1.07, entre: .34, bastidor: 34.61, piso: 7 },
+  /* A139: el eje y los grados salen de la cazoleta (la misma definicion en las dos bisagras): gira 98.75 grados sobre (4.317, -7.561);
+     con ese giro la puerta de traslape completo libra el lateral (antes 90 grados sobre un eje estimado: el canto entraba al lateral) */
+  bisagra: { cerrada: [[1.025, -7.977, .241], [4.981, .02, 6.645]], abierta: [[1.456, -10.841, .253], [4.881, .091, 6.656]],
+             lateral: 4.68, trasCara: -6.3, centroZ: 3.44, giro: [4.317, -7.561], grados: 98.75 },
+  corredera: { fija: [[.139, 0, 0], [1.27, 49.845, 2.869]], media: [[.162, 6.493, .32], [1.087, 49.845, 2.549]], movil: [[0, .675, .668], [.675, 50.003, 2.201]],
+               lateral: 1.27, largo: 50.003, alto: 2.869 },
+  condimentero: { caja: [[.5, 0, 0], [9.5, 46.176, 47]], centroX: 5, tira: 1.31 },
+  bote: { sencillo: [27.859, 39.567, 45.518], doble: [39.57, 26.74, 46.43], frenteSencillo: 6.48, frenteDoble: 1.07, entre: .34, bastidor: 34.61, piso: 7 },
   especiero: { tira: 1.31, tiraAlto: 5, tiraSobre: 3, tablero: 1.5, nivel: 20 } };
 /* caja del plan de una parte de un modelo: X = refX va a x = ox (espejo: X crece hacia -x), Y = refY a y = oy (la habitacion es -Y en
    el archivo y +y en el plan; sy estira a lo largo), Z = refZ a z = oz (sz escala el alto) */
@@ -2942,7 +2949,8 @@ function planDePiezas(c = cfg){
        sus correderas van en los lados que se dan aqui */
     const sinAjusteGola = new Set(), correderasDe = [];
     /* alto libre bajo los perfiles de gola que cruzan el frente (como B18, antes de que existan las muescas) */
-    const topeGola = (m, f, z) => golaStrips(m).reduce((t, [gz]) => gz > f.z0 + 1 ? Math.min(t, gz - PLAN_GOLA.traslape - PLAN_CAJA.libreGola) : t, z);
+    const topeGola = (m, f, z) => golaStrips(m).reduce((t, [gz, , s0, s1]) => gz > f.z0 + 1 && (s0 === undefined || s0 < f.x1) && (s1 === undefined || s1 > f.x0)
+      ? Math.min(t, gz - PLAN_GOLA.traslape - PLAN_CAJA.libreGola) : t, z);   /* A139: solo los perfiles sobre ese frente (el especiero con cajones lleva los suyos aparte) */
     const piezaDe = (m, base, frenteId, datos) => { const q = add(Object.assign({ frente: frenteId, id: base, modulo: m.id, material: null }, datos)); sinAjusteGola.add(base); return q; };
     /* especiero extraible (A138): de madera como el modelo del usuario (tapas al frente y atras, niveles cada 20 cm con tiras a los
        lados) o con el herraje condimentero tal cual */
@@ -3512,7 +3520,9 @@ function planDePiezas(c = cfg){
       /* A138: la bisagra del usuario tal cual (cerrada y abierta, una por estado), con su placa en la cara del lateral y la cazoleta en
          la puerta; la puerta gira sobre el eje que lleva la cazoleta de cerrada a abierta. La puerta oculta que abre hacia adentro sigue
          con brazo y placa */
-      const MB = MODELO.bisagra, tal = pr.abre.sentido !== 'adentro', marco = zc => ({ ox: cara, refX: MB.lateral, espejo: !der, oy: yb, refY: MB.trasCara, oz: zc, refZ: MB.centroZ });
+      /* A139: la bisagra del usuario es de traslape: la puerta embutida entre laterales (torre, refrigerador) sigue con brazo y placa */
+      const embutida = der ? Math.max(...fr.map(r => r.x + r.ancho)) <= cara + .05 : Math.min(...fr.map(r => r.x)) >= cara - .05;
+      const MB = MODELO.bisagra, tal = pr.abre.sentido !== 'adentro' && !embutida, marco = zc => ({ ox: cara, refX: MB.lateral, espejo: !der, oy: yb, refY: MB.trasCara, oz: zc, refZ: MB.centroZ });
       const cuerpo = zc => { const k = cajaModelo(MB.cerrada, marco(zc)), xa = der ? k.x : Math.max(k.x, cara), xb = der ? Math.min(k.x + k.ancho, cara) : k.x + k.ancho;
         return [{ x: xa, ancho: xb - xa, y: k.y, fondo: yb - k.y, z: k.z, alto: k.alto }]; };   /* lo que queda detras de la puerta, hasta el lateral */
       const hz = tal ? (MB.cerrada[1][2] - MB.cerrada[0][2])/2 : B9.placaAlto/2;
@@ -3526,7 +3536,7 @@ function planDePiezas(c = cfg){
         Object.assign(q, k, { modelo: { archivo: 'bisagra_cerrada', espejo: !der }, estado: 'cerrado' });
         add(Object.assign({ id: q.id.replace(':bisagra:', ':bisagraAbierta:'), rol: 'herraje', modulo: q.modulo, tipo: 'Bisagra', frente: q.frente, estado: 'abierto', material: null, etiqueta: 'herrajes',
           modelo: { archivo: 'bisagra_abierta', espejo: !der } }, cajaModelo(MB.abierta, marco(z))));
-        pr.abre.x = r2(cara + (der ? 1 : -1)*(MB.giro[0] - MB.lateral)); pr.abre.y = r2(yb + MB.trasCara - MB.giro[1]);
+        pr.abre.x = r2(cara + (der ? 1 : -1)*(MB.giro[0] - MB.lateral)); pr.abre.y = r2(yb + MB.trasCara - MB.giro[1]); pr.abre.grados = MB.grados;
         return; }
       const [brazo, placa] = cajas(z), dato = { rol: 'herraje', modulo: q.modulo, material: null, etiqueta: 'herrajes' };
       add(Object.assign({ id: q.id.replace(':bisagra:', ':brazo:'), tipo: 'Brazo' }, dato, brazo));
@@ -3681,6 +3691,8 @@ function pruebasPlanMX(){
     ['cocina en L con diagonal y ciego en la otra cara (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].alto = 'ciego'; c.esquinas[0].duena = 1; } finally { cfg = prev; } return c; }],
     ['puerta oculta con 6 juntas horizontales y 3 verticales (A78)', c => { const d = newDoor(false); c.puertasOcultas = [d]; const prev = cfg; cfg = c;
       d.juntasHorizontales = hdDefaultJoints(6, d); d.juntasVerticales = 3; cfg = prev; return c; }],
+    ['especiero con condimentero y cajones, moderna (A139: el condimentero a su alto)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Moderna';
+      Object.assign(l[1], { tipo: 'Especiero', extraible: true, especieroHerraje: 'Condimentero', especieroCon: 'Cajones', ancho: 60, fijo: true, numCajones: 3 }); return c; }],
     ['especiero de madera y con condimentero; cesto doble y sencillo, clasico (A138)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Clasica';
       Object.assign(l[0], { tipo: 'Especiero', extraible: true }); Object.assign(l[1], { tipo: 'Especiero', extraible: true, especieroHerraje: 'Condimentero' });
       Object.assign(l[2], { tipo: 'Basura', cestoBotes: 'Doble', ancho: 60, fijo: true }); Object.assign(l[3], { tipo: 'Basura', cestoBotes: 'Sencillo', cestoVariante: 'oculto' }); return c; }],
@@ -3829,8 +3841,15 @@ function pruebasPlanMX(){
     p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_cerrada').forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
       ok(a && a.estado === 'abierto' && q.estado === 'cerrado' && a.frente === q.frente, nombre + ': bisagra sin su par abierto ' + q.id);
-      ok(pr && pr.abre.x >= q.x - 1 && pr.abre.x <= q.x + q.ancho + 1, nombre + ': la puerta no gira en su bisagra ' + q.id); });
+      ok(pr && pr.abre.x >= q.x - 1 && pr.abre.x <= q.x + q.ancho + 1, nombre + ': la puerta no gira en su bisagra ' + q.id);
+      /* A139: abierta, la puerta (girada sobre su eje) no entra en el lateral de su bisagra */
+      if (pr && pr.abre.grados) { const fr = p.piezas.filter(r => r.frente === q.frente && r.rol === 'frente'), a = pr.abre.grados*Math.PI/180*(pr.abre.lado === 'derecha' ? 1 : -1);
+        const gira = ([x, y]) => { const dx = x - pr.abre.x, dy = -(y - pr.abre.y); return [pr.abre.x + dx*Math.cos(a) - dy*Math.sin(a), pr.abre.y - (dx*Math.sin(a) + dy*Math.cos(a))]; };
+        const pts = fr.flatMap(r => [[r.x, r.y], [r.x + r.ancho, r.y], [r.x, r.y + r.fondo], [r.x + r.ancho, r.y + r.fondo]]).map(gira);
+        const lat = p.piezas.find(r => r.modulo === q.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.z < q.z + q.alto/2 && r.z + r.alto > q.z + q.alto/2 && r.x <= pr.abre.x + 2 && r.x + r.ancho >= pr.abre.x - 2);
+        ok(!lat || pts.every(([x, y]) => !(x > lat.x + .05 && x < lat.x + lat.ancho - .05 && y > lat.y + .05 && y < lat.y + lat.fondo - .05)), nombre + ': la puerta abierta entra al lateral en ' + q.id); } });
     p.piezas.filter(q => q.tipo === 'CorrederaMedia' && q.estado === 'cerrado').forEach(q => ok(p.piezas.some(r => r.id === q.id.replace(/cerrado$/, 'abierto')), nombre + ': corredera media sin su estado abierto ' + q.id));
+    p.piezas.filter(q => q.tipo === 'Condimentero').forEach(q => ok(Math.abs(q.alto - MODELO.condimentero.caja[1][2]) < .01 && Math.abs(q.fondo - MODELO.condimentero.caja[1][1]) < .01, nombre + ': el condimentero no va a su medida ' + q.id));   /* A139: tal cual */
     c.modulos.filter(m => m.tipo === 'Especiero' && m.extraible && !m.reserved).forEach(m => { const herr = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Condimentero').length;
       ok(m.especieroHerraje === 'Condimentero' ? herr === 1 : herr === 0 && p.piezas.some(q => q.modulo === m.id && q.tipo === 'Tira'), nombre + ': especiero ' + m.id + ' sin su herraje'); });
     c.modulos.filter(m => m.tipo === 'Basura' && !m.reserved).forEach(m => { const n = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Bote').length;
