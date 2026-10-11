@@ -278,6 +278,9 @@
        clic: esa cara. Los botones de caras del panel pasan a las pestanas; esquinero y planta general nombran las caras con letra.
    A136. [Master hecho 11/10; Revit pendiente] En el alzado, lo de la otra cara en la columna de esquina se ve de perfil, no en corte:
        costado del gabinete (bajo y alto) con su material, canto del frente encima y, en bajos, costado del zoclo retirado.
+   A151. [Master hecho 11/10; Revit pendiente] Esquinero ciego (11/10, usuario, por Skitchen for Revit): en la cara no duena la
+       columna es el fondo del ciego (con su frente) mas una tapeta de ajuste en el plano de frentes, de fabrica 5 cm (US 2"),
+       minimo sugerido: se escribe otra en la cota (hasta 0) o se arrastra en el alzado con iman a los 5 cm (no es regla absoluta).
    A150. [Master hecho 11/10; Revit pendiente] (11/10, usuario): 1) el cuerpo de arriba ensanchado sobre el especiero anexado
        comparte sus repisas con el lado del especiero (mismas alturas; tambien en el alzado interior); 2) el saque de la tapa del
        cajon oculto baja 1.5 cm; 3) con riel frances, los laterales y la cama de los altos llegan al pano del fondo (el riel queda
@@ -2400,7 +2403,11 @@ const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !==
    cara empieza a su fondo (60). Carrusel, diagonal y alacena: 90 x 90 (US 36 x 36); la alacena oculta, 120 en la cara de su puerta */
 function huellaEsquina(k){
   const e = cfg.esquinas[k], R = reg().esquina, fA = fondoCara(caraDe(k), false), fB = fondoCara(caraDe(k + 1), false), duenaA = e.duena !== 1;
-  if (e.tipo === 'ciego') { const fOtra = duenaA ? fB : fA, w = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)); return duenaA ? [w, fA] : [fB, w]; }
+  /* A151 (usuario 11/10): en la cara no duena del ciego la columna es el fondo del ciego (con su frente) mas una tapeta de ajuste: de
+     fabrica 5 cm (US 2"), minimo sugerido; se puede escribir otra (hasta 0) o arrastrar en el alzado */
+  if (e.tipo === 'ciego') { const fOtra = duenaA ? fB : fA, w = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)), fOwn = (duenaA ? fA : fB) + espFrente(),
+      v = duenaA ? e.anchoB : e.anchoA, otro = v > 0 ? Math.max(fOwn, Math.min(fOwn + 60, v)) : fOwn + tapetaCiego();
+    return duenaA ? [w, otro] : [otro, w]; }
   /* A140 (usuario 11/10): la alacena de esquina admite su ancho en cada cara (anchoA, anchoB); sin el, el de fabrica. A143 (usuario 11/10):
      tambien el carrusel y el diagonal, y se arrastra en el alzado. El minimo es el borde de la barra perpendicular (su fondo + el frente):
      ahi esa cara se queda sin puerta y el esquinero abre solo por la otra; con frente a 45, 20 cm mas */
@@ -2411,6 +2418,7 @@ function huellaEsquina(k){
 const esquinaDe = m => m && m.esquina && cfg.esquinas ? cfg.esquinas[m.esquina.k] : null;
 /* A150: interior de la alacena de esquina: 'repisas' (completas) o 'barra' (bajo con cubierta de un lado); de fabrica la oculta con barra */
 const interiorAlacena = e => e.interior === 'repisas' || e.interior === 'barra' ? e.interior : e.alacena === 'diagonal' ? 'repisas' : 'barra';
+const tapetaCiego = () => cfg.region === 'US' ? inch(2) : 5;   /* A151: tapeta de ajuste de la cara no duena del ciego */
 const esquinaDiag = e => e.tipo === 'diagonal' || e.tipo === 'alacena' && e.alacena === 'diagonal';
 /* A143 (usuario 11/10): los bajos del esquinero llevan la gola como los demas bajos (carrusel, diagonal y ciego; la alacena no) */
 const golaEsquina = e => cfg.style === 'Moderna' && (e.tipo === 'carrusel' || e.tipo === 'diagonal' || e.tipo === 'ciego');
@@ -5642,7 +5650,10 @@ function esquinerosPlan(add, r2, sep, tf){
     losa(pre + ':gola', 'herraje', 'Gola', modulo, [at(c1, hondo), at(c2, hondo), at(c2, hondo + eG), at(c1, hondo + eG)], zg, z1, mt, 'herrajes');
     losa(pre + ':gola:perfil', 'herraje', 'Perfil', modulo, [c1, c2, at(c2, hondo), at(c1, hondo)], zg, zg + eG, mt, 'herrajes'); };
   const modB = mb ? mb.id : id, modU = mu ? mu.id : id;
-  if (e.tipo === 'ciego') { const duenaA = e.duena !== 1; ciego(id, duenaA, duenaA ? wA : wB, duenaA ? fA : fB, duenaA ? fB : fA, zb, z1, modB, !!e.herraje, golaEsquina(e)); }
+  if (e.tipo === 'ciego') { const duenaA = e.duena !== 1; ciego(id, duenaA, duenaA ? wA : wB, duenaA ? fA : fB, duenaA ? fB : fA, zb, z1, modB, !!e.herraje, golaEsquina(e));
+    /* A151: tapeta de ajuste de la cara no duena, en su plano de frentes, del frente del ciego al primer gabinete */
+    if (duenaA) caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - fB - tf, LA - fB, fA, wB, zb, z1, gm('Tapetas'), 'tapetas');
+    else caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB, fA, fA + tf, zb, z1, gm('Tapetas'), 'tapetas'); }
   else if (oculta) {
     const duenaA = e.duena !== 1, tope = topeAltos(), repC = interiorAlacena(e) === 'repisas';
     esquinaL(id, wA, wB, fA, fB, zb, tope, modB, false, repC ? 4 : 0, true, 0, 0, 0, false, repC ? [fondoCara(cfg, true), fondoCara(caraDe(k + 1), true)] : null);   /* A150 */
@@ -5754,13 +5765,13 @@ function drawEsquina(m, x0, RX, X, Z, post){
     partHits.push({ rect: r, key: 'gola', active: true }); if (selectedPart === 'gola') post.push(() => outline(r, C.select, 2)); };
   if (!m.upper) {
     const gE = golaEsquina(e);
-    if (e.tipo === 'ciego') { if (duena) { perfil(0, fOtra); tapeta(fOtra, w - R.ciegoPuerta); puerta(w - R.ciegoPuerta, w, e.herraje ? 'Ciego · herraje' : 'Ciego'); if (gE) golaZ(fOtra, w); } else perfil(0, w); }
+    if (e.tipo === 'ciego') { if (duena) { perfil(0, fOtra); tapeta(fOtra, w - R.ciegoPuerta); puerta(w - R.ciegoPuerta, w, e.herraje ? 'Ciego · herraje' : 'Ciego'); if (gE) golaZ(fOtra, w); } else { perfil(0, fOtra); tapeta(fOtra + espFrente(), w); } }   /* A151: tapeta de ajuste */
     else if (oculta) { if (duena) { perfil(0, fOtra); puerta(fOtra, w, 'Alacena oculta'); } else { perfil(0, fOtra); tapeta(fOtra, w); } }
     else { const diag = esquinaDiag(e); perfil(0, fOtra);
       /* A143: si el ancho llega al borde de la barra perpendicular, esta cara no lleva puerta (solo se ve el canto de la otra) */
       if (!sinFrenteEsquina(w, fOtra)) { puerta(fOtra, w, alacena ? (diag ? 'Alacena diagonal' : 'Alacena en L') : diag ? 'Diagonal' : 'Carrusel', diag); if (gE) golaZ(fOtra, w); } }
     /* A143: agarre del ancho en el canto interior de la columna (carrusel, diagonal y alacena): se arrastra con guia e iman */
-    if (e.tipo !== 'ciego' && !exporting) { const xi = der ? x0 : x0 + w, gx = frame.X(xi), gy = Z(zb + A/2), r = { x: gx - 4, y: gy - 16, w: 8, h: 32 };
+    if ((e.tipo !== 'ciego' || !duena) && !exporting) { const xi = der ? x0 : x0 + w,   /* A151: en el ciego, la cara no duena */ gx = frame.X(xi), gy = Z(zb + A/2), r = { x: gx - 4, y: gy - 16, w: 8, h: 32 };
       esqGripHits.push({ rect: r, m, xi });
       post.push(() => { ctx.save(); ctx.fillStyle = C.accent; ctx.globalAlpha = .85; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1; line(gx - 1.5, r.y + 8, gx - 1.5, r.y + r.h - 8); line(gx + 1.5, r.y + 8, gx + 1.5, r.y + r.h - 8); ctx.restore(); }); }
   } else {   /* usuario 10/10: un solo gabinete en L a toda la columna; junto a la esquina, puerta o repisas abiertas */
@@ -6510,7 +6521,8 @@ canvas.addEventListener('mousedown', e => {
   const tb = tabHits.find(q => inside(p, q.rect)); if (tb) { e.preventDefault(); ACT.cara(String(tb.k)); return; }   /* A135 */
   const eg = esqGripHits.find(q => inside(p, q.rect));   /* A143: ancho del esquinero con guia e iman */
   if (eg) { e.preventDefault(); const m = eg.m, ee = esquinaDe(m), der = m.esquina.lado === 'der', k = m.esquina.k, fO = fondoCara(caraDe(der ? k + 1 : k), false), mn = fO + (esquinaDiag(ee) ? 20 : espFrente());
-    drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn, snaps: [mn, reg().esquina.lado], una: !esquinaDiag(ee) ? mn : null, snapped: false }; return; }
+    const cg = ee.tipo === 'ciego';   /* A151: en el ciego el iman va a la tapeta de 5 cm y se puede bajar hasta 0 */
+    drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn, snaps: cg ? [mn + tapetaCiego()] : [mn, reg().esquina.lado], una: !cg && !esquinaDiag(ee) ? mn : null, cg, snapped: false }; return; }
   const pc = planCaraHits.find(q => inside(p, q.rect)); if (pc) { e.preventDefault(); ACT.cara(String(pc.k)); selection = new Set([pc.id]); selectedPart = null; render(); return; }   /* A140 */
   const d = dimHits.find(q => inside(p, q.rect)); if (d) { e.preventDefault(); beginDimension(d.key, d.rect); return; }
   const g = gripHits.find(q => inside(p, q.rect));
@@ -6597,9 +6609,9 @@ canvas.addEventListener('mousemove', e => {
   if (drag && drag.kind === 'esqAncho') {   /* A143 */
     const xc = (p.x - frame.ox)/frame.scale; let w = Math.round((drag.der ? drag.outer - xc : xc - drag.outer)*2)/2, snapped = false;
     const tol = prefs.iman ? Math.max(prefs.imanTol || 1.5, 8/frame.scale) : 0; for (const sv of drag.snaps) if (Math.abs(sv - w) <= tol) { w = sv; snapped = true; }
-    drag.w = Math.max(drag.mn, Math.min(200, w)); drag.snapped = snapped || drag.w === drag.mn; canvas.style.cursor = 'ew-resize'; drawCanvas();
+    drag.w = Math.max(drag.mn, Math.min(200, w)); drag.snapped = snapped || !drag.cg && drag.w === drag.mn; canvas.style.cursor = 'ew-resize'; drawCanvas();
     const gx = frame.X(drag.der ? drag.outer - drag.w : drag.outer + drag.w); ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = drag.snapped ? C.accent : C.muted; ctx.lineWidth = 1.5; line(gx, frame.Z(cfg.alturaMuro), gx, frame.Z(0)); ctx.restore();
-    label((drag.una !== null && Math.abs(drag.w - drag.una) < .01 ? 'Una sola puerta · ' : '') + fmt(drag.w) + uS(), gx + 10, p.y - 16, C.ink); return; }
+    label((drag.una !== null && Math.abs(drag.w - drag.una) < .01 ? 'Una sola puerta · ' : '') + (drag.cg ? 'Tapeta ' + fmt(Math.max(0, drag.w - drag.mn)) + uS() + ' · ' : '') + fmt(drag.w) + uS(), gx + 10, p.y - 16, C.ink); return; }
   if (drag && drag.kind === 'box') { drag.x1 = p.x; drag.y1 = p.y; drawCanvas(); return; }
   if (drag && drag.kind === 'guide') {   /* ContextMouseMove de las guias de la isla */
     const k = drag.key, A = cfg.islaAncho, xf = (p.x - frame.X(0))/frame.scale, dist = A - xf;
