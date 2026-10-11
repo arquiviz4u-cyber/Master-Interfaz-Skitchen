@@ -278,6 +278,11 @@
        clic: esa cara. Los botones de caras del panel pasan a las pestanas; esquinero y planta general nombran las caras con letra.
    A136. [Master hecho 11/10; Revit pendiente] En el alzado, lo de la otra cara en la columna de esquina se ve de perfil, no en corte:
        costado del gabinete (bajo y alto) con su material, canto del frente encima y, en bajos, costado del zoclo retirado.
+   A158. [Master hecho 11/10; Revit pendiente] Esquinero (usuario 11/10, capturas 7 y 8; A, B y F de su lista): A) con gola, los
+       laterales de la caja en L llevan el rebaje del canal (no se asoman en el agarre) y el techo se retira lo mismo; con frente a 45
+       el retiro sobre cada ala es el canal por raiz de 2 (antes el techo quedaba delante del perfil). B) [Revit] la puerta de la
+       alacena oculta llega al panel de la otra cara (sin junta en la esquina). F) las guias del ancho del esquinero quedan visibles en el
+       alzado: el borde de la barra perpendicular (o la tapeta de 5 cm del ciego) y el ancho de fabrica.
    A156. [Master hecho 11/10; SketchUp con abre.zona y calza de bisagra; Revit pendiente] Tras probar el A154 (11/10, usuario):
        1) el refrigerador no se podia poner con un muro bajo (213 cm): el hueco de fabrica (190) no dejaba los 25 cm del gabinete de
        arriba; al cambiar a Refrigerador el hueco baja lo necesario (minimo 120) o, si no cabe, va sin gabinete de arriba;
@@ -5749,14 +5754,19 @@ function esquinerosPlan(add, r2, sep, tf){
     const interior = (fa, fb) => conDiag && cd > 0 ? sinRep([[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, Math.min(b - e1, cd)], [LA - Math.min(a - e1, cd), fa], [LA - a + e1, fa]])
       : conDiag ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - a + e1, fa]] : [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, fa], [LA - a + e1, fa]];
     const et = 'gabinetes', inner = interior(fa, fb);
-    caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa, z0, z1, mat, et); caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb, LA, b - e1, b, z0, z1, mat, et);
+    /* A158 (usuario 11/10): con gola, los laterales llevan el rebaje del canal como los de las caras (no se asoman en el agarre) y el
+       techo se retira lo mismo; con frente a 45 el retiro, medido sobre cada ala, es el canal por raiz de 2 */
+    const ng = canal > 0 ? (conDiag && !cd ? canal*Math.SQRT2 : canal) : 0, zg = z1 - agarre() - traslapeL();
+    if (ng > 0) { caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa - ng, z0, z1, mat, et); caja(pre + ':lateral:a:bajo', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, fa - ng, fa, z0, zg, mat, et);
+      caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb + ng, LA, b - e1, b, z0, z1, mat, et); caja(pre + ':lateral:b:bajo', 'panel', 'Lateral', modulo, LA - fb, LA - fb + ng, b - e1, b, z0, zg, mat, et); }
+    else { caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa, z0, z1, mat, et); caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb, LA, b - e1, b, z0, z1, mat, et); }
     caja(pre + ':trasero:a', 'panel', 'Trasero', modulo, LA - a + e1, LA, 0, ef, z0, z1, gm('Interior'), et); caja(pre + ':trasero:b', 'panel', 'Trasero', modulo, LA - ef, LA, ef, b - e1, z0, z1, gm('Interior'), et);
     /* A139 (usuario 11/10): con gola, el alto de esquina lleva doble cama como los demas altos: el piso se queda el unero antes del
        frente y la cama interior, encima, llega al frente */
     if (unero > 0) { losa(pre + ':piso', 'panel', 'Piso', modulo, interior(fa - unero, fb - unero), z0, z0 + e1, mat, et); losa(pre + ':cama', 'panel', 'Cama', modulo, inner, z0 + e1, z0 + 2*e1, mat, et); }
     else if (piso) losa(pre + ':piso', 'panel', 'Piso', modulo, inner, z0, z0 + e1, mat, et);   /* A157: la alacena oculta no lleva piso */
     /* A140 (usuario 11/10): con gola el techo se queda detras del perfil (canal): el agarre queda libre hasta la cubierta */
-    if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, canal > 0 ? interior(fa - canal, fb - canal) : inner, z1 - e1, z1, mat, et);
+    if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, canal > 0 ? interior(fa - ng, fb - ng) : inner, z1 - e1, z1, mat, et);   /* A158: ng */
     /* A140 (usuario 11/10): la alacena con puerta diagonal lleva repisas en L (a todo el fondo de cada ala); el triangulo tras la puerta queda libre */
     const pr = rep ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - rep[1], b - e1], [LA - rep[1], rep[0]], [LA - a + e1, rep[0]]] : repisasL ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, fa], [LA - a + e1, fa]] : inner;
     for (let i = 1; i <= repisas; i++) { const z = z0 + (z1 - z0)*i/(repisas + 1); losa(pre + ':repisa:' + i, 'repisa', 'Repisa', modulo, pr, z - e1/2, z + e1/2, gm('Repisas'), et); }
@@ -5911,6 +5921,11 @@ function drawEsquina(m, x0, RX, X, Z, post){
     /* A143: agarre del ancho en el canto interior de la columna (carrusel, diagonal y alacena): se arrastra con guia e iman */
     if ((e.tipo !== 'ciego' || !duena) && !exporting) { const xi = der ? x0 : x0 + w,   /* A151: en el ciego, la cara no duena */ gx = frame.X(xi), gy = Z(zb + A/2), r = { x: gx - 4, y: gy - 16, w: 8, h: 32 };
       esqGripHits.push({ rect: r, m, xi });
+      /* A158 (usuario 11/10): las guias del ancho quedan visibles (no solo al arrastrar): el borde de la barra perpendicular (una sola
+         puerta; en el ciego, la tapeta de 5 cm) y el ancho de fabrica */
+      { const outer = der ? x0 + w : x0, mnG = fOtra + (esquinaDiag(e) ? 20 : espFrente()), objs = e.tipo === 'ciego' ? [mnG + tapetaCiego()] : esquinaDiag(e) ? [mnG, R.lado] : [mnG, R.lado];
+        objs.filter(v => Math.abs(v - w) > .5).forEach(v => { const gx2 = frame.X(der ? outer - v : outer + v), y0 = Z(zb + A), y1 = Z(zb);
+          post.push(() => { ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = C.accent; ctx.globalAlpha = .55; ctx.lineWidth = 1; line(gx2, y0, gx2, y1); ctx.restore(); }); }); }
       post.push(() => { ctx.save(); ctx.fillStyle = C.accent; ctx.globalAlpha = .85; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1; line(gx - 1.5, r.y + 8, gx - 1.5, r.y + r.h - 8); line(gx + 1.5, r.y + 8, gx + 1.5, r.y + r.h - 8); ctx.restore(); }); }
   } else {   /* usuario 10/10: un solo gabinete en L a toda la columna; junto a la esquina, puerta o repisas abiertas */
     const c = Math.min(w, R.ladoAlto), abierto = (u0, u1) => { if (u1 - u0 < .01) return; const r = caja(u0, u1); fillMat(r.x, r.y, r.w, r.h, flat ? null : mat, C.box); outline(r, C.line, 1);
