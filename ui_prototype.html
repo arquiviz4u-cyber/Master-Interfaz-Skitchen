@@ -278,6 +278,12 @@
        clic: esa cara. Los botones de caras del panel pasan a las pestanas; esquinero y planta general nombran las caras con letra.
    A136. [Master hecho 11/10; Revit pendiente] En el alzado, lo de la otra cara en la columna de esquina se ve de perfil, no en corte:
        costado del gabinete (bajo y alto) con su material, canto del frente encima y, en bajos, costado del zoclo retirado.
+   A150. [Master hecho 11/10; Revit pendiente] (11/10, usuario): 1) el cuerpo de arriba ensanchado sobre el especiero anexado
+       comparte sus repisas con el lado del especiero (mismas alturas; tambien en el alzado interior); 2) el saque de la tapa del
+       cajon oculto baja 1.5 cm; 3) con riel frances, los laterales y la cama de los altos llegan al pano del fondo (el riel queda
+       a la vista por los costados, sin muesca) y los rieles del gabinete van a todo su ancho; 4) el especiero de torre extraible
+       tiene las opciones del bajo: de madera (misma construccion, niveles cada 20 cm) o herraje condimentero apilado (cuantos
+       quepan a su alto, con la misma separacion).
    A149. [Master hecho 11/10; SketchUp con resaltado de frentes en Interactuar; Revit pendiente] (11/10, usuario): 1) alzado del
        especiero anexado: el cuerpo de arriba de la torre se dibuja ensanchado sobre el (relleno, contorno y lateral), el lateral
        de ese lado solo baja hasta su base; 2) la tapeta junto al especiero anexado sube hasta el tope de su torre; 3) el lateral
@@ -2724,7 +2730,7 @@ function fronts(m){
         if (bt === '1 puerta' || bt === 'Especiero') door(hol, W1, z0, z1, false, m.invertir);
         else if (bt === '2 puertas') door(hol, W1, z0, z1, true, false);
         else if (bt === 'Elevable') r.push({ kind: 'Elevable', x0: hol, x1: W1, z0, z1 });
-        else if (bt === 'Especiero extraíble') r.push({ kind: 'Cajon', x0: hol, x1: W1, z0, z1 });
+        else if (bt === 'Especiero extraíble') r.push({ kind: 'Cajon', x0: hol, x1: W1, z0, z1, especiero: true });   /* A150: con su herraje como el bajo */
         at += h;
       });
     }
@@ -2879,7 +2885,7 @@ const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 
 /* A147 (usuario): el riel frances (las dos piezas juntas) de 15 cm de alto (minimo 12); quedan riel frances y taquetes */
 const PLAN_FIJACION = { frances: { grueso: 1.8, alto: 15, calza: 6 }, taquetes: { diametro: 1.1, cabeza: .3, borde: 5 } };
 const fijacionAltos = () => FIJACIONES.some(([k]) => k === cfg.fijacionAltos) ? cfg.fijacionAltos : 'taquetes';   /* A149: de fabrica, taquetes */
-const PLAN_HOLGURA_PUERTA = .3, PLAN_SAQUE = 3, PLAN_PERFORACION = { diametro: 3.5, hondo: 1.2 };
+const PLAN_HOLGURA_PUERTA = .3, PLAN_SAQUE = 1.5, PLAN_PERFORACION = { diametro: 3.5, hondo: 1.2 };
 const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                     /* jaladera de barra o boton */
 /* gola empotrada (referencia de construccion del usuario, 03/10): el canal entra 2.6 cm en el gabinete desde su canto y el perfil
    pasa 2.2 cm por detras de los frentes vecinos (C de 7.4 cm para un hueco de 3.0); los laterales van rebajados en esa zona */
@@ -3022,8 +3028,8 @@ function planDePiezas(c = cfg){
        Devuelve el hueco interior. Sin travesaños por ahora: el techo es completo (PLAN_PENDIENTE) */
     /* canal del LED en la cama: su borde mas cercano a PLAN_LED.retiro del canto frontal del alto, o de su cara trasera si va atras */
     /* A68 (usuario, 04/10): al frente o atras a cfg.ledRetiro del borde (8 cm de fabrica; 0 = al pano), o al centro del fondo */
-    const ranuraLed = y1 => { const L = PLAN_LED, hueco = y1 - sep - L.ancho, ret = Math.max(0, Math.min(hueco, cfg.ledRetiro ?? L.retiro));
-      return cfg.ledCentro ? sep + hueco/2 : cfg.ledFrente ? y1 - ret - L.ancho : sep + ret; };
+    const ranuraLed = (y1, y0 = sep) => { const L = PLAN_LED, hueco = y1 - y0 - L.ancho, ret = Math.max(0, Math.min(hueco, cfg.ledRetiro ?? L.retiro));
+      return cfg.ledCentro ? y0 + hueco/2 : cfg.ledFrente ? y1 - ret - L.ancho : y0 + ret; };   /* A150: y0, el canto posterior de la cama */
     /* A86 (usuario, 08/10 y 10/10): fajas de 10 cm (US 4") del espesor del cuerpo. fajas.ancho > 0: en los bajos que reciben la
        cubierta, dos a lo ancho entre los laterales (al frente, detras del canal de la gola, y atras, contra el trasero) en lugar
        del techo; con tarja de 3 cm (US 1 1/4") para librar la tina, como Ancho_Travesanos de Revit. fajas.anclaje: fajas
@@ -3037,10 +3043,11 @@ function planDePiezas(c = cfg){
       const panel = (k, tipo, a, b, c0, c1, d0, d1, material = propio || mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       /* con LED, la cama corrida (ver mas abajo) es el piso: laterales y trasero apoyan sobre ella y el gabinete no lleva piso propio */
       const zl = led ? z0 + e : z0;
-      /* A145: los laterales llegan al muro; A146: con riel frances, una muesca arriba atras para el liston corrido del muro */
-      const Hm = fx === 'frances' ? Math.min(FX.frances.alto, z1 - zl - 2) : 0, Gm = fx === 'frances' ? FX.frances.grueso : 0;
+      /* A145: los laterales llegan al muro. A150 (usuario): con riel frances, al pano del fondo (el riel queda a la vista por los
+         costados, sin muesca); con taquetes, el fondo va al muro */
+      const Hm = 0, Gm = 0;
       [['izq', x0, x0 + e], ['der', x1 - e, x1]].forEach(([l, a, b]) => {
-        panel('lateral:' + l, 'Lateral', a, b, sep, y1, zl, z1);
+        panel('lateral:' + l, 'Lateral', a, b, y0, y1, zl, z1);
         /* A149 (usuario): una sola pieza con la muesca (perfil en L a lo largo de su grueso), no dos */
         if (Hm) { const F = r2(y1 - sep), H = r2(z1 - zl); piezas[piezas.length - 1].forma = { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [F, 0], [F, H], [r2(Gm), H], [r2(Gm), r2(H - Hm)], [0, r2(H - Hm)]] }; } });
       panel('trasero', 'Trasero', x0 + e, x1 - e, y0, y0 + ef, zl, z1, matPanel(dueno, zona, 'fondo', 'Interior'));
@@ -3057,9 +3064,9 @@ function planDePiezas(c = cfg){
       if (fx === 'frances') {   /* riel frances detras del trasero: el del muro con el bisel hacia arriba y el del gabinete encima, enganchado */
         const G = FX.frances.grueso, H = Math.min(FX.frances.alto, z1 - zl - 2), h1 = (H - G)/2;
         /* A146: el liston del muro va corrido por toda la fila de altos (se arma despues, con todos los del gabinete) */
-        panel('riel:gabinete', 'RielGabinete', x0 + e, x1 - e, sep, sep + G, z1 - H, z1);
+        panel('riel:gabinete', 'RielGabinete', x0, x1, sep, sep + G, z1 - H, z1);   /* A150: a todo el ancho del gabinete, tras su fondo */
         piezas[piezas.length - 1].forma = { tipo: 'perfil', eje: 'x', puntos: [[0, r2(h1)], [G, r2(h1 + G)], [G, r2(H)], [0, r2(H)]] };
-        panel('riel:calza', 'Calza', x0 + e, x1 - e, sep, sep + G, zl, zl + Math.min(FX.frances.calza, z1 - zl - H - 1)); }
+        panel('riel:calza', 'Calza', x0, x1, sep, sep + G, zl, zl + Math.min(FX.frances.calza, z1 - zl - H - 1)); }
       else if (fx === 'taquetes') {   /* cabezas de los tornillos con taquete sobre la cara interior del trasero, arriba y abajo */
         const T = FX.taquetes, r = T.diametro/2, zs = [z1 - (techo ? e : 0) - T.borde, zl + (led ? 0 : e) + T.borde], xs = [x0 + e + T.borde, x1 - e - T.borde];
         if (x1 - x0 > 2*(e + T.borde) + T.diametro) zs.forEach((zc, i) => xs.forEach((xc, j) => hx('taquete:' + i + ':' + j, 'Taquete', xc - r, xc + r, y0 + ef, y0 + ef + T.cabeza, zc - r, zc + r,
@@ -3108,9 +3115,11 @@ function planDePiezas(c = cfg){
       const c = PLAN_CAJA, E = MODELO.especiero, mat = matPanel(m, 'cuerpo', 'caja', 'Interior'), y1 = h.yF ?? h.y1, y0 = h.y0 + c.retiro;
       const z0 = Math.max(f.z0, h.z0 + .5), z1 = topeGola(m, f, Math.min(f.z1 - c.libreArriba, h.z1 - .5));
       if (m.especieroHerraje === 'Condimentero') {
-        const C = MODELO.condimentero, alto = C.caja[1][2] - C.caja[0][2], largo = C.caja[1][1] - C.caja[0][1];
-        piezaDe(m, base + ':condimentero', frenteId, { rol: 'herraje', tipo: 'Condimentero', etiqueta: 'herrajes', modelo: { archivo: 'condimentero' },
-          ...cajaModelo(C.caja, { ox: (h.x0 + h.x1)/2, refX: C.centroX, oy: y1, sy: Math.min(1, (y1 - y0)/largo), oz: z0, sz: Math.min(1, (z1 - z0)/alto) }) });
+        /* A150: en el especiero de torre los condimenteros se apilan: cuantos quepan a su alto y repartidos con la misma separacion */
+        const C = MODELO.condimentero, alto = C.caja[1][2] - C.caja[0][2], largo = C.caja[1][1] - C.caja[0][1], H = z1 - z0, n = Math.max(1, Math.floor((H + 3)/(alto + 3)));
+        const sz = Math.min(1, H/alto), libre = n > 1 ? (H - n*alto)/n : 0;
+        for (let k = 0; k < n; k++) piezaDe(m, base + ':condimentero' + (k ? ':' + k : ''), frenteId, { rol: 'herraje', tipo: 'Condimentero', etiqueta: 'herrajes', modelo: { archivo: 'condimentero' },
+          ...cajaModelo(C.caja, { ox: (h.x0 + h.x1)/2, refX: C.centroX, oy: y1, sy: Math.min(1, (y1 - y0)/largo), oz: z0 + k*(alto + libre), sz }) });
         return; }
       const x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, T = E.tira, e = E.tablero, n = Math.max(2, Math.floor((z1 - z0)/E.nivel)), paso = (z1 - z0)/n;
       const tabla = (k, tipo, a, b, p0, p1, q0, q1) => piezaDe(m, base + ':' + k, frenteId, { rol: 'caja', tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, etiqueta: 'gabinetes' });
@@ -3203,7 +3212,7 @@ function planDePiezas(c = cfg){
     const cajasEn = (m, x, zonas) => fronts(m).forEach((f, k) => {
       if (f.kind !== 'Cajon' || f.fijo || !zonas.length) return;
       const solape = h => Math.min(f.z1, h.z1) - Math.max(f.z0, h.z0), h = zonas.reduce((a, b) => solape(b) > solape(a) ? b : a);
-      if (solape(h) > 0) cajaCajon(m, m.id + ':caja:' + k, h, f, m.id + ':frente:' + k);
+      if (solape(h) > 0) cajaDe(m, m.id + ':caja:' + k, h, f, m.id + ':frente:' + k);   /* A150: el especiero extraible de torre o alacena, como el del bajo */
     });
     /* especiales (drawSpecial): laterales de su espesor (del zoclo al tope; refrigerador, del piso), trasero, piso, techo y
        tableros del mismo espesor entre sus cuerpos. Torre y refrigerador llevan los frentes entre laterales: sus laterales
@@ -3228,7 +3237,7 @@ function planDePiezas(c = cfg){
       const repisas = (h, base, n, zonaId) => { if (h.z1 - h.z0 > 2*e) interior(m, base, h, n, 0, zonaId); };
       /* A148: con especiero anexado, el lateral de su lado se parte en la base del cuerpo de arriba (arriba queda tras los frentes, como
          division) y el cuerpo de arriba sigue sobre el especiero con su lateral, techo y trasero */
-      const an = anexoDe(m), zs = an ? baseSuperiorTorre(m) : null;
+      const an = anexoDe(m), zs = an ? baseSuperiorTorre(m) : null; let anexoRepisas = null;
       if (lat) [['izq', x, x + e], ['der', x1 - e, x1]].forEach(([l, a, b]) => {
         const partido = zs !== null && (l === 'izq') === (an.lado === 'Izquierda');
         tab('lateral:' + l, 'Lateral', a, b, y0, yl, refri ? 0 : zb, partido ? zs : top);
@@ -3236,7 +3245,8 @@ function planDePiezas(c = cfg){
       if (zs !== null) { const w = an.m.ancho, izq = an.lado === 'Izquierda', xa = izq ? x - w : x1, xb = izq ? x : x1 + w, ex = izq ? xa : xb - e;
         tab('anexo:lateral', 'Lateral', ex, ex + e, y0, yl, zs, top);
         tab('anexo:techo', 'Techo', izq ? xa + e : xa, izq ? xb : xb - e, y0 + ef, y1, top - e, top);
-        tab('anexo:trasero', 'Trasero', izq ? xa + e : xa, izq ? xb : xb - e, y0, y0 + ef, zs, top - e, matPanel(m, 'superior', 'fondo', 'Interior')); }
+        tab('anexo:trasero', 'Trasero', izq ? xa + e : xa, izq ? xb : xb - e, y0, y0 + ef, zs, top - e, matPanel(m, 'superior', 'fondo', 'Interior'));
+        anexoRepisas = { m, zs, a: izq ? xa + e : xa, b: izq ? xb : xb - e }; }   /* A150: sus repisas, despues de las del cuerpo */
       if (isTower(m)) {
         tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'inferior', 'fondo', 'Interior'));
         piso('piso', zb); tab('techo', 'Techo', xi0, xi1, y0 + ef, y1, top - e, top);
@@ -3286,6 +3296,9 @@ function planDePiezas(c = cfg){
           repisas(hz, m.id + ':superior', zoneShelves(m, 'superior'), 'superior');
         }
       }
+      /* A150 (usuario): el cuerpo de arriba ensanchado comparte sus repisas con el lado del especiero (mismas alturas) */
+      if (anexoRepisas) piezas.filter(q => q.modulo === m.id && q.rol === 'repisa' && q.z >= anexoRepisas.zs - .01 && !q.id.includes(':anexo:')).forEach(q =>
+        add(Object.assign({}, q, { id: q.id + ':anexo', x: anexoRepisas.a, ancho: anexoRepisas.b - anexoRepisas.a })));
       cajasEn(m, x, zonas);
       fronts(m).forEach((f, k) => frente(m, f, k, x));
       gola(m, isTower(m) ? xi0 : x, isTower(m) ? xi1 : x + m.ancho);
@@ -3381,10 +3394,11 @@ function planDePiezas(c = cfg){
            van en la cama del piso, medidas desde su canto); sin gola la cama va completa */
         /* A93 (usuario, 08/10): la caja de repisas (alto sin puertas) lleva una sola cama, completa hasta el frente (sin unero ni cama
            interior: un solo marco) y con la tira si hay LED. La cama sigue al material del fondo de su caja, como el resto de la caja (A64) */
-        const unero = cfg.style === 'Moderna' && !sinPuertas(q.m) ? golaHondo(true) : 0, r0 = ranuraLed(y1 - unero);
+        const yc = sep + (!cfg.isla && fijacionAltos() === 'frances' ? PLAN_FIJACION.frances.grueso : 0);   /* A150: con riel frances, al pano del fondo */
+        const unero = cfg.style === 'Moderna' && !sinPuertas(q.m) ? golaHondo(true) : 0, r0 = ranuraLed(y1 - unero, yc);
         const dueno = (sinPuertas(q.m) && bodyGroupOf(q.m) || { members: [q.m] }).members[0], fondoCaja = (dueno.materialesPaneles || {})['cuerpo.fondo'];
-        add(Object.assign({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: sep, z: z0, ancho: q.x1 - q.x0, fondo: y1 - sep - unero, alto: e, material: fondoCaja || matDe(q.m), etiqueta: 'gabinetes' },
-          cfg.led ? { ranura: { y: r2(r0 - sep), ancho: L.ancho, hondo: L.hondo } } : {}));
+        add(Object.assign({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: yc, z: z0, ancho: q.x1 - q.x0, fondo: y1 - yc - unero, alto: e, material: fondoCaja || matDe(q.m), etiqueta: 'gabinetes' },
+          cfg.led ? { ranura: { y: r2(r0 - yc), ancho: L.ancho, hondo: L.hondo } } : {}));
         if (cfg.led) add({ id: 'cama:' + k + ':led', rol: 'herraje', modulo: q.m.id, tipo: 'LED', x: q.x0, y: r0, z: z0, ancho: q.x1 - q.x0, fondo: L.ancho, alto: L.hondo, material: PLAN_TIRA.id, etiqueta: 'herrajes' });
         });
       /* B25: la luz en el muro, de la cubierta a las camas, delante del backsplash si lo hay. B26 (usuario): corrida, una por tramo de
@@ -3607,9 +3621,9 @@ function planDePiezas(c = cfg){
        del primer lateral a la del ultimo, pasando por las muescas de los laterales; bisel hacia arriba y hacia el muro */
     const rielesG = piezas.filter(q => q.tipo === 'RielGabinete').sort((a, b) => a.z - b.z || a.alto - b.alto || a.x - b.x), filasRiel = [];
     rielesG.forEach(q => { const f = filasRiel[filasRiel.length - 1], e = PLAN_CUERPO.lateral;
-      if (f && Math.abs(f.z - q.z) < .01 && Math.abs(f.alto - q.alto) < .01 && q.x - f.x1 <= 2*e + .2) f.x1 = q.x + q.ancho; else filasRiel.push({ z: q.z, alto: q.alto, y: q.y, fondo: q.fondo, x0: q.x, x1: q.x + q.ancho, q }); });
+      if (f && Math.abs(f.z - q.z) < .01 && Math.abs(f.alto - q.alto) < .01 && q.x - f.x1 <= .2) f.x1 = q.x + q.ancho; else filasRiel.push({ z: q.z, alto: q.alto, y: q.y, fondo: q.fondo, x0: q.x, x1: q.x + q.ancho, q }); });
     filasRiel.forEach((f, k) => { const e = PLAN_CUERPO.lateral, G = f.fondo, H = f.alto, h1 = (H - G)/2;
-      add({ id: 'riel:muro:' + k, rol: 'panel', modulo: f.q.modulo, tipo: 'RielMuro', x: f.x0 - e, y: f.y, z: f.z, ancho: f.x1 - f.x0 + 2*e, fondo: G, alto: H, material: f.q.material, etiqueta: 'gabinetes',
+      add({ id: 'riel:muro:' + k, rol: 'panel', modulo: f.q.modulo, tipo: 'RielMuro', x: f.x0, y: f.y, z: f.z, ancho: f.x1 - f.x0, fondo: G, alto: H, material: f.q.material, etiqueta: 'gabinetes',
         forma: { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [G, 0], [G, r2(h1 + G)], [0, r2(h1)]] } }); });
     /* B18 (usuario, 03/10): la caja de cajon sale hacia la habitacion; su alto deja libre cada perfil de gola del modulo que cruza
        (la C entre cajones sube PLAN_GOLA.traslape detras del frente de arriba): la caja empieza sobre la aleta de abajo y termina
@@ -3892,7 +3906,7 @@ function pruebasPlanMX(){
       Object.assign(l[0], { tipo: 'Refri' }); Object.assign(l[3], { tipo: 'Hornos' });
       const ins = (k, ancho) => { const e = Object.assign(newModule(false, c.region), { tipo: 'EspecieroTorre', ancho, fijo: true, extraible: true }), u = newModule(true, c.region);
         const ll = c.modulos.filter(m => !m.upper), hh = c.modulos.filter(m => m.upper); c.modulos.splice(c.modulos.indexOf(ll[k]), 0, e); c.modulos.splice(c.modulos.indexOf(hh[k]), 0, u); };
-      ins(1, 20); ins(4, 20); c.longitud = 360; } finally { cfg = prev; } return c; }],
+      ins(1, 20); ins(4, 20); c.longitud = 360; c.modulos.filter(m => m.tipo === 'EspecieroTorre')[1].especieroHerraje = 'Condimentero'; c.fijacionAltos = 'frances'; c.led = true; } finally { cfg = prev; } return c; }],
     ['cesto con cajon chico arriba y cesto con cajon oculto (A96)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Moderna';
       Object.assign(l[1], { tipo: 'Basura', cestoVariante: 'cajon' }); Object.assign(l[3], { tipo: 'Basura', cestoVariante: 'oculto' }); return c; }],
     ['especiero con cajones pequeno + grandes junto a una cajonera igual (A97)', c => { const l = c.modulos.filter(m => !m.upper);
@@ -3955,7 +3969,7 @@ function pruebasPlanMX(){
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
     const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) ||
       a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago') ||   /* B19: el vastago entra en su cuerpo */
-      a.tipo === 'RielMuro' && b.tipo === 'RielGabinete' || a.tipo === 'RielMuro' && b.tipo === 'Lateral' && b.forma ||   /* A149: el liston pasa por la muesca del lateral */   /* A145: las dos mitades del riel frances comparten su caja (A146: el del muro corre por toda la fila) */
+      a.tipo === 'RielMuro' && b.tipo === 'RielGabinete' ||   /* A145: las dos mitades del riel frances comparten su caja (A146: el del muro corre por toda la fila) */
       a.tipo === 'Nariz' && b.tipo === 'Losa' && (b.id === a.id.replace(/:nariz$/, '') || b.id.startsWith(a.id.replace(/:nariz$/, '') + ':')) ||   /* A88: inglete */
       (a.id.startsWith('esq') || b.id.startsWith('esq')) && (a.forma && a.forma.eje === 'z' || b.forma && b.forma.eje === 'z' || a.forma && a.forma.tipo === 'cilindro' || b.forma && b.forma.tipo === 'cilindro');   /* A134: las losas del esquinero (L, charolas, frente a 45) no son su caja */
     p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !choca(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
@@ -4077,6 +4091,7 @@ function pruebasPlanMX(){
         ok(!lat || pts.every(([x, y]) => !(x > lat.x + .05 && x < lat.x + lat.ancho - .05 && y > lat.y + .05 && y < lat.y + lat.fondo - .05)), nombre + ': la puerta abierta entra al lateral en ' + q.id); } });
     p.piezas.filter(q => q.tipo === 'CorrederaMedia' && q.estado === 'cerrado').forEach(q => ok(p.piezas.some(r => r.id === q.id.replace(/cerrado$/, 'abierto')), nombre + ': corredera media sin su estado abierto ' + q.id));
     p.piezas.filter(q => q.tipo === 'Condimentero').forEach(q => ok(Math.abs(q.alto - MODELO.condimentero.caja[1][2]) < .01 && Math.abs(q.fondo - MODELO.condimentero.caja[1][1]) < .01, nombre + ': el condimentero no va a su medida ' + q.id));   /* A139: tal cual */
+    c.modulos.filter(m => m.tipo === 'EspecieroTorre' && m.extraible && !m.reserved).forEach(m => ok(p.piezas.some(q => q.modulo === m.id && (m.especieroHerraje === 'Condimentero' ? q.tipo === 'Condimentero' : q.tipo === 'Tira')), nombre + ': especiero de torre ' + m.id + ' sin su herraje'));   /* A150 */
     c.modulos.filter(m => m.tipo === 'Especiero' && m.extraible && !m.reserved).forEach(m => { const herr = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Condimentero').length;
       ok(m.especieroHerraje === 'Condimentero' ? herr === 1 : herr === 0 && p.piezas.some(q => q.modulo === m.id && q.tipo === 'Tira'), nombre + ': especiero ' + m.id + ' sin su herraje'); });
     c.modulos.filter(m => m.tipo === 'Basura' && !m.reserved).forEach(m => { const n = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Bote').length;
@@ -5983,6 +5998,11 @@ function drawSpecial(m, x0, RX, Z, post){
         drawShelves(q, bt === 'Elevable' ? m.repisasElevable : bt.startsWith('Especiero') ? 5 : zoneShelves(m, 'cuerpo' + (j + 1)), m, 'cuerpo' + (j + 1), false, sel); at += h; });
     }
   }
+  if (ext && !showDoors) {   /* A150: las repisas del cuerpo de arriba tambien sobre el especiero */
+    const parts2 = isPantry(m) ? pantryHeights(m) : [], nb = parts2.length, bt = nb ? bodyType(m, nb - 1, nb) : '', zona = isPantry(m) ? 'cuerpo' + nb : 'superior';
+    const n = isPantry(m) ? (bt === 'Elevable' ? m.repisasElevable : bt.startsWith('Especiero') ? 5 : zoneShelves(m, zona)) : zoneShelves(m, 'superior');
+    const tt = (lat ? m.espesorLaterales : PLAN_CUERPO.lateral)*scale, q = { x: izqA ? ext.x + tt : ext.x, y: ext.y + tt, w: ext.w - tt, h: ext.h - 2*tt };
+    drawShelves(q, n, m, zona, false, sel); }
   if (ext) {   /* A149: contorno de la torre y de su cuerpo de arriba juntos (sin el lado de la torre que da al cuerpo ensanchado) */
     stroke(); const ya = Z(zs), xs = izqA ? r.x : r.x + r.w, xo = izqA ? ext.x : ext.x + ext.w;
     line(r.x, r.y + r.h, r.x + r.w, r.y + r.h); line(izqA ? r.x + r.w : r.x, r.y, izqA ? r.x + r.w : r.x, r.y + r.h); line(xs, ya, xs, r.y + r.h);
@@ -6972,7 +6992,8 @@ function specialPanel(m){
         + `<div class="grid-2" style="margin-top:10px">${num('repRefri', 'Repisas gabinete superior', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'), showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '') : ''));
   }
   else if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en un cuerpo o en la cajonera para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`);
-  else html += section('Especiero', `<div class="note-sm">Especiero anexado a la torre: 5 repisas, del zoclo al cuerpo de arriba de la torre, que se ensancha y lo cubre.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)'));   /* A144 */
+  else html += section('Especiero', `<div class="note-sm">Especiero anexado a la torre: del zoclo al cuerpo de arriba de la torre, que se ensancha y lo cubre.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
+    + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas apiladas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : ''));   /* A150 */   /* A144 */
   if (torreAnexable(m)) { const a = anexoDe(m);   /* A144 */
     html += section('Especiero anexado', radios('anexo', [['Nada', 'Sin especiero'], ['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], a ? a.lado : 'Nada')
       + (a ? `<div class="grid-2" style="margin-top:10px">${num('anexoAncho', 'Ancho del especiero', a.m.ancho, 'cm', 15, 45)}</div>` : '')
