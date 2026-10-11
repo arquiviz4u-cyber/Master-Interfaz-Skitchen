@@ -283,6 +283,11 @@
        el retiro sobre cada ala es el canal por raiz de 2 (antes el techo quedaba delante del perfil). B) [Revit] la puerta de la
        alacena oculta llega al panel de la otra cara (sin junta en la esquina). F) las guias del ancho del esquinero quedan visibles en el
        alzado: el borde de la barra perpendicular (o la tapeta de 5 cm del ciego) y el ancho de fabrica.
+   A163. [Master hecho 11/10; Revit pendiente] Esquinero (usuario 11/10, puntos 4 y 5 de su lista): 4) el agarre del ancho y sus
+       guias quedan ocultos y aparecen semitransparentes al acercar el mouse (opacos al arrastrar); 5a) el bajo del esquinero (L,
+       diagonal y ciego) lleva bajo la cubierta fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa; la
+       cubierta lleva cama solo con nariz; 5b) la gola del esquinero se une a inglete con la de las caras: arranca en el limite de la
+       columna y va a la profundidad del perfil de las caras (alma entre hondo - e y hondo; antes estaba un espesor mas adentro).
    A161. [Master hecho 11/10; SketchUp sin cambios (todo en el plan); Revit pendiente] Tras probar el A160 (11/10, usuario, 4 capturas):
        1) el especiero anexado salia aplastado (condimentero) o con un solo nivel (madera) junto a una torre o alacena con cajones:
        golaStrips del mueble con especiero tomaba la gola de los cajones a todo el ancho y cortaba su caja en la primera; ahora las
@@ -4731,7 +4736,7 @@ const proyOn = () => !exporting || prefs.exportProyeccion;
 /* A159: orientacion del corte elegida con el boton ({ id del modulo cortado, dir }); si no, mira hacia la esquina que corta */
 let seccionMira = null, miraHits = [];
 const miraCorte = xc => { const m = moduloEn(false, xc) || moduloEn(true, xc); if (seccionMira && m && seccionMira.id === m.id) return seccionMira.dir; return m && m.esquina && m.esquina.lado === 'izq' ? -1 : 1; };   /* A162: 1 = pestana a la derecha (muro a la izquierda) */
-let tabHits = [], frontHits = [], planCaraHits = [], esqGripHits = [];   /* A143: agarre del ancho del esquinero en el alzado */   /* A140: gabinetes de las otras caras en la planta de toda la cocina */   /* A135 pestanas de caras; A137 frentes (Ctrl + arrastrar material) */
+let tabHits = [], frontHits = [], planCaraHits = [], esqGripHits = [], esqCerca = '';   /* A163: esquineros con el mouse cerca (agarre y guias visibles) */   /* A143: agarre del ancho del esquinero en el alzado */   /* A140: gabinetes de las otras caras en la planta de toda la cocina */   /* A135 pestanas de caras; A137 frentes (Ctrl + arrastrar material) */
 let hits = [], dimHits = [], partHits = [], gripHits = [], wallRect = null, frame = null, cssW = 0, cssH = 0;
 let materialHits = [], pieceHits = [], post = [];
 let edges = [], edgeOwner = null, guideHits = [];   /* bordes horizontales dibujados (cm) y su modulo: el iman los usa todos */
@@ -5852,19 +5857,23 @@ function esquinerosPlan(add, r2, sep, tf){
     for (let i = 1; i <= 6; i++) { const z = zs + (tope - zs)*i/7; caja(id + ':repisero:' + i, 'repisa', 'Repisa', modB, LA - wA + e1, LA - fB - 1 - e1, ef, ef + fr, z, z + e1, gm('Repisas'), 'gabinetes'); }
   };
   /* ciego en ejes locales: u a lo largo de la cara duena desde la esquina, v desde su muro */
-  const ciego = (pre, duenaA, w, fOwn, fOtra, z0, z1, modulo, herraje, gola = false) => {   /* A143: gola en el bajo */
+  const ciego = (pre, duenaA, w, fOwn, fOtra, z0, z1, modulo, herraje, gola = false, fajas = false) => {   /* A163: fajas en lugar de tapa */   /* A143: gola en el bajo */
     const bx = (n, rol, tipo, u0, u1, v0, v1, a, b, m2, et) => duenaA ? caja(pre + n, rol, tipo, modulo, LA - u1, LA - u0, v0, v1, a, b, m2, et) : caja(pre + n, rol, tipo, modulo, LA - v1, LA - v0, u0, u1, a, b, m2, et);
     const P = R.ciegoPuerta, u0 = Math.max(0, w - R.ciego), et = 'gabinetes';
-    bx(':lateral:esquina', 'panel', 'Lateral', u0, u0 + e1, 0, fOwn, z0, z1, mat, et); bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0, z1, mat, et);
+    bx(':lateral:esquina', 'panel', 'Lateral', u0, u0 + e1, 0, fOwn, z0, z1, mat, et); if (gola) { const hG = golaHondo(true), zgL = z1 - agarre() - traslapeL(); bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn - hG, z0, z1, mat, et); bx(':lateral:bajo', 'panel', 'Lateral', w - e1, w, fOwn - hG, fOwn, z0, zgL, mat, et); }   /* A163: rebaje de la gola */
+    else bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0, z1, mat, et);
     bx(':trasero', 'panel', 'Trasero', u0 + e1, w - e1, 0, ef, z0, z1, gm('Interior'), et); bx(':piso', 'panel', 'Piso', u0 + e1, w - e1, ef, fOwn, z0, z0 + e1, mat, et);
     const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, zf = gola ? z1 - agarre() : z1, zg = z1 - agarre() - traslapeL();
-    bx(':techo', 'panel', 'Techo', u0 + e1, w - e1, ef, gola ? fOwn - hondo - eG : fOwn, z1 - e1, z1, mat, et); if (!herraje) bx(':repisa', 'repisa', 'Repisa', u0 + e1, w - e1, ef, fOwn - 2, (z0 + z1)/2 - e1/2, (z0 + z1)/2 + e1/2, gm('Repisas'), et);
+    /* A163 (usuario 11/10): bajo la cubierta, fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa */
+    const yT = gola ? fOwn - hondo : fOwn;
+    if (fajas) { const F = reg().fajas.ancho; bx(':faja:atras', 'panel', 'Faja', u0 + e1, w - e1, ef, ef + F, z1 - e1, z1, mat, et); bx(':faja:frente', 'panel', 'Faja', u0 + e1, w - e1, yT - F, yT, z1 - e1, z1, mat, et); }
+    else bx(':techo', 'panel', 'Techo', u0 + e1, w - e1, ef, yT, z1 - e1, z1, mat, et); if (!herraje) bx(':repisa', 'repisa', 'Repisa', u0 + e1, w - e1, ef, fOwn - 2, (z0 + z1)/2 - e1/2, (z0 + z1)/2 + e1/2, gm('Repisas'), et);
     bx(':puerta', 'frente', 'Puerta', w - P, w, fOwn, fOwn + tf, z0, zf, frente, 'frentes'); bx(':tapeta', 'tapeta', 'Compensacion', fOtra + tf, w - P, fOwn, fOwn + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara */
-    if (gola) { bx(':gola', 'herraje', 'Gola', fOtra + tf, w - e1, fOwn - hondo - eG, fOwn - hondo, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', fOtra + tf, w - e1, fOwn - hondo, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }
+    if (gola) { bx(':gola', 'herraje', 'Gola', fOtra + tf, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', fOtra + tf, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
     if (herraje) bx(':herraje', 'herraje', 'HerrajeEsquina', u0 + e1 + 3, w - P - 3, ef + 4, fOwn - 4, z0 + e1 + 6, z0 + (z1 - z0)*.62, null, 'herrajes');
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
-  const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false, rep = null, piso = true) => {
+  const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false, rep = null, piso = true, fajas = false) => {
     /* cd: con diagonal, el frente a 45 va solo en la esquina de cd x cd (alto unido: la caja llega a la columna) */
     const sinRep = q => q.filter((p, i) => { const r = q[(i + q.length - 1) % q.length]; return Math.abs(p[0] - r[0]) + Math.abs(p[1] - r[1]) > .05; });
     const interior = (fa, fb) => conDiag && cd > 0 ? sinRep([[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, Math.min(b - e1, cd)], [LA - Math.min(a - e1, cd), fa], [LA - a + e1, fa]])
@@ -5882,7 +5891,14 @@ function esquinerosPlan(add, r2, sep, tf){
     if (unero > 0) { losa(pre + ':piso', 'panel', 'Piso', modulo, interior(fa - unero, fb - unero), z0, z0 + e1, mat, et); losa(pre + ':cama', 'panel', 'Cama', modulo, inner, z0 + e1, z0 + 2*e1, mat, et); }
     else if (piso) losa(pre + ':piso', 'panel', 'Piso', modulo, inner, z0, z0 + e1, mat, et);   /* A157: la alacena oculta no lleva piso */
     /* A140 (usuario 11/10): con gola el techo se queda detras del perfil (canal): el agarre queda libre hasta la cubierta */
-    if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, canal > 0 ? interior(fa - ng, fb - ng) : inner, z1 - e1, z1, mat, et);   /* A158: ng */
+    /* A163 (usuario 11/10): el bajo bajo la cubierta lleva fajas de 10 cm (al frente, siguiendo su frente o la diagonal, y atras contra
+       cada muro) en lugar de la tapa completa, como los bajos de las caras (A86) */
+    if (techo && fajas) { const F = reg().fajas.ancho, zt0 = z1 - e1;
+      if (conDiag && !cd) { const q1 = [LA - a + e1, fa - ng], p1 = [LA - fb + ng, b - e1], L2 = Math.hypot(p1[0] - q1[0], p1[1] - q1[1]) || 1, u = [(p1[1] - q1[1])/L2*F, -(p1[0] - q1[0])/L2*F];
+        losa(pre + ':faja:frente', 'panel', 'Faja', modulo, [q1, p1, [p1[0] + u[0], p1[1] + u[1]], [q1[0] + u[0], q1[1] + u[1]]], zt0, z1, mat, et); }
+      else { caja(pre + ':faja:frente:a', 'panel', 'Faja', modulo, LA - a + e1, LA - fb + ng, fa - ng - F, fa - ng, zt0, z1, mat, et); caja(pre + ':faja:frente:b', 'panel', 'Faja', modulo, LA - fb + ng, LA - fb + ng + F, fa - ng - F, b - e1, zt0, z1, mat, et); }
+      caja(pre + ':faja:atras:a', 'panel', 'Faja', modulo, LA - a + e1, LA - ef, ef, ef + F, zt0, z1, mat, et); caja(pre + ':faja:atras:b', 'panel', 'Faja', modulo, LA - ef - F, LA - ef, ef + F, b - e1, zt0, z1, mat, et); }
+    else if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, canal > 0 ? interior(fa - ng, fb - ng) : inner, z1 - e1, z1, mat, et);   /* A158: ng */
     /* A140 (usuario 11/10): la alacena con puerta diagonal lleva repisas en L (a todo el fondo de cada ala); el triangulo tras la puerta queda libre */
     const pr = rep ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - rep[1], b - e1], [LA - rep[1], rep[0]], [LA - a + e1, rep[0]]] : repisasL ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, fa], [LA - a + e1, fa]] : inner;
     for (let i = 1; i <= repisas; i++) { const z = z0 + (z1 - z0)*i/(repisas + 1); losa(pre + ':repisa:' + i, 'repisa', 'Repisa', modulo, pr, z - e1/2, z + e1/2, gm('Repisas'), et); }
@@ -5894,19 +5910,26 @@ function esquinerosPlan(add, r2, sep, tf){
     if (hb) caja(pre + ':hoja:b', 'frente', 'Puerta', modulo, LA - fb - tf, LA - fb, fa + tf, b, z0, zf, frente, 'frentes');
     if (!gola) return;
     const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, zg = z1 - agarre() - traslapeL(), gmt = groupMaterial('Gola') || null;
-    if (ha) { caja(pre + ':gola:a', 'herraje', 'Gola', modulo, LA - a + e1, LA - fb + hondo + eG, fa - hondo - eG, fa - hondo, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:a:perfil', 'herraje', 'Perfil', modulo, LA - a + e1, LA - fb + hondo, fa - hondo, fa, zg, zg + eG, gmt, 'herrajes'); }
-    if (hb) { caja(pre + ':gola:b', 'herraje', 'Gola', modulo, LA - fb + hondo, LA - fb + hondo + eG, fa - hondo, b - e1, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:b:perfil', 'herraje', 'Perfil', modulo, LA - fb, LA - fb + hondo, fa, b - e1, zg, zg + eG, gmt, 'herrajes'); } };
+    /* A163: desde el limite de la columna de cada cara (empata con la gola del vecino) y a la profundidad del perfil de las caras; las
+       almas se cruzan en la esquina */
+    if (ha) { caja(pre + ':gola:a', 'herraje', 'Gola', modulo, LA - a, hb ? LA - fb + hondo - eG : LA - fb + hondo, fa - hondo, fa - hondo + eG, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:a:perfil', 'herraje', 'Perfil', modulo, LA - a, LA - fb + hondo - eG, fa - hondo + eG, fa, zg, zg + eG, gmt, 'herrajes'); }
+    if (hb) { caja(pre + ':gola:b', 'herraje', 'Gola', modulo, LA - fb + hondo - eG, LA - fb + hondo, fa - hondo, b, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:b:perfil', 'herraje', 'Perfil', modulo, LA - fb, LA - fb + hondo - eG, ha ? fa : fa - hondo + eG, b, zg, zg + eG, gmt, 'herrajes'); } };
   /* A139 (usuario 11/10): el frente a 45 va entre los cantos de las puertas vecinas, al pano de ellas y con media separacion de frentes a
      cada lado (antes salia de la columna y se encimaba con ellas). Cara vista de o1 a o2; el espesor hacia adentro */
   const puertaDiag = (pre, a, b, fa, fb, z0, z1, modulo) => { const g2 = holF(), o1 = [LA - a + g2, fa + tf], o2 = [LA - fb - tf, b - g2], L = Math.hypot(o2[0] - o1[0], o2[1] - o1[1]) || 1, n = [(o2[1] - o1[1])/L*tf, -(o2[0] - o1[0])/L*tf];
     losa(pre + ':puerta', 'frente', 'Puerta', modulo, [o1, o2, [o2[0] + n[0], o2[1] + n[1]], [o1[0] + n[0], o1[1] + n[1]]], z0, z1, frente, 'frentes'); };
   /* A139: franja de gola del bajo diagonal: el frente baja la holgura y el perfil (alma y aleta) sigue la diagonal de la caja */
+  /* A163 (usuario 11/10): la gola del diagonal se une a inglete con la de las caras: arranca en el limite de la columna de cada cara, a
+     la profundidad del perfil de las caras (alma entre hondo - e y hondo desde el frente; aleta del frente al alma) y quiebra a 45 */
   const golaDiag = (pre, a, b, fa, fb, z1, modulo) => { const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, c1 = [LA - a + e1, fa], c2 = [LA - fb, b - e1];
-    const L = Math.hypot(c2[0] - c1[0], c2[1] - c1[1]) || 1, w = [(c2[1] - c1[1])/L, -(c2[0] - c1[0])/L], at = (p, d) => [p[0] + w[0]*d, p[1] + w[1]*d], zg = z1 - agarre() - traslapeL(), mt = groupMaterial('Gola') || null;
-    losa(pre + ':gola', 'herraje', 'Gola', modulo, [at(c1, hondo), at(c2, hondo), at(c2, hondo + eG), at(c1, hondo + eG)], zg, z1, mt, 'herrajes');
-    losa(pre + ':gola:perfil', 'herraje', 'Perfil', modulo, [c1, c2, at(c2, hondo), at(c1, hondo)], zg, zg + eG, mt, 'herrajes'); };
+    const L = Math.hypot(c2[0] - c1[0], c2[1] - c1[1]) || 1, d = [(c2[0] - c1[0])/L, (c2[1] - c1[1])/L], w = [d[1], -d[0]], zg = z1 - agarre() - traslapeL(), mt = groupMaterial('Gola') || null;
+    const enDiag = k => [c1[0] + w[0]*k, c1[1] + w[1]*k];
+    const cruceA = k => { const p = enDiag(k), t = (fa - k - p[1])/d[1]; return [p[0] + d[0]*t, fa - k]; }, cruceB = k => { const p = enDiag(k), t = (LA - fb + k - p[0])/d[0]; return [LA - fb + k, p[1] + d[1]*t]; };
+    const franja = (k0, k1) => [[LA - a, fa - k0], cruceA(k0), cruceB(k0), [LA - fb + k0, b], [LA - fb + k1, b], cruceB(k1), cruceA(k1), [LA - a, fa - k1]];
+    losa(pre + ':gola', 'herraje', 'Gola', modulo, franja(hondo - eG, hondo), zg, z1, mt, 'herrajes');
+    losa(pre + ':gola:perfil', 'herraje', 'Perfil', modulo, franja(0, hondo - eG), zg, zg + eG, mt, 'herrajes'); };
   const modB = mb ? mb.id : id, modU = mu ? mu.id : id;
-  if (e.tipo === 'ciego') { const duenaA = e.duena !== 1; ciego(id, duenaA, duenaA ? wA : wB, duenaA ? fA : fB, duenaA ? fB : fA, zb, z1, modB, !!e.herraje, golaEsquina(e));
+  if (e.tipo === 'ciego') { const duenaA = e.duena !== 1; ciego(id, duenaA, duenaA ? wA : wB, duenaA ? fA : fB, duenaA ? fB : fA, zb, z1, modB, !!e.herraje, golaEsquina(e), cfg.generarCubierta);   /* A163: fajas */
     /* A151: tapeta de ajuste de la cara no duena, en su plano de frentes, del frente del ciego al primer gabinete */
     if (duenaA) caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - fB - tf, LA - fB, fA, wB, zb, z1, gm('Tapetas'), 'tapetas');
     else caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB, fA, fA + tf, zb, z1, gm('Tapetas'), 'tapetas'); }
@@ -5927,7 +5950,7 @@ function esquinerosPlan(add, r2, sep, tf){
   } else {
     const conGola = golaEsquina(e);   /* A139; A143: tambien el carrusel */
     esquinaL(id, wA, wB, fA, fB, zb, z1, modB, diag, alacena ? (interiorAlacena(e) === 'barra' ? 0 : repisasAlacena(e)) : diag ? Math.max(0, Math.min(4, e.repisasDiag || 0)) : 0, true, 0, 0, conGola ? golaHondo(true) + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina) : 0, alacena && diag,
-      alacena || diag && e.repisasDiag > 0 ? [fondoRepisasEsq(e), fondoRepisasEsq(e)] : null);   /* A142: repisas en L del fondo de los altos */   /* A140 */
+      alacena || diag && e.repisasDiag > 0 ? [fondoRepisasEsq(e), fondoRepisasEsq(e)] : null, true, !alacena && cfg.generarCubierta);   /* A142: repisas en L del fondo de los altos */   /* A140; A163: fajas */
     if (alacena && interiorAlacena(e) === 'barra') barraAlacena(z1);   /* A150 */
     if (diag) { puertaDiag(id, wA, wB, fA, fB, zb, conGola ? z1 - agarre() : z1, modB); if (conGola) golaDiag(id, wA, wB, fA, fB, z1, modB); } else hojasL(id, wA, wB, fA, fB, zb, z1, modB, conGola);
     if (diag && cfg.generarZoclos && zb > 0) {   /* A139: zoclo a 45 grados, retirado como en las caras, de un zoclo al otro */
@@ -6044,12 +6067,14 @@ function drawEsquina(m, x0, RX, X, Z, post){
     /* A143: agarre del ancho en el canto interior de la columna (carrusel, diagonal y alacena): se arrastra con guia e iman */
     if ((e.tipo !== 'ciego' || !duena) && !exporting) { const xi = der ? x0 : x0 + w,   /* A151: en el ciego, la cara no duena */ gx = frame.X(xi), gy = Z(zb + A/2), r = { x: gx - 4, y: gy - 16, w: 8, h: 32 };
       esqGripHits.push({ rect: r, m, xi });
-      /* A158 (usuario 11/10): las guias del ancho quedan visibles (no solo al arrastrar): el borde de la barra perpendicular (una sola
-         puerta; en el ciego, la tapeta de 5 cm) y el ancho de fabrica */
-      { const outer = der ? x0 + w : x0, mnG = fOtra + (esquinaDiag(e) ? 20 : espFrente()), objs = e.tipo === 'ciego' ? [mnG + tapetaCiego()] : esquinaDiag(e) ? [mnG, R.lado] : [mnG, R.lado];
+      /* A163 (usuario 11/10): agarre y guias ocultos; aparecen semitransparentes al acercar el mouse (y opacos al arrastrar) */
+      const arrastra = drag && drag.kind === 'esqAncho' && drag.id === m.id, alfa = arrastra ? 1 : esqCerca.split(',').includes(m.id) ? .45 : 0;
+      /* A158 (usuario 11/10): las guias del ancho: el borde de la barra perpendicular (una sola puerta; en el ciego, la tapeta de 5 cm)
+         y el ancho de fabrica */
+      if (alfa > 0) { const outer = der ? x0 + w : x0, mnG = fOtra + (esquinaDiag(e) ? 20 : espFrente()), objs = e.tipo === 'ciego' ? [mnG + tapetaCiego()] : esquinaDiag(e) ? [mnG, R.lado] : [mnG, R.lado];
         objs.filter(v => Math.abs(v - w) > .5).forEach(v => { const gx2 = frame.X(der ? outer - v : outer + v), y0 = Z(zb + A), y1 = Z(zb);
-          post.push(() => { ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = C.accent; ctx.globalAlpha = .55; ctx.lineWidth = 1; line(gx2, y0, gx2, y1); ctx.restore(); }); }); }
-      post.push(() => { ctx.save(); ctx.fillStyle = C.accent; ctx.globalAlpha = .85; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1; line(gx - 1.5, r.y + 8, gx - 1.5, r.y + r.h - 8); line(gx + 1.5, r.y + 8, gx + 1.5, r.y + r.h - 8); ctx.restore(); }); }
+          post.push(() => { ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = C.accent; ctx.globalAlpha = .7*alfa; ctx.lineWidth = 1; line(gx2, y0, gx2, y1); ctx.restore(); }); }); }
+      if (alfa > 0) post.push(() => { ctx.save(); ctx.fillStyle = C.accent; ctx.globalAlpha = .85*alfa; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1; line(gx - 1.5, r.y + 8, gx - 1.5, r.y + r.h - 8); line(gx + 1.5, r.y + 8, gx + 1.5, r.y + r.h - 8); ctx.restore(); }); }
   } else {   /* usuario 10/10: un solo gabinete en L a toda la columna; junto a la esquina, puerta o repisas abiertas */
     const c = Math.min(w, R.ladoAlto), abierto = (u0, u1) => { if (u1 - u0 < .01) return; const r = caja(u0, u1); fillMat(r.x, r.y, r.w, r.h, flat ? null : mat, C.box); outline(r, C.line, 1);
       post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; [1, 2].forEach(i => { const y = r.y + r.h*i/3; line(r.x + 2, y, r.x + r.w - 2, y); }); }); };
@@ -6927,6 +6952,8 @@ canvas.addEventListener('mousemove', e => {
     else if (k === 'islaZ') drag.value = Math.max(0, Math.min(60, Math.round((dist - islaEspEf())*2)/2));
     canvas.style.cursor = 'ew-resize'; drawCanvas(); label(fmt(drag.value) + uS(), p.x + 12, p.y - 16, C.ink); return;
   }
+  { const cerca = esqGripHits.filter(g => Math.abs(p.x - (g.rect.x + g.rect.w/2)) < 70 && p.y > g.rect.y - 150 && p.y < g.rect.y + g.rect.h + 150).map(g => g.m.id).join(',');   /* A163 */
+    if (cerca !== esqCerca) { esqCerca = cerca; drawCanvas(); } }
   const next = pick(p);
   canvas.style.cursor = !next || next === 'part:wall' ? 'default' : next.startsWith('dim:') ? 'text' : next.startsWith('grip:') ? 'ns-resize' : next.startsWith('guide:') ? 'ew-resize' : 'pointer';
   if (next !== hover) { hover = next; drawCanvas(); updateHint(); }
