@@ -295,6 +295,15 @@
        termina en la columna y la de la derecha empieza al final de la huella; 3) zoclo a 45 grados retirado como en las caras (tambien
        en la alacena diagonal); con gola, el frente del bajo diagonal baja la holgura y lleva su perfil a 45; los altos de esquina
        llevan doble cama (piso con unero y cama interior al frente).
+   A140. [Master hecho 11/10; Revit pendiente] Lista L/U del usuario (por Skitchen for Revit): 1) sin Recta / En L / En U en el panel:
+       Wall-kitchen pregunta 1, 2 o 3 caras (como el plugin); 2) [Revit] el alzado dibuja zoclo y cubierta en la columna diagonal (la
+       proyeccion de la pieza diamante y del zoclo a 45) y se pintan con material; 3) la planta de una cocina de varias caras muestra
+       toda la cocina (cada cara en su muro, esquineros, altos punteados, cara activa resaltada, largo de cada cara; clic en un gabinete
+       de otra cara la abre); 4) [Revit] la alacena de esquina corta cubierta y backsplash (aqui ya lo hacia cortaCubierta/cortaBack);
+       7) bajo diagonal con gola: el techo se queda detras del perfil (el agarre libre hasta la cubierta) y la gola toma su material;
+       8) ancho de la alacena de esquina editable en cada cara (esquinas[k].anchoA / anchoB, de 20 + el fondo de la otra cara a 200);
+       9) la alacena con puerta diagonal lleva repisas en L. Los puntos 5 (Seccion en el esquinero) y 6 (un solo grupo) los toma
+       Skitchen for Revit.
    A138. [Revit P12.278] Sin tapetas no hay error (11/10, usuario, tras probar la P12.277): ninguna regla obliga a tener tapeta. Sin tapeta a
        ningun lado, lo que no llena el paso (decimales del muro en MX; resto del paso de 3", 1" o 1/16" en US) va al ultimo
        gabinete automatico de la fila (como la «sobra» del reparto); la compensacion queda en 0. Antes: «Activa una tapeta
@@ -2313,7 +2322,10 @@ const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !==
 function huellaEsquina(k){
   const e = cfg.esquinas[k], R = reg().esquina, fA = fondoCara(caraDe(k), false), fB = fondoCara(caraDe(k + 1), false), duenaA = e.duena !== 1;
   if (e.tipo === 'ciego') { const fOtra = duenaA ? fB : fA, w = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)); return duenaA ? [w, fA] : [fB, w]; }
-  if (e.tipo === 'alacena' && e.alacena === 'oculta') { const w = R.ocultaPuerta + (duenaA ? fB : fA); return duenaA ? [w, R.lado] : [R.lado, w]; }
+  /* A140 (usuario 11/10): la alacena de esquina admite su ancho en cada cara (anchoA, anchoB); sin el, el de fabrica */
+  const libre = (v, d, f) => v > 0 ? Math.max(f + 20, Math.min(200, v)) : d;
+  if (e.tipo === 'alacena' && e.alacena === 'oculta') { const w = R.ocultaPuerta + (duenaA ? fB : fA), d = duenaA ? [w, R.lado] : [R.lado, w]; return [libre(e.anchoA, d[0], fB), libre(e.anchoB, d[1], fA)]; }
+  if (e.tipo === 'alacena') return [libre(e.anchoA, R.lado, fB), libre(e.anchoB, R.lado, fA)];
   return [R.lado, R.lado];
 }
 const esquinaDe = m => m && m.esquina && cfg.esquinas ? cfg.esquinas[m.esquina.k] : null;
@@ -4224,7 +4236,7 @@ let ctx = canvas.getContext('2d');   /* let: Exportar dibuja en un lienzo aparte
 let exporting = false, dark = false;
 /* lineas de proyeccion: abatimientos de puertas, X de cajon, Λ de elevables y proyecciones punteadas; en las vistas exportadas solo si Ajustes las pide */
 const proyOn = () => !exporting || prefs.exportProyeccion;
-let tabHits = [], frontHits = [];   /* A135 pestanas de caras; A137 frentes (Ctrl + arrastrar material) */
+let tabHits = [], frontHits = [], planCaraHits = [];   /* A140: gabinetes de las otras caras en la planta de toda la cocina */   /* A135 pestanas de caras; A137 frentes (Ctrl + arrastrar material) */
 let hits = [], dimHits = [], partHits = [], gripHits = [], wallRect = null, frame = null, cssW = 0, cssH = 0;
 let materialHits = [], pieceHits = [], post = [];
 let edges = [], edgeOwner = null, guideHits = [];   /* bordes horizontales dibujados (cm) y su modulo: el iman los usa todos */
@@ -4358,7 +4370,7 @@ function drawCanvas(){
 }
 function drawCanvasCore(){
   ctx.clearRect(0, 0, cssW, cssH);
-  tabHits = []; frontHits = []; hits = []; dimHits = []; partHits = []; gripHits = []; materialHits = []; pieceHits = []; guideHits = []; edges = []; edgeOwner = null; wallRect = null; frame = null;
+  tabHits = []; frontHits = []; planCaraHits = []; hits = []; dimHits = []; partHits = []; gripHits = []; materialHits = []; pieceHits = []; guideHits = []; edges = []; edgeOwner = null; wallRect = null; frame = null;
   if (cssW < 320 || cssH < 240) return; /* area minima: con menos, la escala saldria negativa */
   Object.assign(C, dark && !exporting ? DARK : LIGHT);
   if (cfg.closet) Object.assign(C, dark && !exporting ? CLOSET_DARK : CLOSET_LIGHT);
@@ -5285,7 +5297,7 @@ function esquinerosPlan(add, r2, sep, tf){
     if (herraje) bx(':herraje', 'herraje', 'HerrajeEsquina', u0 + e1 + 3, w - P - 3, ef + 4, fOwn - 4, z0 + e1 + 6, z0 + (z1 - z0)*.62, null, 'herrajes');
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
-  const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0) => {
+  const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false) => {
     /* cd: con diagonal, el frente a 45 va solo en la esquina de cd x cd (alto unido: la caja llega a la columna) */
     const sinRep = q => q.filter((p, i) => { const r = q[(i + q.length - 1) % q.length]; return Math.abs(p[0] - r[0]) + Math.abs(p[1] - r[1]) > .05; });
     const interior = (fa, fb) => conDiag && cd > 0 ? sinRep([[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, Math.min(b - e1, cd)], [LA - Math.min(a - e1, cd), fa], [LA - a + e1, fa]])
@@ -5297,8 +5309,11 @@ function esquinerosPlan(add, r2, sep, tf){
        frente y la cama interior, encima, llega al frente */
     if (unero > 0) { losa(pre + ':piso', 'panel', 'Piso', modulo, interior(fa - unero, fb - unero), z0, z0 + e1, mat, et); losa(pre + ':cama', 'panel', 'Cama', modulo, inner, z0 + e1, z0 + 2*e1, mat, et); }
     else losa(pre + ':piso', 'panel', 'Piso', modulo, inner, z0, z0 + e1, mat, et);
-    if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, inner, z1 - e1, z1, mat, et);
-    for (let i = 1; i <= repisas; i++) { const z = z0 + (z1 - z0)*i/(repisas + 1); losa(pre + ':repisa:' + i, 'repisa', 'Repisa', modulo, inner, z - e1/2, z + e1/2, gm('Repisas'), et); }
+    /* A140 (usuario 11/10): con gola el techo se queda detras del perfil (canal): el agarre queda libre hasta la cubierta */
+    if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, canal > 0 ? interior(fa - canal, fb - canal) : inner, z1 - e1, z1, mat, et);
+    /* A140 (usuario 11/10): la alacena con puerta diagonal lleva repisas en L (a todo el fondo de cada ala); el triangulo tras la puerta queda libre */
+    const pr = repisasL ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, fa], [LA - a + e1, fa]] : inner;
+    for (let i = 1; i <= repisas; i++) { const z = z0 + (z1 - z0)*i/(repisas + 1); losa(pre + ':repisa:' + i, 'repisa', 'Repisa', modulo, pr, z - e1/2, z + e1/2, gm('Repisas'), et); }
     return inner;
   };
   const hojasL = (pre, a, b, fa, fb, z0, z1, modulo) => { caja(pre + ':hoja:a', 'frente', 'Puerta', modulo, LA - a, LA - fb, fa, fa + tf, z0, z1, frente, 'frentes'); caja(pre + ':hoja:b', 'frente', 'Puerta', modulo, LA - fb - tf, LA - fb, fa + tf, b, z0, z1, frente, 'frentes'); };
@@ -5328,8 +5343,8 @@ function esquinerosPlan(add, r2, sep, tf){
     caja(id + ':repisero', 'panel', 'Lateral', modB, LA - wA + e1, LA - fB - 1, ef + 30, ef + 30 + e1, zb, tope - e1, mat, 'gabinetes');
     for (let i = 1; i <= 6; i++) { const z = zb + (tope - zb)*i/7; caja(id + ':repisero:' + i, 'repisa', 'Repisa', modB, LA - wA + e1, LA - fB - 1, ef, ef + 30, z, z + e1, gm('Repisas'), 'gabinetes'); }
   } else {
-    esquinaL(id, wA, wB, fA, fB, zb, z1, modB, diag, alacena ? 4 : 0, true);
     const conGola = e.tipo === 'diagonal' && cfg.style === 'Moderna';   /* A139 */
+    esquinaL(id, wA, wB, fA, fB, zb, z1, modB, diag, alacena ? 4 : 0, true, 0, 0, conGola ? golaHondo(true) + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina) : 0, alacena && diag);   /* A140 */
     if (diag) { puertaDiag(id, wA, wB, fA, fB, zb, conGola ? z1 - agarre() : z1, modB); if (conGola) golaDiag(id, wA, wB, fA, fB, z1, modB); } else hojasL(id, wA, wB, fA, fB, zb, z1, modB);
     if (diag && cfg.generarZoclos && zb > 0) {   /* A139: zoclo a 45 grados, retirado como en las caras, de un zoclo al otro */
       const ret = cfg.retiroZoclo, k2 = ret*(Math.SQRT2 - 1), p1 = [LA - wA + k2, fA - ret], p2 = [LA - fB + ret, wB - k2], u = [Math.SQRT1_2*tf, -Math.SQRT1_2*tf];
@@ -5870,7 +5885,36 @@ function gapsOf(q, n, divider, scale){
 }
 
 /* ---------------- PLANTA (muro arriba, frente abajo) ---------------- */
+/* A140 (usuario 11/10): en una cocina de varias caras la planta muestra toda la cocina: cada cara en su muro (marcosCaras), los
+   esquineros, los altos punteados y la cara activa resaltada; clic en un gabinete de otra cara abre esa cara con el gabinete elegido */
+function drawPlanCocina(){
+  title('PLANTA', '· toda la cocina · clic en un gabinete para editarlo');
+  const marcos = marcosCaras(), bajos = [], altos = [], esq = [];
+  cfg.caras.forEach((q0, k) => { const q = caraDe(k), f = marcos[k];
+    [false, true].forEach(up => { let x = q.tapetaIzq ? (q.reservaIzq || 0) : 0;
+      q.modulos.filter(m => !!m.upper === up).forEach(m => { if (!m.esquina && !m.reserved) (up ? altos : bajos).push({ k, m, p: [[x, 0], [x + m.ancho, 0], [x + m.ancho, m.fondo], [x, m.fondo]].map(([a, b]) => enMarco(f, a, b)) }); x += m.ancho; }); }); });
+  cfg.esquinas.forEach((e, k) => esq.push({ k, p: plantaEsquina(k).map(([a, b]) => enMarco(marcos[k], a, b)) }));
+  const muros = marcos.map((f, k) => [f.O, enMarco(f, caraDe(k).longitud, 0)]), pts = bajos.concat(altos, esq).flatMap(q => q.p).concat(muros.flat());
+  const x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])), y1 = Math.max(...pts.map(p => p[1]));
+  const L = 80, R = 80, T = 110, B = 70, sc = Math.min((cssW - L - R)/(x1 - x0 || 1), (cssH - T - B)/(y1 - y0 || 1), 7);
+  const ox = L + ((cssW - L - R) - (x1 - x0)*sc)/2, oy = T + ((cssH - T - B) - (y1 - y0)*sc)/2, P = ([x, y]) => [ox + (x - x0)*sc, oy + (y - y0)*sc];
+  frame = { scale: sc, ox, ground: oy, X: x => ox + (x - x0)*sc, Z: z => oy, W: x1 - x0 };
+  const poly = (p, fill, stroke, w = 1, dash) => { ctx.save(); ctx.beginPath(); p.map(P).forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (dash) ctx.setLineDash(dash); ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); ctx.restore(); };
+  const caja = p => { const q = p.map(P), xs = q.map(v => v[0]), ys = q.map(v => v[1]); return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; };
+  bajos.forEach(q => { const act = q.k === cfg.cara, sel = act && selection.has(q.m.id);
+    poly(q.p, sel ? C.selFill : act ? C.planSel : (dark ? '#2C3036' : '#F2F3F4'), sel ? C.select : C.line, sel ? 2 : 1);
+    const r = caja(q.p); if (act) hits.push({ rect: r, module: q.m }); else planCaraHits.push({ rect: r, k: q.k, id: q.m.id }); });
+  esq.forEach(q => poly(q.p, dark ? '#5A5040' : '#E8D9B8', C.line));
+  altos.forEach(q => poly(q.p, null, C.muted, 1, [4, 3]));
+  muros.forEach(([a, b], k) => { const f = marcos[k], act = k === cfg.cara; ctx.save(); ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = act ? C.accent : C.wallLine; ctx.lineWidth = act ? 4 : 3; ctx.stroke(); ctx.restore();
+    /* largo de cada cara por detras de su muro; la activa se edita */
+    const off = -26, pa = P([a[0] + f.n[0]*off/sc, a[1] + f.n[1]*off/sc]), pb = P([b[0] + f.n[0]*off/sc, b[1] + f.n[1]*off/sc]);
+    dim(pa[0], pa[1], pb[0], pb[1], letraCara(k) + ' · ' + fmt(caraDe(k).longitud) + uS(), act ? 'length' : null); });
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+}
 function drawPlan(){
+  if (multiCara()) { drawPlanCocina(); return; }   /* A140 */
   title('PLANTA', '· muro arriba · frente abajo');
   const W = cfg.longitud, lows = row(false), highs = row(true);
   const dLow = lows.length ? Math.max(...lows.map(m => m.fondo)) : 60, dUp = highs.length ? Math.max(...highs.map(m => m.fondo)) : 0;
@@ -5953,7 +5997,6 @@ function drawPlan(){
   if (lows.length) dim(X(W + eR) + 34, wallY, X(W + eR) + 34, Y(dLow), fmt(dLow) + uS(), 'pdepth:low');
   if (highs.length) dim(X(W + eR) + 70, wallY, X(W + eR) + 70, Y(dUp), fmt(dUp) + uS(), 'pdepth:up');
   dim(X(0), Y(dLow) + 40, X(W), Y(dLow) + 40, fmt(W) + uS(), 'length');
-  if (multiCara()) planGeneral();   /* A134 */
 }
 /* A134: planta general de la cocina en L o en U (recuadro arriba a la izquierda): muros, gabinetes bajos de cada cara y los esquineros;
    la cara activa resaltada. Las caras se editan una a la vez en el alzado y la planta de arriba */
@@ -6123,6 +6166,7 @@ canvas.addEventListener('mousedown', e => {
   canvas.focus();
   /* A45: sin preventDefault el clic termina dando el foco al lienzo, el campo pierde el foco (blur) y se cierra al instante */
   const tb = tabHits.find(q => inside(p, q.rect)); if (tb) { e.preventDefault(); ACT.cara(String(tb.k)); return; }   /* A135 */
+  const pc = planCaraHits.find(q => inside(p, q.rect)); if (pc) { e.preventDefault(); ACT.cara(String(pc.k)); selection = new Set([pc.id]); selectedPart = null; render(); return; }   /* A140 */
   const d = dimHits.find(q => inside(p, q.rect)); if (d) { e.preventDefault(); beginDimension(d.key, d.rect); return; }
   const g = gripHits.find(q => inside(p, q.rect));
   if (g) {   /* el iman toma todos los bordes visibles de los demas modulos y piezas, mas sus niveles (AlignLevels) */
@@ -6436,7 +6480,7 @@ function renderSide(){
       <div class="info-row">Base altos <b>${fmt(baseAltos())}${uS()}</b></div>
       <div class="info-row">Libre sobre cubierta <b>${fmt(cfg.separacionAltos)}${uS()}</b></div>
       <div class="info-row">Tapetas <b>${fmt(ajusteIzq())} / ${fmt(ajusteDer())}${uS()}</b></div></div>`
-      + `<div style="margin-top:8px">${radios('forma', [['recta', 'Recta'], ['L', 'En L'], ['U', 'En U']], cfg.forma || 'recta')}</div>`   /* A134 */
+      /* A140 (usuario 11/10): sin Recta / En L / En U; las caras salen de Wall-kitchen (1, 2 o 3 caras de muro) */
       + (multiCara() ? `<div class="note">Las caras ${cfg.caras.map((q, k) => letraCara(k)).join(', ')} se eligen en las pestañas del alzado${cfg.caras.length > 2 ? '; B es la de enmedio' : ''}.</div>` : ''));   /* A135 */
   if (selectedPart && selectedPart.startsWith('piece:') && !pieces.has(selectedPart)) selectedPart = [...pieces][0] || null;
   if (selectedPart) html += partPanel(selectedPart);
@@ -6483,6 +6527,9 @@ function esquinaPanel(m){
   html += section('Tipo', radios('esqTipo', ESQ_TIPOS, e.tipo));
   if (alacena) html += section('Alacena', radios('esqAlacena', [['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal, una puerta'], ['oculta', 'Oculta, puerta de piso a techo']], e.alacena || 'L')
     + `<div class="note">${e.alacena === 'oculta' ? 'Por dentro: bajo de cajones con cubierta, repisas con LED y repisero lateral.' : 'Del zoclo al tope de los altos; no lleva alto encima.'}</div>`);
+  if (alacena) { const hh = huellaEsquina(k);   /* A140: ancho a gusto en cada cara */
+    html += section('Ancho de la alacena', `<div class="grid-2">${num('esqAnchoA', `En cara ${letraCara(k)}`, hh[0], 'cm', 40, 200)}${num('esqAnchoB', `En cara ${letraCara(k + 1)}`, hh[1], 'cm', 40, 200)}</div>`
+      + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   if (e.tipo === 'ciego' || alacena && e.alacena === 'oculta') html += section(e.tipo === 'ciego' ? 'Gabinete ciego en' : 'Puerta en', radios('esqDuena', [['0', `Cara ${letraCara(k)}`], ['1', `Cara ${letraCara(k + 1)}`]], String(e.duena === 1 ? 1 : 0)));
   if (e.tipo === 'ciego') html += section('Herraje', chk('esqHerraje', !!e.herraje, 'Herraje extraíble (LeMans / Magic Corner)')
     + `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()} y tapeta de esquina de ${fmt(R.tapeta)}${uS()}; se separa del muro lo que pide el fondo de la otra cara.</div>`);
@@ -6937,7 +6984,9 @@ const ACT = {
   mono: v => change(c => c.monomando = v), quitarTarja: () => { change(c => { c.moduloTarja = null; c.tipoTarja = 0; }); selectedPart = 'cover'; render(); },
   forma: v => { change(c => setForma(c, v)); selection.clear(); render(); },   /* A134 */
   cara: v => { const k = +v; if (!multiCara() || k === cfg.cara) return; guardarCara(); cargarCara(cfg, k); selection.clear(); selectedPart = null; cleanSelection(); render(); },
-  esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; }), esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }),
+  esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; }),
+  esqAnchoA: (v, m) => change(() => { esquinaDe(byId(m.id)).anchoA = v; }), esqAnchoB: (v, m) => change(() => { esquinaDe(byId(m.id)).anchoB = v; }),
+  esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }),
   esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }), esqHerraje: (v, m) => change(() => { esquinaDe(byId(m.id)).herraje = v; }),
   esqAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).alto = v; }), esqRelleno: (v, m) => change(() => { esquinaDe(byId(m.id)).relleno = v === 'repisas' ? 'repisas' : 'puerta'; }),
   esqUnion: (v, m) => change(() => { esquinaDe(byId(m.id)).union = v === 'tapeta' ? 'tapeta' : 'L'; }),
@@ -7102,7 +7151,7 @@ function renderStyle(){
  * TOOLBAR / PESTANAS / ESTADO
  * ======================================================================= */
 const EN = {
-  "PLANTA GENERAL": "OVERALL PLAN", "Todas las puertas de bajos": "All base doors", "Todas las puertas de altos": "All wall doors", "Todos los cajones": "All drawers",
+  "PLANTA GENERAL": "OVERALL PLAN", "Ancho de la alacena": "Pantry width", "Volver al de fábrica": "Back to factory size", "1 cara": "1 face", "2 caras (L)": "2 faces (L)", "3 caras (U)": "3 faces (U)", "Todas las puertas de bajos": "All base doors", "Todas las puertas de altos": "All wall doors", "Todos los cajones": "All drawers",
   "Armado del alto": "Wall cabinet build", "Unido en L, un solo gabinete": "Joined in L, one cabinet", "Dos gabinetes con tapeta": "Two cabinets with filler",
   "Junto a la esquina": "Next to the corner", "Gabinete con puerta": "Cabinet with door", "Repisas abiertas": "Open shelves",
   "El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.": "The corner wall cabinet is one cabinet across the whole column; the part next to the corner has a door or open shelves.",
@@ -8207,8 +8256,18 @@ function syncCommandUI(){
   if (!viewList().some(q => q[0] === view)) view = 'Alzado';
   document.getElementById('viewLabel').textContent = viewName(view); trUI();
 }
+/* A140 (usuario 11/10): Wall-kitchen pide cuantas caras de muro (como el plugin): 1 recta, 2 en L, 3 en U; la de enmedio es B */
+function nuevaCocinaCaras(){
+  showDialog('Wall-kitchen', `En el plugin, Wall-kitchen pregunta cuántas caras de muro lleva la cocina y se eligen en orden (en U, la de enmedio es B). El prototipo abre la cara A de ${medida(proto().cocina)} y las demás de ${medida(cfg.region === 'US' ? 243.84 : 240)}. La distribución actual se descarta.`, [
+    ...[['recta', '1 cara'], ['L', '2 caras (L)'], ['U', '3 caras (U)']].map(([v, t], i) => ({ text: t, primary: i === 0, action: () => {
+      const cat = cfg.catalogo; cfg = defaultConfig(proto().cocina); cfg.catalogo = cat; if (v !== 'recta') setForma(cfg, v);
+      recalculate(); undoStack = []; redoStack = []; sectionCut = NaN; corteAlzado = NaN; view = 'Alzado';
+      selection = new Set(row(false).length ? [row(false)[0].id] : []); selectedPart = null; focusPanel = null; upperFocus = null; pieces.clear();
+      syncCommandUI(); render(); } })),
+    { text: 'Cancelar', cancel: true }], 'question');
+}
 document.querySelectorAll('.cmdsel button').forEach(b => b.addEventListener('click', () => {
-  const cmd = b.dataset.cmd; if (b.classList.contains('on')) return;
+  const cmd = b.dataset.cmd; if (cmd === 'muro') { nuevaCocinaCaras(); return; } if (b.classList.contains('on')) return;
   showDialog(cmd === 'isla' ? 'Line-Island' : cmd === 'closet' ? 'Wall-closet' : 'Wall-kitchen', cmd === 'closet'
     ? `En el plugin, Wall-closet toma la cara del muro (largo y altura). El prototipo abre un closet de ${medida(proto().closet)} de largo en un muro de ${medida(prefs.inicio.alturaMuro)}. ¿Continuar? La distribución actual se descarta.`
     : cmd === 'isla'
