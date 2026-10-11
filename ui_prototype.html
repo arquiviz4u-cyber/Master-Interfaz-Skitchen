@@ -278,12 +278,18 @@
        clic: esa cara. Los botones de caras del panel pasan a las pestanas; esquinero y planta general nombran las caras con letra.
    A136. [Master hecho 11/10; Revit pendiente] En el alzado, lo de la otra cara en la columna de esquina se ve de perfil, no en corte:
        costado del gabinete (bajo y alto) con su material, canto del frente encima y, en bajos, costado del zoclo retirado.
-   A143. [Master hecho 11/10; SketchUp con modelo.origen y la biblioteca nueva; Revit pendiente] (11/10, usuario): 1) riel
+   A147. [Master hecho 11/10; Revit pendiente] Fijacion de los altos (11/10, usuario, tras probar A145-A146): el riel frances
+       mide 15 cm de alto con sus dos piezas juntas (minimo 12) y su muesca en los laterales tambien; se quitan los
+       colgadores ocultos (quedan riel frances y taquetes por el fondo; una cocina guardada con colgadores pasa a riel
+       frances). Los laterales que sobresalen tras el fondo metido son lo usual: cubren el riel y dejan ajustar al muro.
+       Renumeradas: la fijacion es A145 (antes A142) y el riel corrido con bisagra a 90 es A146 (antes A143); A142 y A143
+       del esquinero son de la otra sesion.
+   A146. [Master hecho 11/10; SketchUp con modelo.origen y la biblioteca nueva; Revit pendiente] (11/10, usuario): 1) riel
        frances: el liston del muro corre por toda la fila de altos y pasa por una muesca arriba atras de cada lateral (se ve el
        corte a 45 en los extremos); el del gabinete sigue por modulo y el fondo sigue metido; 2) puertas con bisagra a 90
        grados: la bisagra en tres partes (brazo cerrado, brazo abierto y cazoleta que va con la puerta); la puerta gira
        sobre el eje que lleva el nudillo de cerrado a abierto, corrida lo minimo para no entrar en la carcasa.
-   A142. [Master hecho 11/10; Revit pendiente] Fijacion de los altos al muro (11/10, usuario: las fajas de anclaje se veian
+   A145. [Master hecho 11/10; Revit pendiente] Fijacion de los altos al muro (11/10, usuario: las fajas de anclaje se veian
        economicas). Sin fajas de anclaje en los altos ni en el modulo superior; tres formas (Valores de inicio y Estilo >
        Fijacion de los altos): riel frances (de fabrica: trasero metido 1.8 cm, liston a 45 grados partido en muro y gabinete
        y calza abajo; nada a la vista), colgadores ocultos (trasero metido 1.6 cm, riel metalico en el muro, colgadores con
@@ -1771,8 +1777,8 @@ const rd = v => cfg.region === 'US' ? Math.round(Math.round(v/DIECISEISAVO)*DIEC
 const anchoEscrito = v => cfg.region === 'US' ? rd(v) : Math.round(v);
 const techoAncho = v => cfg.region === 'US' ? Math.ceil(v/DIECISEISAVO - 1e-6)*DIECISEISAVO : Math.ceil(v - 1e-6);
 const medida = v => fmt(v) + uS();
-/* A142: formas de fijar los altos al muro (antes de la configuracion de inicio, que la usa) */
-const FIJACIONES = [['frances', 'Riel francés'], ['colgador', 'Colgadores ocultos'], ['taquetes', 'Taquetes por el fondo']];
+/* A145: formas de fijar los altos al muro (antes de la configuracion de inicio, que la usa) */
+const FIJACIONES = [['frances', 'Riel francés'], ['taquetes', 'Taquetes por el fondo']];   /* A147: sin colgadores ocultos */
 const PREFS_DEF = { frentesA111: false, region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, inft: 16, ftin: 16 },
   cotaRemate: 'oblicuo', cotaTexto: 11.5, cotaUnidad: 'totales', cotaColor: 'producto',
   inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .3, espesorFrente: 1.8, fijacionAltos: 'frances', style: 'Moderna', materialGeneral: null },
@@ -1978,7 +1984,7 @@ function defaultConfig(length){
   const ini = prefs.inicio;   /* valores de inicio de Ajustes */
   Object.assign(c, { alturaMuro: ini.alturaMuro, baseBajos: ini.baseBajos, altoBajos: ini.altoBajos, espesorCubierta: ini.espesorCubierta, separacionAltos: ini.separacionAltos, style: ini.style,
     separacionFrentes: ini.separacionFrentes > 0 ? ini.separacionFrentes : .3, espesorFrente: ini.espesorFrente > 0 ? ini.espesorFrente : 1.8,   /* A109 */
-    fijacionAltos: FIJACIONES.some(([k]) => k === ini.fijacionAltos) ? ini.fijacionAltos : 'frances' });   /* A142 */
+    fijacionAltos: FIJACIONES.some(([k]) => k === ini.fijacionAltos) ? ini.fijacionAltos : 'frances' });   /* A145 */
   const reserve = length - 2*ini.tapeta >= R.ancho.min ? ini.tapeta : R.tapetaCorta; c.reservaIzq = c.reservaDer = reserve;
   c.topeTapeta = Math.max(R.tapetaMax, reserve);   /* A89: ancho maximo de las tapetas (MX 5 cm; US 3") */
   const usable = length - 2*reserve; let n = 1, best = 1e9;
@@ -2826,13 +2832,13 @@ const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 
 /* A140 (usuario, 11/10): holgura de 3 mm entre la cara posterior de puertas y cajones y el canto de la carcasa (la de la bisagra);
    la carcasa con frentes termina 3 mm antes y los frentes no se mueven. Saque del cajon oculto del cesto: rebaje en el canto inferior
    de su tapa para meter los dedos. Perforacion de la cazoleta en la puerta: 35 mm, 12 mm de hondo */
-/* A142 (usuario, 11/10): fijacion de los altos al muro, sin fajas de anclaje a la vista (se veian economicas). frances: el trasero se
+/* A145 (usuario, 11/10): fijacion de los altos al muro, sin fajas de anclaje a la vista (se veian economicas). frances: el trasero se
    mete 1.8 cm y detras van el riel frances (liston de 1.8 x 8 cortado a 45: mitad en el muro, mitad en el gabinete) y una calza abajo;
    colgador: el trasero se mete 1.6 cm (lo que piden los colgadores ocultos) para el riel metalico del muro; dentro solo se ven las
    tapas de los colgadores en las esquinas de arriba; taquetes: trasero de 1.8 que carga, atornillado al muro con taquetes (se ven las
    cabezas por dentro, arriba y abajo) */
-const PLAN_FIJACION = { frances: { grueso: 1.8, alto: 8, calza: 6 }, colgador: { receso: 1.6, riel: [1, 6], tapa: [2.5, 3.5, 6], gancho: [2.5, 3] },
-  taquetes: { diametro: 1.1, cabeza: .3, borde: 5 } };
+/* A147 (usuario): el riel frances (las dos piezas juntas) de 15 cm de alto (minimo 12); quedan riel frances y taquetes */
+const PLAN_FIJACION = { frances: { grueso: 1.8, alto: 15, calza: 6 }, taquetes: { diametro: 1.1, cabeza: .3, borde: 5 } };
 const fijacionAltos = () => FIJACIONES.some(([k]) => k === cfg.fijacionAltos) ? cfg.fijacionAltos : 'frances';
 const PLAN_HOLGURA_PUERTA = .3, PLAN_SAQUE = 3, PLAN_PERFORACION = { diametro: 3.5, hondo: 1.2 };
 const PLAN_JALADERA = { grueso: 1.2, salida: 2.5, boton: 2.5 };                     /* jaladera de barra o boton */
@@ -2861,7 +2867,7 @@ const MODELO = {
   bisagra: { cerrada: [[1.025, -7.977, .241], [4.981, .02, 6.645]], abierta: [[1.456, -10.841, .253], [4.881, .091, 6.656]],
              lateral: 4.68, trasCara: -6.3, centroZ: 3.44, giro: [4.317, -7.561], grados: 98.75, cazoleta: 3.015,   /* cazoleta: X de su centro */
              cazoletaCerrada: [3.015, -6.845], cazoletaAbierta: [3.808, -8.956],   /* A141: centros de la cazoleta (ejes del archivo) */
-             /* A143 (usuario: puertas a 90 grados): la bisagra en tres partes: brazo cerrado, brazo abierto (los dos con su placa, fijos) y
+             /* A146 (usuario: puertas a 90 grados): la bisagra en tres partes: brazo cerrado, brazo abierto (los dos con su placa, fijos) y
                 cazoleta (va con la puerta a cualquier angulo). La puerta gira 90 grados sobre el eje que lleva el nudillo (perno entre
                 cazoleta y brazo) de su lugar cerrado al abierto. Las partes se colocan por el origen de su archivo (modelo.origen) */
              brazoCerrado: [[1.025, -7.977, .241], [4.981, .02, 6.645]], brazoAbierto: [[1.456, -10.841, .253], [4.881, .091, 6.656]],
@@ -2879,12 +2885,12 @@ const MODELO = {
    techo y el piso de la carcasa: la puerta abierta se corre lo minimo sobre su propio plano para quedar 0.5 mm fuera. Devuelve el eje en
    los ejes del archivo de la bisagra (X hacia el lateral, la habitacion hacia -Y) */
 const ejeBisagra = (canto, t, g) => { const B = MODELO.bisagra, a = B.gradosPuerta*Math.PI/180, co = Math.cos(a), si = Math.sin(a), R = ([u, v]) => [co*u - si*v, si*u + co*v];
-  const [pc, po] = [B.nudilloCerrado, B.nudilloAbierto], xe = B.lateral + canto, yb = B.trasCara, lim = yb + g - .05;   /* A143: 90 grados, por el nudillo */
+  const [pc, po] = [B.nudilloCerrado, B.nudilloAbierto], xe = B.lateral + canto, yb = B.trasCara, lim = yb + g - .05;   /* A146: 90 grados, por el nudillo */
   const fin = q => po[1] + R([q[0] - pc[0], q[1] - pc[1]])[1];   /* y final de un punto de la puerta */
   const peor = Math.max(fin([xe, yb]), fin([xe, yb - t])), s = peor > lim ? (lim - peor)/si : 0, p2 = [po[0] + s*co, po[1] + s*si];
   const rp = R(pc), d = [p2[0] - rp[0], p2[1] - rp[1]], det = (1 - co)*(1 - co) + si*si;   /* (I - R) c = p2 - R pc */
   return [((1 - co)*d[0] - si*d[1])/det, (si*d[0] + (1 - co)*d[1])/det]; };
-/* A143: punto del plan de un punto del archivo de un modelo con el mismo marco de cajaModelo; el origen del archivo da modelo.origen */
+/* A146: punto del plan de un punto del archivo de un modelo con el mismo marco de cajaModelo; el origen del archivo da modelo.origen */
 const puntoModelo = ([X, Y, Z], { ox, refX = 0, espejo = false, oy, refY = 0, sy = 1, oz, refZ = 0 }) => [espejo ? ox - (X - refX) : ox + (X - refX), oy - (Y - refY)*sy, oz + (Z - refZ)].map(v => Math.round(v*1000)/1000);
 const cajaModelo = ([mn, mx], { ox, refX = 0, espejo = false, oy, refY = 0, sy = 1, oz, refZ = 0, sz = 1 }) => ({
   x: espejo ? ox - (mx[0] - refX) : ox + (mn[0] - refX), ancho: mx[0] - mn[0],
@@ -2985,14 +2991,14 @@ function planDePiezas(c = cfg){
        verticales por dentro, delante del trasero, para atornillar al muro (1: arriba, bajos; 2: arriba y abajo, altos); el
        hueco interior empieza delante de ellas */
     const carcasa = (dueno, base, x0, x1, z0, z1, fondo, mat, zona, techo = true, led = false, fajas = null, holgura = 0) => {
-      const fx = fajas && fajas.fijacion, FX = PLAN_FIJACION;   /* A142: fijacion del alto al muro */
-      const rec = fx === 'frances' ? FX.frances.grueso : fx === 'colgador' ? FX.colgador.receso : 0;
-      const e = PLAN_CUERPO.lateral, ef = fx === 'taquetes' ? PLAN_CUERPO.lateral : cuerpoFondo(), y0 = sep + rec, y1 = sep + fondo - holgura;   /* A140: holgura tras los frentes; A142: trasero metido rec */
+      const fx = fajas && fajas.fijacion, FX = PLAN_FIJACION;   /* A145: fijacion del alto al muro */
+      const rec = fx === 'frances' ? FX.frances.grueso : 0;
+      const e = PLAN_CUERPO.lateral, ef = fx === 'taquetes' ? PLAN_CUERPO.lateral : cuerpoFondo(), y0 = sep + rec, y1 = sep + fondo - holgura;   /* A140: holgura tras los frentes; A145: trasero metido rec */
       const propio = (dueno.materialesPaneles || {})[zona + '.fondo'];   /* A64: el canto de la caja sigue al fondo de su zona */
       const panel = (k, tipo, a, b, c0, c1, d0, d1, material = propio || mat) => add({ id: base + ':' + k, rol: 'panel', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       /* con LED, la cama corrida (ver mas abajo) es el piso: laterales y trasero apoyan sobre ella y el gabinete no lleva piso propio */
       const zl = led ? z0 + e : z0;
-      /* A142: los laterales llegan al muro; A143: con riel frances, una muesca arriba atras para el liston corrido del muro */
+      /* A145: los laterales llegan al muro; A146: con riel frances, una muesca arriba atras para el liston corrido del muro */
       const Hm = fx === 'frances' ? Math.min(FX.frances.alto, z1 - zl - 2) : 0, Gm = fx === 'frances' ? FX.frances.grueso : 0;
       [['izq', x0, x0 + e], ['der', x1 - e, x1]].forEach(([l, a, b]) => {
         panel('lateral:' + l, 'Lateral', a, b, sep, y1, zl, z1 - Hm);
@@ -3010,16 +3016,10 @@ function planDePiezas(c = cfg){
       const hx = (k, tipo, a, b, c0, c1, d0, d1, extra = {}) => add(Object.assign({ id: base + ':' + k, rol: 'herraje', modulo: dueno.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material: null, etiqueta: 'herrajes' }, extra));
       if (fx === 'frances') {   /* riel frances detras del trasero: el del muro con el bisel hacia arriba y el del gabinete encima, enganchado */
         const G = FX.frances.grueso, H = Math.min(FX.frances.alto, z1 - zl - 2), h1 = (H - G)/2;
-        /* A143: el liston del muro va corrido por toda la fila de altos (se arma despues, con todos los del gabinete) */
+        /* A146: el liston del muro va corrido por toda la fila de altos (se arma despues, con todos los del gabinete) */
         panel('riel:gabinete', 'RielGabinete', x0 + e, x1 - e, sep, sep + G, z1 - H, z1);
         piezas[piezas.length - 1].forma = { tipo: 'perfil', eje: 'x', puntos: [[0, r2(h1)], [G, r2(h1 + G)], [G, r2(H)], [0, r2(H)]] };
         panel('riel:calza', 'Calza', x0 + e, x1 - e, sep, sep + G, zl, zl + Math.min(FX.frances.calza, z1 - zl - H - 1)); }
-      else if (fx === 'colgador') {   /* riel metalico en el muro y un colgador en cada esquina de arriba: gancho detras del trasero y tapa por dentro */
-        const C = FX.colgador, zt = z1 - (techo ? e : 0);
-        hx('colgador:riel', 'RielColgador', x0 + e, x1 - e, sep, sep + C.riel[0], zt - C.riel[1] - 1, zt - 1);
-        [['izq', x0 + e, x0 + e + C.tapa[0]], ['der', x1 - e - C.tapa[0], x1 - e]].forEach(([l, a, b]) => {
-          hx('colgador:' + l, 'Colgador', a, b, y0 + ef, y0 + ef + C.tapa[1], zt - C.tapa[2], zt);
-          hx('colgador:' + l + ':gancho', 'Colgador', a, b, sep + C.riel[0], y0, zt - C.gancho[1] - .5, zt - .5); }); }
       else if (fx === 'taquetes') {   /* cabezas de los tornillos con taquete sobre la cara interior del trasero, arriba y abajo */
         const T = FX.taquetes, r = T.diametro/2, zs = [z1 - (techo ? e : 0) - T.borde, zl + (led ? 0 : e) + T.borde], xs = [x0 + e + T.borde, x1 - e - T.borde];
         if (x1 - x0 > 2*(e + T.borde) + T.diametro) zs.forEach((zc, i) => xs.forEach((xc, j) => hx('taquete:' + i + ':' + j, 'Taquete', xc - r, xc + r, y0 + ef, y0 + ef + T.cabeza, zc - r, zc + r,
@@ -3263,7 +3263,7 @@ function planDePiezas(c = cfg){
           const led = conCama(m);   /* sobre la cama (LED o gola, A83); el alto con campana no la lleva: su lecho es el hueco de la campana */
           /* A86: el bajo con cubierta lleva fajas en lugar del techo (detras del canal superior de la gola); todos, de anclaje */
           const gs = upper ? [] : golaStrips(m), receso = gs.length && gs[0][0] + gs[0][1] >= z1 - PLAN_CUERPO.lateral - .01 ? golaHondo(true) : 0;
-          const fj = { ancho: upper || !cfg.generarCubierta ? 0 : tarja ? reg().fajas.tarja : reg().fajas.ancho, receso, anclaje: upper ? 0 : 1, fijacion: upper ? fijacionAltos() : null };   /* A142 */
+          const fj = { ancho: upper || !cfg.generarCubierta ? 0 : tarja ? reg().fajas.tarja : reg().fajas.ancho, receso, anclaje: upper ? 0 : 1, fijacion: upper ? fijacionAltos() : null };   /* A145 */
           const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo', !tarja || fj.ancho > 0, led, fj, sinPuertas(lead) ? 0 : PLAN_HOLGURA_PUERTA);
           if (upper && led && cfg.style === 'Moderna' && !sinPuertas(m)) {   /* A83: cama interior sobre la del piso, de 1.8 cm tras el frente al trasero. A93: la caja de repisas (sin puertas) no la lleva */
             const e = PLAN_CUERPO.lateral; add({ id: lead.id + ':cuerpo:camaInterior', rol: 'panel', modulo: lead.id, tipo: 'CamaInterior', x: h.x0, y: h.y0, z: h.z0, ancho: h.x1 - h.x0, fondo: h.y1 - h.y0,   /* A91: llega al pano (con o sin LED) */ alto: e, material: matDe(lead), etiqueta: 'gabinetes' });
@@ -3553,7 +3553,7 @@ function planDePiezas(c = cfg){
       const unidos = []; tramosTs.forEach(q => { const u = unidos[unidos.length - 1]; if (u && Math.abs(u[2] - q[2]) < .01 && Math.abs(u[1] - q[0]) < .01) u[1] = q[1]; else unidos.push(q.slice()); });
       unidos.forEach(([a, b, fo], k) => add({ id: 'tapeta:superior' + (unidos.length > 1 ? ':' + k : ''), rol: 'tapeta', x: a, y: 0, z: zTop, ancho: b - a, fondo: fo, alto: cfg.alturaMuro - zTop, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' }));
     }
-    /* A143 (usuario): liston del muro del riel frances corrido por cada fila de altos que cuelgan a la misma altura: de la cara exterior
+    /* A146 (usuario): liston del muro del riel frances corrido por cada fila de altos que cuelgan a la misma altura: de la cara exterior
        del primer lateral a la del ultimo, pasando por las muescas de los laterales; bisel hacia arriba y hacia el muro */
     const rielesG = piezas.filter(q => q.tipo === 'RielGabinete').sort((a, b) => a.z - b.z || a.alto - b.alto || a.x - b.x), filasRiel = [];
     rielesG.forEach(q => { const f = filasRiel[filasRiel.length - 1], e = PLAN_CUERPO.lateral;
@@ -3655,7 +3655,7 @@ function planDePiezas(c = cfg){
       q.z = r2(q.z + z - z0);
       if (tal) {
         delete q.forma;
-        /* A143: brazo cerrado (estado cerrado), brazo abierto (estado abierto, por su placa) y cazoleta (con la puerta) */
+        /* A146: brazo cerrado (estado cerrado), brazo abierto (estado abierto, por su placa) y cazoleta (con la puerta) */
         const mz = marco(z), D = MB.desfaseAbierta;
         const k = cajaModelo(MB.brazoCerrado, mz); Object.keys(k).forEach(e => k[e] = r2(k[e]));
         Object.assign(q, k, { modelo: { archivo: 'bisagra_brazo_cerrada', espejo: !der, origen: puntoModelo([0, 0, 0], mz) }, estado: 'cerrado' });
@@ -3835,8 +3835,8 @@ function pruebasPlanMX(){
     ['especiero de madera y con condimentero; cesto doble y sencillo, clasico (A138)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Clasica';
       Object.assign(l[0], { tipo: 'Especiero', extraible: true }); Object.assign(l[1], { tipo: 'Especiero', extraible: true, especieroHerraje: 'Condimentero' });
       Object.assign(l[2], { tipo: 'Basura', cestoBotes: 'Doble', ancho: 60, fijo: true }); Object.assign(l[3], { tipo: 'Basura', cestoBotes: 'Sencillo', cestoVariante: 'oculto' }); return c; }],
-    ['altos con colgadores ocultos y alto doble (A142)', c => { c.fijacionAltos = 'colgador'; c.modulos.filter(m => m.upper)[1].tipo = 'Doble'; return c; }],
-    ['altos con taquetes por el fondo y LED (A142)', c => { c.fijacionAltos = 'taquetes'; c.led = true; return c; }],
+    ['altos con riel frances y alto doble (A145)', c => { c.fijacionAltos = 'frances'; c.modulos.filter(m => m.upper)[1].tipo = 'Doble'; return c; }],
+    ['altos con taquetes por el fondo y LED (A145)', c => { c.fijacionAltos = 'taquetes'; c.led = true; return c; }],
     ['cesto con cajon chico arriba y cesto con cajon oculto (A96)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Moderna';
       Object.assign(l[1], { tipo: 'Basura', cestoVariante: 'cajon' }); Object.assign(l[3], { tipo: 'Basura', cestoVariante: 'oculto' }); return c; }],
     ['especiero con cajones pequeno + grandes junto a una cajonera igual (A97)', c => { const l = c.modulos.filter(m => !m.upper);
@@ -3899,7 +3899,7 @@ function pruebasPlanMX(){
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
     const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) ||
       a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago') ||   /* B19: el vastago entra en su cuerpo */
-      a.tipo === 'RielMuro' && b.tipo === 'RielGabinete' ||   /* A142: las dos mitades del riel frances comparten su caja (A143: el del muro corre por toda la fila) */
+      a.tipo === 'RielMuro' && b.tipo === 'RielGabinete' ||   /* A145: las dos mitades del riel frances comparten su caja (A146: el del muro corre por toda la fila) */
       a.tipo === 'Nariz' && b.tipo === 'Losa' && (b.id === a.id.replace(/:nariz$/, '') || b.id.startsWith(a.id.replace(/:nariz$/, '') + ':')) ||   /* A88: inglete */
       (a.id.startsWith('esq') || b.id.startsWith('esq')) && (a.forma && a.forma.eje === 'z' || b.forma && b.forma.eje === 'z' || a.forma && a.forma.tipo === 'cilindro' || b.forma && b.forma.tipo === 'cilindro');   /* A134: las losas del esquinero (L, charolas, frente a 45) no son su caja */
     p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !choca(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
@@ -3977,8 +3977,8 @@ function pruebasPlanMX(){
       ok(tapa && tapa.abre && tapa.abre.independiente && tapa.abre.dentroDe === m.id + ':frente:0', nombre + ': cajon oculto sin apertura propia');
       const cs = p.piezas.filter(q => q.id.startsWith(o + ':corredera:'));
       ok(cs.filter(q => q.tipo === 'Corredera').length === 2 && cs.filter(q => q.tipo === 'CorrederaMovil').length === 2, nombre + ': cajon oculto sin correderas'); });
-    /* A142: los altos sin fajas de anclaje; cada uno con su fijacion (riel frances, colgadores o taquetes) */
-    if (!c.isla && !c.closet) { const fx = FIJACIONES.some(([k]) => k === c.fijacionAltos) ? c.fijacionAltos : 'frances', tipoFx = { frances: 'RielGabinete', colgador: 'Colgador', taquetes: 'Taquete' }[fx];
+    /* A145: los altos sin fajas de anclaje; cada uno con su fijacion (riel frances o taquetes, A147) */
+    if (!c.isla && !c.closet) { const fx = FIJACIONES.some(([k]) => k === c.fijacionAltos) ? c.fijacionAltos : 'frances', tipoFx = { frances: 'RielGabinete', taquetes: 'Taquete' }[fx];
       c.modulos.filter(m => m.upper && !m.reserved && m.tipo !== 'Esquina').forEach(m => { const lat = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Lateral' && q.z > c.baseBajos + c.altoBajos);   /* el alto de esquina (A134) va aparte */
         if (!lat.length) return;
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'FajaAnclaje' && q.z > c.baseBajos + c.altoBajos), nombre + ': el alto ' + m.id + ' lleva fajas de anclaje');
@@ -3986,8 +3986,8 @@ function pruebasPlanMX(){
     /* A140: la carcasa con frentes queda 3 mm detras de ellos; cada perforacion de cazoleta dentro de su pieza; el cajon oculto con su saque */
     p.piezas.filter(q => q.perforaciones).forEach(q => q.perforaciones.forEach(f => ok(f.x - f.diametro/2 >= -.01 && f.x + f.diametro/2 <= q.ancho + .01 && f.z - f.diametro/2 >= -.01 && f.z + f.diametro/2 <= q.alto + .01 && f.hondo < q.fondo, nombre + ': perforacion fuera de ' + q.id)));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada').forEach(q => ok(p.piezas.some(r => r.frente === q.frente && r.perforaciones && r.perforaciones.length), nombre + ': puerta sin perforacion de cazoleta ' + q.frente));
-    p.piezas.filter(q => q.abre && q.abre.grados).forEach(q => ok(q.abre.grados === 90, nombre + ': la puerta ' + q.id + ' no abre a 90 grados'));   /* A143 */
-    /* A143: con riel frances, un liston del muro corrido por fila que cubre el riel de cada gabinete */
+    p.piezas.filter(q => q.abre && q.abre.grados).forEach(q => ok(q.abre.grados === 90, nombre + ': la puerta ' + q.id + ' no abre a 90 grados'));   /* A146 */
+    /* A146: con riel frances, un liston del muro corrido por fila que cubre el riel de cada gabinete */
     p.piezas.filter(q => q.tipo === 'RielGabinete').forEach(q => ok(p.piezas.some(r => r.tipo === 'RielMuro' && Math.abs(r.z - q.z) < .01 && r.x <= q.x + .01 && r.x + r.ancho >= q.x + q.ancho - .01), nombre + ': riel de ' + q.modulo + ' sin liston del muro'));
     p.piezas.filter(q => q.abre && q.abre.tipo === 'Puerta' && q.abre.grados).forEach(q => { const lat = p.piezas.filter(r => r.modulo === q.modulo && r.tipo === 'Lateral' && r.z < q.z + q.alto && r.z + r.alto > q.z);
       ok(lat.every(r => Math.abs(r.y + r.fondo + PLAN_HOLGURA_PUERTA - q.y) < .02 || r.y + r.fondo < q.y - 1), nombre + ': la carcasa de ' + q.modulo + ' no deja la holgura tras la puerta'); });
@@ -3999,7 +3999,7 @@ function pruebasPlanMX(){
     p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada').forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
-      ok(a && a.estado === 'abierto' && q.estado === 'cerrado' && a.frente === q.frente && cz && cz.frente === q.frente && !cz.estado, nombre + ': bisagra sin su brazo abierto o su cazoleta ' + q.id);   /* A143 */
+      ok(a && a.estado === 'abierto' && q.estado === 'cerrado' && a.frente === q.frente && cz && cz.frente === q.frente && !cz.estado, nombre + ': bisagra sin su brazo abierto o su cazoleta ' + q.id);   /* A146 */
       ok(q.modelo.origen && a && a.modelo.origen && cz && cz.modelo.origen, nombre + ': bisagra sin origen de su modelo ' + q.id);
       ok(pr && pr.abre.x >= q.x - 1 && pr.abre.x <= q.x + q.ancho + 1, nombre + ': la puerta no gira en su bisagra ' + q.id);
       /* A139: abierta, la puerta (girada sobre su eje) no entra en el lateral de su bisagra */
@@ -7398,9 +7398,8 @@ function renderStyle(){
   html += section('Frentes', `<div class="grid-2">${lenField('id="sepFrentes"', 'Separación entre frentes', sepFrentes())}${lenField('id="espFrente"', 'Espesor de frentes', espFrente())}</div>`
     + `<div class="note">La separación es el hueco entre puertas y cajones vecinos (${medida(cfg.region === 'US' ? inch(1/8) : .3)} de fábrica); cada frente deja la mitad a cada lado.</div>`);   /* A109 */
   html += section('Herrajes', `<label class="check"><input type="checkbox" id="hinge" ${cfg.bisagras ? 'checked' : ''}>Bisagras de cazoleta en las puertas</label>`);
-  if (!cfg.closet && !cfg.isla) html += section('Fijación de los altos', opt('fijAltos', 'frances', fijacionAltos(), 'Riel francés', 'Listón a 45° detrás del fondo metido 1.8 cm; nada a la vista.')
-    + opt('fijAltos', 'colgador', fijacionAltos(), 'Colgadores ocultos', 'Riel metálico en el muro y colgadores regulables; por dentro solo sus tapas.')
-    + opt('fijAltos', 'taquetes', fijacionAltos(), 'Taquetes por el fondo', 'Fondo de 1.8 cm atornillado al muro; se ven las cabezas.'));   /* A142 */
+  if (!cfg.closet && !cfg.isla) html += section('Fijación de los altos', opt('fijAltos', 'frances', fijacionAltos(), 'Riel francés', 'Listón de 15 cm cortado a 45°: la mitad corrida en el muro y la otra en cada gabinete, tras el fondo metido 1.8 cm.')
+    + opt('fijAltos', 'taquetes', fijacionAltos(), 'Taquetes por el fondo', 'Fondo de 1.8 cm atornillado al muro; se ven las cabezas.'));   /* A145 */
   if (cfg.closet) html = section('Puertas del closet', opt('pcl', 'Abatibles', cfg.puertasCloset, 'Abatibles por módulo', `Dos hojas a partir de ${medida(60)}.`) + opt('pcl', 'Correderas', cfg.puertasCloset, 'Correderas para todo el tramo', '')
       + opt('pcl', 'Sin puertas', cfg.puertasCloset, 'Sin puertas', 'Closet abierto.')
       + `<div class="grid-2" style="margin-top:12px"><label class="field"><span>Hojas correderas (0 = automático)</span><div class="unit" data-unit="u"><input type="number" id="hojasCor" value="${cfg.hojasCorredera}" min="0" max="8" step="1" ${closetSliding() ? '' : 'disabled'}></div></label></div>`
@@ -7416,7 +7415,7 @@ function renderStyle(){
   if (sh) { sh.addEventListener('change', e => { const v = parseLen(e.target.value); if (isNaN(v)) { renderStyle(); return; } change(c => c.anchoShaker = Math.max(1, Math.min(10, v))); });
     sh.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }); }
   document.getElementById('hinge').addEventListener('change', e => change(c => c.bisagras = e.target.checked));
-  el.querySelectorAll('input[name=fijAltos]').forEach(r => r.addEventListener('change', e => change(c => c.fijacionAltos = e.target.value)));   /* A142 */
+  el.querySelectorAll('input[name=fijAltos]').forEach(r => r.addEventListener('change', e => change(c => c.fijacionAltos = e.target.value)));   /* A145 */
   /* A109: separacion de 0.5 a 10 mm y espesor de 1.2 a 3 cm */
   [['sepFrentes', 'separacionFrentes', .05, 1], ['espFrente', 'espesorFrente', 1.2, 3]].forEach(([id, k, lo, hi]) => { const inp = document.getElementById(id); if (!inp) return;
     inp.addEventListener('change', e => { const v = parseLen(e.target.value); if (isNaN(v)) { renderStyle(); return; } change(c => c[k] = Math.max(lo, Math.min(hi, v))); });
