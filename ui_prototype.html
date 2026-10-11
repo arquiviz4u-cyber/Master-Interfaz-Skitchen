@@ -278,6 +278,18 @@
        clic: esa cara. Los botones de caras del panel pasan a las pestanas; esquinero y planta general nombran las caras con letra.
    A136. [Master hecho 11/10; Revit pendiente] En el alzado, lo de la otra cara en la columna de esquina se ve de perfil, no en corte:
        costado del gabinete (bajo y alto) con su material, canto del frente encima y, en bajos, costado del zoclo retirado.
+   A156. [Master hecho 11/10; SketchUp con abre.zona y calza de bisagra; Revit pendiente] Tras probar el A154 (11/10, usuario):
+       1) el refrigerador no se podia poner con un muro bajo (213 cm): el hueco de fabrica (190) no dejaba los 25 cm del gabinete de
+       arriba; al cambiar a Refrigerador el hueco baja lo necesario (minimo 120) o, si no cabe, va sin gabinete de arriba;
+       2) la torre y la alacena con especiero anexado no generaban la gola (aluminio y melamina): se ponia despues del regreso
+       de su parte; 3) doble clic en el especiero anexado: su panel propio (lado, ancho, extraible, herraje, hasta el piso); el
+       cuerpo de arriba ensanchado toma material y foco a todo su ancho y el marco naranja del foco va sobre los frentes de
+       ese cuerpo (con puertas) o el cuerpo entero; 4) la puerta embutida (torre, refrigerador con laterales) lleva la bisagra
+       del usuario: placa sobre una calza (CalzaBisagra) para que la cazoleta quede a PLAN_BISAGRA.canto del canto, gira
+       90 grados por el nudillo y se corre lo minimo para librar el frente de los laterales; 5) cada frente de un especial
+       lleva su cuerpo (abre.zona: inferior, superior, piston, cajones, cuerpoN; el especiero sigue independiente):
+       Interactuar abre y resalta solo ese cuerpo; los cajones se agrupan por cuerpo. Revit: igual en el generador e
+       Interactuar (Revit no tiene la bisagra de modelo: solo 1, 2, 3 y 5).
    A155. [Master hecho 11/10; Revit pendiente] Esquinero (usuario 11/10, lista tras probar, puntos 4, 6 y 8): 4) la alacena
        esquinera con puerta oculta no lleva zoclo al frente (su puerta y su panel llegan al piso; la estructura de atras se queda);
        6) en el modo Interior el esquinero muestra su interior (repisas o charolas de cada tipo; el alto, su repisa o las abiertas);
@@ -2628,7 +2640,7 @@ function frentesConAnexo(m){
   const zs = baseSuperiorTorre(tm), top = altoEsp(tm), entre = isTower(m) || isRefri(m) && m.lateralesRefri, e = m.espesorLaterales;
   const z0 = (A.alPiso ? 0 : cfg.baseBajos) + hol, z1 = (zs !== null ? zs : top) - hol;
   const x0 = offE + (izq && entre ? e : 0) + hol, x1 = offE + w - (!izq && entre ? e : 0) - hol;
-  r.push(A.extraible ? { kind: 'Cajon', x0, x1, z0, z1, especiero: true, herraje: A.herraje, arriba: true, anexo: true } : { kind: 'Puerta', x0, x1, z0, z1, hingeRight: !izq, anexo: true });
+  r.push(A.extraible ? { kind: 'Cajon', x0, x1, z0, z1, especiero: true, herraje: A.herraje, arriba: true, anexo: true, zona: 'especiero' } : { kind: 'Puerta', x0, x1, z0, z1, hingeRight: !izq, anexo: true, zona: 'especiero' });
   return r;
 }
 const grille = m => isTower(m) && m.rejillaHorno ? m.altoRejilla : 0;
@@ -2786,6 +2798,11 @@ function fronts(m){
         at += h;
       });
     }
+    /* A156 (usuario): cada frente sabe de que cuerpo es (zona): Interactuar abre solo ese cuerpo y el foco lo enmarca */
+    const zonaAlacena = f => { if (m.cajonesAlacena && f.z1 <= zb + m.altoCajonesAlacena + .5) return 'cajones';
+      const hs = pantryHeights(m), zc = (f.z0 + f.z1)/2; let at = pantryStart(m);
+      for (let j = 0; j < hs.length; j++) { if (zc < at + hs[j]) return 'cuerpo' + (j + 1); at += hs[j]; } return 'cuerpo' + hs.length; };
+    r.forEach(f => { f.zona = isRefri(m) ? 'superior' : isTower(m) ? (f.z0 >= towerTopStart(m) - .5 ? (f.kind === 'Elevable' ? 'piston' : 'superior') : 'inferior') : zonaAlacena(f); });
     /* A148: con especiero anexado, los frentes del cuerpo de arriba se ensanchan sobre el (dos puertas: se reparten de nuevo) */
     const an = m._anexo || null, zs = an ? baseSuperiorTorre(m) : null;   /* A154: la parte de la torre del mueble con anexo */
     if (zs !== null) { const arriba = r.filter(f => f.z0 >= zs - .5), w = an.ancho;
@@ -2969,6 +2986,7 @@ const MODELO = {
                 cazoleta y brazo) de su lugar cerrado al abierto. Las partes se colocan por el origen de su archivo (modelo.origen) */
              brazoCerrado: [[1.025, -7.977, .241], [4.981, .02, 6.645]], brazoAbierto: [[1.456, -10.841, .253], [4.881, .091, 6.656]],
              cazoletaCaja: [[1.21, -7.5, .24], [4.82, -6.19, 6.64]], desfaseAbierta: [-9.71, .14, .02],
+             placa: [[4.58, -4.98, .9], [4.68, -.28, 6]],   /* A156: huella de la placa en la cara del lateral (para su calza) */
              nudilloCerrado: [4.31, -6.795], nudilloAbierto: [3.57, -7.69], gradosPuerta: 90 },
   corredera: { fija: [[.139, 0, 0], [1.27, 49.845, 2.869]], media: [[.162, 6.493, .32], [1.087, 49.845, 2.549]], movil: [[0, .675, .668], [.675, 50.003, 2.201]],
                lateral: 1.27, largo: 50.003, alto: 2.869 },
@@ -3143,7 +3161,7 @@ function planDePiezas(c = cfg){
     /* caja de cajon tras cada frente de cajon movil: lados, frente, trasera y piso, con holgura de correderas */
     /* A106: la caja llega a la cara posterior del frente tambien con gola (antes terminaba detras del canal y al abrir se veia
        despegada); B18 ya la libra de los perfiles en alto */
-    const tapasInteriores = new Set(), dentroDe = new Map(), saques = new Map(), frentesEspeciero = new Set();   /* A154: frentes del especiero anexado */   /* A141: cuanto baja la tapa bajo su caja */   /* A106: tapa del cajon oculto y frente que lo cubre */
+    const tapasInteriores = new Set(), dentroDe = new Map(), saques = new Map(), frentesEspeciero = new Set(), zonaFrente = new Map();   /* A154: frentes del especiero anexado. A156: cuerpo de cada frente de un especial */   /* A141: cuanto baja la tapa bajo su caja */   /* A106: tapa del cajon oculto y frente que lo cubre */
     const cajaCajon = (m, base, h, f, frenteId) => {   /* frenteId: la caja se mueve con su frente (Interactuar) */
       const c = PLAN_CAJA, x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, y0 = h.y0 + c.retiro, y1 = h.yF ?? h.y1;   /* A140: llega al frente sobre la holgura */
       const z0 = Math.max(f.z0, h.z0 + .5), z1 = Math.min(Math.max(z0 + 4, f.z1 - c.libreArriba), h.z1 - .5), mat = matPanel(m, 'cuerpo', 'caja', 'Interior');
@@ -3355,10 +3373,11 @@ function planDePiezas(c = cfg){
       /* A150 (usuario): el cuerpo de arriba ensanchado comparte sus repisas con el lado del especiero; A152: una sola repisa a todo el ancho */
       if (anexoRepisas) piezas.filter(q => q.modulo === m.id && q.rol === 'repisa' && q.z >= anexoRepisas.zs - .01).forEach(q => {   /* A152: corridas */
         const R = anexoRepisas; if (R.izq) { q.ancho = r2(q.x + q.ancho - R.a); q.x = R.a; } else q.ancho = r2(R.b - q.x); });
+      /* A156 (usuario): la gola antes del regreso de la parte: la torre o la alacena con especiero anexado no la llevaban */
+      gola(m, isTower(m) ? xi0 : x, isTower(m) ? xi1 : x + m.ancho);
       if (m._parte) return zonas;   /* A154: la parte de la torre; los frentes y cajas los pone el mueble entero */
       cajasEn(m, x, zonas);
-      fronts(m).forEach((f, k) => frente(m, f, k, x));
-      gola(m, isTower(m) ? xi0 : x, isTower(m) ? xi1 : x + m.ancho);
+      fronts(m).forEach((f, k) => { if (f.zona) zonaFrente.set(m.id + ':frente:' + k, f.zona); frente(m, f, k, x); });
     };
     /* A154: mueble con especiero anexado: la torre (con su cuerpo de arriba ensanchado) y el especiero en la misma caja: lateral
        exterior del zoclo al tope, trasero, piso y techo del especiero (con el refrigerador, el piso de arriba lo cierra), sus 5
@@ -3377,7 +3396,7 @@ function planDePiezas(c = cfg){
       const h = { x0: ia, x1: ib, y0: y0 + ef, y1, yF, z0: zb + e, z1: techo ? zt - e : zt };
       if (!A.extraible) interior(m, m.id + ':especiero', h, 5, 0, 'especiero');
       cajasEn(m, x, zonasT.concat([h]));
-      fronts(m).forEach((f, k) => { if (f.anexo) frentesEspeciero.add(m.id + ':frente:' + k); frente(m, f, k, x); });
+      fronts(m).forEach((f, k) => { if (f.anexo) frentesEspeciero.add(m.id + ':frente:' + k); if (f.zona) zonaFrente.set(m.id + ':frente:' + k, f.zona); frente(m, f, k, x); });
     };
     /* cuerpos y frentes por fila: los modulos se colocan uno tras otro desde la tapeta izquierda */
     for (const upper of [false, true]) {
@@ -3746,6 +3765,7 @@ function planDePiezas(c = cfg){
       const mod = cfg.modulos.find(q => q.id === principal.modulo);
       if (mod && ['Especiero', 'Basura'].includes(mod.tipo) || frentesEspeciero.has(d)) principal.abre.independiente = true;   /* A154: el del anexo tambien */
       if (dentroDe.has(d)) principal.abre.dentroDe = dentroDe.get(d);
+      if (zonaFrente.has(d) && !principal.abre.independiente) principal.abre.zona = zonaFrente.get(d);   /* A156: Interactuar abre solo su cuerpo */
     });
     /* A126 (usuario, 09/10): al hacer clic en un cajon se abren todos los de su columna (abre.grupo) en cascada: el de hasta abajo
        al 100 % del recorrido y los de arriba cada vez menos (abre.fraccion = 1 - k*min(0.3, 0.7/(n-1))). En el especiero con cajones
@@ -3754,7 +3774,7 @@ function planDePiezas(c = cfg){
     movibles.forEach(qs => { const pr = qs.find(q => q.abre && q.abre.tipo === 'Cajon'); if (!pr) return; const mod = cfg.modulos.find(q => q.id === pr.modulo);
       if (!mod || mod.tipo === 'Basura' || pr.abre.dentroDe || frentesEspeciero.has(pr.frente)) return;
       if (mod.tipo === 'Especiero') { if (pr.alto >= .6*cfg.altoBajos) return; delete pr.abre.independiente; }
-      const k = mod.id + ':cajones'; if (!gruposCajon.has(k)) gruposCajon.set(k, []); gruposCajon.get(k).push(pr); });
+      const k = mod.id + ':cajones' + (pr.abre.zona ? ':' + pr.abre.zona : ''); if (!gruposCajon.has(k)) gruposCajon.set(k, []); gruposCajon.get(k).push(pr); });   /* A156: por cuerpo */
     gruposCajon.forEach((ps, k) => { ps.sort((a, b) => a.z - b.z); const n = ps.length, paso = n > 1 ? Math.min(.3, .7/(n - 1)) : 0;
       ps.forEach((p, i) => { p.abre.grupo = k; p.abre.fraccion = r2(1 - i*paso); }); });
     /* B19 herrajes de detalle intermedio (usuario, 03/10: reconocibles y con pocas caras; los de la competencia pesan demasiado).
@@ -3788,11 +3808,17 @@ function planDePiezas(c = cfg){
       /* A138: la bisagra del usuario tal cual (cerrada y abierta, una por estado), con su placa en la cara del lateral y la cazoleta en
          la puerta; la puerta gira sobre el eje que lleva la cazoleta de cerrada a abierta. La puerta oculta que abre hacia adentro sigue
          con brazo y placa */
-      /* A139: la bisagra del usuario es de traslape: la puerta embutida entre laterales (torre, refrigerador) sigue con brazo y placa */
+      /* A139: la bisagra del usuario es de traslape: la puerta embutida entre laterales (torre, refrigerador) sigue con brazo y placa.
+         A156: ya no; va con su calza (abajo) */
       const embutida = der ? Math.max(...fr.map(r => r.x + r.ancho)) <= cara + .05 : Math.min(...fr.map(r => r.x)) >= cara - .05;
-      const MB = MODELO.bisagra, tal = pr.abre.sentido !== 'adentro' && !embutida, marco = zc => ({ ox: cara, refX: MB.lateral, espejo: !der, oy: yb, refY: MB.trasCara, oz: zc, refZ: MB.centroZ });
+      /* A156 (usuario): la embutida tambien lleva la bisagra del usuario: su placa sobre una calza que la separa del lateral lo justo
+         para que la cazoleta quede a PLAN_BISAGRA.canto del canto de la puerta (como la placa alta de una bisagra para puerta
+         embutida); la puerta gira por el nudillo y se corre sobre su plano hasta librar el frente de los laterales */
+      const canto = der ? Math.max(...fr.map(r => r.x + r.ancho)) - cara : cara - Math.min(...fr.map(r => r.x));
+      const MB = MODELO.bisagra, calza = embutida ? Math.max(0, r2(B9.canto - canto - (MB.lateral - MB.cazoleta))) : 0, ox = cara + (der ? -1 : 1)*calza;
+      const tal = pr.abre.sentido !== 'adentro', marco = zc => ({ ox, refX: MB.lateral, espejo: !der, oy: yb, refY: MB.trasCara, oz: zc, refZ: MB.centroZ });
       const cuerpo = zc => { const k = cajaModelo(MB.cerrada, marco(zc)), xa = der ? k.x : Math.max(k.x, cara), xb = der ? Math.min(k.x + k.ancho, cara) : k.x + k.ancho;
-        return [{ x: xa, ancho: xb - xa, y: k.y, fondo: yb - k.y, z: k.z, alto: k.alto }]; };   /* lo que queda detras de la puerta, hasta el lateral */
+        return [{ x: xa, ancho: xb - xa, y: k.y, fondo: yb - k.y, z: k.z, alto: k.alto }]; };   /* con la calza: hasta el lateral */   /* lo que queda detras de la puerta, hasta el lateral */
       const hz = tal ? (MB.cerrada[1][2] - MB.cerrada[0][2])/2 : B9.placaAlto/2;
       const libre2 = z => tal ? z - hz >= f0 - .01 && z + hz <= f1 + .01 && cuerpo(z).every(b => estorban.every(r => !seCruzan(b, r))) : libre(z);
       const z = [z0, ...estorban.flatMap(r => [r.z + r.alto + hz + .1, r.z - hz - .1])].sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0)).find(libre2);
@@ -3808,13 +3834,15 @@ function planDePiezas(c = cfg){
           modelo: { archivo: 'bisagra_brazo_abierta', espejo: !der, origen: puntoModelo(D, mz) } }, cajaModelo(MB.brazoAbierto, mz)));
         add(Object.assign({ id: q.id.replace(':bisagra:', ':cazoleta:'), rol: 'herraje', modulo: q.modulo, tipo: 'Cazoleta', frente: q.frente, material: null, etiqueta: 'herrajes',
           modelo: { archivo: 'bisagra_cazoleta', espejo: !der, origen: puntoModelo([0, 0, 0], mz) } }, cajaModelo(MB.cazoletaCaja, mz)));
-        const canto = der ? Math.max(...fr.map(r => r.x + r.ancho)) - cara : cara - Math.min(...fr.map(r => r.x));
+        if (calza > .01) { const pk = cajaModelo(MB.placa, mz);   /* A156: calza de la placa, del lateral a la placa */
+          add({ id: q.id.replace(':bisagra:', ':calza:'), rol: 'herraje', modulo: q.modulo, tipo: 'CalzaBisagra', x: r2(der ? cara - calza : cara), y: r2(pk.y), z: r2(pk.z), ancho: calza, fondo: r2(pk.fondo), alto: r2(pk.alto), material: null, etiqueta: 'herrajes' }); }
         const lat0 = piezas.find(r => r.modulo === q.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && Math.abs((der ? r.x : r.x + r.ancho) - cara) < .01);
-        const eje = ejeBisagra(canto, Math.max(...fr.map(r => r.fondo)), lat0 ? Math.max(0, yb - (lat0.y + lat0.fondo)) : 0);   /* A141 */
-        pr.abre.x = r2(cara + (der ? 1 : -1)*(eje[0] - MB.lateral)); pr.abre.y = r2(yb + MB.trasCara - eje[1]); pr.abre.grados = MB.gradosPuerta;
+        /* A156: en la embutida el frente del lateral queda delante de la cara posterior de la puerta (holgura negativa) */
+        const eje = ejeBisagra(canto + calza, Math.max(...fr.map(r => r.fondo)), lat0 ? yb - (lat0.y + lat0.fondo) : 0);   /* A141 */
+        pr.abre.x = r2(ox + (der ? 1 : -1)*(eje[0] - MB.lateral)); pr.abre.y = r2(yb + MB.trasCara - eje[1]); pr.abre.grados = MB.gradosPuerta;
         /* A140: perforacion de la cazoleta en la cara posterior de la pieza de la puerta donde cae su centro (en un marco shaker el
            diametro se ajusta para no salir del larguero) */
-        const PF = PLAN_PERFORACION, cx = cara + (der ? -1 : 1)*(MB.lateral - MB.cazoleta), duena = fr.find(r => cx >= r.x && cx <= r.x + r.ancho && z >= r.z && z <= r.z + r.alto && Math.abs(r.y - yb) < .01 && !r.ranura);
+        const PF = PLAN_PERFORACION, cx = ox + (der ? -1 : 1)*(MB.lateral - MB.cazoleta), duena = fr.find(r => cx >= r.x && cx <= r.x + r.ancho && z >= r.z && z <= r.z + r.alto && Math.abs(r.y - yb) < .01 && !r.ranura);
         if (duena) { const d = Math.min(PF.diametro, 2*(cx - duena.x) - .1, 2*(duena.x + duena.ancho - cx) - .1, 2*(z - duena.z) - .1, 2*(duena.z + duena.alto - z) - .1), hondo = Math.min(PF.hondo, duena.fondo - .3);
           if (d > 1 && hondo > .2) (duena.perforaciones = duena.perforaciones || []).push({ x: r2(cx - duena.x), z: r2(z - duena.z), diametro: r2(d), hondo: r2(hondo) }); }
         return; }
@@ -4151,6 +4179,13 @@ function pruebasPlanMX(){
         nombre + ': el cuerpo de arriba de ' + m.id + ' no cubre al especiero');
       if (m.anexo.extraible) ok(p.piezas.some(q => q.modulo === m.id && (m.anexo.herraje === 'Condimentero' ? q.tipo === 'Condimentero' : q.tipo === 'Tira')), nombre + ': el especiero de ' + m.id + ' sin su herraje');
       if (c.tipoZoclo === 'patas' && c.generarZoclos && c.baseBajos > 0) ok(p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Pata' && q.id.endsWith(':placa')).length === (isRefri(m) ? 2 : 6), nombre + ': patas del mueble con especiero ' + m.id); });
+    /* A156: la torre o alacena con especiero anexado lleva su gola; cada frente de un especial (salvo el independiente) sabe su
+       cuerpo; la puerta embutida lleva la bisagra del usuario (sin brazo y placa de caja) */
+    { const prev = cfg; cfg = c; try { c.modulos.filter(m => m.anexo && !m.upper && golaStrips(parteTorre(m)).length).forEach(m =>
+        ok(p.piezas.some(q => q.modulo === m.id && q.tipo === 'Gola'), nombre + ': ' + m.id + ' con especiero anexado sin gola')); } finally { cfg = prev; } }
+    p.piezas.filter(q => q.abre && !q.abre.independiente && !q.abre.dentroDe).forEach(q => { const mod = c.modulos.find(m => m.id === q.modulo);
+      if (mod && (isTower(mod) || isRefri(mod) || mod.tipo === 'Alacena')) ok(typeof q.abre.zona === 'string', nombre + ': frente sin su cuerpo ' + q.id); });
+    p.piezas.filter(q => q.tipo === 'Placa').forEach(q => { const pr = p.piezas.find(r => r.abre && r.frente === q.frente); ok(pr && pr.abre.sentido === 'adentro', nombre + ': bisagra de caja en ' + q.id); });
     /* A140: la carcasa con frentes queda 3 mm detras de ellos; cada perforacion de cazoleta dentro de su pieza; el cajon oculto con su saque */
     p.piezas.filter(q => q.perforaciones).forEach(q => q.perforaciones.forEach(f => ok(f.x - f.diametro/2 >= -.01 && f.x + f.diametro/2 <= q.ancho + .01 && f.z - f.diametro/2 >= -.01 && f.z + f.diametro/2 <= q.alto + .01 && f.hondo < q.fondo, nombre + ': perforacion fuera de ' + q.id)));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada').forEach(q => ok(p.piezas.some(r => r.frente === q.frente && r.perforaciones && r.perforaciones.length), nombre + ': puerta sin perforacion de cazoleta ' + q.frente));
@@ -4158,7 +4193,7 @@ function pruebasPlanMX(){
     /* A146: con riel frances, un liston del muro corrido por fila que cubre el riel de cada gabinete */
     p.piezas.filter(q => q.tipo === 'RielGabinete').forEach(q => ok(p.piezas.some(r => r.tipo === 'RielMuro' && Math.abs(r.z - q.z) < .01 && r.x <= q.x + .01 && r.x + r.ancho >= q.x + q.ancho - .01), nombre + ': riel de ' + q.modulo + ' sin liston del muro'));
     p.piezas.filter(q => q.abre && q.abre.tipo === 'Puerta' && q.abre.grados).forEach(q => { const lat = p.piezas.filter(r => r.modulo === q.modulo && r.tipo === 'Lateral' && r.z < q.z + q.alto && r.z + r.alto > q.z);
-      ok(lat.every(r => Math.abs(r.y + r.fondo + PLAN_HOLGURA_PUERTA - q.y) < .02 || r.y + r.fondo < q.y - 1), nombre + ': la carcasa de ' + q.modulo + ' no deja la holgura tras la puerta'); });
+      ok(lat.every(r => Math.abs(r.y + r.fondo + PLAN_HOLGURA_PUERTA - q.y) < .02 || r.y + r.fondo < q.y - 1 || r.y + r.fondo >= q.y + q.fondo - .02), nombre + ': la carcasa de ' + q.modulo + ' no deja la holgura tras la puerta'); });   /* A156: o la embutida */
     c.modulos.filter(m => m.tipo === 'Basura' && m.cestoVariante === 'oculto' && !m.reserved).forEach(m => { const tapa = p.piezas.find(q => q.id === m.id + ':oculto'), piso = p.piezas.find(q => q.id === m.id + ':caja:oculto:piso');
       ok(tapa && piso && !tapa.ranura && piso.z - tapa.z >= PLAN_SAQUE - .01, nombre + ': la tapa del cajon oculto no baja su saque en ' + m.id); });   /* A141 */
     /* A138: herrajes tal cual: cada pieza con modelo de la biblioteca y caja positiva; cada bisagra cerrada con su abierta (las dos
@@ -6008,6 +6043,8 @@ function drawSpecialConAnexo(m, x0, RX, Z, post){
   fillMat(q.x, q.y, q.w, q.h, (m.materialesPaneles || {}).especiero || mat, sel ? C.selFill : C.front);
   if (sel && mat && !flat) { ctx.fillStyle = C.selOverlay; ctx.fillRect(q.x, q.y, q.w, q.h); }
   materialHits.push({ rect: q, key: 'panel:' + m.id + ':especiero' });
+  if (focusPanel === 'panel:' + m.id + ':especiero' && !exporting) {   /* A156: doble clic en el especiero */
+    const fe = showDoors ? fronts(m).find(f => f.anexo) : null, qf = fe ? RX(x0 + fe.x0, x0 + fe.x1, fe.z0, fe.z1) : q; post.push(() => outline(qf, C.focus, 3)); }
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; const xl = izq ? q.x + tt : q.x + q.w - tt; line(xl, todo.y, xl, q.y + q.h);
   line(q.x, q.y + q.h, q.x + q.w, q.y + q.h); line(izq ? q.x : q.x + q.w, todo.y, izq ? q.x : q.x + q.w, q.y + q.h);
   if (!showDoors) drawShelves({ x: izq ? q.x + tt : q.x, y: q.y, w: q.w - tt, h: q.h }, 5, m, 'especiero', false, sel);
@@ -6032,12 +6069,17 @@ function drawSpecial(m, x0, RX, Z, post){
     if (m.superiorRefri) { const ys = Z(m.huecoRefri); fillMat(r.x, r.y, r.w, ys - r.y, mat, sel ? C.selFill : C.front); }
   } else fillMat(r.x, r.y, r.w, r.h, mat, sel ? C.selFill : C.front);
   if (sel && mat && !flat) { ctx.fillStyle = C.selOverlay; ctx.fillRect(r.x, r.y, r.w, r.h); }
-  const panel = (zone, q) => {
-    if (q.w <= 0 || q.h <= 0) return;
+  /* A156 (usuario): el cuerpo de arriba ensanchado toma su material y su foco a todo su ancho; el marco naranja del foco va sobre lo
+     que se ve: los frentes de ese cuerpo (con puertas) o el cuerpo entero */
+  const enfoque = (zone, q) => { const fz = showDoors ? fronts(m).filter(f => f.zona === zone) : [];
+    return fz.length ? RX(x0 + Math.min(...fz.map(f => f.x0)), x0 + Math.max(...fz.map(f => f.x1)), Math.min(...fz.map(f => f.z0)), Math.max(...fz.map(f => f.z1))) : q; };
+  const panel = (zone, q0) => {
+    if (q0.w <= 0 || q0.h <= 0) return;
+    const q = ext && q0.y + q0.h <= ext.y + ext.h + 1 ? unir(q0) : q0;
     edgeY(q.y); edgeY(q.y + q.h);
     const own = m.materialesPaneles[zone]; if (flat) { ctx.fillStyle = C.flat; ctx.fillRect(q.x, q.y, q.w, q.h); } else if (own) fillMat(q.x, q.y, q.w, q.h, own, C.front);
     materialHits.push({ rect: q, key: 'panel:' + m.id + ':' + zone });
-    if (focusPanel === 'panel:' + m.id + ':' + zone && !exporting) post.push(() => outline(q, C.focus, 3));
+    if (focusPanel === 'panel:' + m.id + ':' + zone && !exporting) { const qf = enfoque(zone, q); post.push(() => outline(qf, C.focus, 3)); }
   };
   const stroke = () => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; };
   const splitLines = q => { stroke(); splitIndexes(m).forEach(i => { const y = Z(zb + split(m, i)); line(q.x, y, q.x + q.w, y); }); };
@@ -6687,7 +6729,7 @@ canvas.addEventListener('mousedown', e => {
     /* doble clic en un cuerpo de la torre o de la alacena ya elegida: seleccion particular (marco naranja) */
     if (dbl && selection.size === 1 && selection.has(id) && isSpecial(m)) {
       const ph = topmost(materialHits.filter(q => q.key.startsWith('panel:' + id + ':')), p), zone = ph ? ph.key.split(':')[2].split('.')[0] : '';
-      if (isTower(m) ? zone === 'inferior' || zone === 'superior' : m.tipo === 'Alacena' && (/^cuerpo\d+$/.test(zone) || zone === 'cajones')) focusPanel = 'panel:' + id + ':' + zone;
+      if (m.anexo && zone === 'especiero' || (isTower(m) ? zone === 'inferior' || zone === 'superior' : m.tipo === 'Alacena' && (/^cuerpo\d+$/.test(zone) || zone === 'cajones'))) focusPanel = 'panel:' + id + ':' + zone;   /* A156: el especiero anexado */
     }
     /* doble clic en un alto doble unido en caja corrida: la caja como elemento propio (A37) */
     /* (A38) un clic sobre el gabinete inferior unido elige la caja completa; la franja del superior sigue eligiendo la columna */
@@ -7103,7 +7145,7 @@ function modulePanel(m){
 function specialPanel(m){
   const col = row(false).indexOf(m) + 1, chip = `Col. ${col} · ${fmt(m.ancho)}${uS()}${chipCodigo(m)}`;
   const zone = focusPanel && focusPanel.startsWith('panel:' + m.id + ':') ? focusPanel.split(':')[2] : null;
-  const valid = zone && (isTower(m) ? zone === 'inferior' || zone === 'superior' : zone === 'cajones' ? m.cajonesAlacena : +zone.slice(6) <= m.cuerposAlacena);
+  const valid = zone && (zone === 'especiero' ? !!m.anexo : isTower(m) ? zone === 'inferior' || zone === 'superior' : zone === 'cajones' ? m.cajonesAlacena : +zone.slice(6) <= m.cuerposAlacena);
   if (valid) return focusPanelHtml(m, zone, chip);
   let html = head(nombreModulo(m), chip);
   html += section('Función', tiles('tipo', tilesBajo(), tileTipo(m.tipo)), 'plegable');
@@ -7122,17 +7164,22 @@ function specialPanel(m){
   else html += section('Especiero', `<div class="note-sm">Especiero anexado a la torre: del zoclo al cuerpo de arriba de la torre, que se ensancha y lo cubre.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
     + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas apiladas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')
     + `<div style="margin-top:8px">${chk('espPiso', !!m.especieroAlPiso, 'Frente hasta el piso (oculta el zoclo)')}</div>`);   /* A150; A152 */   /* A144 */
-  if (torreAnexable(m)) { const a = m.anexo;   /* A144; A154: parte del mueble */
-    html += section('Especiero anexado', radios('anexo', [['Nada', 'Sin especiero'], ['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], a ? a.lado : 'Nada')
+  if (torreAnexable(m)) html += section('Especiero anexado', anexoOpciones(m));
+  if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules o haz clic en su cota.</div>`);
+  return html;
+}
+/* A144; A154: el especiero anexado es parte del mueble. A156: tambien en su propio panel (doble clic en el) */
+function anexoOpciones(m){ const a = m.anexo;
+    return (radios('anexo', [['Nada', 'Sin especiero'], ['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], a ? a.lado : 'Nada')
       + (a ? `<div class="grid-2" style="margin-top:10px">${num('anexoAncho', 'Ancho del especiero', a.ancho, 'cm', 15, 45)}</div>`
         + `<div style="margin-top:8px">${chk('anexoExtr', !!a.extraible, 'Extraíble (abre como cajón)')}</div>`
         + (a.extraible ? `<div style="margin-top:8px">${radios('anexoHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas apiladas)']], a.herraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')
         + `<div style="margin-top:8px">${chk('anexoPiso', !!a.alPiso, 'Frente hasta el piso (oculta el zoclo)')}</div>` : '')
-      + `<div class="note-sm">Parte del mismo mueble (${a ? fmt(m.ancho - a.ancho) + ' + ' + fmt(a.ancho) + uS() : 'su ancho se suma al de la torre'}): del zoclo al cuerpo de arriba, que lo cubre.</div>`); }
-  if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules o haz clic en su cota.</div>`);
-  return html;
+      + `<div class="note-sm">Parte del mismo mueble (${a ? fmt(m.ancho - a.ancho) + ' + ' + fmt(a.ancho) + uS() : 'su ancho se suma al de la torre'}): del zoclo al cuerpo de arriba, que lo cubre.</div>`);
 }
 function focusPanelHtml(m, zone, chip){
+  if (zone === 'especiero') return head(nombreModulo(m) + ' · especiero', chip) + section('Especiero anexado', anexoOpciones(m))   /* A156 */
+    + `<div class="p-foot"><button class="btn btn-block" data-act="closeFocus">Volver al gabinete</button></div>`;
   const tower = isTower(m), n = m.cuerposAlacena;
   let kind, more;
   if (tower && zone === 'inferior') kind = sel('torreInf', [['Puertas','Puertas'],['2 puertas','2 puertas'],['Cajones','3 cajones'],['Dos cajones','2 cajones'],['Repisas','Repisas']], m.torreInferior);
@@ -7335,6 +7382,10 @@ const ACT = {
       if ((v === 'Especiero' || v === 'EspecieroTorre') && m.tipo !== 'Especiero' && m.tipo !== 'EspecieroTorre') m.extraible = true;   /* A74: extraible (cajon) de fabrica */
       const eraEstufa = m.tipo === 'Estufa';   /* A124 */
       m.tipo = v; m.frenteSup = m.frenteMed = 0; m.frentes = []; m.inferiorAbierto = false;
+      /* A156 (usuario): con un muro bajo (213 cm) el hueco de fabrica (190) no dejaba los 25 cm del gabinete de arriba y no se podia
+         poner el refrigerador: el hueco baja lo necesario (minimo 120); si aun asi no cabe, sin gabinete de arriba */
+      if (v === 'Refri') { const top = altoEsp(m); if (m.huecoRefri > top) m.huecoRefri = top;
+        if (m.superiorRefri && top - m.huecoRefri < 25) { if (top - 25 >= 120) m.huecoRefri = Math.floor(top - 25); else m.superiorRefri = false; } }
       if (cfg.closet && v === 'Repisas' && m.repisasEspecial < 3) m.repisasEspecial = 5;
       if (ANCHO_TIPO[v]) { if (l.length === h.length) h[l.indexOf(m)].fijo = false; m.ancho = ANCHO_TIPO[v](Object.assign({}, m, { tipo: v })); m.fijo = true; }
       if (v === 'Estufa') { m.parrilla = false; campanaSobre(cfg, m); } else if (eraEstufa && !m.parrilla) campanaFuera(cfg, m); });
