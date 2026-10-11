@@ -278,11 +278,18 @@
        clic: esa cara. Los botones de caras del panel pasan a las pestanas; esquinero y planta general nombran las caras con letra.
    A136. [Master hecho 11/10; Revit pendiente] En el alzado, lo de la otra cara en la columna de esquina se ve de perfil, no en corte:
        costado del gabinete (bajo y alto) con su material, canto del frente encima y, en bajos, costado del zoclo retirado.
+   A138. [Master hecho 11/10; SketchUp con la biblioteca de herrajes; Revit pendiente] Herrajes tal cual (11/10, usuario):
+       bisagras (cerrada y abierta), correderas (fija, media y movil), herraje condimentero y botes del cesto son los
+       modelos del usuario (G:/Sketchup/Kitchen), en la biblioteca de Skitchen (modelos/*.skp); el plan dice el archivo
+       y la caja de cada pieza (pieza.modelo: archivo, espejo, giro). La puerta con bisagra gira sobre el eje que lleva
+       la cazoleta de cerrada a abierta. Especiero extraible: de madera (tapas, niveles cada 20 cm con tiras, como el
+       modelo) o con el herraje condimentero. Cesto: piso, bastidor con el hueco y botes sencillo o doble (si cabe)
+       sobre correderas. Revit: mismos herrajes como familias.
    A137. [Master hecho 11/10; Revit pendiente] Materiales en cocinas de varias caras: soltar en vacio, cubierta, zoclo, gola, tapetas...
        pinta toda la cocina (ya eran comunes); «Original» y «Todos los gabinetes» llegan a todas las caras. Nuevo: Ctrl + soltar sobre
        una puerta de bajos pinta todas las puertas de bajos (m.materialPuertas), sobre una de altos todas las de altos, sobre un cajon
        todos los cajones (m.materialCajones), en todas las caras. Soltar sin Ctrl sobre un gabinete lo pinta entero (limpia sus frentes).
-   A138. Sin tapetas no hay error (11/10, usuario, tras probar la P12.277): ninguna regla obliga a tener tapeta. Sin tapeta a
+   A138. [Revit P12.278] Sin tapetas no hay error (11/10, usuario, tras probar la P12.277): ninguna regla obliga a tener tapeta. Sin tapeta a
        ningun lado, lo que no llena el paso (decimales del muro en MX; resto del paso de 3", 1" o 1/16" en US) va al ultimo
        gabinete automatico de la fila (como la «sobra» del reparto); la compensacion queda en 0. Antes: «Activa una tapeta
        para absorber...». Sigue el aviso de escribir el ancho de una tapeta con la otra apagada. Revit: LayoutState.
@@ -2612,7 +2619,7 @@ function fronts(m){
     return r; }
   if (m.tipo === 'Especiero') {   /* A51: el especiero y, en el resto de la columna, una puerta o cajones iguales; las bisagras van por fuera */
     const [e0, e1, r0, r1] = espPartes(m), con = espCon(m), z0 = zb + hol, z1 = zb + cfg.altoBajos - g;
-    if (m.extraible) r.push({ kind: 'Cajon', x0: e0 + hol, x1: e1 - hol, z0, z1, arriba: true });   /* A101: jaladera en el riel superior */ else door(e0 + hol, e1 - hol, z0, z1, false, con === 'Nada' ? m.invertir : !espIzq(m));
+    if (m.extraible) r.push({ kind: 'Cajon', x0: e0 + hol, x1: e1 - hol, z0, z1, arriba: true, especiero: true });   /* A101: jaladera en el riel superior; A138: su herraje */ else door(e0 + hol, e1 - hol, z0, z1, false, con === 'Nada' ? m.invertir : !espIzq(m));
     if (con === 'Puerta') door(r0 + hol, r1 - hol, z0, z1, false, espIzq(m));
     /* A97 (usuario, 08/10): mismas alturas que una cajonera con el mismo numero y reparto (iguales o pequeno + grandes): se alinean */
     if (con === 'Cajones') { const hs = heights(m); let top = z1;
@@ -2751,6 +2758,28 @@ const cantoJaladera = (w, h) => cfg.style === 'Clasica' ? marcoShaker(w, h)/2 : 
    tapeta: espacio perdido); anchoBasura queda como ancho del bote. Variantes: solo extraible, cajon chico visible arriba (15 cm) o cajon
    oculto (caja interior de 14 cm arriba, dentro del extraible, que sale con el) */
 const PLAN_CESTO = { cajon: 15, oculto: 14 };
+/* A138 (usuario, 11/10): herrajes tal cual. Bisagras, correderas, condimentero y botes son los modelos del usuario (biblioteca de
+   Skitchen, modelos/<archivo>.skp); el plan dice que archivo va en cada pieza (pieza.modelo) y su caja. Cajas [min, max] en cm y en
+   los ejes de cada archivo (X a lo largo, la habitacion hacia -Y, Z arriba). Bisagra: la abierta se lleva a la cerrada por su placa;
+   lateral = cara de la placa contra el lateral, trasCara = cara posterior de la puerta, giro = eje de la puerta que lleva la cazoleta
+   de su lugar cerrado al abierto. Corredera de 50 cm (se estira a su largo comercial); lateral = cara contra el lateral */
+const MODELO = {
+  bisagra: { cerrada: [[1.03, -7.98, .24], [4.98, .01, 6.64]], abierta: [[1.46, -10.84, .26], [4.88, .09, 6.66]],
+             lateral: 4.68, trasCara: -6.3, centroZ: 3.44, giro: [4.5075, -7.4675] },
+  corredera: { fija: [[.14, 0, 0], [1.27, 49.84, 2.87]], media: [[.16, 6.49, .32], [1.09, 49.84, 2.55]], movil: [[0, .67, .67], [.67, 50, 2.2]],
+               lateral: 1.27, largo: 50, alto: 2.87 },
+  condimentero: { caja: [[.5, 0, 0], [9.5, 46.18, 47]], centroX: 5, tira: 1.31 },
+  bote: { sencillo: [27.86, 39.57, 45.52], doble: [39.57, 26.74, 46.43], frenteSencillo: 6.48, frenteDoble: 1.07, entre: .34, bastidor: 34.61, piso: 7 },
+  especiero: { tira: 1.31, tiraAlto: 5, tiraSobre: 3, tablero: 1.5, nivel: 20 } };
+/* caja del plan de una parte de un modelo: X = refX va a x = ox (espejo: X crece hacia -x), Y = refY a y = oy (la habitacion es -Y en
+   el archivo y +y en el plan; sy estira a lo largo), Z = refZ a z = oz (sz escala el alto) */
+const cajaModelo = ([mn, mx], { ox, refX = 0, espejo = false, oy, refY = 0, sy = 1, oz, refZ = 0, sz = 1 }) => ({
+  x: espejo ? ox - (mx[0] - refX) : ox + (mn[0] - refX), ancho: mx[0] - mn[0],
+  y: oy - (mx[1] - refY)*sy, fondo: (mx[1] - mn[1])*sy, z: oz + (mn[2] - refZ)*sz, alto: (mx[2] - mn[2])*sz });
+/* A138: botes del cesto: sencillo (un bote de dos compartimentos a lo largo) o doble (dos botes de frente, uno tras otro); doble solo
+   si caben (si no, sencillo) */
+const cestoBotesDe = (m, ancho, fondo) => { const B = MODELO.bote;
+  return m.cestoBotes === 'Doble' && ancho >= B.doble[0] + 1 && fondo >= B.frenteDoble + 2*B.doble[1] + B.entre + .5 ? 'Doble' : 'Sencillo'; };
 const botesCesto = m => Math.max(1, Math.floor((m.ancho - 2*PLAN_CUERPO.lateral - 2*PLAN_CAJA.holgura) / Math.max(1, m.anchoBasura)));
 const golaHondo = (superior = false) => superior ? perfilGola().fondoL : perfilGola().fondoC;   /* A122: profundidad del perfil L o del C, de Ajustes */
 /* LED bajo los altos (usuario, 03/10): la cama corrida es el piso de los altos (laterales y trasero apoyan sobre ella y las puertas
@@ -2891,6 +2920,53 @@ function planDePiezas(c = cfg){
       lado('trasera', 'Trasera', x0 + c.lado, x1 - c.lado, y0, y0 + c.lado, z0, z1);
       lado('piso', 'Piso', x0 + c.lado, x1 - c.lado, y0 + c.lado, y1 - c.lado, z0, z0 + c.piso);
     };
+    /* A138: el especiero y el cesto llevan su propio herraje en lugar de la caja de cajon: no pasan por el ajuste de la gola (B18) y
+       sus correderas van en los lados que se dan aqui */
+    const sinAjusteGola = new Set(), correderasDe = [];
+    /* alto libre bajo los perfiles de gola que cruzan el frente (como B18, antes de que existan las muescas) */
+    const topeGola = (m, f, z) => golaStrips(m).reduce((t, [gz]) => gz > f.z0 + 1 ? Math.min(t, gz - PLAN_GOLA.traslape - PLAN_CAJA.libreGola) : t, z);
+    const piezaDe = (m, base, frenteId, datos) => { const q = add(Object.assign({ frente: frenteId, id: base, modulo: m.id, material: null }, datos)); sinAjusteGola.add(base); return q; };
+    /* especiero extraible (A138): de madera como el modelo del usuario (tapas al frente y atras, niveles cada 20 cm con tiras a los
+       lados) o con el herraje condimentero tal cual */
+    const especieroExtraible = (m, base, h, f, frenteId) => {
+      const c = PLAN_CAJA, E = MODELO.especiero, mat = matPanel(m, 'cuerpo', 'caja', 'Interior'), y1 = h.y1, y0 = h.y0 + c.retiro;
+      const z0 = Math.max(f.z0, h.z0 + .5), z1 = topeGola(m, f, Math.min(f.z1 - c.libreArriba, h.z1 - .5));
+      if (m.especieroHerraje === 'Condimentero') {
+        const C = MODELO.condimentero, alto = C.caja[1][2] - C.caja[0][2], largo = C.caja[1][1] - C.caja[0][1];
+        piezaDe(m, base + ':condimentero', frenteId, { rol: 'herraje', tipo: 'Condimentero', etiqueta: 'herrajes', modelo: { archivo: 'condimentero' },
+          ...cajaModelo(C.caja, { ox: (h.x0 + h.x1)/2, refX: C.centroX, oy: y1, sy: Math.min(1, (y1 - y0)/largo), oz: z0, sz: Math.min(1, (z1 - z0)/alto) }) });
+        return; }
+      const x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, T = E.tira, e = E.tablero, n = Math.max(2, Math.floor((z1 - z0)/E.nivel)), paso = (z1 - z0)/n;
+      const tabla = (k, tipo, a, b, p0, p1, q0, q1) => piezaDe(m, base + ':' + k, frenteId, { rol: 'caja', tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, etiqueta: 'gabinetes' });
+      tabla('tapa:frente', 'Tapa', x0 + T, x1 - T, y1 - e, y1, z0, z1);
+      tabla('tapa:atras', 'Tapa', x0 + T, x1 - T, y0, y0 + e, z0, z1);
+      for (let i = 0; i < n; i++) { const zp = z0 + i*paso, zt = Math.min(zp + E.tiraSobre, z1 - E.tiraAlto);
+        tabla(i ? 'entrepano:' + i : 'piso', i ? 'Entrepano' : 'Piso', x0 + T, x1 - T, y0 + e, y1 - e, zp, zp + e);
+        tabla(i ? 'tira:' + i + ':izq' : 'lado:izq', 'Tira', x0, x0 + T, y0, y1, zt, zt + E.tiraAlto);
+        tabla(i ? 'tira:' + i + ':der' : 'lado:der', 'Tira', x1 - T, x1, y0, y1, zt, zt + E.tiraAlto); }
+      correderasDe.push([frenteId, piezas.find(q => q.id === base + ':lado:izq'), piezas.find(q => q.id === base + ':lado:der')]);
+    };
+    /* cesto de basura (A138): piso y bastidor con el hueco de los botes, y los botes tal cual (sencillo o doble), sobre correderas en
+       los costados del piso; arriba deja libre zTope (cajon chico u oculto, o la gola) */
+    const cestoExtraible = (m, base, h, f, frenteId, zTope) => {
+      const c = PLAN_CAJA, B = MODELO.bote, e = PLAN_CUERPO.lateral, mat = matPanel(m, 'cuerpo', 'caja', 'Interior');
+      const x0 = h.x0 + c.holgura, x1 = h.x1 - c.holgura, y0 = h.y0 + .5, y1 = h.y1, top = topeGola(m, f, Math.min(zTope, h.z1 - .5));   /* el bastidor llega casi al trasero, como el modelo */
+      const z0 = Math.max(f.z0, h.z0 + .5), doble = cestoBotesDe(m, x1 - x0, y1 - y0) === 'Doble', libre = top - z0, sx = Math.min(1, (x1 - x0 - .6)/(doble ? B.doble : B.sencillo)[0]);
+      const med = (doble ? B.doble : B.sencillo).map((v, k) => k ? v : v*sx);   /* un gabinete angosto achica el bote a lo ancho */
+      const sz = Math.min(1, (libre - e - 1.5)/med[2]), zp = z0 + Math.max(0, Math.min(B.piso, libre - e - med[2]*sz - 2)), zb = zp + e;
+      const tabla = (k, tipo, z, datos = {}) => piezaDe(m, base + ':' + k, frenteId, Object.assign({ rol: 'caja', tipo, x: x0, y: y0, z, ancho: x1 - x0, fondo: y1 - y0, alto: e, material: mat, etiqueta: 'gabinetes' }, datos));
+      tabla('piso', 'Piso', zp);
+      const cx = (x0 + x1)/2, botes = doble ? [y1 - B.frenteDoble - med[1], y1 - B.frenteDoble - 2*med[1] - B.entre] : [y1 - B.frenteSencillo - med[1]];
+      botes.forEach((yb, k) => piezaDe(m, base + ':bote:' + k, frenteId, { rol: 'herraje', tipo: 'Bote', etiqueta: 'herrajes', modelo: doble ? { archivo: 'bote', giro: 90 } : { archivo: 'bote' },
+        x: cx - med[0]/2, y: Math.max(y0 + .3, yb), z: zb, ancho: med[0], fondo: med[1], alto: med[2]*sz }));
+      const zm = Math.min(zb + B.bastidor*sz, top - e - .5), ya = Math.max(y0 + .3, botes[botes.length - 1]) - .3, yz = botes[0] + med[1] + .3;
+      if (zm > zb + 5) tabla('bastidor', 'Bastidor', zm, { hueco: { x: r2(cx - med[0]/2 - .3 - x0), y: r2(ya - y0), ancho: r2(med[0] + .6), fondo: r2(Math.min(yz, y1 - .5) - ya) } });
+      const lado = x => ({ x, ancho: 0, y: y0, fondo: y1 - y0, z: zp, alto: e, modulo: m.id });
+      correderasDe.push([frenteId, lado(x0), lado(x1)]);
+    };
+    /* caja del extraible: la del especiero o del cesto (A138) o la caja de cajon */
+    const cajaDe = (m, base, h, f, frenteId, zTope = f.z1) => f.especiero ? especieroExtraible(m, base, h, f, frenteId)
+      : m.tipo === 'Basura' && f.arriba ? cestoExtraible(m, base, h, f, frenteId, zTope) : cajaCajon(m, base, h, f, frenteId);
     /* jaladera (drawHandle / HandleAt): solo fuera del estilo Moderna; frentes de 8 cm o mas que no son fijos */
     const jaladera = (m, f, x0, base, yF = sep + m.fondo + t) => {   /* yF: cara vista (el modulo superior tiene su propio fondo) */
       if (cfg.style === 'Moderna' || f.fijo || f.kind === 'Elevable' || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;   /* A113: los frentes de piston no llevan jaladera */
@@ -3060,18 +3136,18 @@ function planDePiezas(c = cfg){
             const hI = Object.assign({}, h, { x1: xd - e/2 }), hD = Object.assign({}, h, { x0: xd + e/2 }), hEsp = espIzq(m) ? hI : hD, hResto = espIzq(m) ? hD : hI;
             if (!m.extraible) interior(m, m.id + ':especiero', hEsp, 5, 0, 'cuerpo');
             if (espCon(m) === 'Puerta' && m.repisaBajo) interior(m, m.id + ':resto', hResto, 1, 0, 'resto');
-            cajones.forEach((f, k) => cajaCajon(m, m.id + ':caja:' + k, x + (f.x0 + f.x1)/2 < xd ? hI : hD, f, m.id + ':frente:' + frs.indexOf(f)));
+            cajones.forEach((f, k) => cajaDe(m, m.id + ':caja:' + k, x + (f.x0 + f.x1)/2 < xd ? hI : hD, f, m.id + ':frente:' + frs.indexOf(f)));
           } else {
-            interior(lead, lead.id + ':cuerpo', h, shelvesOf(lead), !cajones.length && hasDivider(lead) ? Math.max(1, lead.divisiones || 1) : 0, 'cuerpo');
+            interior(lead, lead.id + ':cuerpo', h, lead.tipo === 'Especiero' && lead.extraible ? 0 : shelvesOf(lead), !cajones.length && hasDivider(lead) ? Math.max(1, lead.divisiones || 1) : 0, 'cuerpo');
             cajones.forEach((f, k) => { const fid = m.id + ':frente:' + frs.indexOf(f);
               if (m.tipo === 'Basura' && m.cestoVariante === 'oculto') {   /* A96: caja de los botes abajo y cajon oculto arriba, ambos con el extraible */
-                const ho = PLAN_CESTO.oculto; cajaCajon(m, m.id + ':caja:' + k, h, Object.assign({}, f, { z1: f.z1 - ho - 1 }), fid);
+                const ho = PLAN_CESTO.oculto; cajaDe(m, m.id + ':caja:' + k, h, f, fid, f.z1 - ho - 1);
                 /* A106: el cajon oculto abre por su cuenta (sus correderas y su tapa, detras del frente del extraible) */
                 const oid = m.id + ':oculto', z0o = f.z1 - ho, z1o = Math.min(f.z1 - 1, h.z1 - .5);
                 cajaCajon(m, m.id + ':caja:oculto', Object.assign({}, h, { y1: h.y1 - t }), { z0: z0o, z1: z1o + PLAN_CAJA.libreArriba }, oid);
                 add({ frente: oid, id: oid, rol: 'frente', modulo: m.id, tipo: 'Cajon', x: h.x0 + .2, y: h.y1 - t, z: z0o, ancho: h.x1 - h.x0 - .4, fondo: t, alto: z1o - z0o, bisagraDerecha: false, fijo: false, material: matDe(m), etiqueta: 'frentes' });
                 tapasInteriores.add(oid); dentroDe.set(oid, fid);
-              } else cajaCajon(m, m.id + ':caja:' + k, h, f, fid); });
+              } else cajaDe(m, m.id + ':caja:' + k, h, f, fid, m.tipo === 'Basura' && m.cestoVariante === 'cajon' ? f.z1 - 1 : f.z1 - PLAN_CAJA.libreArriba); });
           }
         }
         fronts(m).forEach((f, k) => frente(m, f, k, x));
@@ -3340,7 +3416,7 @@ function planDePiezas(c = cfg){
        (la C entre cajones sube PLAN_GOLA.traslape detras del frente de arriba): la caja empieza sobre la aleta de abajo y termina
        bajo la de arriba, con PLAN_CAJA.libreGola */
     const cajasPorFrente = new Map();
-    piezas.forEach(q => { if ((q.rol === 'caja' || tapasInteriores.has(q.id)) && q.frente) { if (!cajasPorFrente.has(q.frente)) cajasPorFrente.set(q.frente, []); cajasPorFrente.get(q.frente).push(q); } });
+    piezas.forEach(q => { if ((q.rol === 'caja' || tapasInteriores.has(q.id)) && q.frente && !sinAjusteGola.has(q.id)) { if (!cajasPorFrente.has(q.frente)) cajasPorFrente.set(q.frente, []); cajasPorFrente.get(q.frente).push(q); } });
     cajasPorFrente.forEach(qs => {
       const x0 = Math.min(...qs.map(q => q.x)), x1 = Math.max(...qs.map(q => q.x + q.ancho)), z0 = Math.min(...qs.map(q => q.z)), z1 = Math.max(...qs.map(q => q.z + q.alto));
       let a = z0, b = z1;
@@ -3415,30 +3491,50 @@ function planDePiezas(c = cfg){
                           { x: px[0], y: yb - largo, z: z - B9.placaAlto/2, ancho: px[1] - px[0], fondo: B9.placa, alto: B9.placaAlto }];
       const estorban = piezas.filter(r => r.modulo === q.modulo && ['repisa', 'panel', 'division', 'caja'].includes(r.rol));
       const libre = z => z - B9.placaAlto/2 >= f0 - .01 && z + B9.placaAlto/2 <= f1 + .01 && cajas(z).every(b => estorban.every(r => !seCruzan(b, r)));
-      const z = [z0, ...estorban.flatMap(r => [r.z + r.alto + B9.placaAlto/2 + .1, r.z - B9.placaAlto/2 - .1])].sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0)).find(libre);
+      /* A138: la bisagra del usuario tal cual (cerrada y abierta, una por estado), con su placa en la cara del lateral y la cazoleta en
+         la puerta; la puerta gira sobre el eje que lleva la cazoleta de cerrada a abierta. La puerta oculta que abre hacia adentro sigue
+         con brazo y placa */
+      const MB = MODELO.bisagra, tal = pr.abre.sentido !== 'adentro', marco = zc => ({ ox: cara, refX: MB.lateral, espejo: !der, oy: yb, refY: MB.trasCara, oz: zc, refZ: MB.centroZ });
+      const cuerpo = zc => { const k = cajaModelo(MB.cerrada, marco(zc)), xa = der ? k.x : Math.max(k.x, cara), xb = der ? Math.min(k.x + k.ancho, cara) : k.x + k.ancho;
+        return [{ x: xa, ancho: xb - xa, y: k.y, fondo: yb - k.y, z: k.z, alto: k.alto }]; };   /* lo que queda detras de la puerta, hasta el lateral */
+      const hz = tal ? (MB.cerrada[1][2] - MB.cerrada[0][2])/2 : B9.placaAlto/2;
+      const libre2 = z => tal ? z - hz >= f0 - .01 && z + hz <= f1 + .01 && cuerpo(z).every(b => estorban.every(r => !seCruzan(b, r))) : libre(z);
+      const z = [z0, ...estorban.flatMap(r => [r.z + r.alto + hz + .1, r.z - hz - .1])].sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0)).find(libre2);
       if (z === undefined || bx[1] - bx[0] < .1) return;
       q.z = r2(q.z + z - z0);
+      if (tal) {
+        delete q.forma;
+        Object.assign(q, cajaModelo(MB.cerrada, marco(z)), { modelo: { archivo: 'bisagra_cerrada', espejo: !der }, estado: 'cerrado' });
+        add(Object.assign({ id: q.id.replace(':bisagra:', ':bisagraAbierta:'), rol: 'herraje', modulo: q.modulo, tipo: 'Bisagra', frente: q.frente, estado: 'abierto', material: null, etiqueta: 'herrajes',
+          modelo: { archivo: 'bisagra_abierta', espejo: !der } }, cajaModelo(MB.abierta, marco(z))));
+        pr.abre.x = r2(cara + (der ? 1 : -1)*(MB.giro[0] - MB.lateral)); pr.abre.y = r2(yb + MB.trasCara - MB.giro[1]);
+        return; }
       const [brazo, placa] = cajas(z), dato = { rol: 'herraje', modulo: q.modulo, material: null, etiqueta: 'herrajes' };
       add(Object.assign({ id: q.id.replace(':bisagra:', ':brazo:'), tipo: 'Brazo' }, dato, brazo));
       add(Object.assign({ id: q.id.replace(':bisagra:', ':placa:'), tipo: 'Placa' }, dato, placa));
     });
     /* correderas: un par por cajon, en la holgura entre el lateral y la caja. Fija (perfil en C abierto hacia la caja) en el lateral;
        movil (barra) en la caja, sale con ella. Largo comercial de 5 en 5 cm (15 a 60) que cabe en la caja */
-    const C9 = PLAN_CORREDERA, hueco = PLAN_CAJA.holgura;
-    cajasPorFrente.forEach((qs, d) => {
-      const iz = qs.find(r => r.id.endsWith(':lado:izq')), dr = qs.find(r => r.id.endsWith(':lado:der')); if (!iz || !dr) return;
+    /* A138: la corredera del usuario tal cual en tres partes: fija en el lateral, media (una pieza cerrada y otra abierta a la mitad del
+       recorrido) y movil con el cajon; estirada a su largo comercial */
+    const C9 = PLAN_CORREDERA, hueco = PLAN_CAJA.holgura, MC = MODELO.corredera;
+    const parCorrederas = (d, iz, dr) => {
+      if (!iz || !dr) return;
       const largo = cfg.region === 'US' ? Math.min(iz.fondo, Math.max(inch(9), Math.min(inch(21), Math.floor(iz.fondo/inch(3) + 1e-6)*inch(3))))   /* E14: 9-21" de 3 en 3 */
-        : Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), y = iz.y + iz.fondo - largo;
-      const H = Math.min(C9.alto, iz.alto - .2), z = iz.z + Math.min(C9.centro, iz.alto/2) - H/2, w = C9.pared;
-      const perfil = [[0, 0], [C9.fija, 0], [C9.fija, w], [w, w], [w, H - w], [C9.fija, H - w], [C9.fija, H], [0, H]];
-      [['izq', iz.x], ['der', dr.x + dr.ancho]].forEach(([lado, cara]) => {
-        const izq = lado === 'izq', dato = { rol: 'herraje', modulo: iz.modulo, material: null, etiqueta: 'herrajes', y, fondo: largo };
-        const fija = Object.assign({ id: d + ':corredera:' + lado, tipo: 'Corredera', x: izq ? cara - hueco : cara + hueco - C9.fija, z, ancho: C9.fija, alto: H }, dato);
-        add(fija);
-        fija.forma = { tipo: 'perfil', eje: 'y', puntos: (izq ? perfil : perfil.map(([u, v]) => [C9.fija - u, v])).map(([u, v]) => [r2(Math.min(u, fija.ancho)), r2(Math.min(v, fija.alto))]) };
-        add(Object.assign({ frente: d, id: d + ':corredera:' + lado + ':movil', tipo: 'CorrederaMovil', x: izq ? cara - .1 - C9.movil : cara + .1, z: z + .5, ancho: C9.movil, alto: H - 1 }, dato));
+        : Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), yF = iz.y + iz.fondo;
+      const H = MC.alto, z = iz.z + Math.min(C9.centro, iz.alto/2) - H/2;
+      const pr = (movibles.get(d) || []).find(r => r.abre), media = pr ? pr.abre.recorrido*(pr.abre.fraccion ?? 1)/2 : 0;
+      [['izq', iz.x - hueco], ['der', dr.x + dr.ancho + hueco]].forEach(([lado, cara]) => {
+        const marco = (dy = 0) => ({ ox: cara, refX: MC.lateral, espejo: lado === 'izq', oy: yF + dy, sy: largo/MC.largo, oz: z });
+        const dato = (archivo, extra) => Object.assign({ rol: 'herraje', modulo: iz.modulo, material: null, etiqueta: 'herrajes', modelo: { archivo, espejo: lado === 'izq' } }, extra);
+        add(Object.assign({ id: d + ':corredera:' + lado, tipo: 'Corredera' }, dato('corredera_fija'), cajaModelo(MC.fija, marco())));
+        [['cerrado', 0], ['abierto', media]].forEach(([estado, dy]) => add(Object.assign({ id: d + ':corredera:' + lado + ':media:' + estado, tipo: 'CorrederaMedia' },
+          dato('corredera_media', { frente: d, estado }), cajaModelo(MC.media, marco(dy)))));
+        add(Object.assign({ id: d + ':corredera:' + lado + ':movil', tipo: 'CorrederaMovil' }, dato('corredera_movil', { frente: d }), cajaModelo(MC.movil, marco())));
       });
-    });
+    };
+    cajasPorFrente.forEach((qs, d) => parCorrederas(d, qs.find(r => r.id.endsWith(':lado:izq')), qs.find(r => r.id.endsWith(':lado:der'))));
+    correderasDe.forEach(([d, iz, dr]) => parCorrederas(d, iz, dr));
     /* pistones (regla de Revit, PistonMount): dos por elevable a min(4, ancho/4) de sus cantos; ancla en el lateral, a min(16, 45 %
        del fondo) del frente y a min(alto - 3, 72 % del alto) bajo su canto superior; punta en la puerta: cerrada, 1.8 tras el frente y
        a min(20, 35 % del alto) bajo el canto; abierta, a esa distancia delante del frente, bajo la puerta levantada. Una pieza por
@@ -3487,7 +3583,7 @@ function planDePiezas(c = cfg){
     }
     /* B24 (solo SketchUp): con LiveSync, apagar «Puertas» oculta tambien en el modelo los frentes y lo que va sobre ellos (jaladeras,
        cazoletas, juntas y el zoclo de la puerta oculta), como el boton en el 2D; el interior queda a la vista */
-    piezas.forEach(q => { if (q.rol === 'frente' || (q.rol === 'herraje' && ['Jaladera', 'Boton', 'Bisagra', 'Junta'].includes(q.tipo)) || (q.rol === 'zoclo' && q.tipo === 'Hoja')) q.ocultaSinPuertas = true; });
+    piezas.forEach(q => { if ((q.rol === 'frente' || (q.rol === 'herraje' && ['Jaladera', 'Boton', 'Bisagra', 'Junta'].includes(q.tipo)) || (q.rol === 'zoclo' && q.tipo === 'Hoja')) && q.estado !== 'abierto') q.ocultaSinPuertas = true; });   /* A138: la bisagra abierta ya va oculta */
     /* (A61) la pieza sin material lleva el tono con que la dibuja el editor (paleta clara): asi la primera generacion se ve
        como el dibujo y no con el material por omision de SketchUp. Herrajes y equipos conservan el suyo */
     const usados = new Set();
@@ -3566,6 +3662,9 @@ function pruebasPlanMX(){
     ['cocina en L con diagonal y ciego en la otra cara (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].alto = 'ciego'; c.esquinas[0].duena = 1; } finally { cfg = prev; } return c; }],
     ['puerta oculta con 6 juntas horizontales y 3 verticales (A78)', c => { const d = newDoor(false); c.puertasOcultas = [d]; const prev = cfg; cfg = c;
       d.juntasHorizontales = hdDefaultJoints(6, d); d.juntasVerticales = 3; cfg = prev; return c; }],
+    ['especiero de madera y con condimentero; cesto doble y sencillo, clasico (A138)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Clasica';
+      Object.assign(l[0], { tipo: 'Especiero', extraible: true }); Object.assign(l[1], { tipo: 'Especiero', extraible: true, especieroHerraje: 'Condimentero' });
+      Object.assign(l[2], { tipo: 'Basura', cestoBotes: 'Doble', ancho: 60, fijo: true }); Object.assign(l[3], { tipo: 'Basura', cestoBotes: 'Sencillo', cestoVariante: 'oculto' }); return c; }],
     ['cesto con cajon chico arriba y cesto con cajon oculto (A96)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Moderna';
       Object.assign(l[1], { tipo: 'Basura', cestoVariante: 'cajon' }); Object.assign(l[3], { tipo: 'Basura', cestoVariante: 'oculto' }); return c; }],
     ['especiero con cajones pequeno + grandes junto a una cajonera igual (A97)', c => { const l = c.modulos.filter(m => !m.upper);
@@ -3624,7 +3723,7 @@ function pruebasPlanMX(){
     const solidos = q => q.hueco ? solidosHueco(q) : !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
       Object.assign({}, q, { y: q.y + q.ranura.y, fondo: q.ranura.ancho, z: q.z + q.ranura.hondo, alto: q.alto - q.ranura.hondo }),
       Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
-    const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && a.rol !== 'luz' && b.rol !== 'luz' && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado */
+    const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && a.rol !== 'luz' && b.rol !== 'luz' && !a.modelo && !b.modelo && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado; A138: un herraje tal cual no es su caja */
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
     const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) ||
       a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago') ||   /* B19: el vastago entra en su cuerpo */
@@ -3699,10 +3798,24 @@ function pruebasPlanMX(){
       ok(e && f.x >= e[0] - .01 && f.x + f.ancho <= e[1] + .01, nombre + ': frente fuera de su modulo ' + f.id); });
     const cajones = p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Cajon' && !q.fijo && !p.piezas.some(r => r.rol === 'modulo' && r.modulo === q.modulo));
     /* A106: el cajon oculto del cesto tiene su tapa (un frente de cajon mas) */
-    ok(p.piezas.filter(q => q.rol === 'caja' && q.tipo === 'Piso').length === cajones.length, nombre + ': falta una caja de cajon');
+    const conCondimentero = f => p.piezas.some(r => r.frente === f.frente && r.tipo === 'Condimentero');   /* A138: el condimentero no lleva caja */
+    ok(p.piezas.filter(q => q.rol === 'caja' && q.tipo === 'Piso').length === cajones.filter(f => !conCondimentero(f)).length, nombre + ': falta una caja de cajon');
     c.modulos.filter(m => m.tipo === 'Basura' && m.cestoVariante === 'oculto' && !m.reserved).forEach(m => { const o = m.id + ':oculto', tapa = p.piezas.find(q => q.id === o);
       ok(tapa && tapa.abre && tapa.abre.independiente && tapa.abre.dentroDe === m.id + ':frente:0', nombre + ': cajon oculto sin apertura propia');
-      ok(p.piezas.filter(q => q.id.startsWith(o + ':corredera:')).length === 4, nombre + ': cajon oculto sin correderas'); });
+      const cs = p.piezas.filter(q => q.id.startsWith(o + ':corredera:'));
+      ok(cs.filter(q => q.tipo === 'Corredera').length === 2 && cs.filter(q => q.tipo === 'CorrederaMovil').length === 2, nombre + ': cajon oculto sin correderas'); });
+    /* A138: herrajes tal cual: cada pieza con modelo de la biblioteca y caja positiva; cada bisagra cerrada con su abierta (las dos
+       con estado y su puerta) y la puerta girando cerca de la placa; cada corredera media en sus dos estados */
+    const ARCHIVOS = ['bisagra_cerrada', 'bisagra_abierta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'condimentero', 'bote'];
+    p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
+    p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_cerrada').forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
+      ok(a && a.estado === 'abierto' && q.estado === 'cerrado' && a.frente === q.frente, nombre + ': bisagra sin su par abierto ' + q.id);
+      ok(pr && pr.abre.x >= q.x - 1 && pr.abre.x <= q.x + q.ancho + 1, nombre + ': la puerta no gira en su bisagra ' + q.id); });
+    p.piezas.filter(q => q.tipo === 'CorrederaMedia' && q.estado === 'cerrado').forEach(q => ok(p.piezas.some(r => r.id === q.id.replace(/cerrado$/, 'abierto')), nombre + ': corredera media sin su estado abierto ' + q.id));
+    c.modulos.filter(m => m.tipo === 'Especiero' && m.extraible && !m.reserved).forEach(m => { const herr = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Condimentero').length;
+      ok(m.especieroHerraje === 'Condimentero' ? herr === 1 : herr === 0 && p.piezas.some(q => q.modulo === m.id && q.tipo === 'Tira'), nombre + ': especiero ' + m.id + ' sin su herraje'); });
+    c.modulos.filter(m => m.tipo === 'Basura' && !m.reserved).forEach(m => { const n = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Bote').length;
+      ok(n === 1 || (m.cestoBotes === 'Doble' && n === 2), nombre + ': ' + n + ' botes en el cesto ' + m.id); });
     /* A106: la caja de cada cajon llega a la cara posterior de su frente (con o sin gola) */
     cajones.forEach(f => { const cara = p.piezas.find(q => q.frente && q.frente === f.frente && q.rol === 'caja' && q.tipo === 'Frente');
       ok(!cara || Math.abs(cara.y + cara.fondo - f.y) < .01, nombre + ': caja despegada de su frente ' + f.id); });
@@ -6402,13 +6515,14 @@ function modulePanel(m){
     html += section('Tarja', tj);
   }
   if (m.tipo === 'Especiero') html += section('Especiero', alturaEspeciero(m) + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
+    + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')   /* A138 */
     + `<div style="margin-top:10px">${radios('espCon', [['Nada', 'Solo'], ['Puerta', '+ Puerta'], ['Cajones', '+ Cajones']], espCon(m))}</div>`
     + (espCon(m) !== 'Nada' ? `<div style="margin-top:8px">${radios('espLado', [['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], espIzq(m) ? 'Izquierda' : 'Derecha')}</div>`
       + (espCon(m) === 'Cajones' ? `<div class="grid-2" style="margin-top:10px">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div><div style="margin-top:8px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>` : '')
       + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones'} en el resto, en la misma carcasa.${espCon(m) === 'Cajones' ? ' Sus cajones se alinean con las cajoneras iguales.' : ''}</div>` : ''));
   if (m.tipo === 'Basura') html += section('Cesto de basura', radios('cesto', [['extraible', 'Solo extraíble'], ['cajon', 'Cajón chico arriba'], ['oculto', 'Cajón oculto']], m.cestoVariante || 'extraible')
-    + `<div class="grid-2" style="margin-top:10px">${num('anchoBote', 'Ancho del bote', m.anchoBasura, 'cm', 25, 60)}</div>`
-    + `<div class="note-sm">Extraíble a todo el ancho (${botesCesto(m) === 1 ? 'un bote' : botesCesto(m) + ' botes'}). ${m.cestoVariante === 'cajon' ? `Cajón visible de ${medida(PLAN_CESTO.cajon)} arriba.` : m.cestoVariante === 'oculto' ? `Cajón oculto de ${medida(PLAN_CESTO.oculto)} tras el frente, sale con el extraíble.` : ''}</div>`);
+    + `<div style="margin-top:10px">${radios('cestoBotes', [['Sencillo', 'Sencillo (un bote de dos compartimentos)'], ['Doble', 'Doble (dos botes)']], m.cestoBotes === 'Doble' ? 'Doble' : 'Sencillo')}</div>`   /* A138: los botes del usuario tal cual */
+    + `<div class="note-sm">Extraíble a todo el ancho con piso, bastidor y ${cestoBotesDe(m, m.ancho - 2*PLAN_CUERPO.lateral - 2*PLAN_CAJA.holgura, m.fondo - 2) === 'Doble' ? 'dos botes' : 'un bote'}.${m.cestoBotes === 'Doble' && cestoBotesDe(m, m.ancho - 2*PLAN_CUERPO.lateral - 2*PLAN_CAJA.holgura, m.fondo - 2) !== 'Doble' ? ` El doble pide ${medida(MODELO.bote.doble[0] + 1 + 2*(PLAN_CUERPO.lateral + PLAN_CAJA.holgura))} de ancho: va sencillo.` : ''} ${m.cestoVariante === 'cajon' ? `Cajón visible de ${medida(PLAN_CESTO.cajon)} arriba.` : m.cestoVariante === 'oculto' ? `Cajón oculto de ${medida(PLAN_CESTO.oculto)} tras el frente, sale con el extraíble.` : ''}</div>`);
   if (m.tipo === 'Lavavajillas') html += section('Lavavajillas', chk('lavaComp', m.lavavajillasCompacto, `Compacto (${medida(reg().lavaCompacto)})`)
     + `<div class="note-sm">Hueco de ${medida(m.ancho)} del piso a la cubierta; trae su propio zoclo.</div>` + avisoLavavajillas(m));
   if (!m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
@@ -6693,7 +6807,8 @@ const ACT = {
   altNariz: v => change(c => { const bar = altoBarra(); c.alturaNariz = v; c.altoBajos = bar - c.baseBajos - paquete(); }, 'Revisar altura'),
   nCaj: (v, m) => change(() => { const t = byId(m.id); t.numCajones = Math.max(1, Math.min(6, Math.round(v))); t.frentes = []; }),
   repCaj: (v, m) => change(() => { const t = byId(m.id); t.cajonesIguales = v === 'igu'; t.frentes = []; }),
-  cesto: (v, m) => change(() => { byId(m.id).cestoVariante = v; byId(m.id).frentes = []; }), anchoBote: (v, m) => change(() => byId(m.id).anchoBasura = v),
+  cesto: (v, m) => change(() => { byId(m.id).cestoVariante = v; byId(m.id).frentes = []; }), anchoBote: (v, m) => change(() => byId(m.id).anchoBasura = v), cestoBotes: (v, m) => change(() => byId(m.id).cestoBotes = v),   /* A138 */
+  espHerraje: (v, m) => change(() => byId(m.id).especieroHerraje = v),
   repartir: (v, m) => change(() => { const t = byId(m.id); t.frentes = []; t.frenteSup = t.frenteMed = 0; }),
   campana: (v, m) => change(() => { const t = byId(m.id); t.campana = v; if (v) t.inferiorAbierto = false; }, 'Revisar altura'),
   altoCaj: (v, m) => change(() => byId(m.id).altoCajonesAlacena = v),
