@@ -283,6 +283,13 @@
        el retiro sobre cada ala es el canal por raiz de 2 (antes el techo quedaba delante del perfil). B) [Revit] la puerta de la
        alacena oculta llega al panel de la otra cara (sin junta en la esquina). F) las guias del ancho del esquinero quedan visibles en el
        alzado: el borde de la barra perpendicular (o la tapeta de 5 cm del ciego) y el ancho de fabrica.
+   A161. [Master hecho 11/10; SketchUp sin cambios (todo en el plan); Revit pendiente] Tras probar el A160 (11/10, usuario, 4 capturas):
+       1) el especiero anexado salia aplastado (condimentero) o con un solo nivel (madera) junto a una torre o alacena con cajones:
+       golaStrips del mueble con especiero tomaba la gola de los cajones a todo el ancho y cortaba su caja en la primera; ahora las
+       franjas son de la parte de la torre o alacena (el especiero no lleva gola); 2) el regreso de la tapeta superior va dentro de
+       la columna mas saliente (no sobresale del canto de la torre); 3) la gola termina en el pano de la caja, 3 mm detras de los
+       frentes (las puertas la solapaban); 4) cuerpo de arriba de torre o refrigerador con especiero: techo, piso y trasero de
+       una pieza (el trasero de la torre se parte en la base del cuerpo de arriba).
    A160. [Master hecho 11/10; SketchUp sin cambios (todo en el plan); Revit pendiente] Tras probar el A156 (11/10, usuario): 1) la
        tapeta superior ya no es una pieza solida hasta el muro: un canto del grueso del frente en el borde de los altos y, donde
        cambia el saque, un regreso del frente menos saliente al mas saliente; 2) sin puertas (LiveSync) el brazo y la placa de
@@ -2868,6 +2875,10 @@ const pantryTopGola = (m, b, n) => b < n - 1 && bodyDoors(bodyType(m, b, n)) && 
 /* GolaStrips: franja en el hueco real sobre cada frente de un bajo (solo estilo moderno). Torre: solo sobre sus cajones;
    alacena: sobre su cajonera y TopGola; refrigerador, estufa y frigobar: ninguna */
 function golaStrips(m){
+  /* A161 (usuario: el especiero anexado salia aplastado o con un solo nivel junto a una torre o alacena con cajones): con especiero
+     anexado las franjas son de la parte de la torre o alacena, en cm desde el borde del mueble; el especiero no lleva gola */
+  if (m.anexo) { const an = m.anexo, off = an.lado === 'Izquierda' ? an.ancho : 0, tw = m.ancho - an.ancho;
+    return golaStrips(parteTorre(m)).map(([z, h, s0 = 0, s1 = tw]) => [z, h, off + s0, off + s1]); }
   if (cfg.style !== 'Moderna' || m.upper || m.reserved || m.tipo === 'Abierto' || isRefri(m) || esAparato(m)) return [];
   const zb = cfg.baseBajos, gT = agarre(), gE = agarreEntre(), s = [];
   if (m.tipo === 'Especiero' && espCon(m) === 'Cajones') {   /* A51: arriba a todo el ancho; entre cajones solo del lado de los cajones */
@@ -3300,7 +3311,8 @@ function planDePiezas(c = cfg){
     const muescas = [];
     const gola = (m, xa0, xb0) => golaStrips(m).forEach(([gz, gh, s0, s1], k) => {
       const xa = s0 === undefined ? xa0 : xa0 + s0, xb = s1 === undefined ? xb0 : xa0 + s1;
-      const G = PLAN_GOLA, mel = cfg.gola === 'Melamina', y1 = sep + m.fondo, y0 = y1 - golaHondo(k === 0), base = m.id + ':gola:' + k;
+      /* A161 (usuario: las puertas solapaban la gola): el perfil llega al pano de la caja, PLAN_HOLGURA_PUERTA detras de los frentes */
+      const G = PLAN_GOLA, mel = cfg.gola === 'Melamina', y1 = sep + m.fondo - (sinPuertas(m) ? 0 : PLAN_HOLGURA_PUERTA), y0 = y1 - golaHondo(k === 0), base = m.id + ':gola:' + k;
       const superior = k === 0, z0 = gz - (superior ? traslapeL() : traslapeC()), z1 = superior ? gz + gh : gz + gh + traslapeC(), forma = superior ? cfg.perfil : 'C';   /* A122 */
       const e = mel ? G.melamina : G.lamina, mat = groupMaterial('Gola') || null;   /* A54: el mismo material en fondo y perfil */
       add({ id: base, rol: 'herraje', modulo: m.id, tipo: 'Gola', x: xa, y: y0, z: z0, ancho: xb - xa, fondo: e, alto: z1 - z0, material: groupMaterial('Gola') || null, etiqueta: 'herrajes' });
@@ -3407,6 +3419,13 @@ function planDePiezas(c = cfg){
       /* A150 (usuario): el cuerpo de arriba ensanchado comparte sus repisas con el lado del especiero; A152: una sola repisa a todo el ancho */
       if (anexoRepisas) piezas.filter(q => q.modulo === m.id && q.rol === 'repisa' && q.z >= anexoRepisas.zs - .01).forEach(q => {   /* A152: corridas */
         const R = anexoRepisas; if (R.izq) { q.ancho = r2(q.x + q.ancho - R.a); q.x = R.a; } else q.ancho = r2(R.b - q.x); });
+      /* A161 (usuario: aun se veian dos piezas en el cuerpo de arriba): techo, piso (refrigerador) y trasero del lado del especiero se
+         unen a los del cuerpo de arriba; el trasero de la torre (del zoclo al tope) se parte en la base del cuerpo de arriba */
+      if (anexoRepisas) { const pre = m.id + ':', de = k => piezas.find(q => q.id === pre + k);
+        if (!refri) { const tr = de('trasero'); if (tr && tr.z < zs - .01 && tr.z + tr.alto > zs + .01) { add(Object.assign({}, tr, { id: pre + 'superior:trasero', z: zs, alto: r2(tr.z + tr.alto - zs) })); tr.alto = r2(zs - tr.z); } }
+        [['anexo:techo', refri ? 'superior:techo' : 'techo'], ['anexo:piso', 'superior:piso'], ['anexo:trasero', 'superior:trasero']].forEach(([ka, kb]) => {
+          const a = de(ka), b = de(kb); if (!a || !b) return;
+          const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x + a.ancho, b.x + b.ancho); b.x = r2(x0); b.ancho = r2(x1 - x0); piezas.splice(piezas.indexOf(a), 1); }); }
       /* A156 (usuario): la gola antes del regreso de la parte: la torre o la alacena con especiero anexado no la llevaban */
       gola(m, isTower(m) ? xi0 : x, isTower(m) ? xi1 : x + m.ancho);
       if (m._parte) return zonas;   /* A154: la parte de la torre; los frentes y cajas los pone el mueble entero */
@@ -3755,8 +3774,10 @@ function planDePiezas(c = cfg){
       unidos.forEach(([a, b, fo], k) => { const sf = unidos.length > 1 ? ':' + k : '';
         add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: a, y: fo - t, z: zTop, ancho: b - a, fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01) return;
+        /* A161 (usuario): el regreso no sobresale del canto de la columna mas saliente: va dentro de ella, del canto del frente menos
+           saliente a la espalda del suyo */
         const f0 = Math.min(fo, sig[2]), f1 = Math.max(fo, sig[2]);
-        add({ id: 'tapeta:superior:regreso' + sf, rol: 'tapeta', x: sig[2] > fo ? b - t : b, y: f0, z: zTop, ancho: t, fondo: f1 - f0, alto: altoTs, material: matTs, etiqueta: 'tapetas' }); });
+        add({ id: 'tapeta:superior:regreso' + sf, rol: 'tapeta', x: sig[2] > fo ? b : b - t, y: f0 - t, z: zTop, ancho: t, fondo: f1 - f0, alto: altoTs, material: matTs, etiqueta: 'tapetas' }); });
     }
     /* A146 (usuario): liston del muro del riel frances corrido por cada fila de altos que cuelgan a la misma altura: de la cara exterior
        del primer lateral a la del ultimo, pasando por las muescas de los laterales; bisel hacia arriba y hacia el muro */
@@ -4053,7 +4074,7 @@ function pruebasPlanMX(){
     ['altos con taquetes por el fondo y LED (A145)', c => { c.fijacionAltos = 'taquetes'; c.led = true; return c; }],
     ['especiero anexado al refrigerador, a la torre y a la alacena (A148)', c => { const prev = cfg; cfg = c; try {
       const l = c.modulos.filter(m => !m.upper), h = c.modulos.filter(m => m.upper);
-      Object.assign(l[0], { tipo: 'Refri' }); Object.assign(l[3], { tipo: 'Hornos' });
+      Object.assign(l[0], { tipo: 'Refri' }); Object.assign(l[3], { tipo: 'Hornos', torreInferior: 'Cajones' });   /* A161: con cajones abajo */
       const ins = (k, ancho) => { const e = Object.assign(newModule(false, c.region), { tipo: 'EspecieroTorre', ancho, fijo: true, extraible: true }), u = newModule(true, c.region);
         const ll = c.modulos.filter(m => !m.upper), hh = c.modulos.filter(m => m.upper); c.modulos.splice(c.modulos.indexOf(ll[k]), 0, e); c.modulos.splice(c.modulos.indexOf(hh[k]), 0, u); };
       ins(1, 20); ins(4, 20); c.longitud = 360; c.modulos.filter(m => m.tipo === 'EspecieroTorre')[1].especieroHerraje = 'Condimentero'; c.fijacionAltos = 'frances'; c.led = true; } finally { cfg = prev; } return c; }],
@@ -4226,6 +4247,16 @@ function pruebasPlanMX(){
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada').forEach(q => ok(!q.ocultaSinPuertas, nombre + ': el brazo de la bisagra se oculta sin puertas ' + q.id));
     c.modulos.filter(m => !m.upper && (isRefri(m) && m.pistonRefri && m.superiorRefri || isTower(m) && m.torreSuperior === 'Pistón')).forEach(m =>
       ok(p.piezas.some(q => q.modulo === m.id && q.abre && q.abre.tipo === 'Elevable' && q.abre.zona === 'superior') && p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piston'), nombre + ': ' + m.id + ' sin su piston'));
+    /* A161: el especiero anexado no se corta con la gola de su torre (sus niveles o condimenteros a su alto); el cuerpo de arriba sin
+       piezas partidas; la gola termina en el pano de la caja; el regreso de la tapeta superior no sale de la columna mas saliente */
+    c.modulos.filter(m => m.anexo && !m.upper && m.anexo.extraible).forEach(m => { const prev = cfg; cfg = c; const fs = fronts(m), k = fs.findIndex(f => f.anexo), f = fs[k]; cfg = prev;
+      const qs = p.piezas.filter(q => q.frente === m.id + ':frente:' + k && q.rol !== 'frente'), alto = Math.max(...qs.map(q => q.z + q.alto)) - Math.min(...qs.map(q => q.z));
+      ok(qs.length && alto > (f.z1 - f.z0)*.7, nombre + ': el especiero de ' + m.id + ' no llega a su alto (' + r2c(alto) + ')');
+      ok(!p.piezas.some(q => /:anexo:(techo|piso|trasero)$/.test(q.id) && q.modulo === m.id), nombre + ': cuerpo de arriba partido en ' + m.id); });
+    p.piezas.filter(q => (q.tipo === 'Gola' || q.tipo === 'Perfil') && !/^esq/.test(q.id)).forEach(q => {   /* el esquinero aun sin la holgura de 3 mm */
+      const fm = p.piezas.filter(r => r.modulo === q.modulo && r.rol === 'frente'), yv = Math.max(...fm.map(r => r.y)) - 1;   /* frentes del plano visible (no la tapa interior del cajon oculto) */
+      const fr = fm.filter(r => r.y >= yv && r.x < q.x + q.ancho && r.x + r.ancho > q.x && Math.abs(r.z + r.alto/2 - (q.z + q.alto/2)) < 40);
+      if (fr.length) ok(q.y + q.fondo <= Math.min(...fr.map(r => r.y)) - PLAN_HOLGURA_PUERTA + .02, nombre + ': la gola toca los frentes en ' + q.id); });
     /* A156: la torre o alacena con especiero anexado lleva su gola; cada frente de un especial (salvo el independiente) sabe su
        cuerpo; la puerta embutida lleva la bisagra del usuario (sin brazo y placa de caja) */
     { const prev = cfg; cfg = c; try { c.modulos.filter(m => m.anexo && !m.upper && golaStrips(parteTorre(m)).length).forEach(m =>
