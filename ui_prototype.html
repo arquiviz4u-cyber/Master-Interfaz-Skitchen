@@ -309,6 +309,10 @@
        8) ancho de la alacena de esquina editable en cada cara (esquinas[k].anchoA / anchoB, de 20 + el fondo de la otra cara a 200);
        9) la alacena con puerta diagonal lleva repisas en L. Los puntos 5 (Seccion en el esquinero) y 6 (un solo grupo) los toma
        Skitchen for Revit.
+   A141. Seccion por el esquinero (11/10, usuario, punto 5 de su lista): la herramienta Seccion en la columna de una esquina
+       no dibujaba nada (el modulo de esquina se saltaba). Ahora corta las piezas reales del esquinero (plan de piezas: cuerpo,
+       puerta, gola, zoclo a 45, cubierta diamante y el alto) en el marco de la cara; la esquina del extremo izquierdo sale del
+       plan de la cara anterior, girado (x' = y, y' = largo - x). Revit: LayoutContext (seccion) con Caras.PlantaEsquina.
    A138. [Revit P12.278] Sin tapetas no hay error (11/10, usuario, tras probar la P12.277): ninguna regla obliga a tener tapeta. Sin tapeta a
        ningun lado, lo que no llena el paso (decimales del muro en MX; resto del paso de 3", 1" o 1/16" en US) va al ultimo
        gabinete automatico de la fila (como la «sobra» del reparto); la compensacion queda en 0. Antes: «Activa una tapeta
@@ -4563,6 +4567,25 @@ function detalleZoclo(fx, Zf, s, D, larguero){
   if (larguero) part('plinth', true, [rect(D - t, D, 0, zb)], paintZoclo, post);
   const tr = rect(zf, larguero ? D - t : D, 0, zb); if (tr.w > 0) post.push(() => { ctx.fillStyle = dark ? 'rgba(120,118,110,.24)' : 'rgba(120,118,110,.18)'; ctx.fillRect(tr.x, tr.y, tr.w, tr.h); outline(tr, C.line, 1); });   /* travesano de la union, mas alla del corte */
 }
+/* A141 (usuario, 11/10): piezas del esquinero de la columna m (bajo o alto de esquina) en el marco de la cara activa: x a lo largo del
+   muro e y desde el muro. La esquina del extremo derecho es la de esta cara; la del izquierdo sale del plan de la cara anterior,
+   girado a esta (x' = y, y' = largo de la anterior - x) */
+function piezasEsquina(m){
+  const k = m.esquina.k, der = m.esquina.lado === 'der';
+  let c = cfg; if (!der) { c = JSON.parse(JSON.stringify(cfg)); guardarCara(c); cargarCara(c, k); }
+  let pz; try { pz = planDePiezas(c).piezas.filter(q => String(q.id).startsWith('esq' + k + ':')); } catch (e) { return []; }
+  const pts = q => q.forma && q.forma.tipo === 'perfil' && q.forma.eje === 'z' ? q.forma.puntos.map(([a, b]) => [q.x + a, q.y + b]) : null;
+  if (der) return pz.map(q => Object.assign({}, q, { poli: pts(q) }));
+  const LA = c.longitud;
+  return pz.map(q => { const pl = pts(q);
+    return Object.assign({}, q, { x: q.y, y: LA - q.x - q.ancho, ancho: q.fondo, fondo: q.ancho, poli: pl ? pl.map(([X, Y]) => [Y, LA - X]) : null }); });
+}
+/* A141: tramos [y0, y1] de una pieza cortada por la linea x = xc */
+function cortePieza(q, xc){
+  if (!q.poli) return xc > q.x + .01 && xc < q.x + q.ancho - .01 ? [[q.y, q.y + q.fondo]] : [];
+  const ys = []; q.poli.forEach((a, i) => { const b = q.poli[(i + 1) % q.poli.length]; if ((a[0] - xc)*(b[0] - xc) < 0) ys.push(a[1] + (b[1] - a[1])*(xc - a[0])/(b[0] - a[0])); });
+  ys.sort((u, v) => u - v); const r = []; for (let i = 0; i + 1 < ys.length; i += 2) r.push([ys[i], ys[i + 1]]); return r;
+}
 function drawSeccionCocina(xw, s, Z, xc){
   const P = d => xw - d*s, t = Math.max(1, 1.8*s), zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), H = cfg.alturaMuro, A = cfg.altoBajos;
   const wood = dark ? '#5C5546' : 'rgb(232,224,207)', drawerC = dark ? '#4A5058' : 'rgb(215,220,224)';
@@ -4595,6 +4618,17 @@ function drawSeccionCocina(xw, s, Z, xc){
     if (div) brd({ x: P(D), y: Z(a + 1.8), w: (D - d0)*s - t, h: t }, mm);
     for (let k = 1; k <= n; k++) brd({ x: P(D) + 2, y: Z(a + 1.8 + inner*k/(n + 1) + .9), w: (D - d0)*s - t - 2, h: t }, mm); };
   const low = moduloEn(false, xc), up = moduloEn(true, xc), out = { low, up };
+  /* A141 (usuario, 11/10): por la columna de una esquina, el corte de las piezas reales del esquinero */
+  const mEsq = low && low.esquina ? low : up && up.esquina ? up : null;
+  if (mEsq) { const sep = cfg.separacionPosterior || 0, enCat = id => id && (cfg.catalogo || []).some(q => q.id === id);
+    const tono = q => q.rol === 'cubierta' ? 'rgb(180,185,186)' : q.rol === 'zoclo' ? (dark ? '#4A4A45' : 'rgb(90,90,85)') : q.rol === 'herraje' ? (dark ? '#6E6E6A' : 'rgb(75,75,72)') : q.rol === 'frente' ? (dark ? '#4A5058' : 'rgb(215,220,224)') : wood;
+    const orden = { panel: 0, repisa: 1, division: 1, frente: 2, zoclo: 3, herraje: 4, cubierta: 5 }; let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    piezasEsquina(mEsq).sort((a, b) => (orden[a.rol] ?? 2) - (orden[b.rol] ?? 2)).forEach(q => cortePieza(q, xc).forEach(([a, b]) => {
+      const d0 = a - sep, d1 = b - sep, r = { x: P(d1), y: Z(q.z + q.alto), w: (d1 - d0)*s, h: q.alto*s }; if (r.w <= .2 || r.h <= .2) return;
+      fillMat(r.x, r.y, r.w, r.h, flat || !enCat(q.material) ? null : q.material, flat ? C.flat : tono(q)); outline(r, C.line, 1);
+      x0 = Math.min(x0, r.x); x1 = Math.max(x1, r.x + r.w); y0 = Math.min(y0, r.y); y1 = Math.max(y1, r.y + r.h); }));
+    if (x1 > x0) hits.push({ rect: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, module: mEsq });
+    return out; }
   if (low && !low.reserved) {
     const D = low.fondo, tipo = low.tipo;
     if (isRefri(low)) {   /* hueco del refrigerador y, encima, su gabinete */
