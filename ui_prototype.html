@@ -268,6 +268,9 @@
        oculta con bajo, cubierta, repisas con LED y repisero) y recorta zoclo, cubierta y backsplash de la otra cara; planCocina
        manda la cara 1 y las demas en caras[] con su marco (origen, ejeX, ejeY en ejes de SketchUp). Banco del master con L y U.
        Pendiente: bisagras e Interactuar de las puertas del esquinero; el esquinero en la vista Seccion; zoclo diagonal.
+       Usuario 10/10 (tras probar el carrusel en Revit): la tapeta de 30 del alto de esquina debe integrarse: el alto de la esquina es un
+       solo gabinete en L a toda la columna (sin tapetas), con la hoja plegable / el frente a 45 / el ciego en la esquina y la parte junto
+       a ella con puerta (gabinete unido, de fabrica) o repisas abiertas (esquinas[k].relleno), separada por una division.
    A133. [Revit OK P12.261] Parrilla con tolerancia de instalacion real (10/10, usuario): la placa conserva su ancho y puede volar
        sobre los gabinetes vecinos (antes se recortaba al ancho del gabinete menos 4); lo que manda es su hueco en la cubierta
        (ancho menos 2 cm de labio por lado, US 3/4"), que no pasa del ancho de la estructura del gabinete. En esquina (muro o tapeta
@@ -2269,7 +2272,7 @@ function guardarCara(c = cfg){ if (Array.isArray(c.caras) && c.caras[c.cara]) c.
 function cargarCara(c, k){ Object.assign(c, JSON.parse(JSON.stringify(c.caras[k]))); c.cara = k; }
 const caraDe = k => k === cfg.cara ? cfg : cfg.caras[k];
 const fondoCara = (q, upper) => Math.max(0, ...q.modulos.filter(m => m.upper === upper && !m.esquina && !m.reserved).map(m => m.fondo)) || (upper ? prefs.inicio.fondoAltos : prefs.inicio.fondoBajos);
-const nuevaEsquina = () => ({ tipo: 'ciego', alacena: 'L', alto: 'auto', duena: 0, herraje: false });
+const nuevaEsquina = () => ({ tipo: 'ciego', alacena: 'L', alto: 'auto', duena: 0, herraje: false, relleno: 'puerta' });   /* relleno: la parte del alto junto a la esquina (usuario 10/10) */
 /* alto de la esquina: «sigue al bajo» (decision del usuario 10/10); la alacena llega al tope de los altos y no lleva alto */
 const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !== 'auto' ? e.alto : { ciego: 'ciego', carrusel: 'L', diagonal: 'diagonal' }[e.tipo] || 'L';
 /* huella de la esquina k en la cara k y en la k + 1 (en bajos; los altos van en la misma columna). Ciego: el gabinete de la duena se
@@ -5126,8 +5129,11 @@ function esquinerosPlan(add, r2, sep, tf){
     if (herraje) bx(':herraje', 'herraje', 'HerrajeEsquina', u0 + e1 + 3, w - P - 3, ef + 4, fOwn - 4, z0 + e1 + 6, z0 + (z1 - z0)*.62, null, 'herrajes');
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
-  const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true) => {
-    const et = 'gabinetes', inner = conDiag ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - a + e1, fa]] : [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, fa], [LA - a + e1, fa]];
+  const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0) => {
+    /* cd: con diagonal, el frente a 45 va solo en la esquina de cd x cd (alto unido: la caja llega a la columna) */
+    const sinRep = q => q.filter((p, i) => { const r = q[(i + q.length - 1) % q.length]; return Math.abs(p[0] - r[0]) + Math.abs(p[1] - r[1]) > .05; });
+    const et = 'gabinetes', inner = conDiag && cd > 0 ? sinRep([[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, Math.min(b - e1, cd)], [LA - Math.min(a - e1, cd), fa], [LA - a + e1, fa]])
+      : conDiag ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - a + e1, fa]] : [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, fa], [LA - a + e1, fa]];
     caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa, z0, z1, mat, et); caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb, LA, b - e1, b, z0, z1, mat, et);
     caja(pre + ':trasero:a', 'panel', 'Trasero', modulo, LA - a + e1, LA, 0, ef, z0, z1, gm('Interior'), et); caja(pre + ':trasero:b', 'panel', 'Trasero', modulo, LA - ef, LA, ef, b - e1, z0, z1, gm('Interior'), et);
     losa(pre + ':piso', 'panel', 'Piso', modulo, inner, z0, z0 + e1, mat, et); if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, inner, z1 - e1, z1, mat, et);
@@ -5165,18 +5171,23 @@ function esquinerosPlan(add, r2, sep, tf){
   }
   /* alto de la esquina en la misma columna (wA, wB): ciego, L o diagonal de 60 x 60 (US 24 x 24) con tapetas hasta la columna */
   const ta = altoEsquina(e); if (ta === 'ninguno' || !mu) return;
-  const z0u = baseAltos(), z1u = baseAltos() + bodyH(mu), fAu = fondoCara(cfg, true), fBu = fondoCara(qb, true);
-  if (ta === 'ciego') { const duenaA = e.duena !== 1, w = duenaA ? wA : wB, fOwn = duenaA ? fAu : fBu, fOtra = duenaA ? fBu : fAu;
-    ciego(id + ':alto', duenaA, w, fOwn, fOtra, z0u, z1u, modU, false);
-    const wo = duenaA ? wB : wA, fo = duenaA ? fAu : fBu;   /* la otra cara cierra su columna con una tapeta */
-    if (duenaA) caja(id + ':alto:tapeta:b', 'tapeta', 'Compensacion', modU, LA - fBu - tf, LA - fBu, fo + tf, wo, z0u, z1u, gm('Tapetas'), 'tapetas');
-    else caja(id + ':alto:tapeta:a', 'tapeta', 'Compensacion', modU, LA - wo, LA - fo - tf, fAu, fAu + tf, z0u, z1u, gm('Tapetas'), 'tapetas');
+  /* usuario 10/10: el alto de la esquina es un solo gabinete en L a toda la columna (wA, wB), sin tapetas. En la esquina, la hoja plegable
+     de 60 x 60 (US 24 x 24), el frente a 45 o el ciego con su puerta; la parte junto a la esquina, con puerta (gabinete unido) o con
+     repisas abiertas (e.relleno), separada por una division */
+  const z0u = baseAltos(), z1u = baseAltos() + bodyH(mu), fAu = fondoCara(cfg, true), fBu = fondoCara(qb, true), pre = id + ':alto';
+  const abierto = e.relleno === 'repisas', dg = ta === 'diagonal', c = Math.min(R.ladoAlto, wA, wB), P = R.ciegoPuerta;
+  const puertaA = (n, x0, x1) => { if (!abierto) caja(pre + ':' + n, 'frente', 'Puerta', modU, x0, x1, fAu, fAu + tf, z0u, z1u, frente, 'frentes'); };
+  const puertaB = (n, y0, y1) => { if (!abierto) caja(pre + ':' + n, 'frente', 'Puerta', modU, LA - fBu - tf, LA - fBu, y0, y1, z0u, z1u, frente, 'frentes'); };
+  const divA = x => caja(pre + ':division:a', 'division', 'Division', modU, x, x + e1, ef, fAu, z0u + e1, z1u - e1, gm('Interior'), 'gabinetes');
+  const divB = y => caja(pre + ':division:b', 'division', 'Division', modU, LA - fBu, LA - ef, y - e1, y, z0u + e1, z1u - e1, gm('Interior'), 'gabinetes');
+  esquinaL(pre, wA, wB, fAu, fBu, z0u, z1u, modU, dg, abierto ? 2 : 1, true, dg ? c : 0);
+  if (ta === 'ciego') { const duenaA = e.duena !== 1;
+    if (duenaA) { caja(pre + ':puerta', 'frente', 'Puerta', modU, LA - wA, LA - wA + P, fAu, fAu + tf, z0u, z1u, frente, 'frentes'); puertaA('ext:a', LA - wA + P, LA - fBu); puertaB('ext:b', fAu + tf, wB); if (wA - P > fBu + e1) divA(LA - wA + P); }
+    else { caja(pre + ':puerta', 'frente', 'Puerta', modU, LA - fBu - tf, LA - fBu, wB - P, wB, z0u, z1u, frente, 'frentes'); puertaB('ext:b', fAu + tf, wB - P); puertaA('ext:a', LA - wA, LA - fBu); if (wB - P > fAu + e1) divB(wB - P); }
     return; }
-  const a = Math.min(wA, R.ladoAlto), b = Math.min(wB, R.ladoAlto), dg = ta === 'diagonal';
-  esquinaL(id + ':alto', a, b, fAu, fBu, z0u, z1u, modU, dg, 1, true);
-  if (dg) puertaDiag(id + ':alto', a, b, fAu, fBu, z0u, z1u, modU); else hojasL(id + ':alto', a, b, fAu, fBu, z0u, z1u, modU);
-  caja(id + ':alto:tapeta:a', 'tapeta', 'Compensacion', modU, LA - wA, LA - a, fAu, fAu + tf, z0u, z1u, gm('Tapetas'), 'tapetas');
-  caja(id + ':alto:tapeta:b', 'tapeta', 'Compensacion', modU, LA - fBu - tf, LA - fBu, b, wB, z0u, z1u, gm('Tapetas'), 'tapetas');
+  if (dg) puertaDiag(pre, c, c, fAu, fBu, z0u, z1u, modU); else hojasL(pre, c, c, fAu, fBu, z0u, z1u, modU);
+  if (wA > c + .5) { puertaA('ext:a', LA - wA, LA - c); divA(LA - c); }
+  if (wB > c + .5) { puertaB('ext:b', c, wB); divB(c); }
 }
 /* A134: plan de la cocina completa. La cara 1 va arriba como siempre; las demas en caras[] con su marco en ejes de SketchUp (el muro en
    Y = 0 y la habitacion hacia -Y): origen, ejeX (a lo largo de su muro) y ejeY (hacia el muro) */
@@ -5212,10 +5223,12 @@ function drawEsquina(m, x0, RX, X, Z, post){
     if (e.tipo === 'ciego') { if (duena) { perfil(0, fOtra); tapeta(fOtra, w - R.ciegoPuerta); puerta(w - R.ciegoPuerta, w, e.herraje ? 'Ciego · herraje' : 'Ciego'); } else perfil(0, w); }
     else if (oculta) { if (duena) { perfil(0, fOtra); puerta(fOtra, w, 'Alacena oculta'); } else { perfil(0, fOtra); tapeta(fOtra, w); } }
     else { const diag = e.tipo === 'diagonal' || alacena && e.alacena === 'diagonal'; perfil(0, fOtra); puerta(fOtra, w, alacena ? (diag ? 'Alacena diagonal' : 'Alacena en L') : diag ? 'Diagonal' : 'Carrusel', diag); }
-  } else {
-    const lado = Math.min(w, R.ladoAlto);
-    if (tAlto === 'ciego') { if (duena) { perfil(0, fOtra); tapeta(fOtra, w - R.ciegoPuerta); puerta(w - R.ciegoPuerta, w, 'Ciego'); } else { perfil(0, fOtra); tapeta(fOtra, w); } }
-    else { perfil(0, fOtra); puerta(fOtra, lado, tAlto === 'diagonal' ? 'Diagonal' : 'Plegable', tAlto === 'diagonal'); tapeta(lado, w); }
+  } else {   /* usuario 10/10: un solo gabinete en L a toda la columna; junto a la esquina, puerta o repisas abiertas */
+    const c = Math.min(w, R.ladoAlto), abierto = (u0, u1) => { if (u1 - u0 < .01) return; const r = caja(u0, u1); fillMat(r.x, r.y, r.w, r.h, flat ? null : mat, C.box); outline(r, C.line, 1);
+      post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; [1, 2].forEach(i => { const y = r.y + r.h*i/3; line(r.x + 2, y, r.x + r.w - 2, y); }); }); };
+    const ext = (u0, u1) => e.relleno === 'repisas' ? abierto(u0, u1) : puerta(u0, u1, '');
+    if (tAlto === 'ciego') { perfil(0, fOtra); if (duena) { ext(fOtra, w - R.ciegoPuerta); puerta(w - R.ciegoPuerta, w, 'Ciego'); } else ext(fOtra, w); }
+    else { perfil(0, fOtra); puerta(fOtra, c, tAlto === 'diagonal' ? 'Diagonal' : 'Plegable', tAlto === 'diagonal'); ext(c, w); }
   }
   const full = caja(0, w); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel);
 }
@@ -6264,6 +6277,8 @@ function esquinaPanel(m){
   if (e.tipo === 'ciego') html += section('Herraje', chk('esqHerraje', !!e.herraje, 'Herraje extraíble (LeMans / Magic Corner)')
     + `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()} y tapeta de esquina de ${fmt(R.tapeta)}${uS()}; se separa del muro lo que pide el fondo de la otra cara.</div>`);
   if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Sigue al bajo'], ['ciego', 'Ciego'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
+  if (!alacena && altoEsquina(e) !== 'ninguno') html += section('Junto a la esquina', radios('esqRelleno', [['puerta', 'Gabinete con puerta'], ['repisas', 'Repisas abiertas']], e.relleno === 'repisas' ? 'repisas' : 'puerta')
+    + `<div class="note">El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.</div>`);
   return html;
 }
 function modulePanel(m){
@@ -6711,7 +6726,7 @@ const ACT = {
   cara: v => { const k = +v; if (!multiCara() || k === cfg.cara) return; guardarCara(); cargarCara(cfg, k); selection.clear(); selectedPart = null; cleanSelection(); render(); },
   esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; }), esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }),
   esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }), esqHerraje: (v, m) => change(() => { esquinaDe(byId(m.id)).herraje = v; }),
-  esqAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).alto = v; }),
+  esqAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).alto = v; }), esqRelleno: (v, m) => change(() => { esquinaDe(byId(m.id)).relleno = v === 'repisas' ? 'repisas' : 'puerta'; }),
   genZoc: v => change(c => c.generarZoclos = v), retZoc: v => change(c => c.retiroZoclo = v), tipoZoc: v => change(c => c.tipoZoclo = v === 'patas' ? 'patas' : 'madera'),   /* A84 */
   altoZoc: v => change(c => { const bar = altoBarra(); c.baseBajos = v; c.altoBajos = bar - v - paquete(); }, 'Revisar altura'),
   cerrI: v => change(c => c.cerrarZocloIzq = v), cerrD: v => change(c => c.cerrarZocloDer = v),
@@ -6873,7 +6888,9 @@ function renderStyle(){
  * TOOLBAR / PESTANAS / ESTADO
  * ======================================================================= */
 const EN = {
-  "PLANTA GENERAL": "OVERALL PLAN", "Recta": "Straight", "En L": "L-shaped", "En U": "U-shaped", "Esquinero": "Corner cabinet", "Ciego": "Blind corner", "Carrusel en L": "L-shaped lazy Susan", "Diagonal": "Diagonal",
+  "PLANTA GENERAL": "OVERALL PLAN", "Junto a la esquina": "Next to the corner", "Gabinete con puerta": "Cabinet with door", "Repisas abiertas": "Open shelves",
+  "El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.": "The corner wall cabinet is one cabinet across the whole column; the part next to the corner has a door or open shelves.",
+  "Recta": "Straight", "En L": "L-shaped", "En U": "U-shaped", "Esquinero": "Corner cabinet", "Ciego": "Blind corner", "Carrusel en L": "L-shaped lazy Susan", "Diagonal": "Diagonal",
   "Alacena esquinera": "Corner pantry", "Alacena": "Pantry", "En L, puerta plegable": "L-shaped, bi-fold door", "Diagonal, una puerta": "Diagonal, single door",
   "Oculta, puerta de piso a techo": "Hidden, floor-to-ceiling door", "Herraje": "Hardware", "Herraje extraíble (LeMans / Magic Corner)": "Pull-out fitting (LeMans / Magic Corner)",
   "Alto de la esquina": "Corner wall cabinet", "Sigue al bajo": "Matches the base", "Sin alto": "No wall cabinet", "Gabinete ciego en": "Blind cabinet on", "Puerta en": "Door on",
