@@ -278,6 +278,11 @@
        clic: esa cara. Los botones de caras del panel pasan a las pestanas; esquinero y planta general nombran las caras con letra.
    A136. [Master hecho 11/10; Revit pendiente] En el alzado, lo de la otra cara en la columna de esquina se ve de perfil, no en corte:
        costado del gabinete (bajo y alto) con su material, canto del frente encima y, en bajos, costado del zoclo retirado.
+   A155. [Master hecho 11/10; Revit pendiente] Esquinero (usuario 11/10, lista tras probar, puntos 4, 6 y 8): 4) la alacena
+       esquinera con puerta oculta no lleva zoclo al frente (su puerta y su panel llegan al piso; la estructura de atras se queda);
+       6) en el modo Interior el esquinero muestra su interior (repisas o charolas de cada tipo; el alto, su repisa o las abiertas);
+       8) [Revit] bajo el esquinero va la estructura del zoclo como aqui: el larguero llega al muro de la otra cara, travesano en el
+       muro y patas bajo la columna de esquina (aqui ya salian).
    A154. [Master hecho 11/10 (entro en el commit a3d47a8 de otra sesion); Revit pendiente] Especiero anexado como parte de su mueble (11/10, usuario: «considéralo un solo
        mueble»): t.anexo = { lado, ancho, extraible, herraje, alPiso } y t.ancho es el total (ya no hay modulo EspecieroTorre junto
        a la torre; los guardados se convierten solos). Corrige lo que salia de tenerlos separados: una sola columna para elegir y
@@ -2441,6 +2446,8 @@ const fondoRepisasEsq = e => e.fondoRepisas > 0 ? e.fondoRepisas : cfg.region ==
 const repisasAlacena = e => Number.isFinite(e.repisasAlacena) ? Math.max(0, Math.min(10, e.repisasAlacena)) : 4;
 const interiorAlacena = e => e.interior === 'repisas' || e.interior === 'barra' ? e.interior : e.alacena === 'diagonal' ? 'repisas' : 'barra';
 const tapetaCiego = () => cfg.region === 'US' ? inch(2) : 5;   /* A151: tapeta de ajuste de la cara no duena del ciego */
+/* A155 (usuario 11/10): la alacena esquinera con puerta oculta no lleva zoclo al frente: su puerta y su panel llegan al piso */
+const esquinaOculta = e => !!e && e.tipo === 'alacena' && e.alacena === 'oculta';
 const esquinaDiag = e => e.tipo === 'diagonal' || e.tipo === 'alacena' && e.alacena === 'diagonal';
 /* A143 (usuario 11/10): los bajos del esquinero llevan la gola como los demas bajos (carrusel, diagonal y ciego; la alacena no) */
 const golaEsquina = e => cfg.style === 'Moderna' && (e.tipo === 'carrusel' || e.tipo === 'diagonal' || e.tipo === 'ciego');
@@ -4802,7 +4809,7 @@ function drawElevation(){
   drawHiddenDoors(X, Z, RX, scale, post);
   /* cubierta y zoclo corridos a todo el tramo; la cubierta va delante de la gola */
   const vueloI = cfg.corridaIzq ? 0 : vueloLat(), vueloD = cfg.corridaDer ? 0 : vueloLat();   /* A44: sin vuelo contra una tapeta de piso a techo ni a paño */
-  part('plinth', cfg.generarZoclos, cutRun(run0, run1, cortaZoclo).map(([a, b]) => RX(a, b, 0, zb)), r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Zoclo'), C.zocalo); }, post);
+  part('plinth', cfg.generarZoclos, cutRun(run0, run1, m => cortaZoclo(m) || !m.upper && esquinaOculta(esquinaDe(m))).map(([a, b]) => RX(a, b, 0, zb)), r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Zoclo'), C.zocalo); }, post);   /* A155 */
   part('cover', cfg.generarCubierta, cutRun(run0 - vueloI, run1 + vueloD, cortaCubierta).map(([a, b]) => RX(a, b, zBar - paquete(), zBar)), r => {
     fillMat(r.x, r.y, r.w, r.h, groupMaterial('Cubierta'), C.cubierta); outline(r, C.line, 1);
   }, post);
@@ -5658,14 +5665,14 @@ function esquinerosPlan(add, r2, sep, tf){
   /* recortes en la cara de la derecha de la esquina k0 - 1 (su extremo izquierdo es la esquina) */
   if (k0 > 0) { const qa = caraDe(k0 - 1), fA = fondoCara(qa, false), ret = cfg.retiroZoclo, ep = cfg.esquinas[k0 - 1], hp = huellaEsquina(k0 - 1)[1];
     /* A139: con esquinero diagonal la cubierta empieza al final de su huella (ahi va la pieza diamante) y el zoclo donde llega el de 45 */
-    const dgp = ep.tipo === 'diagonal' || ep.tipo === 'alacena' && ep.alacena === 'diagonal', cubFrente = ep.tipo === 'diagonal' ? hp : fA + tf + (cfg.cubiertaAPano ? 0 : cfg.vuelo || 0), zocFin = dgp ? hp - ret*(Math.SQRT2 - 1) : fA - ret;
+    const dgp = ep.tipo === 'diagonal' || ep.tipo === 'alacena' && ep.alacena === 'diagonal', cubFrente = ep.tipo === 'diagonal' ? hp : fA + tf + (cfg.cubiertaAPano ? 0 : cfg.vuelo || 0), zocFin = esquinaOculta(ep) ? hp : dgp ? hp - ret*(Math.SQRT2 - 1) : fA - ret;   /* A155 */
     const corta = (p, x0) => { if (p.x >= x0 - .01 || p.x + p.ancho <= x0) return; const dx = x0 - p.x; p.x = r2(x0); p.ancho = r2(p.ancho - dx); if (p.hueco) p.hueco.x = r2(p.hueco.x - dx); };
     cfg.__piezas.forEach(p => { if (p.rol === 'cubierta' && !(p.forma && p.forma.eje !== 'x')) corta(p, cubFrente); else if (p.rol === 'zoclo' && p.tipo === 'Frente') corta(p, zocFin);
       else if (p.rol === 'zoclo' && p.tipo === 'Larguero') corta(p, PLAN_CUERPO.lateral); else if (p.rol === 'backsplash' && !p.forma) corta(p, cfg.espesorBacksplash || 1); }); }
   if (k0 >= cfg.esquinas.length) return;
   /* la esquina k0: zoclo de esta cara hasta la cara del zoclo de la otra */
   const k = k0, e = cfg.esquinas[k], LA = cfg.longitud, qb = caraDe(k + 1), fA = fondoCara(cfg, false), fB = fondoCara(qb, false), [wA, wB] = huellaEsquina(k);
-  { const dgk = e.tipo === 'diagonal' || e.tipo === 'alacena' && e.alacena === 'diagonal', xz = dgk ? LA - wA + cfg.retiroZoclo*(Math.SQRT2 - 1) : LA - fB + cfg.retiroZoclo;   /* A139 */
+  { const dgk = e.tipo === 'diagonal' || e.tipo === 'alacena' && e.alacena === 'diagonal', xz = esquinaOculta(e) ? LA - wA : dgk ? LA - wA + cfg.retiroZoclo*(Math.SQRT2 - 1) : LA - fB + cfg.retiroZoclo;   /* A139; A155 */
     cfg.__piezas.forEach(p => { if (p.rol === 'zoclo' && p.tipo === 'Frente' && p.x + p.ancho > xz) p.ancho = r2(Math.max(.1, xz - p.x));
       else if (e.tipo === 'diagonal' && p.rol === 'cubierta' && !(p.forma && p.forma.eje !== 'x') && p.x + p.ancho > LA - wA) p.ancho = r2(Math.max(.1, LA - wA - p.x)); }); }
   const mb = cfg.modulos.find(m => m.esquina && m.esquina.k === k && !m.upper), mu = cfg.modulos.find(m => m.esquina && m.esquina.k === k && m.upper);
@@ -5828,6 +5835,7 @@ function drawEsquina(m, x0, RX, X, Z, post){
   if (m.upper && tAlto === 'ninguno') return;
   const z0 = m.upper ? baseAltos() : oculta ? 0 : zb, z1 = m.upper ? baseAltos() + bodyH(m) : alacena ? topeAltos() : zb + A;
   const caja = (u0, u1) => der ? RX(x0 + w - u1, x0 + w - u0, z0, z1) : RX(x0 + u0, x0 + u1, z0, z1);
+  const gmInterior = () => groupMaterial('Interior') || null;   /* A155 */
   const mat = m.material || cfg.materialGeneral, texto = (r, t) => { if (r.w < 24 || r.h < 14) return; post.push(() => { ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(t, r.x + 3, r.y + 3); ctx.textBaseline = 'alphabetic'; }); };
   /* A136 (usuario 11/10): lo de la otra cara se ve de perfil, no en corte: el costado de su gabinete, el canto de su frente y, en
      bajos, el costado de su zoclo (retirado). El canto va encima (post): esta mas cerca que los frentes de esta cara */
@@ -5839,7 +5847,14 @@ function drawEsquina(m, x0, RX, X, Z, post){
     if (!m.upper && !oculta && zb > .5 && cfg.generarZoclos) { const rz = cajaZ(u0, Math.max(u0 + .5, u1 - cfg.retiroZoclo), 0, zb);
       post.push(() => { fillMat(rz.x, rz.y, rz.w, rz.h, flat ? null : groupMaterial('Zoclo'), C.zocalo); outline(rz, C.line, 1); }); } };
   const tapeta = (u0, u1) => { if (u1 - u0 < .01) return; const r = caja(u0, u1); fillMat(r.x, r.y, r.w, r.h, flat ? null : (groupMaterial('Tapetas') || mat), C.front); outline(r, C.line, 1); };
-  const puerta = (u0, u1, t, diag) => { if (u1 - u0 < .01) return; const r = caja(u0, u1); fillMat(r.x, r.y, r.w, r.h, flat ? null : (m.materialPuertas || mat), C.front); outline(r, C.line, 1);
+  /* A155 (usuario 11/10): en el modo Interior (sin puertas) el esquinero muestra su interior: repisas o charolas de cada tipo */
+  const nInt = m.upper ? (e.relleno === 'repisas' ? 2 : 1) : e.tipo === 'carrusel' ? 2 : e.tipo === 'ciego' ? (e.herraje ? 0 : 1) : e.tipo === 'diagonal' ? Math.max(0, Math.min(4, e.repisasDiag || 0))
+    : e.tipo === 'alacena' ? repisasAlacena(e) : 0;
+  const puerta = (u0, u1, t, diag) => { if (u1 - u0 < .01) return; const r = caja(u0, u1);
+    if (!showDoors) { fillMat(r.x, r.y, r.w, r.h, flat ? null : gmInterior(), C.interior); outline(r, C.line, 1);
+      post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; for (let i = 1; i <= nInt; i++) { const y = r.y + r.h*i/(nInt + 1); line(r.x + 2, y, r.x + r.w - 2, y); } });
+      texto(r, e.tipo === 'carrusel' && !m.upper ? t + ' · charolas' : t); return; }
+    fillMat(r.x, r.y, r.w, r.h, flat ? null : (m.materialPuertas || mat), C.front); outline(r, C.line, 1);
     if (!exporting) frontHits.push({ rect: r, module: m, kind: 'Puerta' });   /* A137 */
     if (diag) post.push(() => { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(r.x + r.w, r.y + r.h); ctx.stroke(); ctx.restore(); });
     texto(r, t); };
