@@ -309,7 +309,7 @@
        8) ancho de la alacena de esquina editable en cada cara (esquinas[k].anchoA / anchoB, de 20 + el fondo de la otra cara a 200);
        9) la alacena con puerta diagonal lleva repisas en L. Los puntos 5 (Seccion en el esquinero) y 6 (un solo grupo) los toma
        Skitchen for Revit.
-   A141. Seccion por el esquinero (11/10, usuario, punto 5 de su lista): la herramienta Seccion en la columna de una esquina
+   A141. [Revit P12.282] Seccion por el esquinero (11/10, usuario, punto 5 de su lista): la herramienta Seccion en la columna de una esquina
        no dibujaba nada (el modulo de esquina se saltaba). Ahora corta las piezas reales del esquinero (plan de piezas: cuerpo,
        puerta, gola, zoclo a 45, cubierta diamante y el alto) en el marco de la cara; la esquina del extremo izquierdo sale del
        plan de la cara anterior, girado (x' = y, y' = largo - x). Revit: LayoutContext (seccion) con Caras.PlantaEsquina.
@@ -4540,7 +4540,8 @@ function corteX(){
   const first = row(false)[0] || row(true)[0]; return first ? ajusteIzq() + first.ancho/2 : cfg.longitud/2;
 }
 function moduloEn(upper, xc){ let x = ajusteIzq(); for (const m of row(upper)) { if (xc >= x - .01 && xc <= x + m.ancho + .01) return m; x += m.ancho; } return null; }
-const fondoSeccion = () => Math.max(30, ...cfg.modulos.map(m => m.fondo + (m.upper ? 0 : vueloEf() + 4)), ...cfg.modulos.filter(m => m.fondoSuperior > 0).map(m => m.fondoSuperior));
+const fondoSeccion = () => Math.max(30, ...cfg.modulos.map(m => m.fondo + (m.upper ? 0 : vueloEf() + 4)), ...cfg.modulos.filter(m => m.fondoSuperior > 0).map(m => m.fondoSuperior),
+  ...(multiCara() ? cfg.modulos.filter(m => m.esquina).map(m => Math.max(...huellaEsquina(m.esquina.k)) + 4) : []));   /* A141: la huella del esquinero */
 /* linea de corte sobre el alzado: punteada, con las flechas mirando hacia la seccion y la letra A */
 function marcaCorte(xp, y0, y1, key){
   const on = drag && drag.kind === 'guide' && drag.key === key || hover === 'guide:' + key, col = on ? C.select : C.ink;
