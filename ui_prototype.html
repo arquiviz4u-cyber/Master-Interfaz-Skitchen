@@ -288,6 +288,9 @@
        diagonal y ciego) lleva bajo la cubierta fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa; la
        cubierta lleva cama solo con nariz; 5b) la gola del esquinero se une a inglete con la de las caras: arranca en el limite de la
        columna y va a la profundidad del perfil de las caras (alma entre hondo - e y hondo; antes estaba un espesor mas adentro).
+   A165. [Master hecho 11/10; Revit pendiente] Esquinero (usuario, por Skitchen for sketchup): la caja del esquinero (ciego, L y
+       diagonal: laterales, techo o fajas, piso y repisas) y sus perfiles de gola quedan PLAN_HOLGURA_PUERTA (3 mm) detras de la cara
+       posterior de sus frentes, como en los bajos y torres (A161); la autoprueba de la gola ya incluye el esquinero.
    A164. [Revit P12.295] (11/10, usuario, tras probar P12.283-294): 1) la faja del frente diagonal del esquinero (bajo la cubierta) es una sola pieza que
        llega a los laterales de los dos lados (antes dejaba un triangulo en cada extremo); 2) la cama bajo la cubierta con nariz
        lleva otro material que la cubierta: el grupo «Cama» (de fabrica DEF_CAMA, tablero), en las caras y en la diamante.
@@ -4268,7 +4271,7 @@ function pruebasPlanMX(){
       const qs = p.piezas.filter(q => q.frente === m.id + ':frente:' + k && q.rol !== 'frente'), alto = Math.max(...qs.map(q => q.z + q.alto)) - Math.min(...qs.map(q => q.z));
       ok(qs.length && alto > (f.z1 - f.z0)*.7, nombre + ': el especiero de ' + m.id + ' no llega a su alto (' + r2c(alto) + ')');
       ok(!p.piezas.some(q => /:anexo:(techo|piso|trasero)$/.test(q.id) && q.modulo === m.id), nombre + ': cuerpo de arriba partido en ' + m.id); });
-    p.piezas.filter(q => (q.tipo === 'Gola' || q.tipo === 'Perfil') && !/^esq/.test(q.id)).forEach(q => {   /* el esquinero aun sin la holgura de 3 mm */
+    p.piezas.filter(q => (q.tipo === 'Gola' || q.tipo === 'Perfil') && !q.forma).forEach(q => {   /* A165: tambien el esquinero, con su holgura de 3 mm (la gola a 45 es una losa: su caja envolvente no sirve aqui) */
       const fm = p.piezas.filter(r => r.modulo === q.modulo && r.rol === 'frente'), yv = Math.max(...fm.map(r => r.y)) - 1;   /* frentes del plano visible (no la tapa interior del cajon oculto) */
       const fr = fm.filter(r => r.y >= yv && r.x < q.x + q.ancho && r.x + r.ancho > q.x && Math.abs(r.z + r.alto/2 - (q.z + q.alto/2)) < 40);
       if (fr.length) ok(q.y + q.fondo <= Math.min(...fr.map(r => r.y)) - PLAN_HOLGURA_PUERTA + .02, nombre + ': la gola toca los frentes en ' + q.id); });
@@ -5860,7 +5863,10 @@ function esquinerosPlan(add, r2, sep, tf){
     for (let i = 1; i <= 6; i++) { const z = zs + (tope - zs)*i/7; caja(id + ':repisero:' + i, 'repisa', 'Repisa', modB, LA - wA + e1, LA - fB - 1 - e1, ef, ef + fr, z, z + e1, gm('Repisas'), 'gabinetes'); }
   };
   /* ciego en ejes locales: u a lo largo de la cara duena desde la esquina, v desde su muro */
-  const ciego = (pre, duenaA, w, fOwn, fOtra, z0, z1, modulo, herraje, gola = false, fajas = false) => {   /* A163: fajas en lugar de tapa */   /* A143: gola en el bajo */
+  const ciego = (pre, duenaA, w, fOwn, fOtra, z0, z1, modulo, herraje, gola = false, fajas = false) => {   /* A163: fajas en lugar de tapa */
+    /* A165 (usuario, por Skitchen for sketchup): la caja y la gola quedan PLAN_HOLGURA_PUERTA detras de la cara posterior de los frentes,
+       como en los bajos y torres; fF es el plano de los frentes */
+    const fF = fOwn; fOwn = fOwn - PLAN_HOLGURA_PUERTA;   /* A143: gola en el bajo */
     const bx = (n, rol, tipo, u0, u1, v0, v1, a, b, m2, et) => duenaA ? caja(pre + n, rol, tipo, modulo, LA - u1, LA - u0, v0, v1, a, b, m2, et) : caja(pre + n, rol, tipo, modulo, LA - v1, LA - v0, u0, u1, a, b, m2, et);
     const P = R.ciegoPuerta, u0 = Math.max(0, w - R.ciego), et = 'gabinetes';
     bx(':lateral:esquina', 'panel', 'Lateral', u0, u0 + e1, 0, fOwn, z0, z1, mat, et); if (gola) { const hG = golaHondo(true), zgL = z1 - agarre() - traslapeL(); bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn - hG, z0, z1, mat, et); bx(':lateral:bajo', 'panel', 'Lateral', w - e1, w, fOwn - hG, fOwn, z0, zgL, mat, et); }   /* A163: rebaje de la gola */
@@ -5871,12 +5877,13 @@ function esquinerosPlan(add, r2, sep, tf){
     const yT = gola ? fOwn - hondo : fOwn;
     if (fajas) { const F = reg().fajas.ancho; bx(':faja:atras', 'panel', 'Faja', u0 + e1, w - e1, ef, ef + F, z1 - e1, z1, mat, et); bx(':faja:frente', 'panel', 'Faja', u0 + e1, w - e1, yT - F, yT, z1 - e1, z1, mat, et); }
     else bx(':techo', 'panel', 'Techo', u0 + e1, w - e1, ef, yT, z1 - e1, z1, mat, et); if (!herraje) bx(':repisa', 'repisa', 'Repisa', u0 + e1, w - e1, ef, fOwn - 2, (z0 + z1)/2 - e1/2, (z0 + z1)/2 + e1/2, gm('Repisas'), et);
-    bx(':puerta', 'frente', 'Puerta', w - P, w, fOwn, fOwn + tf, z0, zf, frente, 'frentes'); bx(':tapeta', 'tapeta', 'Compensacion', fOtra + tf, w - P, fOwn, fOwn + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara */
+    bx(':puerta', 'frente', 'Puerta', w - P, w, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':tapeta', 'tapeta', 'Compensacion', fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara */
     if (gola) { bx(':gola', 'herraje', 'Gola', fOtra + tf, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', fOtra + tf, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
     if (herraje) bx(':herraje', 'herraje', 'HerrajeEsquina', u0 + e1 + 3, w - P - 3, ef + 4, fOwn - 4, z0 + e1 + 6, z0 + (z1 - z0)*.62, null, 'herrajes');
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
   const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false, rep = null, piso = true, fajas = false) => {
+    fa -= PLAN_HOLGURA_PUERTA; fb -= PLAN_HOLGURA_PUERTA;   /* A165: la caja queda 3 mm detras de los frentes */
     /* cd: con diagonal, el frente a 45 va solo en la esquina de cd x cd (alto unido: la caja llega a la columna) */
     const sinRep = q => q.filter((p, i) => { const r = q[(i + q.length - 1) % q.length]; return Math.abs(p[0] - r[0]) + Math.abs(p[1] - r[1]) > .05; });
     const interior = (fa, fb) => conDiag && cd > 0 ? sinRep([[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, Math.min(b - e1, cd)], [LA - Math.min(a - e1, cd), fa], [LA - a + e1, fa]])
@@ -5917,8 +5924,9 @@ function esquinerosPlan(add, r2, sep, tf){
     const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, zg = z1 - agarre() - traslapeL(), gmt = groupMaterial('Gola') || null;
     /* A163: desde el limite de la columna de cada cara (empata con la gola del vecino) y a la profundidad del perfil de las caras; las
        almas se cruzan en la esquina */
-    if (ha) { caja(pre + ':gola:a', 'herraje', 'Gola', modulo, LA - a, hb ? LA - fb + hondo - eG : LA - fb + hondo, fa - hondo, fa - hondo + eG, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:a:perfil', 'herraje', 'Perfil', modulo, LA - a, LA - fb + hondo - eG, fa - hondo + eG, fa, zg, zg + eG, gmt, 'herrajes'); }
-    if (hb) { caja(pre + ':gola:b', 'herraje', 'Gola', modulo, LA - fb + hondo - eG, LA - fb + hondo, fa - hondo, b, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:b:perfil', 'herraje', 'Perfil', modulo, LA - fb, LA - fb + hondo - eG, ha ? fa : fa - hondo + eG, b, zg, zg + eG, gmt, 'herrajes'); } };
+    { const fa2 = fa - PLAN_HOLGURA_PUERTA, fb2 = fb - PLAN_HOLGURA_PUERTA;   /* A165: al pano de la caja, 3 mm detras de las hojas */
+    if (ha) { caja(pre + ':gola:a', 'herraje', 'Gola', modulo, LA - a, hb ? LA - fb2 + hondo - eG : LA - fb2 + hondo, fa2 - hondo, fa2 - hondo + eG, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:a:perfil', 'herraje', 'Perfil', modulo, LA - a, LA - fb2 + hondo - eG, fa2 - hondo + eG, fa2, zg, zg + eG, gmt, 'herrajes'); }
+    if (hb) { caja(pre + ':gola:b', 'herraje', 'Gola', modulo, LA - fb2 + hondo - eG, LA - fb2 + hondo, fa2 - hondo, b, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:b:perfil', 'herraje', 'Perfil', modulo, LA - fb2, LA - fb2 + hondo - eG, ha ? fa2 : fa2 - hondo + eG, b, zg, zg + eG, gmt, 'herrajes'); } } };
   /* A139 (usuario 11/10): el frente a 45 va entre los cantos de las puertas vecinas, al pano de ellas y con media separacion de frentes a
      cada lado (antes salia de la columna y se encimaba con ellas). Cara vista de o1 a o2; el espesor hacia adentro */
   const puertaDiag = (pre, a, b, fa, fb, z0, z1, modulo) => { const g2 = holF(), o1 = [LA - a + g2, fa + tf], o2 = [LA - fb - tf, b - g2], L = Math.hypot(o2[0] - o1[0], o2[1] - o1[1]) || 1, n = [(o2[1] - o1[1])/L*tf, -(o2[0] - o1[0])/L*tf];
@@ -5926,7 +5934,7 @@ function esquinerosPlan(add, r2, sep, tf){
   /* A139: franja de gola del bajo diagonal: el frente baja la holgura y el perfil (alma y aleta) sigue la diagonal de la caja */
   /* A163 (usuario 11/10): la gola del diagonal se une a inglete con la de las caras: arranca en el limite de la columna de cada cara, a
      la profundidad del perfil de las caras (alma entre hondo - e y hondo desde el frente; aleta del frente al alma) y quiebra a 45 */
-  const golaDiag = (pre, a, b, fa, fb, z1, modulo) => { const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, c1 = [LA - a + e1, fa], c2 = [LA - fb, b - e1];
+  const golaDiag = (pre, a, b, fa, fb, z1, modulo) => { fa -= PLAN_HOLGURA_PUERTA; fb -= PLAN_HOLGURA_PUERTA;   /* A165: al pano de la caja */ const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, c1 = [LA - a + e1, fa], c2 = [LA - fb, b - e1];
     const L = Math.hypot(c2[0] - c1[0], c2[1] - c1[1]) || 1, d = [(c2[0] - c1[0])/L, (c2[1] - c1[1])/L], w = [d[1], -d[0]], zg = z1 - agarre() - traslapeL(), mt = groupMaterial('Gola') || null;
     const enDiag = k => [c1[0] + w[0]*k, c1[1] + w[1]*k];
     const cruceA = k => { const p = enDiag(k), t = (fa - k - p[1])/d[1]; return [p[0] + d[0]*t, fa - k]; }, cruceB = k => { const p = enDiag(k), t = (LA - fb + k - p[0])/d[0]; return [LA - fb + k, p[1] + d[1]*t]; };
