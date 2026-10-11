@@ -290,6 +290,13 @@
        la columna mas saliente (no sobresale del canto de la torre); 3) la gola termina en el pano de la caja, 3 mm detras de los
        frentes (las puertas la solapaban); 4) cuerpo de arriba de torre o refrigerador con especiero: techo, piso y trasero de
        una pieza (el trasero de la torre se parte en la base del cuerpo de arriba).
+   A162. Seccion y alacena de esquina (11/10, usuario, tras probar P12.290-292): 1) la pestana del corte senala hacia donde
+       mira; si va a la derecha el muro queda a la izquierda y viceversa (A159 lo dibujaba al reves): de fabrica la pestana a la
+       derecha (muro a la izquierda) y en una esquina mira hacia ella; 2) el boton para girar es solo la doble flecha, junto al
+       titulo SECCION; 3) en el esquinero, mas alla del corte solo se dibujan las repisas (se ve como dan vuelta en L) y la barra
+       (su bajo y su cubierta), tambien la parte de una pieza cortada que sigue mas alla; no los paneles de atras; 4) alacena
+       oculta: «Repisas en la puerta» (0 a 8), angostas de 10 cm (US 4") entre dos laterales, montadas en la cara interior de
+       la puerta (e.repisasPuerta).
    A160. [Master hecho 11/10; SketchUp sin cambios (todo en el plan); Revit pendiente] Tras probar el A156 (11/10, usuario): 1) la
        tapeta superior ya no es una pieza solida hasta el muro: un canto del grueso del frente en el borde de los altos y, donde
        cambia el saque, un regreso del frente menos saliente al mas saliente; 2) sin puertas (LiveSync) el brazo y la placa de
@@ -4723,7 +4730,7 @@ let exporting = false, dark = false;
 const proyOn = () => !exporting || prefs.exportProyeccion;
 /* A159: orientacion del corte elegida con el boton ({ id del modulo cortado, dir }); si no, mira hacia la esquina que corta */
 let seccionMira = null, miraHits = [];
-const miraCorte = xc => { const m = moduloEn(false, xc) || moduloEn(true, xc); if (seccionMira && m && seccionMira.id === m.id) return seccionMira.dir; return m && m.esquina && m.esquina.lado === 'izq' ? -1 : 1; };
+const miraCorte = xc => { const m = moduloEn(false, xc) || moduloEn(true, xc); if (seccionMira && m && seccionMira.id === m.id) return seccionMira.dir; return m && m.esquina && m.esquina.lado === 'izq' ? -1 : 1; };   /* A162: 1 = pestana a la derecha (muro a la izquierda) */
 let tabHits = [], frontHits = [], planCaraHits = [], esqGripHits = [];   /* A143: agarre del ancho del esquinero en el alzado */   /* A140: gabinetes de las otras caras en la planta de toda la cocina */   /* A135 pestanas de caras; A137 frentes (Ctrl + arrastrar material) */
 let hits = [], dimHits = [], partHits = [], gripHits = [], wallRect = null, frame = null, cssW = 0, cssH = 0;
 let materialHits = [], pieceHits = [], post = [];
@@ -5064,11 +5071,11 @@ function conEspejo(cx, f){
 /* A159: seccion de cocina con su orientacion y el boton para mirar al otro lado */
 function seccionCocina(xw, s, Z, xc){
   const dir = miraCorte(xc), xl = xw - fondoSeccion()*s, cx = (xl + xw)/2;
-  if (dir > 0) drawSeccionCocina(xw, s, Z, xc, dir); else conEspejo(cx, () => drawSeccionCocina(xw, s, Z, xc, dir));
+  if (dir < 0) drawSeccionCocina(xw, s, Z, xc, dir); else conEspejo(cx, () => drawSeccionCocina(xw, s, Z, xc, dir));   /* A162: pestana a la derecha = muro a la izquierda */
   if (exporting) return;
-  const txt = dir > 0 ? 'Mira hacia la derecha · ⇄ girar' : 'Mira hacia la izquierda · ⇄ girar'; ctx.font = "400 11px 'Inter'"; const w = ctx.measureText(txt).width + 14, r = { x: cx - w/2, y: Z(0) + 62, w, h: 16 };   /* bajo las cotas del piso, sin tocar el titulo */
+  ctx.font = "600 12px 'Inter'"; const tw = ctx.measureText('SECCIÓN').width, r = { x: cx + tw/2 + 8, y: Z(cfg.alturaMuro) - 54, w: 20, h: 17 };   /* A162: solo la doble flecha, junto al titulo */
   ctx.fillStyle = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1);
-  ctx.fillStyle = C.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, cx, r.y + r.h/2 + .5); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = C.ink; ctx.font = "400 12px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⇄', r.x + r.w/2, r.y + r.h/2 + .5); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   miraHits.push({ rect: r, xc });
 }
 function drawSeccionCocina(xw, s, Z, xc, dir = 1){
@@ -5108,11 +5115,13 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
   if (mEsq) { const sep = cfg.separacionPosterior || 0, enCat = id => id && (cfg.catalogo || []).some(q => q.id === id);
     const tono = q => q.rol === 'cubierta' ? 'rgb(180,185,186)' : q.rol === 'zoclo' ? (dark ? '#4A4A45' : 'rgb(90,90,85)') : q.rol === 'herraje' ? (dark ? '#6E6E6A' : 'rgb(75,75,72)') : q.rol === 'frente' ? (dark ? '#4A5058' : 'rgb(215,220,224)') : wood;
     const orden = { panel: 0, repisa: 1, division: 1, frente: 2, zoclo: 3, herraje: 4, cubierta: 5 }; let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    /* A159: lo que queda mas alla del corte, hacia donde mira, en alzado (repisas, costados y frentes de la otra ala) */
-    piezasEsquina(mEsq).forEach(q => { const xs = q.poli ? q.poli.map(v => v[0]) : [q.x, q.x + q.ancho], ys = q.poli ? q.poli.map(v => v[1]) : [q.y, q.y + q.fondo];
-      if (!(dir > 0 ? Math.min(...xs) >= xc - .01 : Math.max(...xs) <= xc + .01)) return;
-      const e0 = Math.max(0, Math.min(...ys) - sep), e1 = Math.max(...ys) - sep, r = { x: P(e1), y: Z(q.z + q.alto), w: (e1 - e0)*s, h: q.alto*s }; if (r.w <= .2 || r.h <= .2) return;
-      ctx.fillStyle = dark ? 'rgba(255,255,255,.05)' : 'rgba(80,80,80,.06)'; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.save(); ctx.globalAlpha = .55; outline(r, C.line, 1); ctx.restore();
+    /* A162: mas alla del corte, hacia donde mira, solo las repisas (se ve como dan vuelta en L) y la barra; tambien la parte de una pieza
+       cortada que sigue mas alla. No los paneles de atras */
+    const recorteMedio = (pts, xc0, d) => { const out = [], dentro = v => d*(v[0] - xc0) >= -1e-6; pts.forEach((a, i) => { const b = pts[(i + 1) % pts.length]; if (dentro(a)) out.push(a); if (dentro(a) !== dentro(b)) out.push([xc0, a[1] + (b[1] - a[1])*(xc0 - a[0])/(b[0] - a[0])]); }); return out; };
+    piezasEsquina(mEsq).forEach(q => { if (!(q.rol === 'repisa' || q.tipo === 'Cajonera' || q.rol === 'cubierta' && q.tipo === 'Losa')) return;
+      const pts = q.poli || [[q.x, q.y], [q.x + q.ancho, q.y], [q.x + q.ancho, q.y + q.fondo], [q.x, q.y + q.fondo]], cl = recorteMedio(pts, xc, dir); if (cl.length < 3) return;
+      const ys = cl.map(v => v[1]), e0 = Math.max(0, Math.min(...ys) - sep), e1 = Math.max(...ys) - sep, r = { x: P(e1), y: Z(q.z + q.alto), w: (e1 - e0)*s, h: q.alto*s }; if (r.w <= .2 || r.h <= .2) return;
+      ctx.fillStyle = dark ? 'rgba(255,255,255,.04)' : 'rgba(80,80,80,.05)'; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.save(); ctx.globalAlpha = .7; outline(r, C.line, 1); ctx.restore();
       if (q.rol === 'repisa') hits.push({ rect: r, module: mEsq }); });
     piezasEsquina(mEsq).sort((a, b) => (orden[a.rol] ?? 2) - (orden[b.rol] ?? 2)).forEach(q => cortePieza(q, xc).forEach(([a, b]) => {
       const d0 = a - sep, d1 = b - sep, r = { x: P(d1), y: Z(q.z + q.alto), w: (d1 - d0)*s, h: q.alto*s }; if (r.w <= .2 || r.h <= .2) return;
@@ -5908,6 +5917,13 @@ function esquinerosPlan(add, r2, sep, tf){
     if (duenaA) { caja(id + ':puerta', 'frente', 'Puerta', modB, LA - wA, LA - fB, fA, fA + tf, 0, tope, frente, 'frentes'); caja(id + ':panel', 'tapeta', 'Compensacion', modB, LA - fB - tf, LA - fB, fA + tf, wB, 0, tope, frente, 'tapetas'); }
     else { caja(id + ':puerta', 'frente', 'Puerta', modB, LA - fB - tf, LA - fB, fA, wB, 0, tope, frente, 'frentes'); caja(id + ':panel', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB - tf, fA, fA + tf, 0, tope, frente, 'tapetas'); }
     if (!repC) barraAlacena(tope, true);   /* A150: con barra de un lado */
+    /* A162: repisas en la puerta: angostas, entre dos laterales, en la cara interior de la puerta */
+    const nP = Math.max(0, Math.min(8, e.repisasPuerta || 0)), dP = cfg.region === 'US' ? inch(4) : 10;
+    if (nP > 0) { const za = 15, zz = tope - 15, et = 'gabinetes';
+      const pz = (k, u0, u1, z0, z1, rol, tipo) => duenaA ? caja(id + ':puerta:' + k, rol, tipo, modB, u0, u1, fA - dP, fA, z0, z1, gm('Repisas'), et) : caja(id + ':puerta:' + k, rol, tipo, modB, LA - fB, LA - fB + dP, u0, u1, z0, z1, gm('Repisas'), et);
+      const a0 = duenaA ? LA - wA + e1 + 3 : fA + tf + 3, a1 = duenaA ? LA - fB - 3 : wB - e1 - 3;
+      pz('lat:a', a0, a0 + e1, za, zz, 'panel', 'Lateral'); pz('lat:b', a1 - e1, a1, za, zz, 'panel', 'Lateral');
+      for (let j = 0; j < nP; j++) { const z = za + (zz - za)*j/Math.max(1, nP - 1); pz('repisa:' + j, a0 + e1, a1 - e1, Math.min(z, zz - e1), Math.min(z, zz - e1) + e1, 'repisa', 'Repisa'); } }
   } else {
     const conGola = golaEsquina(e);   /* A139; A143: tambien el carrusel */
     esquinaL(id, wA, wB, fA, fB, zb, z1, modB, diag, alacena ? (interiorAlacena(e) === 'barra' ? 0 : repisasAlacena(e)) : diag ? Math.max(0, Math.min(4, e.repisasDiag || 0)) : 0, true, 0, 0, conGola ? golaHondo(true) + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina) : 0, alacena && diag,
@@ -7183,6 +7199,7 @@ function esquinaPanel(m){
   if (alacena) html += section('Alacena', radios('esqAlacena', [['oculta', 'Oculta, puerta de piso a techo'], ['diagonal', 'Diagonal, una puerta']], e.alacena === 'diagonal' ? 'diagonal' : 'oculta')
     + `<div class="note">Del zoclo al tope de los altos; no lleva alto encima.</div>`)
     + section('Interior', radios('esqInterior', [['repisas', 'Repisas completas'], ['barra', 'Con barra de un lado']], interiorAlacena(e))
+    + (e.alacena !== 'diagonal' ? `<div class="grid-2">${num('esqRepPuerta', 'Repisas en la puerta', e.repisasPuerta || 0, '', 0, 8, 1)}</div>` : '')   /* A162 */
     + `<div class="grid-2">${interiorAlacena(e) === 'repisas' ? num('esqRepAlacena', 'Repisas', repisasAlacena(e), '', 0, 10, 1) : num('esqRepBarra', 'Repisas sobre la barra', repisasBarra(e), '', 0, 8, 1)}${num('esqFondoRep', 'Fondo de repisas', fondoRepisasEsq(e), 'cm', 10, 60)}</div>`   /* A157 */
     + `<div class="note-sm">${interiorAlacena(e) === 'barra' ? 'Bajo de cajones con cubierta contra un muro, repisas con LED encima y repisero en el otro.' : 'Repisas en L, del zoclo al tope; de fábrica 20 cm de fondo.'}</div>`);   /* A150; A153 */
   if (alacena) { const hh = huellaEsquina(k);   /* A140: ancho a gusto en cada cara */
@@ -7683,7 +7700,7 @@ const ACT = {
   esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; }),
   esqAnchoA: (v, m) => change(() => { esquinaDe(byId(m.id)).anchoA = v; }), esqAnchoB: (v, m) => change(() => { esquinaDe(byId(m.id)).anchoB = v; }),
   esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }), esqInterior: (v, m) => change(() => { esquinaDe(byId(m.id)).interior = v; }),
-  esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }), esqHerraje: (v, m) => change(() => { esquinaDe(byId(m.id)).herraje = v; }), esqRepAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasAlacena = Math.round(+v); }), esqRepBarra: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasBarra = Math.round(+v); }), esqFondoRep: (v, m) => change(() => { esquinaDe(byId(m.id)).fondoRepisas = +v; }), esqRepisas: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasDiag = +v; }),
+  esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }), esqHerraje: (v, m) => change(() => { esquinaDe(byId(m.id)).herraje = v; }), esqRepAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasAlacena = Math.round(+v); }), esqRepBarra: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasBarra = Math.round(+v); }), esqRepPuerta: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasPuerta = Math.round(+v); }), esqFondoRep: (v, m) => change(() => { esquinaDe(byId(m.id)).fondoRepisas = +v; }), esqRepisas: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasDiag = +v; }),
   esqAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).alto = v; }), esqRelleno: (v, m) => change(() => { esquinaDe(byId(m.id)).relleno = v === 'repisas' ? 'repisas' : 'puerta'; }),
   esqUnion: (v, m) => change(() => { esquinaDe(byId(m.id)).union = v === 'tapeta' ? 'tapeta' : 'L'; }),
   genZoc: v => change(c => c.generarZoclos = v), retZoc: v => change(c => c.retiroZoclo = v), tipoZoc: v => change(c => c.tipoZoclo = v === 'patas' ? 'patas' : 'madera'),   /* A84 */
@@ -8261,7 +8278,7 @@ const EN = {
   'A medida (1/16")': 'Custom (1/16")',
   'La distribución actual usa ahora las reglas de Estados Unidos.': 'The current layout now uses the United States rules.',
   'La distribución actual usa ahora las reglas de México.': 'The current layout now uses the Mexico rules.',
-  'Repisas detrás de la puerta': 'Shelves behind the door', 'Fondo de repisas': 'Shelf depth', 'Repisas sobre la barra': 'Shelves above the counter',
+  'Repisas detrás de la puerta': 'Shelves behind the door', 'Fondo de repisas': 'Shelf depth', 'Repisas sobre la barra': 'Shelves above the counter', 'Repisas en la puerta': 'Door shelves',
   'En L a lo largo de los dos muros; de fábrica 20 cm de fondo; el triángulo tras la puerta queda libre.': 'L-shaped along both walls; 20 cm deep by default; the triangle behind the door stays clear.',
   'Repisas en L, del zoclo al tope; de fábrica 20 cm de fondo.': 'L-shaped shelves from the toe kick to the top; 20 cm deep by default.', 'Repisas completas': 'Full shelves', 'Con barra de un lado': 'With a counter on one side',
   'Bajo de cajones con cubierta contra un muro, repisas con LED encima y repisero en el otro.': 'Drawer base with a countertop against one wall, LED shelves above and a shelf rack on the other.',
