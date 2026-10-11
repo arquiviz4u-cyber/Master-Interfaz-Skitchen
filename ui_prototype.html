@@ -283,6 +283,12 @@
        el retiro sobre cada ala es el canal por raiz de 2 (antes el techo quedaba delante del perfil). B) [Revit] la puerta de la
        alacena oculta llega al panel de la otra cara (sin junta en la esquina). F) las guias del ancho del esquinero quedan visibles en el
        alzado: el borde de la barra perpendicular (o la tapeta de 5 cm del ciego) y el ancho de fabrica.
+   A159. Seccion del esquinero (11/10, usuario): 1) el corte tiene orientacion: mira hacia el extremo derecho (muro a la derecha)
+       o hacia el izquierdo (se dibuja en espejo: muro a la izquierda, textos al derecho); de fabrica mira hacia la esquina que
+       corta (en la cara B, la esquina con A a la izquierda y la de C a la derecha) y el boton «Mirar al otro lado» la cambia; los
+       pies de la linea de corte en el alzado senalan hacia donde mira; 2) en el esquinero, ademas de lo cortado, se dibuja en
+       alzado lo que queda mas alla del corte (repisas, costados y frentes de la otra ala); 3) las repisas (cortadas y en alzado)
+       se pueden elegir: abren el panel de la esquina con su numero y fondo.
    A156. [Master hecho 11/10; SketchUp con abre.zona y calza de bisagra; Revit pendiente] Tras probar el A154 (11/10, usuario):
        1) el refrigerador no se podia poner con un muro bajo (213 cm): el hueco de fabrica (190) no dejaba los 25 cm del gabinete de
        arriba; al cambiar a Refrigerador el hueco baja lo necesario (minimo 120) o, si no cabe, va sin gabinete de arriba;
@@ -4642,6 +4648,9 @@ let ctx = canvas.getContext('2d');   /* let: Exportar dibuja en un lienzo aparte
 let exporting = false, dark = false;
 /* lineas de proyeccion: abatimientos de puertas, X de cajon, Λ de elevables y proyecciones punteadas; en las vistas exportadas solo si Ajustes las pide */
 const proyOn = () => !exporting || prefs.exportProyeccion;
+/* A159: orientacion del corte elegida con el boton ({ id del modulo cortado, dir }); si no, mira hacia la esquina que corta */
+let seccionMira = null, miraHits = [];
+const miraCorte = xc => { const m = moduloEn(false, xc) || moduloEn(true, xc); if (seccionMira && m && seccionMira.id === m.id) return seccionMira.dir; return m && m.esquina && m.esquina.lado === 'izq' ? -1 : 1; };
 let tabHits = [], frontHits = [], planCaraHits = [], esqGripHits = [];   /* A143: agarre del ancho del esquinero en el alzado */   /* A140: gabinetes de las otras caras en la planta de toda la cocina */   /* A135 pestanas de caras; A137 frentes (Ctrl + arrastrar material) */
 let hits = [], dimHits = [], partHits = [], gripHits = [], wallRect = null, frame = null, cssW = 0, cssH = 0;
 let materialHits = [], pieceHits = [], post = [];
@@ -4776,7 +4785,7 @@ function drawCanvas(){
 }
 function drawCanvasCore(){
   ctx.clearRect(0, 0, cssW, cssH);
-  tabHits = []; frontHits = []; planCaraHits = []; esqGripHits = []; hits = []; dimHits = []; partHits = []; gripHits = []; materialHits = []; pieceHits = []; guideHits = []; edges = []; edgeOwner = null; wallRect = null; frame = null;
+  miraHits = []; tabHits = []; frontHits = []; planCaraHits = []; esqGripHits = []; hits = []; dimHits = []; partHits = []; gripHits = []; materialHits = []; pieceHits = []; guideHits = []; edges = []; edgeOwner = null; wallRect = null; frame = null;
   if (cssW < 320 || cssH < 240) return; /* area minima: con menos, la escala saldria negativa */
   Object.assign(C, dark && !exporting ? DARK : LIGHT);
   if (cfg.closet) Object.assign(C, dark && !exporting ? CLOSET_DARK : CLOSET_LIGHT);
@@ -4886,7 +4895,7 @@ function drawElevation(){
   }
   dim(X(0), ground + 36, X(W), ground + 36, fmt(W) + uS(), 'length');
   if (measure) drawMeasure(X, Z);
-  if (sec) { const xc = guideVal('corteA', corteX()); marcaCorte(X(xc), top - 8, ground + 12, 'corteA'); drawSeccionCocina(X(W + eR) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
+  if (sec) { const xc = guideVal('corteA', corteX()); marcaCorte(X(xc), top - 8, ground + 12, 'corteA', miraCorte(xc)); seccionCocina(X(W + eR) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
 }
 
@@ -4926,11 +4935,11 @@ function moduloEn(upper, xc){ let x = ajusteIzq(); for (const m of row(upper)) {
 const fondoSeccion = () => Math.max(30, ...cfg.modulos.map(m => m.fondo + (m.upper ? 0 : vueloEf() + 4)), ...cfg.modulos.filter(m => m.fondoSuperior > 0).map(m => m.fondoSuperior),
   ...(multiCara() ? cfg.modulos.filter(m => m.esquina).map(m => Math.max(...huellaEsquina(m.esquina.k)) + 4) : []));   /* A141: la huella del esquinero */
 /* linea de corte sobre el alzado: punteada, con las flechas mirando hacia la seccion y la letra A */
-function marcaCorte(xp, y0, y1, key){
+function marcaCorte(xp, y0, y1, key, dir = 1){   /* A159: dir, hacia donde mira el corte */
   const on = drag && drag.kind === 'guide' && drag.key === key || hover === 'guide:' + key, col = on ? C.select : C.ink;
   ctx.save(); ctx.strokeStyle = col; ctx.setLineDash([12, 3, 2, 3]); ctx.lineWidth = 1; line(xp, y0 + 12, xp, y1 - 12); ctx.setLineDash([]);
   ctx.lineWidth = 3; ctx.lineCap = 'butt';
-  for (const [y, d] of [[y0, 1], [y1, -1]]) { line(xp, y, xp, y + 12*d); line(xp - 1.5, y, xp + 10, y); }   /* guion grueso y pie hacia la seccion */
+  for (const [y, d] of [[y0, 1], [y1, -1]]) { line(xp, y, xp, y + 12*d); line(xp - 1.5*dir, y, xp + 10*dir, y); }   /* guion grueso y pie hacia la seccion */
   ctx.restore();
   if (!exporting) guideHits.push({ rect: { x: xp - 6, y: y0, w: 12, h: y1 - y0 }, key });
 }
@@ -4970,7 +4979,26 @@ function cortePieza(q, xc){
   const ys = []; q.poli.forEach((a, i) => { const b = q.poli[(i + 1) % q.poli.length]; if ((a[0] - xc)*(b[0] - xc) < 0) ys.push(a[1] + (b[1] - a[1])*(xc - a[0])/(b[0] - a[0])); });
   ys.sort((u, v) => u - v); const r = []; for (let i = 0; i + 1 < ys.length; i += 2) r.push([ys[i], ys[i + 1]]); return r;
 }
-function drawSeccionCocina(xw, s, Z, xc){
+/* A159: dibuja f() reflejado en x alrededor de cx: textos al derecho (en su lugar reflejado) y zonas de clic reflejadas */
+function conEspejo(cx, f){
+  const h0 = hits.length, d0 = dimHits.length, p0 = partHits.length, ft = ctx.fillText;
+  ctx.save(); ctx.translate(2*cx, 0); ctx.scale(-1, 1);
+  ctx.fillText = function(txt, x, y, mw){ const al = ctx.textAlign; ctx.save(); ctx.translate(x, y); ctx.scale(-1, 1); ctx.textAlign = al === 'left' || al === 'start' ? 'right' : al === 'right' || al === 'end' ? 'left' : al; if (mw === undefined) ft.call(ctx, txt, 0, 0); else ft.call(ctx, txt, 0, 0, mw); ctx.restore(); };
+  try { f(); } finally { ctx.fillText = ft; ctx.restore(); }
+  const flip = r => { if (r) r.x = 2*cx - r.x - r.w; };
+  for (let i = h0; i < hits.length; i++) flip(hits[i].rect); for (let i = d0; i < dimHits.length; i++) flip(dimHits[i].rect); for (let i = p0; i < partHits.length; i++) flip(partHits[i].rect);
+}
+/* A159: seccion de cocina con su orientacion y el boton para mirar al otro lado */
+function seccionCocina(xw, s, Z, xc){
+  const dir = miraCorte(xc), xl = xw - fondoSeccion()*s, cx = (xl + xw)/2;
+  if (dir > 0) drawSeccionCocina(xw, s, Z, xc, dir); else conEspejo(cx, () => drawSeccionCocina(xw, s, Z, xc, dir));
+  if (exporting) return;
+  const txt = dir > 0 ? 'Mira hacia la derecha · ⇄ girar' : 'Mira hacia la izquierda · ⇄ girar'; ctx.font = "400 11px 'Inter'"; const w = ctx.measureText(txt).width + 14, r = { x: cx - w/2, y: Z(0) + 62, w, h: 16 };   /* bajo las cotas del piso, sin tocar el titulo */
+  ctx.fillStyle = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1);
+  ctx.fillStyle = C.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, cx, r.y + r.h/2 + .5); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  miraHits.push({ rect: r, xc });
+}
+function drawSeccionCocina(xw, s, Z, xc, dir = 1){
   const P = d => xw - d*s, t = Math.max(1, 1.8*s), zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), H = cfg.alturaMuro, A = cfg.altoBajos;
   const wood = dark ? '#5C5546' : 'rgb(232,224,207)', drawerC = dark ? '#4A5058' : 'rgb(215,220,224)';
   const brd = (r, mm) => { if (r.w <= 0 || r.h <= 0) return; fillMat(r.x, r.y, r.w, r.h, flat ? null : mm, wood); outline(r, C.line, 1); };
@@ -5007,12 +5035,18 @@ function drawSeccionCocina(xw, s, Z, xc){
   if (mEsq) { const sep = cfg.separacionPosterior || 0, enCat = id => id && (cfg.catalogo || []).some(q => q.id === id);
     const tono = q => q.rol === 'cubierta' ? 'rgb(180,185,186)' : q.rol === 'zoclo' ? (dark ? '#4A4A45' : 'rgb(90,90,85)') : q.rol === 'herraje' ? (dark ? '#6E6E6A' : 'rgb(75,75,72)') : q.rol === 'frente' ? (dark ? '#4A5058' : 'rgb(215,220,224)') : wood;
     const orden = { panel: 0, repisa: 1, division: 1, frente: 2, zoclo: 3, herraje: 4, cubierta: 5 }; let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    /* A159: lo que queda mas alla del corte, hacia donde mira, en alzado (repisas, costados y frentes de la otra ala) */
+    piezasEsquina(mEsq).forEach(q => { const xs = q.poli ? q.poli.map(v => v[0]) : [q.x, q.x + q.ancho], ys = q.poli ? q.poli.map(v => v[1]) : [q.y, q.y + q.fondo];
+      if (!(dir > 0 ? Math.min(...xs) >= xc - .01 : Math.max(...xs) <= xc + .01)) return;
+      const e0 = Math.max(0, Math.min(...ys) - sep), e1 = Math.max(...ys) - sep, r = { x: P(e1), y: Z(q.z + q.alto), w: (e1 - e0)*s, h: q.alto*s }; if (r.w <= .2 || r.h <= .2) return;
+      ctx.fillStyle = dark ? 'rgba(255,255,255,.05)' : 'rgba(80,80,80,.06)'; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.save(); ctx.globalAlpha = .55; outline(r, C.line, 1); ctx.restore();
+      if (q.rol === 'repisa') hits.push({ rect: r, module: mEsq }); });
     piezasEsquina(mEsq).sort((a, b) => (orden[a.rol] ?? 2) - (orden[b.rol] ?? 2)).forEach(q => cortePieza(q, xc).forEach(([a, b]) => {
       const d0 = a - sep, d1 = b - sep, r = { x: P(d1), y: Z(q.z + q.alto), w: (d1 - d0)*s, h: q.alto*s }; if (r.w <= .2 || r.h <= .2) return;
-      fillMat(r.x, r.y, r.w, r.h, flat || !enCat(q.material) ? null : q.material, flat ? C.flat : tono(q)); outline(r, C.line, 1);
+      fillMat(r.x, r.y, r.w, r.h, flat || !enCat(q.material) ? null : q.material, flat ? C.flat : tono(q)); outline(r, C.line, 1); if (q.rol === 'repisa') hits.push({ rect: r, module: mEsq });   /* A159: repisas elegibles */
       x0 = Math.min(x0, r.x); x1 = Math.max(x1, r.x + r.w); y0 = Math.min(y0, r.y); y1 = Math.max(y1, r.y + r.h); }));
     if (x1 > x0) hits.push({ rect: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, module: mEsq });
-    return out; }
+    tituloSeccion(P(fondoSeccion()), xw, Z(H) - 38); return out; }
   if (low && !low.reserved) {
     const D = low.fondo, tipo = low.tipo;
     if (isRefri(low)) {   /* hueco del refrigerador y, encima, su gabinete */
@@ -5109,7 +5143,7 @@ function drawSeccionVista(){
   title('SECCIÓN', `· por ${low ? nombreModulo(low) : 'el tramo'}, a ${fmt(xc)}${uS()} del extremo izquierdo · el corte se mueve en el alzado`);
   const s = Math.max(.1, Math.min((cssW - 260)/Ds, (cssH - 170)/H)), ground = Math.min(cssH - 80, (48 + cssH)/2 + (H*s + 50 - 80)/2), Z = z => ground - z*s, xw = cssW/2 + Ds*s/2;
   frame = { scale: s, ground, X: x => x, Z, W: 0, section: true }; post = []; wallRect = null;
-  if (cfg.closet) drawSeccionCloset(xw, s, Z, xc); else drawSeccionCocina(xw, s, Z, xc);
+  if (cfg.closet) drawSeccionCloset(xw, s, Z, xc); else seccionCocina(xw, s, Z, xc);   /* A159 */
 }
 /* closet: cuerpo cortado con barras (circulos), repisas, cajones, maletero, frentes y zoclo */
 function drawSeccionCloset(xw, s, Z, xc){
@@ -6694,6 +6728,7 @@ canvas.addEventListener('mousedown', e => {
   const p = pt(e), dbl = e.detail >= 2;   /* e.detail: Clicks del real (2 = doble clic) */
   canvas.focus();
   /* A45: sin preventDefault el clic termina dando el foco al lienzo, el campo pierde el foco (blur) y se cierra al instante */
+  const mh = miraHits.find(q => inside(p, q.rect)); if (mh) { e.preventDefault(); const mm = moduloEn(false, mh.xc) || moduloEn(true, mh.xc); seccionMira = mm ? { id: mm.id, dir: -miraCorte(mh.xc) } : null; render(); return; }   /* A159 */
   const tb = tabHits.find(q => inside(p, q.rect)); if (tb) { e.preventDefault(); ACT.cara(String(tb.k)); return; }   /* A135 */
   const eg = esqGripHits.find(q => inside(p, q.rect));   /* A143: ancho del esquinero con guia e iman */
   if (eg) { e.preventDefault(); const m = eg.m, ee = esquinaDe(m), der = m.esquina.lado === 'der', k = m.esquina.k, fO = fondoCara(caraDe(der ? k + 1 : k), false), mn = fO + (esquinaDiag(ee) ? 20 : espFrente());
