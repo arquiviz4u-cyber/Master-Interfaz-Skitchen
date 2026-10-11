@@ -284,6 +284,11 @@
        del alto con la muesca del riel es una sola pieza (perfil en L); 4) el riel (o los taquetes) va en el alto inferior del
        alto doble, que carga al modulo superior; 5) de fabrica, taquetes por el fondo (los Ajustes con riel frances pasan una
        vez a taquetes; las cocinas guardadas conservan la suya).
+   A150. Alacena de esquina (11/10, usuario): solo «oculta» (puerta de piso a techo) y «diagonal»; la de puerta plegable
+       ('L') termina siendo lo mismo que la oculta y sale (las guardadas pasan a oculta). Por dentro se elige (e.interior):
+       «Repisas completas» (repisas en L del fondo de los altos, del zoclo al tope) o «Con barra de un lado» (bajo de cajones con
+       cubierta contra el muro de la cara k + 1, repisas con LED encima y repisero contra el de la k). De fabrica: oculta con
+       barra y diagonal con repisas (lo de antes). Revit: EsquineroGeo, Esquina.Interior y el panel de la esquina.
    A148. [Master hecho 11/10; Revit pendiente] Especiero anexado (usuario 11/10, corrige A144): sube hasta el cuerpo de arriba
        de su torre (gabinete superior del refrigerador, zona superior de la torre de hornos o ultimo cuerpo de la alacena) y
        ese cuerpo se ensancha y lo cubre: su lateral del lado del especiero se parte en su base (arriba queda tras los
@@ -2381,7 +2386,7 @@ const letraCara = k => 'ABC'[k] || String(k + 1);
 /* A137: todos los modulos de la cocina (la cara activa y las demas) */
 const todosModulos = (c = cfg) => c.modulos.concat(multiCara(c) ? c.caras.filter((q, k) => k !== c.cara).flatMap(q => q.modulos || []) : []);
 const fondoCara = (q, upper) => Math.max(0, ...q.modulos.filter(m => m.upper === upper && !m.esquina && !m.reserved).map(m => m.fondo)) || (upper ? prefs.inicio.fondoAltos : prefs.inicio.fondoBajos);
-const nuevaEsquina = () => ({ tipo: 'ciego', alacena: 'L', alto: 'auto', duena: 0, herraje: false, relleno: 'puerta', union: 'L', repisasDiag: 0 });   /* A142: repisas tras la puerta diagonal */   /* relleno: la parte del alto junto a la esquina (usuario 10/10); union: 'L' un solo gabinete o 'tapeta' dos gabinetes con tapeta (usuario 11/10) */
+const nuevaEsquina = () => ({ tipo: 'ciego', alacena: 'oculta', alto: 'auto', duena: 0, herraje: false, relleno: 'puerta', union: 'L', repisasDiag: 0 });   /* A142: repisas tras la puerta diagonal */   /* relleno: la parte del alto junto a la esquina (usuario 10/10); union: 'L' un solo gabinete o 'tapeta' dos gabinetes con tapeta (usuario 11/10) */
 /* alto de la esquina: «sigue al bajo» (decision del usuario 10/10); la alacena llega al tope de los altos y no lleva alto */
 const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !== 'auto' ? e.alto : { ciego: 'ciego', carrusel: 'L', diagonal: 'diagonal' }[e.tipo] || 'L';
 /* huella de la esquina k en la cara k y en la k + 1 (en bajos; los altos van en la misma columna). Ciego: el gabinete de la duena se
@@ -2398,6 +2403,8 @@ function huellaEsquina(k){
   return [libre(e.anchoA, R.lado, fB + extra), libre(e.anchoB, R.lado, fA + extra)];
 }
 const esquinaDe = m => m && m.esquina && cfg.esquinas ? cfg.esquinas[m.esquina.k] : null;
+/* A150: interior de la alacena de esquina: 'repisas' (completas) o 'barra' (bajo con cubierta de un lado); de fabrica la oculta con barra */
+const interiorAlacena = e => e.interior === 'repisas' || e.interior === 'barra' ? e.interior : e.alacena === 'diagonal' ? 'repisas' : 'barra';
 const esquinaDiag = e => e.tipo === 'diagonal' || e.tipo === 'alacena' && e.alacena === 'diagonal';
 /* A143 (usuario 11/10): los bajos del esquinero llevan la gola como los demas bajos (carrusel, diagonal y ciego; la alacena no) */
 const golaEsquina = e => cfg.style === 'Moderna' && (e.tipo === 'carrusel' || e.tipo === 'diagonal' || e.tipo === 'ciego');
@@ -2422,6 +2429,7 @@ function plantaEsquina(k){
 /* anchos de los modulos de esquina de la cara activa y sin tapeta del lado de la esquina */
 function aplicarEsquinas(){
   if (!multiCara()) { cfg.modulos = cfg.modulos.filter(m => !m.esquina); return; }
+  cfg.esquinas.forEach(e => { if (e.tipo === 'alacena' && e.alacena !== 'diagonal') e.alacena = 'oculta'; });   /* A150: sin la de puerta plegable */
   cfg.modulos.forEach(m => { if (!m.esquina) return; const h = huellaEsquina(m.esquina.k); m.tipo = 'Esquina'; m.ancho = m.esquina.lado === 'der' ? h[0] : h[1]; m.fijo = true; m.dosPuertas = false; m.parrilla = false;
     if (m.esquina.lado === 'der') { cfg.tapetaDer = false; cfg.corridaDer = false; cfg.cerrarZocloDer = false; } else { cfg.tapetaIzq = false; cfg.corridaIzq = false; cfg.cerrarZocloIzq = false; } });
 }
@@ -5559,6 +5567,16 @@ function esquinerosPlan(add, r2, sep, tf){
   let frente = (mb && mb.materialPuertas) || mat;   /* A137: las puertas del esquinero con el material de las puertas de bajos */
   const alacena = e.tipo === 'alacena', oculta = alacena && e.alacena === 'oculta', diag = e.tipo === 'diagonal' || alacena && e.alacena === 'diagonal';
   const z1 = alacena ? topeAltos() : zb + A;
+  /* A150: interior «con barra de un lado»: bajo de cajones con cubierta contra el muro de la cara k + 1, repisas con LED encima y repisero lateral contra el de la k */
+  const barraAlacena = tope => {
+    const xb0 = LA - Math.min(fB, 60), yb0 = ef, yb1 = Math.max(yb0 + 20, wB - e1 - 1);
+    caja(id + ':bajo', 'panel', 'Cajonera', modB, xb0, LA - ef, yb0, yb1, zb + e1, zb + A, mat, 'gabinetes');
+    caja(id + ':cubierta', 'cubierta', 'Losa', modB, xb0, LA - ef, yb0, yb1, zb + A, zb + A + cfg.espesorCubierta, groupMaterial('Cubierta') || null, 'cubierta');
+    for (let i = 0; i < 3; i++) { const z = baseAltos() + i*24; caja(id + ':repisa:' + i, 'repisa', 'Repisa', modB, LA - 32, LA - ef, yb0, yb1, z, z + e1, gm('Repisas'), 'gabinetes');
+      caja(id + ':led:' + i, 'herraje', 'LED', modB, LA - 30, LA - 28.3, yb0 + 2, yb1 - 2, z - .6, z, PLAN_TIRA.id, 'herrajes'); }
+    caja(id + ':repisero', 'panel', 'Lateral', modB, LA - wA + e1, LA - fB - 1, ef + 30, ef + 30 + e1, zb, tope - e1, mat, 'gabinetes');
+    for (let i = 1; i <= 6; i++) { const z = zb + (tope - zb)*i/7; caja(id + ':repisero:' + i, 'repisa', 'Repisa', modB, LA - wA + e1, LA - fB - 1, ef, ef + 30, z, z + e1, gm('Repisas'), 'gabinetes'); }
+  };
   /* ciego en ejes locales: u a lo largo de la cara duena desde la esquina, v desde su muro */
   const ciego = (pre, duenaA, w, fOwn, fOtra, z0, z1, modulo, herraje, gola = false) => {   /* A143: gola en el bajo */
     const bx = (n, rol, tipo, u0, u1, v0, v1, a, b, m2, et) => duenaA ? caja(pre + n, rol, tipo, modulo, LA - u1, LA - u0, v0, v1, a, b, m2, et) : caja(pre + n, rol, tipo, modulo, LA - v1, LA - v0, u0, u1, a, b, m2, et);
@@ -5611,23 +5629,17 @@ function esquinerosPlan(add, r2, sep, tf){
   const modB = mb ? mb.id : id, modU = mu ? mu.id : id;
   if (e.tipo === 'ciego') { const duenaA = e.duena !== 1; ciego(id, duenaA, duenaA ? wA : wB, duenaA ? fA : fB, duenaA ? fB : fA, zb, z1, modB, !!e.herraje, golaEsquina(e)); }
   else if (oculta) {
-    const duenaA = e.duena !== 1, tope = topeAltos();
-    esquinaL(id, wA, wB, fA, fB, zb, tope, modB, false, 0);
+    const duenaA = e.duena !== 1, tope = topeAltos(), repC = interiorAlacena(e) === 'repisas';
+    esquinaL(id, wA, wB, fA, fB, zb, tope, modB, false, repC ? 4 : 0, true, 0, 0, 0, false, repC ? [fondoCara(cfg, true), fondoCara(caraDe(k + 1), true)] : null);   /* A150 */
     /* puerta de piso al tope de los altos en la cara duena; la otra cara cierra con un panel fijo */
     if (duenaA) { caja(id + ':puerta', 'frente', 'Puerta', modB, LA - wA, LA - fB, fA, fA + tf, 0, tope, frente, 'frentes'); caja(id + ':panel', 'tapeta', 'Compensacion', modB, LA - fB - tf, LA - fB, fA + tf, wB, 0, tope, frente, 'tapetas'); }
     else { caja(id + ':puerta', 'frente', 'Puerta', modB, LA - fB - tf, LA - fB, fA, wB, 0, tope, frente, 'frentes'); caja(id + ':panel', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB - tf, fA, fA + tf, 0, tope, frente, 'tapetas'); }
-    /* dentro: bajo de cajones con cubierta contra el muro de la cara k + 1, repisas con LED encima y repisero lateral contra el de la k */
-    const xb0 = LA - Math.min(fB, 60), yb0 = ef, yb1 = Math.max(yb0 + 20, wB - e1 - 1);
-    caja(id + ':bajo', 'panel', 'Cajonera', modB, xb0, LA - ef, yb0, yb1, zb + e1, zb + A, mat, 'gabinetes');
-    caja(id + ':cubierta', 'cubierta', 'Losa', modB, xb0, LA - ef, yb0, yb1, zb + A, zb + A + cfg.espesorCubierta, groupMaterial('Cubierta') || null, 'cubierta');
-    for (let i = 0; i < 3; i++) { const z = baseAltos() + i*24; caja(id + ':repisa:' + i, 'repisa', 'Repisa', modB, LA - 32, LA - ef, yb0, yb1, z, z + e1, gm('Repisas'), 'gabinetes');
-      caja(id + ':led:' + i, 'herraje', 'LED', modB, LA - 30, LA - 28.3, yb0 + 2, yb1 - 2, z - .6, z, PLAN_TIRA.id, 'herrajes'); }
-    caja(id + ':repisero', 'panel', 'Lateral', modB, LA - wA + e1, LA - fB - 1, ef + 30, ef + 30 + e1, zb, tope - e1, mat, 'gabinetes');
-    for (let i = 1; i <= 6; i++) { const z = zb + (tope - zb)*i/7; caja(id + ':repisero:' + i, 'repisa', 'Repisa', modB, LA - wA + e1, LA - fB - 1, ef, ef + 30, z, z + e1, gm('Repisas'), 'gabinetes'); }
+    if (!repC) barraAlacena(tope);   /* A150: con barra de un lado */
   } else {
     const conGola = golaEsquina(e);   /* A139; A143: tambien el carrusel */
-    esquinaL(id, wA, wB, fA, fB, zb, z1, modB, diag, alacena ? 4 : diag ? Math.max(0, Math.min(2, e.repisasDiag || 0)) : 0, true, 0, 0, conGola ? golaHondo(true) + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina) : 0, alacena && diag,
+    esquinaL(id, wA, wB, fA, fB, zb, z1, modB, diag, alacena ? (interiorAlacena(e) === 'barra' ? 0 : 4) : diag ? Math.max(0, Math.min(2, e.repisasDiag || 0)) : 0, true, 0, 0, conGola ? golaHondo(true) + (cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina) : 0, alacena && diag,
       alacena || diag && e.repisasDiag > 0 ? [fondoCara(cfg, true), fondoCara(caraDe(k + 1), true)] : null);   /* A142: repisas en L del fondo de los altos */   /* A140 */
+    if (alacena && interiorAlacena(e) === 'barra') barraAlacena(z1);   /* A150 */
     if (diag) { puertaDiag(id, wA, wB, fA, fB, zb, conGola ? z1 - agarre() : z1, modB); if (conGola) golaDiag(id, wA, wB, fA, fB, z1, modB); } else hojasL(id, wA, wB, fA, fB, zb, z1, modB, conGola);
     if (diag && cfg.generarZoclos && zb > 0) {   /* A139: zoclo a 45 grados, retirado como en las caras, de un zoclo al otro */
       const ret = cfg.retiroZoclo, k2 = ret*(Math.SQRT2 - 1), p1 = [LA - wA + k2, fA - ret], p2 = [LA - fB + ret, wB - k2], u = [Math.SQRT1_2*tf, -Math.SQRT1_2*tf];
@@ -6846,8 +6858,10 @@ function esquinaPanel(m){
   const e = esquinaDe(m), k = m.esquina.k, R = reg().esquina, h = huellaEsquina(k), alacena = e.tipo === 'alacena';
   let html = head('Esquinero', `Caras ${letraCara(k)} y ${letraCara(k + 1)} · ${fmt(h[0])} / ${fmt(h[1])}${uS()}`);
   html += section('Tipo', radios('esqTipo', ESQ_TIPOS, e.tipo));
-  if (alacena) html += section('Alacena', radios('esqAlacena', [['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal, una puerta'], ['oculta', 'Oculta, puerta de piso a techo']], e.alacena || 'L')
-    + `<div class="note">${e.alacena === 'oculta' ? 'Por dentro: bajo de cajones con cubierta, repisas con LED y repisero lateral.' : 'Del zoclo al tope de los altos; no lleva alto encima.'}</div>`);
+  if (alacena) html += section('Alacena', radios('esqAlacena', [['oculta', 'Oculta, puerta de piso a techo'], ['diagonal', 'Diagonal, una puerta']], e.alacena === 'diagonal' ? 'diagonal' : 'oculta')
+    + `<div class="note">Del zoclo al tope de los altos; no lleva alto encima.</div>`)
+    + section('Interior', radios('esqInterior', [['repisas', 'Repisas completas'], ['barra', 'Con barra de un lado']], interiorAlacena(e))
+    + `<div class="note-sm">${interiorAlacena(e) === 'barra' ? 'Bajo de cajones con cubierta contra un muro, repisas con LED encima y repisero en el otro.' : 'Repisas en L del fondo de los altos, del zoclo al tope.'}</div>`);   /* A150 */
   if (alacena) { const hh = huellaEsquina(k);   /* A140: ancho a gusto en cada cara */
     html += section('Ancho de la alacena', `<div class="grid-2">${num('esqAnchoA', `En cara ${letraCara(k)}`, hh[0], 'cm', 40, 200)}${num('esqAnchoB', `En cara ${letraCara(k + 1)}`, hh[1], 'cm', 40, 200)}</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
@@ -7322,7 +7336,7 @@ const ACT = {
   cara: v => { const k = +v; if (!multiCara() || k === cfg.cara) return; guardarCara(); cargarCara(cfg, k); selection.clear(); selectedPart = null; cleanSelection(); render(); },
   esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; }),
   esqAnchoA: (v, m) => change(() => { esquinaDe(byId(m.id)).anchoA = v; }), esqAnchoB: (v, m) => change(() => { esquinaDe(byId(m.id)).anchoB = v; }),
-  esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }),
+  esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }), esqInterior: (v, m) => change(() => { esquinaDe(byId(m.id)).interior = v; }),
   esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }), esqHerraje: (v, m) => change(() => { esquinaDe(byId(m.id)).herraje = v; }), esqRepisas: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasDiag = +v; }),
   esqAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).alto = v; }), esqRelleno: (v, m) => change(() => { esquinaDe(byId(m.id)).relleno = v === 'repisas' ? 'repisas' : 'puerta'; }),
   esqUnion: (v, m) => change(() => { esquinaDe(byId(m.id)).union = v === 'tapeta' ? 'tapeta' : 'L'; }),
@@ -7901,7 +7915,9 @@ const EN = {
   'A medida (1/16")': 'Custom (1/16")',
   'La distribución actual usa ahora las reglas de Estados Unidos.': 'The current layout now uses the United States rules.',
   'La distribución actual usa ahora las reglas de México.': 'The current layout now uses the Mexico rules.',
-  'Repisas detrás de la puerta': 'Shelves behind the door', 'Sin repisas': 'No shelves', '1 repisa en L': '1 L-shaped shelf', '2 repisas en L': '2 L-shaped shelves',
+  'Repisas detrás de la puerta': 'Shelves behind the door', 'Repisas completas': 'Full shelves', 'Con barra de un lado': 'With a counter on one side',
+  'Bajo de cajones con cubierta contra un muro, repisas con LED encima y repisero en el otro.': 'Drawer base with a countertop against one wall, LED shelves above and a shelf rack on the other.',
+  'Repisas en L del fondo de los altos, del zoclo al tope.': 'L-shaped shelves as deep as the wall cabinets, from the toe kick to the top.', 'Sin repisas': 'No shelves', '1 repisa en L': '1 L-shaped shelf', '2 repisas en L': '2 L-shaped shelves',
   'En L a lo largo de los dos muros, del fondo de los altos; el triángulo tras la puerta queda libre.': 'L-shaped along both walls, as deep as the wall cabinets; the triangle behind the door stays clear.',
   'Automático: dos puertas por la tarja doble.': 'Automatic: two doors for the double sink.',
   'La distribución actual usa ahora las reglas de Estados Unidos. Espesores y medidas de fábrica pasaron a los suyos.': 'The current layout now uses the United States rules. Factory thicknesses and sizes switched to its own.',
