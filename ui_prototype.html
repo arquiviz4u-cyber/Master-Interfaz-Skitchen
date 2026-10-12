@@ -288,6 +288,11 @@
        diagonal y ciego) lleva bajo la cubierta fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa; la
        cubierta lleva cama solo con nariz; 5b) la gola del esquinero se une a inglete con la de las caras: arranca en el limite de la
        columna y va a la profundidad del perfil de las caras (alma entre hondo - e y hondo; antes estaba un espesor mas adentro).
+   A167. [Master hecho 12/10; Revit pendiente] Espesor de fondos (usuario 12/10): en Ajustes, Valores de inicio, «Espesor de fondos»
+       (inicio.espesorFondo, de 3 a 19 mm; de fabrica lo de hoy: 0.9 cm MX y 1/2" US). Cada cocina nueva lo toma (cfg.espesorFondo) y
+       cuerpoFondo() lo usa en los traseros de bajos, altos, especiales y esquineros; las guardadas sin el siguen con el de su region.
+       Con «Taquetes por el fondo» los altos conservan su fondo de 18 mm (atornillado). El usuario conoce la practica de 3 mm en bajos y
+       altos y 6 mm en piezas largas, pero lo deja como esta: solo la opcion.
    A166. [Master hecho 11/10; Revit P12.302] Seccion (usuario 11/10): 1) las cotas del corte salian al reves: con el corte en espejo
        (pestana a la derecha) el texto vertical se reflejaba; ahora conEspejo guarda las cotas y las dibuja despues con la x reflejada
        (texto y remates al derecho); 2) la seccion lleva las mismas cotas que el alzado (cotasSeccion: piso a cubierta, libre, altos o
@@ -1879,8 +1884,8 @@ const REGIONES = {
     especieroTorre: inch(12), especiero: inch(9), lava: inch(24), lavaCompacto: inch(18), campana: { protegida: inch(24), combustible: inch(30) }, dosPuertasDesde: inch(24) } };
 /* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
 const INICIO_REGION = {
-  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .3, espesorFrente: 1.8, fijacionAltos: 'taquetes', style: 'Moderna', materialGeneral: null },
-  US: { alturaMuro: inch(96), baseBajos: inch(4.5), altoBajos: inch(30), espesorCubierta: inch(1.5), separacionAltos: inch(18), fondoBajos: inch(24), fondoAltos: inch(12), tapeta: inch(1.5), separacionFrentes: inch(1/8), espesorFrente: inch(.75), style: 'Moderna', materialGeneral: null } };
+  MX: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .3, espesorFrente: 1.8, espesorFondo: .9, fijacionAltos: 'taquetes', style: 'Moderna', materialGeneral: null },
+  US: { alturaMuro: inch(96), baseBajos: inch(4.5), altoBajos: inch(30), espesorCubierta: inch(1.5), separacionAltos: inch(18), fondoBajos: inch(24), fondoAltos: inch(12), tapeta: inch(1.5), separacionFrentes: inch(1/8), espesorFrente: inch(.75), espesorFondo: inch(.5), style: 'Moderna', materialGeneral: null } };
 /* cocina, modulo, isla y closet de EE. UU.: lo que no esta en los valores de inicio (secciones B1-B4) */
 const COCINA_US = { vuelo: inch(.75), alturaTapetaSuperior: inch(3), retiroZoclo: inch(3), altoBacksplash: inch(4), espesorBacksplash: inch(.75), ledRetiro: inch(3),
   tarjaAncho: inch(27), tarjaFondo: inch(18), tarjaProf: inch(9), retiroTarja: inch(3), anchoShaker: inch(2.25), alturaNariz: inch(2.25) };
@@ -1902,7 +1907,7 @@ const medida = v => fmt(v) + uS();
 const FIJACIONES = [['frances', 'Riel francés'], ['taquetes', 'Taquetes por el fondo']];   /* A147: sin colgadores ocultos */
 const PREFS_DEF = { frentesA111: false, fijacionA149: false, region: 'MX', pasoReparto: 'modular', idioma: 'es', unidad: 'cm', paso: { cm: .1, mm: 1, in: 16, inft: 16, ftin: 16 },
   cotaRemate: 'oblicuo', cotaTexto: 11.5, cotaUnidad: 'totales', cotaColor: 'producto',
-  inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .3, espesorFrente: 1.8, fijacionAltos: 'taquetes', style: 'Moderna', materialGeneral: null },
+  inicio: { alturaMuro: 240, baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, fondoBajos: 60, fondoAltos: 35, tapeta: 3, separacionFrentes: .3, espesorFrente: 1.8, espesorFondo: .9, fijacionAltos: 'taquetes', style: 'Moderna', materialGeneral: null },
   /* A121 (usuario, 09/10): perfiles de gola editables en Ajustes: profundidad del canal desde el pano del cuerpo y alto del agarre arriba (L) y entre cajones (C) */
   /* A122 (usuario, 09/10): cada perfil con su L superior y su C entre cajones (profundidad y alto del perfil) y una sola holgura para los dedos,
      la misma bajo la cubierta y entre cajones. El traslape tras los frentes sale de ahi: L = altoL - holgura; C = (altoC - holgura) / 2 */
@@ -2106,6 +2111,7 @@ function defaultConfig(length){
   const ini = prefs.inicio;   /* valores de inicio de Ajustes */
   Object.assign(c, { alturaMuro: ini.alturaMuro, baseBajos: ini.baseBajos, altoBajos: ini.altoBajos, espesorCubierta: ini.espesorCubierta, separacionAltos: ini.separacionAltos, style: ini.style,
     separacionFrentes: ini.separacionFrentes > 0 ? ini.separacionFrentes : .3, espesorFrente: ini.espesorFrente > 0 ? ini.espesorFrente : 1.8,   /* A109 */
+    espesorFondo: ini.espesorFondo > 0 ? Math.max(.3, Math.min(1.9, ini.espesorFondo)) : prefs.region === 'US' ? inch(.5) : PLAN_CUERPO.fondo,   /* A167 */
     fijacionAltos: FIJACIONES.some(([k]) => k === ini.fijacionAltos) ? ini.fijacionAltos : 'taquetes' });   /* A145 */
   const reserve = length - 2*ini.tapeta >= R.ancho.min ? ini.tapeta : R.tapetaCorta; c.reservaIzq = c.reservaDer = reserve;
   c.topeTapeta = Math.max(R.tapetaMax, reserve);   /* A89: ancho maximo de las tapetas (MX 5 cm; US 3") */
@@ -3006,7 +3012,7 @@ const boxTargets = m => { const g = currentBox() || (m ? bodyGroupOf(byId(m.id))
 const PLAN_ESQUEMA = 1, PLAN_ESPESOR_FRENTE = 1.8;
 /* medidas de construccion que el editor no dibuja (en Revit viven dentro de las familias: Espesor_Cuerpo...). Ajustar aqui */
 const PLAN_CUERPO = { lateral: 1.8, fondo: .9 };   /* A120 (usuario, 09/10): trasera de 0.9 cm en MX, como las familias de Revit */
-const cuerpoFondo = () => cfg.region === 'US' ? inch(.5) : PLAN_CUERPO.fondo;   /* E14: trasera de 1/2" en EE. UU. */                                    /* carcasa: laterales, piso y techo; trasero */
+const cuerpoFondo = () => cfg.espesorFondo > 0 ? cfg.espesorFondo : cfg.region === 'US' ? inch(.5) : PLAN_CUERPO.fondo;   /* E14: trasera de 1/2" en EE. UU.; A167: el espesor de fondos de Ajustes */                                    /* carcasa: laterales, piso y techo; trasero */
 /* A84 (usuario, 10/10): pata niveladora de referencia Hafele Axilo 78 (catalogo 637.76.35x): placa superior 9.2 x 7.9 x 2.5 cm
    atornillada bajo el piso, columna de 3.5 y base de 7.8 de diametro; altura de 9 a 12 cm con la de 10 (y 11.5 a 14.5 con la de
    12.5). Cuatro por gabinete y seis cuando pasa de 76 cm (30"), con el eje a 5 cm de los laterales y del trasero; las delanteras
@@ -9245,7 +9251,8 @@ function renderPrefs(){
       + `<div class="grid-2" style="margin-top:10px">${select('cotaTexto', [[10, 'Pequeño'], [11.5, 'Normal'], [13, 'Grande']], P.cotaTexto, 'Tamaño del texto')}${select('cotaUnidad', [['totales', 'Solo en las totales'], ['todas', 'En todas'], ['ninguna', 'En ninguna']], P.cotaUnidad, 'Unidad en las cotas')}</div>`
       + `<label class="field" style="margin-top:10px"><span>Color</span></label>` + radio('cotaColor', [['producto', 'Color del producto'], ['negro', 'Negro']], P.cotaColor))}
     ${section('Valores de inicio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Cada cocina, isla o closet nuevo arranca con estas medidas.</div>`
-      + `<div class="grid-2">${len('inicio.alturaMuro', 'Altura de muro', I.alturaMuro)}${len('inicio.baseBajos', 'Zoclo', I.baseBajos)}${len('inicio.altoBajos', 'Alto de bajos', I.altoBajos)}${len('inicio.espesorCubierta', 'Espesor de cubierta', I.espesorCubierta)}${len('inicio.separacionAltos', 'Libre sobre cubierta', I.separacionAltos)}${len('inicio.tapeta', 'Tapetas laterales', I.tapeta)}${len('inicio.fondoBajos', 'Fondo de bajos', I.fondoBajos)}${len('inicio.fondoAltos', 'Fondo de altos', I.fondoAltos)}${len('inicio.separacionFrentes', 'Separación entre frentes', I.separacionFrentes)}${len('inicio.espesorFrente', 'Espesor de frentes', I.espesorFrente)}</div>`
+      + `<div class="grid-2">${len('inicio.alturaMuro', 'Altura de muro', I.alturaMuro)}${len('inicio.baseBajos', 'Zoclo', I.baseBajos)}${len('inicio.altoBajos', 'Alto de bajos', I.altoBajos)}${len('inicio.espesorCubierta', 'Espesor de cubierta', I.espesorCubierta)}${len('inicio.separacionAltos', 'Libre sobre cubierta', I.separacionAltos)}${len('inicio.tapeta', 'Tapetas laterales', I.tapeta)}${len('inicio.fondoBajos', 'Fondo de bajos', I.fondoBajos)}${len('inicio.fondoAltos', 'Fondo de altos', I.fondoAltos)}${len('inicio.separacionFrentes', 'Separación entre frentes', I.separacionFrentes)}${len('inicio.espesorFrente', 'Espesor de frentes', I.espesorFrente)}${len('inicio.espesorFondo', 'Espesor de fondos', I.espesorFondo > 0 ? I.espesorFondo : P.region === 'US' ? inch(.5) : PLAN_CUERPO.fondo)}</div>`
+      + `<div class="note-sm">Fondos (traseras) de los gabinetes, de 3 a 19 mm. Con «Taquetes por el fondo» los altos llevan su fondo de 18 mm.</div>`
       + `<div class="grid-2" style="margin-top:10px">${select('inicio.fijacionAltos', FIJACIONES, I.fijacionAltos || 'taquetes', 'Fijación de los altos')}</div>`
       + `<div class="grid-2" style="margin-top:10px">${select('inicio.style', [['Moderna', 'Moderna'], ['Clasica', 'Clásica'], ['Simple', 'Simple']], I.style, 'Estilo de frentes')}${select('inicio.materialGeneral', mats, I.materialGeneral || '', 'Material general')}</div>`
       + `<div class="grid-2" style="margin-top:10px"><button class="btn btn-block" id="prefsFromCfg">Tomar los de la actual</button><button class="btn btn-block" id="prefsIniReset">Valores de fábrica</button></div>`)}
@@ -9273,6 +9280,7 @@ function renderPrefs(){
     const last = path[path.length - 1], old = o[last];
     if (typeof old === 'number' && typeof v === 'string') v = parseFloat(v);
     if (last === 'materialGeneral' && v === '') v = null;
+    if (last === 'espesorFondo') v = Math.max(.3, Math.min(1.9, v));   /* A167 */
     o[last] = v;
     if (path.length === 1 && last === 'region') aplicarRegionPrefs(v);   /* E1: unidad y valores de inicio de la region; A129: tambien el idioma */
     savePrefs(); render(); renderPrefs();
@@ -9282,7 +9290,7 @@ function renderPrefs(){
   document.getElementById('prefsFromCfg').addEventListener('click', () => {
     const lo = row(false)[0], hi = row(true)[0];
     Object.assign(prefs.inicio, { alturaMuro: cfg.alturaMuro, baseBajos: cfg.baseBajos, altoBajos: cfg.altoBajos, espesorCubierta: cfg.espesorCubierta, separacionAltos: cfg.separacionAltos,
-      tapeta: cfg.reservaIzq, style: cfg.style, materialGeneral: cfg.materialGeneral && CATALOGO_BASE().some(m => m.id === cfg.materialGeneral) ? cfg.materialGeneral : null });
+      tapeta: cfg.reservaIzq, style: cfg.style, espesorFondo: cfg.espesorFondo > 0 ? cfg.espesorFondo : cuerpoFondo(), materialGeneral: cfg.materialGeneral && CATALOGO_BASE().some(m => m.id === cfg.materialGeneral) ? cfg.materialGeneral : null });
     if (lo) prefs.inicio.fondoBajos = lo.fondo; if (hi) prefs.inicio.fondoAltos = hi.fondo;
     savePrefs(); renderPrefs(); setStatus('Valores de inicio tomados de la distribución actual.');
   });
