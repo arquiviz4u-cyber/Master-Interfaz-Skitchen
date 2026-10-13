@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A206. [Master hecho 13/10] Las laminas de la lista se reordenan arrastrando su nombre (asa y linea de destino), sin flechas.
    A205. [Master hecho 13/10] Gabinetes superiores unidos con puerta de piston: sin el limite de 120 cm (ni el aviso ni la conversion a caja de repisas); sus pistones van en cada division.
    A204. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Laminas de conjunto guardadas se ponen al dia (un detalle por tipo de cajon y especiero; herrajes en la primera lamina); «Agregar vista» solo ofrece lo de la lamina (la de detalles: detalles y la vista general); sin torres no hay opcion de torres; las laminas se suben y bajan en la lista; detalle de cajon mas compacto y con las cotas generales afuera y las particulares junto al dibujo.
    A203. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Cotas: dos filas o columnas ya no se pegan (separacion minima al imantarse) y Mayus + arrastrar mueve solo esa cota; la marca de color de los despieces se conserva en B/N; correderas del detalle de cajon de lado, anidadas, delante de la caja y la fija de su altura; el conteo de herrajes siempre en la primera lamina del conjunto.
@@ -1809,6 +1810,8 @@
   .pres-lado .pres-fila select { width: 74px; flex: none; }
   .pres-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 5px 6px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
   .pres-fila > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pres-asa { color: #9AA3AB; cursor: grab; letter-spacing: -2px; font-size: 12px; user-select: none; }
+  .pres-fila[draggable=true] { cursor: grab; } .pres-arriba { box-shadow: inset 0 2px 0 var(--ink); } .pres-abajo { box-shadow: inset 0 -2px 0 var(--ink); }
   .pres-opc { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-left: 22px; }   /* A194: las casillas de la vista en su propia linea */
   .pres-lado details { border-top: 1px solid var(--line); margin-top: 10px; }
   .pres-lado summary { cursor: pointer; padding: 8px 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6B7680; font-weight: 600; }
@@ -11745,14 +11748,14 @@ const LAM = (() => {
       });
     });
   }
-  /* A204: sube o baja una lamina en la lista (la general no se mueve) */
-  function presMoverHoja(L, i, d){
-    const j = i + d; if (i < 1 || j < 1 || j >= L.hojas.length) return false;
-    [L.hojas[i], L.hojas[j]] = [L.hojas[j], L.hojas[i]];
-    L.vistas.forEach(v => { if (v.hoja === i) v.hoja = j; else if (v.hoja === j) v.hoja = i; });
-    if (L.hoja === i) L.hoja = j; else if (L.hoja === j) L.hoja = i;
-    L.reac = {}; return true;
+  /* A206: lleva una lamina a otra posicion de la lista (arrastrandola); la general no se mueve */
+  function presReordenarHoja(L, de, a){
+    if (de < 1 || a < 1 || de >= L.hojas.length || a >= L.hojas.length || de === a) return false;
+    const orden = L.hojas.map((_, i) => i); orden.splice(de, 1); orden.splice(a, 0, de);   /* orden[nuevo] = viejo */
+    const nuevo = {}; orden.forEach((v, k) => { nuevo[v] = k; });
+    L.hojas = orden.map(i => L.hojas[i]); L.vistas.forEach(v => { v.hoja = nuevo[v.hoja]; }); L.hoja = nuevo[L.hoja]; L.reac = {}; return true;
   }
+  const presMoverHoja = (L, i, d) => presReordenarHoja(L, i, i + d);
   /* A200: reparto minimo: todo en una lamina a sus escalas de fabrica; mientras no quepa, el detalle mas grande pasa a la lamina de detalles
      (que repite la vista general para identificar el conjunto). Solo entonces se sube de escala como antes */
   function cabeEnHoja(L, h){
@@ -12715,7 +12718,7 @@ const LAM = (() => {
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
     abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales,
-    presNueva, presRefrescar, presReacomodar, presAcomodarConjunto, presMoverHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
+    presNueva, presRefrescar, presReacomodar, presAcomodarConjunto, presMoverHoja, presReordenarHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
     presHitGlobo, presMoverGlobo, presRestablecer, presAgregar, presQuitar, presInstantanea, presRestaurar, presHitMarca, presMoverMarca, marcasHoja, presAlternarEntre,
@@ -12837,8 +12840,7 @@ function presLado(){
     return `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-pnv="${a.id}"${ed.oculta ? '' : ' checked'}>` +
       `<input type="text" data-pnt="${a.id}" value="${e2(ed.texto || a.texto)}" style="flex:1;min-width:0"></label>`; }).join('');
   const chk = (id, t, on) => `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-popt="${id}"${on ? ' checked' : ''}><span>${e2(t)}</span></label>`;
-  const hojasHtml = L.hojas.map((h, i) => `<div class="pres-fila${i === L.hoja ? ' sel' : ''}" data-hoja="${i}"><span style="flex:1;min-width:0">${i + 1}. ${e2(h.nombre)}</span>` +
-    (i > 0 ? `<button class="btn btn-icon pres-mini" data-phup="${i}" title="Subir"${i < 2 ? ' disabled' : ''}>&#9650;</button><button class="btn btn-icon pres-mini" data-phdn="${i}" title="Bajar"${i >= L.hojas.length - 1 ? ' disabled' : ''}>&#9660;</button>` : '') +
+  const hojasHtml = L.hojas.map((h, i) => `<div class="pres-fila${i === L.hoja ? ' sel' : ''}" data-hoja="${i}"${i > 0 ? ' draggable="true" title="Arrastra para cambiar el orden"' : ''}>${i > 0 ? '<span class="pres-asa">&#8942;&#8942;</span>' : ''}<span style="flex:1;min-width:0">${i + 1}. ${e2(h.nombre)}</span>` +
     (i > 0 ? `<button class="btn btn-icon pres-mini" data-phdel="${i}" title="Quitar esta lámina">&#10005;</button>` : '') + '</div>').join('');
   const grupos = ['bajos', 'altos', 'torres'].filter(gk => LAM.conjuntoDisponible(gk, 0)).concat(L.isla && L.isla.on && LAM.islaGeom(L) ? ['isla'] : []).map(gk => opt(gk, LAM.GRUPOS[gk], false)).join('');   /* A204: sin torres, no hay opcion de torres */
   let caras = ''; try { if (multiCara()) caras = `<label class="pf"><span>Cara</span><select data-pcara>${cfg.caras.map((_, k) => opt(k, letraCara(k), k === 0)).join('')}</select></label>`; } catch (e) { caras = ''; }
@@ -12922,7 +12924,18 @@ function presCargarLogo(){
 }
 (() => {
   const cv = presEl('presCanvas'), lado = presEl('presLado');
-  lado.addEventListener('toggle', presRecordarDet, true);   /* A194: los desplegables recuerdan si estaban abiertos */
+  lado.addEventListener('toggle', presRecordarDet, true);
+  /* A206: las laminas de la lista se reordenan arrastrando su nombre */
+  const filaH = e => e.target.closest && e.target.closest('.pres-fila[data-hoja]');
+  const limpiaH = () => lado.querySelectorAll('.pres-arriba,.pres-abajo').forEach(q => q.classList.remove('pres-arriba', 'pres-abajo'));
+  lado.addEventListener('dragstart', e => { const r = filaH(e); if (!r || r.dataset.hoja === '0') { e.preventDefault(); return; } PRES.dragHoja = +r.dataset.hoja; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', r.dataset.hoja); });
+  lado.addEventListener('dragover', e => { const r = filaH(e); if (!r || PRES.dragHoja == null || +r.dataset.hoja < 1) return; e.preventDefault();
+    const b = r.getBoundingClientRect(), abajo = e.clientY > b.top + b.height / 2; limpiaH(); r.classList.add(abajo ? 'pres-abajo' : 'pres-arriba'); });
+  lado.addEventListener('drop', e => { const r = filaH(e); if (!r || PRES.dragHoja == null) return; e.preventDefault();
+    const de = PRES.dragHoja, idx = +r.dataset.hoja, b = r.getBoundingClientRect(), abajo = e.clientY > b.top + b.height / 2;
+    let a = abajo ? idx + 1 : idx; if (de < a) a--; a = Math.max(1, a); PRES.dragHoja = null; limpiaH();
+    presAntes(); if (LAM.presReordenarHoja(PRES.L, de, a)) { PRES.pag = PRES.L.hoja; presRefrescar(false); } else PRES.hist.pop(); });
+  lado.addEventListener('dragend', () => { PRES.dragHoja = null; limpiaH(); });   /* A194: los desplegables recuerdan si estaban abiertos */
   const pos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   const mmDe = p => ({ x: (p.x - PRES.ox) / PRES.Z, y: (p.y - PRES.oy) / PRES.Z });
   const confirmaDrag = () => { PRES.hist.push(PRES.pend); if (PRES.hist.length > 100) PRES.hist.shift(); PRES.fut = []; };
@@ -13053,8 +13066,6 @@ function presCargarLogo(){
         presAntes(); const h = LAM.presAgregarConjunto(L, grupo, cara);
         if (h < 0) { PRES.hist.pop(); showDialog('Presentar', `No hay ${LAM.GRUPOS[grupo].toLowerCase()} en esta cara.`); return; }
         L.hoja = h; PRES.pag = h; PRES.sel = PRES.selG = PRES.selM = null; setStatus('Preparando la lámina…'); LAM.presRefrescar(L); LAM.presAcomodarConjunto(L, h); presGuardar(); presLado(); presAjustar(); setStatus(''); return; }
-      if (t.dataset.phup !== undefined || t.dataset.phdn !== undefined) { const i0 = +(t.dataset.phup !== undefined ? t.dataset.phup : t.dataset.phdn);
-        presAntes(); if (LAM.presMoverHoja(L, i0, t.dataset.phup !== undefined ? -1 : 1)) { PRES.pag = L.hoja; } else PRES.hist.pop(); presRefrescar(false); return; }
       if (t.dataset.phdel !== undefined) { presAntes(); LAM.presQuitarHoja(L, +t.dataset.phdel); PRES.pag = Math.min(PRES.pag, L.hojas.length - 1); PRES.sel = null; presRefrescar(false); return; }
       if (t.dataset.pabrir !== undefined) { presAntes(); LAM.presAlternarFrente(L.vistas[+t.dataset.pabrir], null, true); presRefrescar(false); return; }
       if (t.id === 'presLogoQuitar') { prefs.lamLogo = ''; prefs.lamLogoW = 0; prefs.lamLogoH = 0; savePrefs(); LAM.fijarLogo(''); L.datos = null; presLado(); presDibujar(); return; }
