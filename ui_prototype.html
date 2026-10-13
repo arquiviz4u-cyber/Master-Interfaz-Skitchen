@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A185. [Master hecho 12/10; plan: pistones en altos de piston (Revit y SketchUp los reciben como los de las torres)] Auditoria del isometrico, modulo por modulo (usuario 12/10: "hay algunos que se siguen representando mal, como los cajones; trabaja los herrajes de los especieros"): 1) orden de pintor: el piso y la trasera del cuerpo se pintaban despues de los cajones sacados (el recorrido en profundidad se rompia con las piezas desplazadas); ahora es un orden topologico que solo ata las cajas que se tapan de verdad en pantalla (casco convexo y area cubierta) y, en un ciclo, deja salir la que menos tapado pendiente tiene; 2) correderas: el plan no les da origen (SketchUp las estira por su caja) y por eso el isometrico las dibujaba como cajas finas; ahora el origen se deduce de la caja y el simbolo se estira a su largo comercial (en el isometrico a lo largo de Y del cuarto, en el corte a lo largo de u); tambien salen ya en alzado sin puertas y en corte; 3) los simbolos de bisagra y corredera entran en el orden de pintor (el brazo con su caja, la cazoleta justo despues de su puerta): ya no se pintan encima de todo; 4) piezas con forma: pistones, vastagos y perfiles de gola se dibujan como cilindro y perfil extruido, no como su caja; 5) condimentero: canastillas de alambre (marco, rejilla y varillas) en lugar de un bloque macizo; 6) herrajes en todas las caras que miran al cuarto (L y U): el simbolo de la cara principal sirve espejado cuando la cara va girada (se comprobo que la proyeccion global de los ejes de la cara coincide con la del simbolo); 7) PLAN: el piston de un alto solo piston o doble no se generaba (el lateral termina una holgura antes del frente y la condicion pedia 0.01): ahora tolera la holgura como las bisagras; 8) pruebas: correderas como simbolo en cajones abiertos, orden del piso y la trasera, sin correderas con cajones cerrados, pistones del alto. PENDIENTE: el bote del cesto sigue siendo una caja gris (sin el reborde del modelo); la cara opuesta de una U se ve por detras (sin interiores); la corredera de un cajon con giro distinto de 0/90 sigue como caja; el isometrico de una cara girada 180 grados no usa simbolos.
    A184. [Master hecho 12/10; sin pasos en Revit ni SketchUp] Correcciones del isometrico con puertas y cajones abiertos (usuario 12/10): 1) el
        brazo de la bisagra abierta es del gabinete: ya no gira con la puerta (antes caia sobre ella, y asi tambien su caja); solo la
        cazoleta gira con el frente; 2) los herrajes se dibujan con silueta rellena (cuerpo gris) ademas de sus lineas, para que las
@@ -11823,6 +11824,25 @@ const LAM = (() => {
       const sinPuertas = isoEscena({ puertas: false, cotas: false });
       ok(sinPuertas.tri.length > 0 && !sinPuertas.cotas.length, 'isometrico sin puertas ni cotas');
     } catch (e) { fallas.push('isometrico con frentes abiertos: ' + e.message); } finally { abiertos.clear(); }
+    /* A185: cajones, correderas, pistones y condimentero en el isometrico */
+    const previoCfg = cfg, previoSel = selection;
+    try {
+      cfg = defaultConfig(300); recalculate(); selection = new Set([cfg.modulos.filter(m => !m.upper)[0].id]); ACT.tipo('Cajones');
+      const mod = cfg.modulos.filter(m => !m.upper)[0].id, pl = planCocina(), fr = new Set(pl.piezas.filter(q => q.abre && q.modulo === mod).map(q => q.frente));
+      const e = isoEscena({ abiertos: fr, cotas: false, filtro: q => q.modulo === mod });
+      const sims = e.tri.filter(t => t.t === 'sim').map(t => t.id);
+      ok(sims.length >= 3 * fr.size * 2 && sims.every(id => /^cor_/.test(id)), 'isometrico: cada cajon abierto lleva sus correderas como simbolo (' + sims.length + ')');
+      const idx = new Map(); e.tri.forEach((t, i) => { if (t.q) idx.set(t.q.p.id.split(':').slice(1).join(':'), i); });
+      ok(idx.get('cuerpo:piso') < idx.get('caja:2:lado:der'), 'isometrico: el piso del cuerpo se pinta antes que los cajones sacados');
+      ok(idx.get('cuerpo:trasero') < idx.get('caja:2:lado:der'), 'isometrico: la trasera del cuerpo se pinta antes que los cajones sacados');
+      const cerr = isoEscena({ abiertos: new Set(), cotas: false, filtro: q => q.modulo === mod });
+      ok(!cerr.tri.some(t => t.t === 'sim'), 'isometrico: con los cajones cerrados no se ven las correderas');
+      selection = new Set([cfg.modulos.filter(m => m.upper)[0].id]); ACT.tipo && (cfg.modulos.filter(m => m.upper)[0].tipo = 'Piston'); recalculate();
+      const up = cfg.modulos.filter(m => m.upper)[0].id, pu = planCocina();
+      ok(pu.piezas.filter(q => q.modulo === up && q.tipo === 'Piston').length >= 2, 'el modulo alto de piston lleva sus pistones');
+      const eu = isoEscena({ abiertos: new Set(pu.piezas.filter(q => q.abre && q.modulo === up).map(q => q.frente)), cotas: false, filtro: q => q.modulo === up });
+      ok(eu.tri.length > 0 && eu.tri.every(t => !t.pr || t.pr.every(pt => isFinite(pt[0]) && isFinite(pt[1]))), 'isometrico: el alto de piston dibuja sus pistones sin NaN');
+    } catch (e) { fallas.push('isometrico de cajones, correderas y pistones: ' + e.message); } finally { cfg = previoCfg; selection = previoSel; try { recalculate(); } catch (e) { /* sin cambios */ } }
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
