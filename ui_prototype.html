@@ -303,7 +303,8 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
-   A201. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Reparto minimo con prioridad: alzados, despieces, isometricos y cajones conservan su escala; si no caben bajan primero el cuadro de herrajes (100/80/67 %, textos legibles; selector en la fila), luego nariz y gola (1:5 a 1:10) y solo despues un detalle pasa a la lamina de detalles. Gabinetes superiores unidos con pistones: pareja de pistones en cada division de la puerta unica y bisagras en su canto superior (dos entre cada par de pistones).
+   A202. [Master hecho 13/10; Ruby y Revit pendientes: leer modelo.giro] Las bisagras de la puerta elevable usan el modelo real de la bisagra (brazo cerrado, brazo abierto y cazoleta, como en las de lateral) girado 90 grados: su eje corre a lo ancho y su lateral queda contra la cara inferior del techo (modelo.giro = 90; x = ox + (Z - refZ), y = oy - (Y - refY), z = oz + (X - refX)); la puerta lleva su perforacion de cazoleta. El master las dibuja en el alzado (simbolo transpuesto); en el isometrico y el corte salen como caja.
+   A201. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Reparto minimo con prioridad: alzados, despieces, isometricos y cajones conservan su escala; si no caben bajan primero el cuadro de herrajes (100/80/67 %, textos legibles; selector en la fila), luego nariz y gola (1:5 a 1:10) y solo despues un detalle pasa a la lamina de detalles. Gabinetes superiores unidos con pistones: pareja de pistones en cada division de la puerta unica y bisagras reales (modelo girado, contra el techo) en su canto superior, dos entre cada par de pistones.
    A200. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Reparto minimo de laminas por conjunto: todas las vistas en una lamina a sus escalas y, mientras no quepan, el detalle mas grande pasa a una lamina de detalles; un cajon (y especiero) por cada medida distinta de frente, con la marca de color de su grupo, el frente dibujado y su cantidad; cada conjunto con su propia triada de color (sin repetir entre bajos, altos y torres).
    A199. [Master hecho 13/10; sin pasos en Revit ni SketchUp] La vista general colorea cada frente con el tono de su grupo del despiece (misma paleta); iconos del despiece redibujados al estilo de Material Symbols (refrigerador, horno, estufa, parrilla, lavavajillas con gota, campana con flujo de aire, tarja con grifo, alacena de dos puertas).
    A198. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Alzado e isometrico del conjunto: el zoclo, la cubierta y el backsplash se cortan donde hay una torre o aparato fuera del conjunto; estufa y lavavajillas de frente (perillas, ventana, manija); iconos del despiece sobre el esquema, centrados en lo que ocupa el modulo, y los aparatos sin frente salen como bloque gris con su icono.
@@ -3326,6 +3327,10 @@ const puntoModelo = ([X, Y, Z], { ox, refX = 0, espejo = false, oy, refY = 0, sy
 const cajaModelo = ([mn, mx], { ox, refX = 0, espejo = false, oy, refY = 0, sy = 1, oz, refZ = 0, sz = 1 }) => ({
   x: espejo ? ox - (mx[0] - refX) : ox + (mn[0] - refX), ancho: mx[0] - mn[0],
   y: oy - (mx[1] - refY)*sy, fondo: (mx[1] - mn[1])*sy, z: oz + (mn[2] - refZ)*sz, alto: (mx[2] - mn[2])*sz });
+/* A202: el modelo de la bisagra girado para la puerta elevable: su eje (Z del archivo) corre a lo ancho (x del plan) y su lateral (X del
+   archivo) queda arriba, contra la cara inferior del techo: x = ox + (Z - refZ), y = oy - (Y - refY), z = oz + (X - refX) */
+const puntoModeloG = ([X, Y, Z], { ox, refZ = 0, oy, refY = 0, oz, refX = 0 }) => [ox + (Z - refZ), oy - (Y - refY), oz + (X - refX)].map(v => Math.round(v*1000)/1000);
+const cajaModeloG = ([mn, mx], { ox, refZ = 0, oy, refY = 0, oz, refX = 0 }) => ({ x: ox + (mn[2] - refZ), ancho: mx[2] - mn[2], y: oy - (mx[1] - refY), fondo: mx[1] - mn[1], z: oz + (mn[0] - refX), alto: mx[0] - mn[0] });
 /* A138: botes del cesto: sencillo (un bote de dos compartimentos a lo largo) o doble (dos botes de frente, uno tras otro); doble solo
    si caben (si no, sencillo) */
 const cestoBotesDe = (m, ancho, fondo) => { const B = MODELO.bote;
@@ -4246,9 +4251,17 @@ function planDePiezas(c = cfg){
       piezas.filter(r => (r.rol === 'division' || r.rol === 'panel' && r.tipo === 'Lateral') && r.z < z1 && r.z + r.alto > z0 + 1 && r.x > x0 + inset + 8 && r.x + r.ancho < x1 - inset - 8 && r.y < yF && r.y + r.fondo >= yF - PLAN_HOLGURA_PUERTA - .01)
         .sort((a, b) => a.x - b.x).forEach(r => { const sx = r.x - r8 - .1; if (!divs.some(v => Math.abs(v - sx) < 3)) divs.push(sx); });
       const posiciones = [x0 + inset].concat(divs, [x1 - inset]);
-      if (cfg.bisagras) { let k = 0;   /* dos bisagras entre cada par de pistones (a un cuarto y a tres cuartos), para no estorbarlos */
-        for (let q = 0; q + 1 < posiciones.length; q++) [.25, .75].forEach(f => { const bx = posiciones[q] + (posiciones[q + 1] - posiciones[q]) * f;
-          add({ id: d + ':bisagraSup:' + (k++), rol: 'herraje', modulo: pr.modulo, tipo: 'Bisagra', frente: d, x: r2(bx - 2.5), y: r2(yF - 2.4), z: r2(z1 - 5.4), ancho: 5, fondo: 2.4, alto: 3.2, material: null, etiqueta: 'herrajes' }); }); }
+      if (cfg.bisagras) { let k = 0;   /* dos bisagras entre cada par de pistones (a un cuarto y a tres cuartos), con el modelo real girado: su lateral contra el techo */
+        const MB = MODELO.bisagra, zt = z1 - 1.8 - (MB.brazoCerrado[1][0] - MB.lateral);   /* el techo acaba en z1 - 1.8: el lomo de la bisagra toca su cara inferior */
+        for (let q = 0; q + 1 < posiciones.length; q++) [.25, .75].forEach(f => { const bx = posiciones[q] + (posiciones[q + 1] - posiciones[q]) * f, j = k++;
+          const marco = { ox: bx, refZ: MB.centroZ, oy: yF, refY: MB.trasCara, oz: zt, refX: MB.lateral }, D = MB.desfaseAbierta;
+          const base = { rol: 'herraje', modulo: pr.modulo, frente: d, material: null, etiqueta: 'herrajes' };
+          const dueno = piezas.find(r => r.frente === d && r.rol === 'frente' && r.z + r.alto >= z1 - .5 && bx >= r.x + 2 && bx <= r.x + r.ancho - 2 && r.alto >= 9);   /* la perforacion de la cazoleta en la cara posterior de la puerta elevable */
+          if (!dueno) { k--; return; }
+          (dueno.perforaciones = dueno.perforaciones || []).push({ x: r2(bx - dueno.x), z: r2(z1 - 3.77 - dueno.z), diametro: PLAN_BISAGRA.cazoleta, hondo: PLAN_BISAGRA.hondo });
+          add(Object.assign({ id: d + ':bisagra:s' + j, tipo: 'Bisagra', estado: 'cerrado', modelo: { archivo: 'bisagra_brazo_cerrada', espejo: false, giro: 90, origen: puntoModeloG([0, 0, 0], marco) } }, base, cajaModeloG(MB.brazoCerrado, marco)));
+          add(Object.assign({ id: d + ':bisagraAbierta:s' + j, tipo: 'Bisagra', estado: 'abierto', modelo: { archivo: 'bisagra_brazo_abierta', espejo: false, giro: 90, origen: puntoModeloG(D, marco) } }, base, cajaModeloG(MB.brazoAbierto, marco)));
+          add(Object.assign({ id: d + ':cazoleta:s' + j, tipo: 'Cazoleta', modelo: { archivo: 'bisagra_cazoleta', espejo: false, giro: 90, origen: puntoModeloG([0, 0, 0], marco) } }, base, cajaModeloG(MB.cazoletaCaja, marco))); }); }
       posiciones.forEach((sx, i) => {
         /* una repisa entre el ancla y la punta: el ancla sube sobre ella (en obra el piston se monta arriba de la repisa) */
         const r9 = P9.cuerpo/2, sobre = piezas.filter(r => r.modulo === pr.modulo && r.rol === 'repisa' && r.x < sx + r9 && r.x + r.ancho > sx - r9 && r.y < yF && r.z + r.alto > z1 - fijo - r9 && r.z < cerrada[1]);
@@ -4590,7 +4603,7 @@ function pruebasPlanMX(){
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
       ok(a && a.estado === 'abierto' && q.estado === 'cerrado' && a.frente === q.frente && cz && cz.frente === q.frente && !cz.estado, nombre + ': bisagra sin su brazo abierto o su cazoleta ' + q.id);   /* A146 */
       ok(q.modelo.origen && a && a.modelo.origen && cz && cz.modelo.origen, nombre + ': bisagra sin origen de su modelo ' + q.id);
-      ok(pr && pr.abre.x >= q.x - 1 && pr.abre.x <= q.x + q.ancho + 1, nombre + ': la puerta no gira en su bisagra ' + q.id);
+      ok(q.modelo.giro ? !!pr : pr && pr.abre.x >= q.x - 1 && pr.abre.x <= q.x + q.ancho + 1, nombre + ': la puerta no gira en su bisagra ' + q.id);   /* A202: la elevable gira sobre su canto superior */
       /* A139: abierta, la puerta (girada sobre su eje) no entra en el lateral de su bisagra */
       if (pr && pr.abre.grados) { const fr = p.piezas.filter(r => r.frente === q.frente && r.rol === 'frente'), a = pr.abre.grados*Math.PI/180*(pr.abre.lado === 'derecha' ? 1 : -1);
         const gira = ([x, y]) => { const dx = x - pr.abre.x, dy = -(y - pr.abre.y); return [pr.abre.x + dx*Math.cos(a) - dy*Math.sin(a), pr.abre.y - (dx*Math.sin(a) + dy*Math.cos(a))]; };
@@ -9928,6 +9941,7 @@ const LAM = (() => {
      el canto que toca el lateral, Y = 0 en el frente, Z = 0 en su base; sy = estiramiento a su largo comercial */
   const modeloCad = p => {
     if (!p || !p.modelo || !FAM[p.modelo.archivo] || !HERR_TIPOS.has(p.tipo)) return null;
+    if (p.modelo.giro) return null;   /* A202: girado (puerta elevable): lo dibuja dibujarSimGiro, no el simbolo derecho */
     if (p.modelo.origen) return p.modelo;
     const cb = COR_CAJA[p.modelo.archivo]; if (!cb || !(p.fondo > 0)) return null;
     const [mn, mx] = cb, e = !!p.modelo.espejo, sy = p.fondo / (mx[1] - mn[1]);
@@ -9967,6 +9981,11 @@ const LAM = (() => {
     return null;
   }
   /* dibuja un simbolo: en un Grabador queda como un objeto (el PDF lo define una vez); en un lienzo real se traza */
+  /* A202: el simbolo de alzado del modelo girado 90 grados (su eje a lo ancho y su lateral arriba): transposicion (u, v) -> (-v, -u) */
+  function dibujarSimGiro(g, p, ox, oy, s, plano){
+    const mo = p.modelo, q = simDe(mo.archivo, 'f', mo.espejo), cad = q && HSYM[q.id]; if (!cad) return;
+    g.save(); g.translate(ox, oy); g.rotate(Math.PI / 2); g.scale(-1, 1); dibujarCad(g, cad, 0, 0, s, plano, { flip: q.flip }); g.restore();
+  }
   function dibujarSim(g, id, flip, x, y, s, plano){
     if (typeof g.sym === 'function') g.sym(id, flip, x, y, s, plano);
     else if (HSYM[id]) dibujarCad(g, HSYM[id], x, y, s, plano, { flip });
@@ -10671,8 +10690,9 @@ const LAM = (() => {
     const todos = piezasCara(plan, cara).filter(p => p.rol !== 'luz' && p.ancho > 0 && p.fondo > 0 && p.alto > 0 && f(p, cara) && p.tipo !== 'Cazoleta' && p.tipo !== 'Taquete' && p.estado !== 'abierto'
       && !(p.ocultaSinPuertas && !conPuertas) && (conPuertas ? !INT(p) : p.rol !== 'frente'));   /* A188: sin taquetes */
     const conCad = true;   /* A181: el herraje con su modelo real, no una caja */
-    let ps = todos.filter(p => !(conCad && modeloCad(p)));
+    let ps = todos.filter(p => !(conCad && modeloCad(p)) && !(p.modelo && p.modelo.giro));
     const herrajes = conCad ? todos.filter(p => modeloCad(p) && !conPuertas) : [];
+    const giradas = todos.filter(p => p.modelo && p.modelo.giro && p.tipo === 'Bisagra' && !conPuertas);   /* A202 */
     /* A186: el conjunto muestra solo sus gabinetes y la parte de zoclo y cubierta que les corresponde (sin tapetas ni la extension del muro) */
     if (o.grupo !== 'isla') {
       const mp = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
@@ -10693,6 +10713,7 @@ const LAM = (() => {
         caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? (p.rol === 'frente' ? '#FFFFFF' : '#F2F4F6') : colorPieza(p), plano ? '#222222' : '#4A5057', p.rol === 'frente' ? 1 : .7, { p, sc, plano });
         if (p.rol === 'equipo' && ['Horno', 'Microondas', 'Estufa', 'Lavavajillas'].includes(p.tipo)) detalleEquipo(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, p.tipo, plano); });
       herrajes.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'f', mo.espejo); if (q) dibujarSim(g, q.id, q.flip, X(mo.origen[0]), Y(mo.origen[2]), sc, plano); });
+      giradas.forEach(p => dibujarSimGiro(g, p, X(p.modelo.origen[0]), Y(p.modelo.origen[2]), sc, plano));
       const cuerpos = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
       const ext = {}; cuerpos.forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || { a: 1e9, b: -1e9, id: p.modulo }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
       const mods = Object.values(ext).sort((a, b) => a.a - b.a);
@@ -12153,6 +12174,7 @@ const LAM = (() => {
     const plano = !!it.plano;
     if (it.vista === 'AlzadoInterior') {
       ps.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'f', mo.espejo); if (q) dibujarSim(g, q.id, q.flip, m.x0 + m.kx * mo.origen[0], m.z0 + m.kz * mo.origen[2], m.kx, plano); });
+      pl.piezas.filter(p => p.modelo && p.modelo.giro && p.tipo === 'Bisagra' && p.estado !== 'abierto').forEach(p => dibujarSimGiro(g, p, m.x0 + m.kx * p.modelo.origen[0], m.z0 + m.kz * p.modelo.origen[2], m.kx, plano));   /* A202 */
       /* A192: pistones y vastagos de frente como barras, de su ancla a la puerta */
       pl.piezas.filter(p => (p.tipo === 'Piston' || p.tipo === 'Vastago') && p.estado === 'cerrado' && p.forma && p.forma.tipo === 'cilindro').forEach(p => { const f = p.forma;
         g.save(); g.lineCap = 'round'; g.strokeStyle = plano ? '#222222' : p.tipo === 'Vastago' ? '#9AA3AB' : '#4A5057'; g.lineWidth = Math.max(1.2, f.diametro * m.kx);
