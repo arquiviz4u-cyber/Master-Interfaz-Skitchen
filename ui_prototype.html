@@ -10196,7 +10196,10 @@ const LAM = (() => {
         const OO = sim ? K(mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m)) : null;
         if (sim && COR_CAJA[mod.archivo]) simQ = { id: sim.id, flip: sim.flip, O: OO };   /* A185: ordenada con las demas cajas */
         else if (sim && FAM[mod.archivo] === 'arm') simQ = { id: sim.id, flip: sim.flip, O: OO, ar: true };
-        else if (sim && FAM[mod.archivo] === 'caz' && p.frente) { cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }   /* va con su puerta */
+        else if (sim && FAM[mod.archivo] === 'caz' && p.frente) {   /* va con su puerta, y solo si se ve la cara interior donde esta atornillada */
+          const b0 = [mod.origen[0], -mod.origen[1], mod.origen[2]], a0 = K(mover(b0, m)), a1 = K(mover([b0[0], b0[1] + 1, b0[2]], m));   /* normal de la cara interior, hacia el muro */
+          if ((a1[0] - a0[0]) * SX - (a1[1] - a0[1]) + (a1[2] - a0[2]) <= .05) return;
+          cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }
         else if (sim) { herr.push({ id: sim.id, flip: sim.flip, O: OO }); return; }
       }
       const dyE = o.explotar && (p.rol === 'frente' || (p.frente && (p.tipo === 'Jaladera' || p.tipo === 'Boton'))) ? o.explotar : 0;   /* despiece: los frentes salen al cuarto */
@@ -10285,7 +10288,12 @@ const LAM = (() => {
       if (vpunto(n, V) <= 1e-6) return;
       const pr = pts.map(proy); cuenta(pr);
       const arriba = fi === 1;   /* [4,5,6,7]: la cara superior lleva los huecos */
-      tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(n, luz)), q, holes: arriba ? q.huecos.map(h => h.arriba.map(proy)) : null });
+      const t = { t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(n, luz)), q, holes: arriba ? q.huecos.map(h => h.arriba.map(proy)) : null };
+      /* A187: patron del material sobre la cara: el parallelogramo (O, u, v) de la pieza en cm del modelo y en pantalla */
+      const mt = q.p.material && !(arriba && q.huecos.length) ? mat(q.p.material) : null;
+      if (mt && mt.categoria !== 'Color' && patternOf(mt.patron)) { const u3 = vsub(pts[1], pts[0]), v3 = vsub(pts[3], pts[0]), lu = Math.hypot(...u3), lv = Math.hypot(...v3);
+        if (lu * lv > 120) t.pat = { spec: patternOf(mt.patron), k: mt.escala || 1, color: lineColorOf(mt), P0: proy(pts[0]), Pu: [pr[1][0] - pr[0][0], pr[1][1] - pr[0][1]], Pv: [pr[3][0] - pr[0][0], pr[3][1] - pr[0][1]], lu, lv }; }
+      tri.push(t);
     });
     const emitExtras = q => {
       q.huecos.forEach(h => h.arriba.forEach((a, i) => { const b = h.arriba[(i + 1) % 4], c = h.abajo[(i + 1) % 4], d = h.abajo[i], pts = [a, b, c, d];
@@ -10374,6 +10382,16 @@ const LAM = (() => {
       const tn = o.tinte ? o.tinte(t.q) : null, c = tn || base(t.q.p);
       g.fillStyle = t.color ? (plano ? '#B9C0C6' : t.color) : plano ? (t.t === 'perf' ? C.line : tn ? '#9AA3AB' : C.flat) : t.t === 'perf' ? '#3A3F45' : sombra(c, t.k);
       g.fill();
+      if (t.pat && !plano && !tn) {   /* A187: trama del material (madera, piedra...) recortada a la cara */
+        const { spec, k, P0, Pu, Pv, lu, lv } = t.pat, tw = spec.w * k, th = spec.h * k, cols = Math.ceil(lu / tw) + 1, rows = Math.ceil(lv / th) + 1;
+        if (tw * s >= 1.5 && th * s >= 1.5 && cols * rows * spec.trazos.length <= 5000) {
+          g.save(); g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.clip();
+          g.strokeStyle = t.pat.color; g.lineWidth = .7; g.beginPath();
+          const sx = (a, b) => [ox + (P0[0] - bb.x0 + (a / lu) * Pu[0] + (b / lv) * Pv[0]) * s, oy + (P0[1] - bb.y0 + (a / lu) * Pu[1] + (b / lv) * Pv[1]) * s];
+          for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) for (const tr of spec.trazos) {
+            const A = sx(i * tw + tr[0] * k, j * th + tr[1] * k), B = sx(i * tw + tr[2] * k, j * th + tr[3] * k); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
+          g.stroke(); g.restore(); }
+      }
       g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
       if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && t.q.p.frente) isoHits.push({ pr, frente: t.q.p.frente, modulo: t.q.p.modulo });
     });
