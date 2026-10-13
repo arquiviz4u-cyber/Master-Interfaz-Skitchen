@@ -5229,10 +5229,12 @@ function drawElevation(){
   for (const upper of [false, true]) { let x = ajusteIzq(); row(upper).forEach(m => { edgeOwner = m.id; drawModule(m, x, RX, X, Z, post); edgeOwner = null; x += m.ancho; }); }
 
   /* LED bajo los altos */
-  if (cfg.led && highs.length && !flat) cutRun(ajusteIzq(), W - ajusteDer()).forEach(([a, b]) => {
-    const r = RX(a, b, zBA - 6, zBA);
-    ctx.fillStyle = C.ledFill; ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.strokeStyle = C.ledLine; ctx.lineWidth = 2; line(r.x, Z(zBA) - 1, r.x + r.w, Z(zBA) - 1);
+  /* A188 (usuario): solo el degradado de la luz, color de su temperatura, desde la cama de los altos hasta la cubierta (antes una banda y su linea) */
+  if (cfg.led && cfg.ledLuz !== false && highs.length && !flat) cutRun(ajusteIzq(), W - ajusteDer()).forEach(([a, b]) => {
+    const alto = Math.max(10, zBA - altoBarra()), r = RX(a, b, zBA - alto, zBA), [lr, lg, lb] = rgbLuz(), N = 18;
+    ctx.save(); ctx.fillStyle = `rgb(${lr},${lg},${lb})`;
+    for (let k = 0; k < N; k++) { ctx.globalAlpha = .62 * Math.pow(1 - k/N, 1.7); ctx.fillRect(r.x, r.y + r.h*k/N, r.w, Math.ceil(r.h/N) + .5); }
+    ctx.restore();
   });
 
   drawSinkTap(RX, X, Z, scale, post);
@@ -5514,6 +5516,14 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     if (!soloCamp(up)) {
       const hs = isDoble(up) ? up.altoSuperior : 0;
       const ub = caja(up, z0, zTop - hs, up.fondo, !camp);
+      if (cfg.led && conCama(up) && !flat) {   /* A188: el nicho de la tira LED en la cama, con el color de su temperatura */
+        const L0 = PLAN_LED, sep0 = cfg.separacionPosterior || 0, yc0 = sep0 + (!cfg.isla && fijacionAltos() === 'frances' ? PLAN_FIJACION.frances.grueso : 0);
+        const un0 = cfg.style === 'Moderna' && !sinPuertas(up) ? golaHondo(true) : 0, r00 = (() => { const y1n = sep0 + up.fondo - un0, hueco = y1n - yc0 - L0.ancho, ret = Math.max(0, Math.min(hueco, cfg.ledRetiro ?? L0.retiro));
+          return (cfg.ledCentro ? yc0 + hueco/2 : cfg.ledFrente ? y1n - ret - L0.ancho : yc0 + ret) - sep0; })(), [lr, lg, lb] = rgbLuz();
+        const nx = P(r00 + L0.ancho), nicho = { x: nx, y: Z(z0) - Math.max(L0.hondo*s, 6), w: Math.max(L0.ancho*s, 9), h: Math.max(L0.hondo*s, 6) };   /* a escalas chicas, un minimo que se vea */
+        post.push(() => { ctx.save(); ctx.fillStyle = C.front; ctx.fillRect(nicho.x, nicho.y, Math.max(2, nicho.w), Math.max(2, nicho.h)); ctx.fillStyle = `rgb(${lr},${lg},${lb})`; ctx.fillRect(nicho.x, nicho.y, Math.max(2, nicho.w), Math.max(2, nicho.h));
+          ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(nicho.x + .5, nicho.y + .5, Math.max(2, nicho.w) - 1, Math.max(2, nicho.h) - 1);
+          ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(`LED ${cfg.ledTemp || 3000} K`, nicho.x + nicho.w + 4, nicho.y + nicho.h + 3); ctx.restore(); }); }
       /* A125: doble cama de los altos con gola (A83/A91): la del piso se queda en el unero (golaHondo del L) y la interior llega al pano */
       if (conCama(up) && cfg.style === 'Moderna' && !sinPuertas(up)) { const un = golaHondo(true), mm = up.material || cfg.materialGeneral;
         const piso = { x: P(up.fondo - un), y: Z(z0) - t, w: (up.fondo - un)*s, h: t }; ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(ub.x, Z(z0) - t, ub.w, t);
