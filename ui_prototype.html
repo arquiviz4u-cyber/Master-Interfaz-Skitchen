@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A205. [Master hecho 13/10] Gabinetes superiores unidos con puerta de piston: sin el limite de 120 cm (ni el aviso ni la conversion a caja de repisas); sus pistones van en cada division.
    A204. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Laminas de conjunto guardadas se ponen al dia (un detalle por tipo de cajon y especiero; herrajes en la primera lamina); «Agregar vista» solo ofrece lo de la lamina (la de detalles: detalles y la vista general); sin torres no hay opcion de torres; las laminas se suben y bajan en la lista; detalle de cajon mas compacto y con las cotas generales afuera y las particulares junto al dibujo.
    A203. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Cotas: dos filas o columnas ya no se pegan (separacion minima al imantarse) y Mayus + arrastrar mueve solo esa cota; la marca de color de los despieces se conserva en B/N; correderas del detalle de cajon de lado, anidadas, delante de la caja y la fija de su altura; el conteo de herrajes siempre en la primera lamina del conjunto.
    A202. [Master hecho 13/10; Ruby y Revit pendientes: leer modelo.giro] Las bisagras de la puerta elevable usan el modelo real de la bisagra (brazo cerrado, brazo abierto y cazoleta, como en las de lateral) girado 90 grados: su eje corre a lo ancho y su lateral queda contra la cara inferior del techo (modelo.giro = 90; x = ox + (Z - refZ), y = oy - (Y - refY), z = oz + (X - refX)); la puerta lleva su perforacion de cazoleta. El master las dibuja en el alzado (simbolo transpuesto); en el isometrico y el corte salen como caja.
@@ -4828,7 +4829,7 @@ function validate(){
     if (isDoble(m) && (m.altoSuperior < DOBLE_MIN || altoAltos() - m.altoSuperior < DOBLE_MIN || m.altoSuperior > DOBLE_MAX))
       throw new Error(`Módulo inferior + superior: no caben (cada uno necesita al menos ${fmt(DOBLE_MIN)}${uS()} y el superior mide hasta ${fmt(DOBLE_MAX)}${uS()}).`);
   }
-  for (const g of capGroups()) if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : g.members.length > 1 && g.width > reg().ancho.max + .01)
+  for (const g of capGroups()) if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : g.lead.tipoSuperior !== 'Piston' && g.members.length > 1 && g.width > reg().ancho.max + .01)   /* A205: la puerta elevable (pistones en cada division) no tiene ese limite de ancho */
     throw new Error(g.lead.tipoSuperior === 'Repisas' ? 'Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.' : `Módulo superior unido: con puertas no puede pasar de ${medida(reg().ancho.max)}; separa columnas o usa caja de repisas.`);
   /* (A39) la caja de repisas corrida ya no tiene limite de columnas: Unir con la columna derecha sigue mientras haya columnas normales */
   if (cfg.altoBajos < 50) throw new Error(`Los gabinetes bajos quedarían de menos de ${medida(50)}.`);
@@ -7808,7 +7809,7 @@ function capPanel(id){
   html += section('Tipo', sel('capTipo', [['Piston','Puerta elevable (pistón)'],['Puerta','Una puerta'],['Puertas','Dos puertas'],['Repisas','Caja de repisas abierta']], m.tipoSuperior)
     + (m.tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('capBisDer', !!m.bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : ''));
   html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}${num('capFondo', 'Fondo', m.fondoSuperior > 0 ? m.fondoSuperior : m.fondo, 'cm', 25, 70)}</div><div class="note-sm">Su fondo no depende del alto de abajo.</div>` + avisoDoble(m)
-    + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; la caja abierta, a 3 columnas.</div>`
+    + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; con pistón, sin límite; la caja abierta, a 3 columnas.</div>`
     + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
     + (m.tipoSuperior === 'Piston' ? chk('capMostrar', m.mostrarPuertaSuperior, 'Mostrar puerta elevable') : ''));
   const cols = (next && !next.reserved ? `<button class="btn btn-block" data-act="capExt">Extender a la columna derecha</button>` : '') + (g.members.length > 1 ? `<button class="btn btn-block" data-act="capSep">Separar la última columna</button>` : '');
@@ -8051,8 +8052,8 @@ const ACT = {
     const g = capGroupOf(partMod()), last = g.members[g.members.length - 1], up = row(true), next = up[up.indexOf(last) + 1];
     if (!next || next.reserved) return;
     last.unirSuperior = true; ponerDoble(next); next.altoSuperior = last.altoSuperior;
-    /* una puerta elevable no pasa de 120 cm: al superarlos el grupo se convierte en caja de repisas */
-    const ng = capGroupOf(next); if (ng && ng.lead.tipoSuperior !== 'Repisas' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Repisas';
+    /* con puertas no se pasa de 120 cm: al superarlos el grupo se convierte en caja de repisas; la puerta elevable (pistones) no tiene limite */
+    const ng = capGroupOf(next); if (ng && ng.lead.tipoSuperior !== 'Repisas' && ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Repisas';
   }),
   capSep: () => change(() => { const g = capGroupOf(partMod()); if (g && g.members.length > 1) g.members[g.members.length - 2].unirSuperior = false; }),
   capQuitar: () => deletePart(selectedPart),
