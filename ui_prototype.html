@@ -288,6 +288,24 @@
        diagonal y ciego) lleva bajo la cubierta fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa; la
        cubierta lleva cama solo con nariz; 5b) la gola del esquinero se une a inglete con la de las caras: arranca en el limite de la
        columna y va a la profundidad del perfil de las caras (alma entre hondo - e y hondo; antes estaba un espesor mas adentro).
+   A171. [Master hecho 12/10; sin pasos en Revit ni SketchUp: el preview es del editor] Isometrico con cotas, aperturas y preview (usuario
+       12/10): 1) cotas: cadena de anchos y total al frente de cada cara, fondo de la cubierta y cadena de alturas con la total (en el
+       editor con Medir; al exportar, por la casilla de cotas); 2) herrajes: con las puertas cerradas no se ve nada interior (bisagras,
+       correderas, taquetes, cazoletas, cajas y repisas); al abrir un frente se ven su variante abierta, sus correderas y las perforaciones
+       de cazoleta (circulos en la cara interior de la puerta, A140); 3) apertura: puertas (eje y grados de abre), elevables y cajones
+       (recorrido por su fraccion) con la regla de Interactuar de SketchUp; 4) vista «Isometrico» en el menu de vistas del editor (no en
+       closet): clic en un frente lo abre o cierra junto con los que se mueven con el (grupo, zona, dentroDe) y Mayus + clic abre o cierra
+       todo; Puertas muestra el interior y Medir las cotas; lo abierto es de la sesion (LAM.abiertos), no de la configuracion, y es lo
+       que sale en el isometrico exportado; 5) las paredes del hueco de la cubierta se ven por dentro. Limites: las cotas de L y U se
+       amontonan junto a la esquina; las piezas abiertas se ordenan con su caja envolvente; el preview no se anima.
+   A170. [Master hecho 12/10; Ruby hecho y probado sin SketchUp; falta Revit y probar la geometria en SketchUp] La parrilla corta la
+       cubierta (usuario 12/10: «la cubierta no se corta bien en la tarja ni con la parrilla»): la losa y la cama solo llevaban el hueco
+       de la tarja y el de la parrilla (el ancho menos el labio de cristal por lado, igual al de su placa) no cortaba. Contrato: una
+       pieza puede traer `huecos` (lista, opcional) ademas de `hueco`, que sigue siendo el primero; un plan anterior solo trae `hueco`.
+       Master: huecosParrilla en losa(); pruebasPlanMX descuenta todos los huecos al comparar solidos y exige el hueco de la parrilla
+       en la losa. Ruby: Forma.huecos y fallas_huecos (cada uno cabe, `huecos` exige `hueco`, no se cruzan), geometria.rb vacia cada
+       uno, Sincronizar.medida los incluye (otra definicion); suite de 107 pruebas. Falta: [SketchUp] probar la cubierta con tarja y
+       parrilla (la geometria solo corre dentro de SketchUp); [Revit] leer `huecos` y vaciar la losa de la familia de cubierta.
    A169. [Master hecho 12/10; falta Revit y probar la entrega en SketchUp] Exportar laminas (usuario 12/10): boton «Laminas» junto a
        Exportar. Vistas: alzado con puertas, alzado sin puertas, planta, corte e isometrico; modos plano y color; formatos PDF vectorial
        (A3, escala normalizada 1:10 a 1:100, rotulo con la nota de alcance, una hoja por vista) y DXF R12 (1:1 en mm, capas DLB_).
@@ -297,8 +315,8 @@
        casillas del dialogo (prefs lamCotas y lamProy, aparte de exportCotas). Autoprueba pruebasLaminas() en recta, L, U, isla y
        closet. En la planta de L y U el resalte de la cara activa ya no sale al exportar y en plano va en blanco.
        Falta: [Revit] aceptar .pdf y .dxf al guardar lo que manda el master (hoy Exportar vistas solo espera PNG, JPG y texto);
-       [SketchUp] Ruby ya acepta .pdf y .dxf (exportar.rb); probar la entrega real y abrir el DXF en un CAD. Limites: el isometrico
-       no lleva cotas; en DXF el color solo rellena rectangulos; las capas del DXF van por tipo de trazo, no por pieza; en L y U el
+       [SketchUp] Ruby ya acepta .pdf y .dxf (exportar.rb); probar la entrega real y abrir el DXF en un CAD. Limites: en DXF el
+       color solo rellena rectangulos; las capas del DXF van por tipo de trazo, no por pieza; en L y U el
        alzado y el corte salen de la cara activa; el texto del PDF es Helvetica. Presentar sigue fuera del master (C1): esto es Exportar.
    A168. [Pendiente de decidir; investigacion 12/10] Herrajes contra el catalogo tecnico de Blum 2024/2025 (fuente primaria; paginas
        impresas). Nada cambia hasta que el usuario decida; falta en: master, despues Revit y SketchUp. 1) Caja del cajon
@@ -3689,6 +3707,12 @@ function planDePiezas(c = cfg){
         const doble = cfg.tipoTarja === 2, bw = Math.min(sm.ancho - 8, cfg.tarjaAncho*(doble ? 1.6 : 1)), bd = Math.min(cfg.tarjaFondo, sm.fondo - cfg.retiroTarja - 4);
         hueco = { x0: sx + (sm.ancho - bw)/2, x1: sx + (sm.ancho + bw)/2, y0: sepDe(sm) + sm.fondo - cfg.retiroTarja - bd, y1: sepDe(sm) + sm.fondo - cfg.retiroTarja, doble, m: sm, cx: sx + sm.ancho/2 };
       }
+      /* A170: la parrilla corta la cubierta. Su hueco (el ancho menos el labio de cristal por lado, igual que el de su placa) pasa a la losa
+         y a la cama; una losa admite varios huecos: `hueco` es el primero y `huecos` los demas (opcional, compatible con lo anterior) */
+      const huecosParrilla = [];
+      if (cfg.generarCubierta) lows.forEach(m => { if (m.parrilla && !m.reserved) {
+        const pe = parrillaEn(m), pd = Math.min(52, m.fondo - 8), lab = reg().parrilla.labio, yb = sepDe(m) + m.fondo - 4 - pd;
+        huecosParrilla.push({ x0: pe.x0 + lab, x1: pe.x0 + lab + pe.hueco, y0: yb + lab, y1: yb + pd - lab }); } });
       /* losa con el hueco: alrededor de el, cuatro tiras (izquierda, derecha, detras y delante) */
       /* inglete (A88): el tramo que llega al frente (y1) lleva su canto inferior cortado a 45 grados para recibir la nariz */
       const losa = (id, tipo, a, b, y0, y1, z0, z1, inglete = false) => {
@@ -3699,8 +3723,10 @@ function planDePiezas(c = cfg){
         const q = caja('', a, b, y0, y1);
         /* A99 (usuario, 08/10): con tarja, una sola pieza con el hueco de la tina de arriba abajo (antes cuatro tiras con juntas);
            hueco = {x, y, ancho, fondo} desde la esquina menor de la pieza */
-        if (h && piezas.includes(q)) { const hx0 = Math.max(a, h.x0), hx1 = Math.min(b, h.x1), hy0 = Math.max(y0, h.y0), hy1 = Math.min(y1, h.y1);
-          q.hueco = { x: r2(hx0 - q.x), y: r2(hy0 - q.y), ancho: r2(hx1 - hx0), fondo: r2(hy1 - hy0) }; }
+        const hs = [h].concat(huecosParrilla.filter(g => g.x0 < b && g.x1 > a && g.y0 < y1 && g.y1 > y0)).filter(Boolean).map(g => {
+          const hx0 = Math.max(a, g.x0), hx1 = Math.min(b, g.x1), hy0 = Math.max(y0, g.y0), hy1 = Math.min(y1, g.y1);
+          return { x: r2(hx0 - q.x), y: r2(hy0 - q.y), ancho: r2(hx1 - hx0), fondo: r2(hy1 - hy0) }; });
+        if (hs.length && piezas.includes(q)) { q.hueco = hs[0]; if (hs.length > 1) q.huecos = hs.slice(1); }
       };
       /* nariz (seccion del master; Mostrar_Nariz / Mostrar_Cama de Revit): losa del espesor arriba, nariz al frente hasta la altura
          total y cama debajo de la losa, retirada del frente 2 cm (6.8 con tarja, Retiro_Frontal_Cama). A88 (usuario, 08/10): la nariz
@@ -4191,14 +4217,25 @@ function pruebasPlanMX(){
       ok(e && Math.abs(e[0] - xb) < .02 && Math.abs(e[1] - xb - m.ancho) < .02, nombre + ': el bajo ' + m.id + ' no ocupa su columna');
       /* A133: la parrilla a su ancho real y su hueco dentro del ancho del gabinete */
       const pq = m.parrilla && p.piezas.find(q => q.modulo === m.id && q.tipo === 'Parrilla');
+      if (pq && c.generarCubierta) {   /* A170: la losa que pasa bajo la parrilla lleva su hueco, en el mismo lugar y del mismo tamano */
+        const hx = pq.x + pq.hueco.x, hy = pq.y + pq.hueco.y;
+        p.piezas.filter(q => q.rol === 'cubierta' && ['Losa', 'Cama'].includes(q.tipo) && q.x <= hx + .01 && q.x + q.ancho >= hx + pq.hueco.ancho - .01 && q.y <= hy + .01 && q.y + q.fondo >= hy + pq.hueco.fondo - .01)
+          .forEach(q => ok([q.hueco].concat(q.huecos || []).some(g => g && Math.abs(q.x + g.x - hx) < .02 && Math.abs(q.y + g.y - hy) < .02 && Math.abs(g.ancho - pq.hueco.ancho) < .02 && Math.abs(g.fondo - pq.hueco.fondo) < .02),
+            nombre + ': ' + q.id + ' no tiene el hueco de la parrilla de ' + m.id)); }
       if (pq) ok(Math.abs(pq.ancho - m.parrillaAncho) < .02 && pq.hueco && pq.x + pq.hueco.x >= xb - .02 && pq.x + pq.hueco.x + pq.hueco.ancho <= xb + m.ancho + .02, nombre + ': la parrilla de ' + m.id + ' no tiene su ancho real o su hueco sale del gabinete');
       xb += m.ancho; });
     ok(Math.abs(xb + aj(false) - c.longitud) < .02, nombre + ': los bajos y tapetas no suman el largo');
     const cruza = (a, b) => ['x', 'y', 'z'].every((e, i) => { const w = ['ancho', 'fondo', 'alto'][i]; return a[e] + a[w] > b[e] + .01 && b[e] + b[w] > a[e] + .01; });
     /* una pieza con ranura es solida salvo el hueco de la ranura: se compara por sus tres partes macizas */
     /* A99: una pieza con hueco es solida salvo el hueco: se compara por las cuatro partes que lo rodean */
-    const solidosHueco = q => { const h = q.hueco; return [Object.assign({}, q, { ancho: h.x }), Object.assign({}, q, { x: q.x + h.x + h.ancho, ancho: q.ancho - h.x - h.ancho }),
-      Object.assign({}, q, { x: q.x + h.x, ancho: h.ancho, fondo: h.y }), Object.assign({}, q, { x: q.x + h.x, ancho: h.ancho, y: q.y + h.y + h.fondo, fondo: q.fondo - h.y - h.fondo })].filter(r => r.ancho > .01 && r.fondo > .01); };
+    /* A170: con varios huecos (hueco y huecos) se descuenta cada uno de las partes que quedan */
+    const solidosHueco = q => [q.hueco].concat(q.huecos || []).reduce((partes, h) => partes.flatMap(r => {
+      const x0 = q.x + h.x, x1 = x0 + h.ancho, y0 = q.y + h.y, y1 = y0 + h.fondo;
+      if (x1 <= r.x + .005 || x0 >= r.x + r.ancho - .005 || y1 <= r.y + .005 || y0 >= r.y + r.fondo - .005) return [r];
+      const cx0 = Math.max(x0, r.x), cx1 = Math.min(x1, r.x + r.ancho);
+      return [Object.assign({}, r, { ancho: cx0 - r.x }), Object.assign({}, r, { x: cx1, ancho: r.x + r.ancho - cx1 }),
+        Object.assign({}, r, { x: cx0, ancho: cx1 - cx0, fondo: Math.max(0, y0 - r.y) }), Object.assign({}, r, { x: cx0, ancho: cx1 - cx0, y: Math.min(r.y + r.fondo, y1), fondo: Math.max(0, r.y + r.fondo - y1) })];
+    }), [q]).filter(r => r.ancho > .01 && r.fondo > .01);
     const solidos = q => q.hueco ? solidosHueco(q) : !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
       Object.assign({}, q, { y: q.y + q.ranura.y, fondo: q.ranura.ancho, z: q.z + q.ranura.hondo, alto: q.alto - q.ranura.hondo }),
       Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
@@ -4927,7 +4964,8 @@ function drawCanvasCore(){
   if (cssW < 320 || cssH < 240) return; /* area minima: con menos, la escala saldria negativa */
   Object.assign(C, dark && !exporting ? DARK : LIGHT);
   if (cfg.closet) Object.assign(C, dark && !exporting ? CLOSET_DARK : CLOSET_LIGHT);
-  if (cfg.isla) { if (view === 'Planta') drawIslandPlan(); else if (view === 'Posterior') drawIslandBack(); else if (view === 'Seccion') drawIslandSection(); else drawIslandFront(); }
+  if (view === 'Isometrico') drawIsometrico();
+  else if (cfg.isla) { if (view === 'Planta') drawIslandPlan(); else if (view === 'Posterior') drawIslandBack(); else if (view === 'Seccion') drawIslandSection(); else drawIslandFront(); }
   else if (view === 'Planta') drawPlan(); else if (view === 'Seccion') drawSeccionVista(); else if (cfg.closet) drawClosetElevation(); else drawElevation();
   if (matDrag) drawMaterialDrag();
 }
@@ -6916,7 +6954,7 @@ const ISLA_HINTS = {
 };
 function updateHint(){
   if (matDrag) return;
-  let t = cfg.isla ? ISLA_HINTS[view] : view === 'Planta' ? HINTS.plan : cfg.closet ? 'Closet · clic en una pieza para editarla · las puertas se eligen en Estilo · arrastra en vacío para elegir varias.' : HINTS.def;
+  let t = view === 'Isometrico' ? 'Isométrico · clic en una puerta o un cajón para abrirlo o cerrarlo · Mayús + clic: abrir o cerrar todo · Puertas: ver el interior · Medir: cotas.' : cfg.isla ? ISLA_HINTS[view] : view === 'Planta' ? HINTS.plan : cfg.closet ? 'Closet · clic en una pieza para editarla · las puertas se eligen en Estilo · arrastra en vacío para elegir varias.' : HINTS.def;
   if (hover) {
     const [kind, key] = [hover.slice(0, hover.indexOf(':')), hover.slice(hover.indexOf(':') + 1)];
     if (kind === 'dim') t = HINTS.dim; else if (kind === 'grip') t = HINTS.grip;
@@ -6934,6 +6972,7 @@ canvas.addEventListener('mousedown', e => {
   if (e.button !== 0) return;   /* el canvas ignora todo boton que no sea el izquierdo */
   const p = pt(e), dbl = e.detail >= 2;   /* e.detail: Clicks del real (2 = doble clic) */
   canvas.focus();
+  if (view === 'Isometrico') { e.preventDefault(); if (LAM.isoClick(p, e.shiftKey)) render(); return; }   /* A170: abrir o cerrar frentes */
   /* A45: sin preventDefault el clic termina dando el foco al lienzo, el campo pierde el foco (blur) y se cierra al instante */
   const mh = miraHits.find(q => inside(p, q.rect)); if (mh) { e.preventDefault(); const mm = moduloEn(false, mh.xc) || moduloEn(true, mh.xc); seccionMira = mm ? { id: mm.id, dir: -miraCorte(mh.xc) } : null; render(); return; }   /* A159 */
   const tb = tabHits.find(q => inside(p, q.rect)); if (tb) { e.preventDefault(); ACT.cara(String(tb.k)); return; }   /* A135 */
@@ -7010,6 +7049,7 @@ canvas.addEventListener('mousedown', e => {
 });
 canvas.addEventListener('mousemove', e => {
   const p = pt(e);
+  if (view === 'Isometrico') { canvas.style.cursor = LAM.isoHit(p) ? 'pointer' : 'default'; return; }   /* A170 */
   if (drag && drag.kind === 'module') {
     const h = hits.find(h => h.module.id !== drag.id && inside(p, h.rect)), next = h ? columnaPar(drag.id, h.module.id) : null;   /* A160: por columna */
     drag.x = p.x; drag.y = p.y; canvas.style.cursor = 'grabbing';
@@ -8868,7 +8908,9 @@ const EN = {
   'Generando láminas…': 'Generating sheets…', 'Archivos generados:': 'Generated files:', 'No se generó ningún archivo.': 'No file was generated.',
   'Longitud': 'Length', 'Altura de muro': 'Wall height', 'Escala': 'Scale', 'no disponible en closet': 'not available for closets',
   'Medidas de referencia para fabricación, generadas con {0}. Verifique en obra antes de cortar.': 'Reference measurements for manufacturing, generated with {0}. Verify on site before cutting.',
-  'No sustituye la toma de medidas ni el despiece del taller. Reporte cualquier diferencia en la hoja de diferencias.': "It does not replace on-site measuring or the shop's cut list. Report any difference on the differences sheet."
+  'No sustituye la toma de medidas ni el despiece del taller. Reporte cualquier diferencia en la hoja de diferencias.': "It does not replace on-site measuring or the shop's cut list. Report any difference on the differences sheet.",
+  'ISOMÉTRICO': 'ISOMETRIC', 'Isométrico · clic en una puerta o un cajón para abrirlo o cerrarlo · Mayús + clic: abrir o cerrar todo · Puertas: ver el interior · Medir: cotas.': 'Isometric · click a door or drawer to open or close it · Shift + click: open or close all · Doors: see the interior · Measure: dimensions.',
+  'El isométrico sale con todo cerrado; en la vista Isométrico puedes abrir las puertas y cajones que quieras mostrar.': 'The isometric comes out fully closed; in the Isometric view you can open the doors and drawers you want to show.'
 };
 const EN_T = [
   ["La columna lleva solo la campana: sin el gabinete alto{0}; la chimenea llega al tope.", "This column has the range hood only: no wall cabinet{0}; the chimney runs to the top."],
@@ -9059,7 +9101,7 @@ window.addEventListener('mouseup', () => {
 });
 /* boton de vistas (Layout.cs): clic = siguiente vista; mantener pulsado 380 ms = menu para elegirla */
 /* vistas: cocina Alzado/Planta; isla Alzado frontal, Planta, Vista posterior y Sección */
-const viewList = () => cfg.isla ? [['Alzado', 'Alzado frontal'], ['Planta', 'Planta'], ['Posterior', 'Vista posterior'], ['Seccion', 'Sección']] : [['Alzado', 'Alzado'], ['Planta', 'Planta'], ['Seccion', 'Sección']];   /* A125: seccion tambien en cocina y closet */
+const viewList = () => (cfg.isla ? [['Alzado', 'Alzado frontal'], ['Planta', 'Planta'], ['Posterior', 'Vista posterior'], ['Seccion', 'Sección']] : [['Alzado', 'Alzado'], ['Planta', 'Planta'], ['Seccion', 'Sección']]).concat(cfg.closet ? [] : [['Isometrico', 'Isométrico']]);   /* A170 */   /* A125: seccion tambien en cocina y closet */
 const viewName = v => (viewList().find(q => q[0] === v) || [v, v])[1];
 function setView(v){
   view = v; if (selectedPart === 'wall') selectedPart = null;
@@ -9617,64 +9659,190 @@ const LAM = (() => {
     }
   }
 
-  /* ---- isometrico desde el plan de piezas (la interfaz no lo tiene) ---- */
-  function capturarIsometrico(o){
-    const plan = planCocina(), FUERA = new Set(['luz', 'caja', 'repisa', 'division']);   /* con puertas cerradas lo interior no se ve */
+  /* ---- isometrico desde el plan de piezas (la interfaz de alzado no lo tiene): escena, pintura, cotas y apertura de frentes (A170) ----
+     Todo sale del plan: cada pieza es una caja; los frentes llevan `frente` (id) y uno de ellos `abre` (puerta con eje y grados, elevable,
+     cajon con recorrido), igual que Interactuar en SketchUp. Ejes locales de la cara: X = x, Y = -y (el cuarto hacia -Y), Z = z. */
+  const abiertos = new Set();   /* frentes abiertos en el preview del editor: vive en la sesion, no en la configuracion */
+  const isoHits = [];
+  const INTERIOR = new Set(['Bisagra', 'CalzaBisagra', 'Cazoleta', 'Corredera', 'CorrederaMedia', 'CorrederaMovil', 'Taquete', 'Piston', 'Vastago', 'Condimentero', 'Bote']);
+  const C30 = Math.cos(Math.PI / 6), S30 = .5, AZUL = '#266096';
+  const vadd = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], vsub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], vmul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+  const vcruz = (u, w) => [u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0]], vpunto = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const vunit = v => { const n = Math.hypot(...v) || 1; return v.map(x => x / n); };
+  /* movimiento de un frente al abrirse, en ejes locales de su cara (la misma regla de Interaccion.movimiento en Ruby) */
+  const movimientoDe = a => !a ? null : a.tipo === 'Puerta' ? { gira: [a.x, -a.y, 0], eje: [0, 0, 1], g: (a.lado === 'derecha' ? 1 : -1) * (a.grados || 90) * (a.sentido === 'adentro' ? -1 : 1) }
+    : a.tipo === 'Elevable' ? { gira: [0, -a.y, a.z], eje: [1, 0, 0], g: -90 }
+    : a.tipo === 'Cajon' ? { mueve: [0, -a.recorrido * (a.fraccion || 1), 0] } : null;
+  const mover = (v, m) => { if (!m) return v; if (m.mueve) return vadd(v, m.mueve);
+    const r = vsub(v, m.gira), t = m.g * Math.PI / 180, c = Math.cos(t), s = Math.sin(t), k = m.eje, kr = vcruz(k, r), kd = vpunto(k, r);
+    return vadd(m.gira, [r[0] * c + kr[0] * s + k[0] * kd * (1 - c), r[1] * c + kr[1] * s + k[1] * kd * (1 - c), r[2] * c + kr[2] * s + k[2] * kd * (1 - c)]); };
+  const dentroPoli = (p, pr) => { let d = false; for (let i = 0, j = pr.length - 1; i < pr.length; j = i++) {
+    if ((pr[i][1] > p.y) !== (pr[j][1] > p.y) && p.x < (pr[j][0] - pr[i][0]) * (p.y - pr[i][1]) / (pr[j][1] - pr[i][1]) + pr[i][0]) d = !d; } return d; };
+
+  function isoEscena(o = {}){
+    const plan = planCocina(), conPuertas = o.puertas !== false;
+    const caras = [{ piezas: plan.piezas, org: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0] }]
+      .concat((plan.caras || []).map(c => ({ piezas: c.piezas, org: c.origen, ex: c.ejeX, ey: c.ejeY })));
+    const todas = caras.flatMap(c => c.piezas), abres = {};
+    todas.forEach(p => { if (p.frente && p.abre) abres[p.frente] = p.abre; });
+    const open = new Set([...(o.abiertos || abiertos)].filter(f => f in abres));   /* ids que ya no existen se ignoran */
+    const modAbierto = new Set(todas.filter(p => p.frente && open.has(p.frente)).map(p => p.modulo));
     const cajas = [];
-    const poner = (piezas, org, ex, ey) => piezas.forEach(p => {
-      if (FUERA.has(p.rol) || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
-      /* marco de la cara como en SketchUp (Y = 0 en el muro y la habitacion hacia -Y): una pieza a la distancia y del muro cae en origen + x*ejeX - y*ejeY */
-      const pt = (x, y, z) => [org[0] + x * ex[0] - y * ey[0], org[1] + x * ex[1] - y * ey[1], org[2] + z + x * (ex[2] || 0) - y * (ey[2] || 0)];
+    const SX = (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, og = (plan.caras || []).map(c => c.origen[0]);
+      return og.length && og.reduce((a, b) => a + b, 0) / og.length > centro ? -1 : 1; })();   /* observador en el cuarto y del lado contrario a las demas caras */
+    caras.forEach(cara => cara.piezas.forEach(p => {
+      if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
+      if (!conPuertas && p.ocultaSinPuertas) return;
+      const abierto = !!(conPuertas && p.frente && open.has(p.frente));
+      const interior = p.rol === 'caja' || p.rol === 'repisa' || p.rol === 'division' || (p.rol === 'herraje' && INTERIOR.has(p.tipo));
+      if (p.tipo === 'Cazoleta') return;   /* la cazoleta es la perforacion de la puerta: se dibuja como circulo cuando la puerta se abre */
+      if (interior && conPuertas && !abierto && !modAbierto.has(p.modulo)) return;   /* con puertas cerradas lo interior no se ve */
+      if (p.estado && p.frente && (p.estado === 'abierto') !== abierto) return;      /* variantes cerrado / abierto de bisagras y correderas */
+      const m = abierto ? movimientoDe(abres[p.frente]) : null;
+      const K = v => [cara.org[0] + v[0] * cara.ex[0] + v[1] * cara.ey[0], cara.org[1] + v[0] * cara.ex[1] + v[1] * cara.ey[1], cara.org[2] + v[2]];
+      const P = (x, y, z) => K(mover([x, -y, z], m));
       const x0 = p.x, x1 = p.x + p.ancho, y0 = p.y, y1 = p.y + p.fondo, z0 = p.z, z1 = p.z + p.alto;
-      const q = { p, pt, v: [pt(x0, y0, z0), pt(x1, y0, z0), pt(x1, y1, z0), pt(x0, y1, z0), pt(x0, y0, z1), pt(x1, y0, z1), pt(x1, y1, z1), pt(x0, y1, z1)] };
+      const q = { p, v: [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0), P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], abierto };
       q.c = [0, 1, 2].map(i => q.v.reduce((s, v) => s + v[i], 0) / 8);
+      q.mn = [0, 1, 2].map(i => Math.min(...q.v.map(v => v[i]))); q.mx = [0, 1, 2].map(i => Math.max(...q.v.map(v => v[i])));
+      /* huecos (A99/A170): rectangulos que atraviesan la pieza; sus paredes se ven por dentro */
+      q.huecos = [p.hueco].concat(p.huecos || []).filter(h => h && h.ancho > 0 && h.fondo > 0).map(h => {
+        const hx0 = x0 + h.x, hx1 = hx0 + h.ancho, hy0 = y0 + h.y, hy1 = hy0 + h.fondo;
+        return { arriba: [P(hx0, hy0, z1), P(hx1, hy0, z1), P(hx1, hy1, z1), P(hx0, hy1, z1)], abajo: [P(hx0, hy0, z0), P(hx1, hy0, z0), P(hx1, hy1, z0), P(hx0, hy1, z0)] }; });
+      /* perforaciones de cazoleta (A140): circulos en la cara posterior de la puerta, visibles al abrirla */
+      q.perf = !abierto ? [] : (p.perforaciones || []).map(f => { const r = f.diametro / 2, pts = [];
+        for (let i = 0; i < 20; i++) { const t = i * Math.PI * 2 / 20; pts.push(P(x0 + f.x + r * Math.cos(t), y0, z0 + f.z + r * Math.sin(t))); }
+        return { pts, n: vunit(vsub(P(x0, y0 - 1, z0), P(x0, y0, z0))) }; });
       cajas.push(q);
-    });
-    poner(plan.piezas, [0, 0, 0], [1, 0, 0], [0, 1, 0]);
-    (plan.caras || []).forEach(c => poner(c.piezas, c.origen, c.ejeX, c.ejeY));
+    }));
     if (!cajas.length) throw new Error('El plan no trae piezas para el isométrico');
-    /* observador en el cuarto: -Y, arriba y del lado de x opuesto a las demas caras (asi se ven los frentes de la L) */
-    const SX = (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, o = (plan.caras || []).map(c => c.origen[0]);
-      return o.length && o.reduce((a, b) => a + b, 0) / o.length > centro ? -1 : 1; })();
-    /* orden de pintor exacto para cajas alineadas con los ejes: A va antes que B si queda por completo detras de B en algun eje
-       (el orden por centros falla con piezas largas como el backsplash y deja las bisagras delante de las puertas) */
-    cajas.forEach(q => { q.mn = [0, 1, 2].map(i => Math.min(...q.v.map(v => v[i]))); q.mx = [0, 1, 2].map(i => Math.max(...q.v.map(v => v[i]))); });
+    /* orden de pintor exacto para cajas alineadas con los ejes: A va antes que B si queda por completo detras de B en algun eje */
     cajas.sort((a, b) => (SX * a.c[0] - a.c[1] + a.c[2]) - (SX * b.c[0] - b.c[1] + b.c[2]));
-    { const orden = [], visto = new Array(cajas.length).fill(false);
-      const detras = (a, b) => (SX > 0 ? a.mx[0] <= b.mn[0] + .01 : a.mn[0] >= b.mx[0] - .01) || a.mn[1] >= b.mx[1] - .01 || a.mx[2] <= b.mn[2] + .01;
-      const visita = i => { if (visto[i]) return; visto[i] = true;
-        for (let j = 0; j < cajas.length; j++) if (j !== i && !visto[j] && detras(cajas[j], cajas[i]) && !detras(cajas[i], cajas[j])) visita(j);
-        orden.push(cajas[i]); };
-      cajas.forEach((_, i) => visita(i)); cajas.splice(0, cajas.length, ...orden); }
-    const C30 = Math.cos(Math.PI / 6), S30 = .5, proy = v => [(SX * v[0] + v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a la derecha y abajo; el cuarto (-Y) a la izquierda y abajo */
-    const caras = [[[0, 1, 2, 3], [0, 0, -1]], [[4, 5, 6, 7], [0, 0, 1]], [[0, 1, 5, 4], [0, -1, 0]], [[3, 2, 6, 7], [0, 1, 0]], [[0, 3, 7, 4], [-1, 0, 0]], [[1, 2, 6, 5], [1, 0, 0]]];
-    const luz = (() => { const l = [.35 * SX, -.45, .82], n = Math.hypot(...l); return l.map(v => v / n); })(), V = [SX, -1, 1];
+    const orden = [], visto = new Array(cajas.length).fill(false);
+    const detras = (a, b) => (SX > 0 ? a.mx[0] <= b.mn[0] + .01 : a.mn[0] >= b.mx[0] - .01) || a.mn[1] >= b.mx[1] - .01 || a.mx[2] <= b.mn[2] + .01;
+    const visita = i => { if (visto[i]) return; visto[i] = true;
+      for (let j = 0; j < cajas.length; j++) if (j !== i && !visto[j] && detras(cajas[j], cajas[i]) && !detras(cajas[i], cajas[j])) visita(j);
+      orden.push(cajas[i]); };
+    cajas.forEach((_, i) => visita(i));
+    const proy = v => [(SX * v[0] + v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a un lado y abajo; el cuarto (-Y) al otro y abajo */
+    const V = [SX, -1, 1], luz = vunit([.35 * SX, -.45, .82]);
+    const caraIdx = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]];
+    const normalHacia = (pts, ref, haciaAfuera) => { let n = vunit(vcruz(vsub(pts[1], pts[0]), vsub(pts[2], pts[0])));
+      const d = vsub(ref, pts[0]); return (vpunto(n, d) > 0) === haciaAfuera ? vmul(n, -1) : n; };
+    const tri = [], bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
+    const cuenta = pr => pr.forEach(p => { bb.x0 = Math.min(bb.x0, p[0]); bb.x1 = Math.max(bb.x1, p[0]); bb.y0 = Math.min(bb.y0, p[1]); bb.y1 = Math.max(bb.y1, p[1]); });
+    orden.forEach(q => {
+      caraIdx.forEach((idx, fi) => {
+        const pts = idx.map(i => q.v[i]), n = normalHacia(pts, q.c, true);
+        if (vpunto(n, V) <= 1e-6) return;
+        const pr = pts.map(proy); cuenta(pr);
+        const arriba = fi === 1;   /* [4,5,6,7]: la cara superior lleva los huecos */
+        tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(n, luz)), q, holes: arriba ? q.huecos.map(h => h.arriba.map(proy)) : null });
+      });
+      q.huecos.forEach(h => h.arriba.forEach((a, i) => { const b = h.arriba[(i + 1) % 4], c = h.abajo[(i + 1) % 4], d = h.abajo[i], pts = [a, b, c, d];
+        const cen = [0, 1, 2].map(k => (h.arriba[0][k] + h.arriba[2][k]) / 2);
+        const n = normalHacia(pts, cen, false);   /* la pared mira al centro del hueco */
+        if (vpunto(n, V) <= 1e-6) return;
+        const pr = pts.map(proy); cuenta(pr); tri.push({ t: 'pared', pr, k: .70, q }); }));
+      q.perf.forEach(f => { if (vpunto(f.n, V) <= 1e-6) return; const pr = f.pts.map(proy); cuenta(pr); tri.push({ t: 'perf', pr, k: .5, q }); });
+    });
+    const cotas = o.cotas === false ? [] : isoCotas(caras, proy);
+    cotas.forEach(c => { cuenta([proy(c.a), proy(c.b), proy(vadd(c.a, vmul(c.d, 1.12))), proy(vadd(c.b, vmul(c.d, 1.12)))]); });
+    return { tri, cotas, bb, proy, SX, abres };
+  }
+
+  /* cotas del isometrico: cadena de anchos y total al frente de cada cara, fondo de la cubierta y cadena de alturas en la primera cara */
+  function isoCotas(caras, proy){
+    const out = [], num = v => Math.round(v * 10) / 10, r = fmt;
+    caras.forEach((cara, ci) => {
+      const ps = cara.piezas.filter(p => p.rol !== 'luz');
+      if (!ps.length) return;
+      const K = (x, y, z) => [cara.org[0] + x * cara.ex[0] - y * cara.ey[0], cara.org[1] + x * cara.ex[1] - y * cara.ey[1], cara.org[2] + z];
+      const D = (dx, dy, dz) => [dx * cara.ex[0] - dy * cara.ey[0], dx * cara.ex[1] - dy * cara.ey[1], dz];   /* desplazamiento en ejes de la cara */
+      /* solo los cuerpos de los modulos: equipos y herrajes (placa de la parrilla, tarja) no parten las cadenas */
+      const ext = {}; ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol)).forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || [1e9, -1e9, 1e9, -1e9];
+        e[0] = Math.min(e[0], p.x); e[1] = Math.max(e[1], p.x + p.ancho); e[2] = Math.min(e[2], p.z); e[3] = Math.max(e[3], p.z + p.alto); });
+      const xs = [], zs = [];
+      Object.values(ext).forEach(e => { xs.push(e[0], e[1]); zs.push(e[2], e[3]); });
+      ps.filter(p => p.rol === 'tapeta' && !p.modulo).forEach(p => xs.push(p.x, p.x + p.ancho));
+      ps.filter(p => p.rol === 'zoclo' || p.rol === 'cubierta').forEach(p => zs.push(p.z, p.z + p.alto));
+      const x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x + p.ancho)), z0 = Math.min(...ps.map(p => p.z)), z1 = Math.max(...ps.map(p => p.z + p.alto));
+      xs.push(x0, x1); zs.push(z0, z1);
+      /* cortes distintos y separados al menos 2.5 cm: los tabiques entre gabinetes no hacen cotas de 1 cm */
+      const unico = a => [...new Set(a.map(v => Math.round(v * 100) / 100))].sort((p, q) => p - q).reduce((r, v) => (r.length && v - r[r.length - 1] < 2.5 ? r : r.concat(v)), []);
+      const X = unico(xs), Z = unico(zs);
+      const yFrente = Math.max(...ps.map(p => p.y + p.fondo));
+      const dy = 22;   /* los anchos van delante de los gabinetes */
+      for (let i = 0; i + 1 < X.length; i++) if (X[i + 1] - X[i] > .5) out.push({ a: K(X[i], yFrente, z0), b: K(X[i + 1], yFrente, z0), d: D(0, dy, 0), t: r(X[i + 1] - X[i]) });
+      out.push({ a: K(x0, yFrente, z0), b: K(x1, yFrente, z0), d: D(0, dy + 22, 0), t: medida(x1 - x0) });
+      if (ci === 0) {
+        const cub = ps.filter(p => p.rol === 'cubierta'), fondoCub = cub.length ? Math.max(...cub.map(p => p.y + p.fondo)) : yFrente;
+        out.push({ a: K(x1, 0, z0), b: K(x1, fondoCub, z0), d: D(24, 0, 0), t: medida(fondoCub) });   /* fondo de la cubierta, en el extremo del tramo */
+        for (let i = 0; i + 1 < Z.length; i++) if (Z[i + 1] - Z[i] > .5) out.push({ a: K(x0, yFrente, Z[i]), b: K(x0, yFrente, Z[i + 1]), d: D(-24, 0, 0), t: r(Z[i + 1] - Z[i]) });
+        out.push({ a: K(x0, yFrente, z0), b: K(x0, yFrente, z1), d: D(-46, 0, 0), t: medida(z1 - z0) });
+      }
+    });
+    return out;
+  }
+
+  /* pintura del isometrico en cualquier contexto (Grabador o el del editor): s = px por cm, (ox, oy) = esquina del recuadro */
+  function isoPintar(g, esc, s, ox, oy, o = {}){
+    const bb = esc.bb, X = x => ox + (x - bb.x0) * s, Y = y => oy + (y - bb.y0) * s, plano = !!o.plano;
     const base = p => { const m = p.material ? mat(p.material) : null; if (m) return rgbOf(m); const e = p.etiqueta;
       return e === 'frentes' ? C.front : e === 'cubierta' ? '#C8B99F' : e === 'zoclo' ? '#4A4F55' : e === 'backsplash' ? C.backsplash : e === 'herrajes' ? C.metal : e === 'equipos' ? '#B7BEC5' : C.board; };
-    const sombra = (s, k) => { const c = rgbDe(s); return '#' + [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round(c[i] * k))).toString(16).padStart(2, '0')).join(''); };
-    /* normales de cada cara en ejes de la cocina: salen de los vertices, asi vale tambien en L y U */
-    const normal = (q, idx) => { const a = q.v[idx[0]], b = q.v[idx[1]], c = q.v[idx[2]], u = [b[0]-a[0], b[1]-a[1], b[2]-a[2]], w = [c[0]-a[0], c[1]-a[1], c[2]-a[2]];
-      let n = [u[1]*w[2]-u[2]*w[1], u[2]*w[0]-u[0]*w[2], u[0]*w[1]-u[1]*w[0]]; const L = Math.hypot(...n) || 1; n = n.map(v => v / L);
-      const d = [q.c[0], q.c[1], q.c[2]].map((v, i) => v - a[i]); return n[0]*d[0] + n[1]*d[1] + n[2]*d[2] > 0 ? n.map(v => -v) : n; };   /* hacia afuera */
-    const tri = [], bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
-    cajas.forEach(q => caras.forEach(([idx]) => { const n = normal(q, idx); if (n[0]*V[0] + n[1]*V[1] + n[2]*V[2] <= 1e-6) return;
-      const pr = idx.map(i => proy(q.v[i])); pr.forEach(p => { bb.x0 = Math.min(bb.x0, p[0]); bb.x1 = Math.max(bb.x1, p[0]); bb.y0 = Math.min(bb.y0, p[1]); bb.y1 = Math.max(bb.y1, p[1]); });
-      let hole = null; const h = q.p.hueco;
-      if (h && idx[0] === 4 && h.ancho > 0 && h.fondo > 0) { const z1 = q.p.z + q.p.alto, hx = q.p.x + h.x, hy = q.p.y + h.y;
-        hole = [q.pt(hx, hy, z1), q.pt(hx + h.ancho, hy, z1), q.pt(hx + h.ancho, hy + h.fondo, z1), q.pt(hx, hy + h.fondo, z1)].map(proy); }
-      tri.push({ pr, hole, k: .80 + .35 * Math.max(0, n[0]*luz[0] + n[1]*luz[1] + n[2]*luz[2]), q }); }));
-    const MARGEN = 28, ancho = bb.x1 - bb.x0, alto = bb.y1 - bb.y0;
+    const sombra = (c, k) => { const q = rgbDe(c); return '#' + [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round(q[i] * k))).toString(16).padStart(2, '0')).join(''); };
+    if (o.hits) isoHits.length = 0;
+    g.save(); g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = 1;
+    esc.tri.forEach(t => {
+      const pr = t.pr.map(p => [X(p[0]), Y(p[1])]);
+      g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
+      if (t.holes && t.holes.length) {
+        const area = a => a.reduce((s2, p, i) => { const q = a[(i + 1) % a.length]; return s2 + p[0] * q[1] - q[0] * p[1]; }, 0);
+        t.holes.forEach(h0 => { const h = h0.map(p => [X(p[0]), Y(p[1])]), h2 = area(h) * area(pr) > 0 ? h.slice().reverse() : h;
+          h2.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); });
+      }
+      const c = base(t.q.p);
+      g.fillStyle = plano ? (t.t === 'perf' ? C.line : C.flat) : t.t === 'perf' ? '#3A3F45' : sombra(c, t.k);
+      g.fill();
+      g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
+      if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && t.q.p.frente) isoHits.push({ pr, frente: t.q.p.frente, modulo: t.q.p.modulo });
+    });
+    if (o.cotas !== false) esc.cotas.forEach(c => {
+      const P = v => { const p = esc.proy(v); return [X(p[0]), Y(p[1])]; };
+      const a = P(c.a), b = P(c.b), a2 = P(vadd(c.a, c.d)), b2 = P(vadd(c.b, c.d)), a3 = P(vadd(c.a, vmul(c.d, 1.1))), b3 = P(vadd(c.b, vmul(c.d, 1.1)));
+      g.strokeStyle = AZUL; g.fillStyle = AZUL; g.lineWidth = .8;
+      g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(a3[0], a3[1]); g.moveTo(b[0], b[1]); g.lineTo(b3[0], b3[1]); g.moveTo(a2[0], a2[1]); g.lineTo(b2[0], b2[1]); g.stroke();
+      const L = Math.hypot(b2[0] - a2[0], b2[1] - a2[1]) || 1, u = [(b2[0] - a2[0]) / L, (b2[1] - a2[1]) / L], tk = [(u[0] - u[1]) * 3.5, (u[1] + u[0]) * 3.5];   /* remate a 45 grados */
+      g.beginPath(); [a2, b2].forEach(e => { g.moveTo(e[0] - tk[0], e[1] - tk[1]); g.lineTo(e[0] + tk[0], e[1] + tk[1]); }); g.stroke();
+      let ang = Math.atan2(b2[1] - a2[1], b2[0] - a2[0]); if (ang > Math.PI / 2 || ang < -Math.PI / 2) ang += Math.PI;
+      g.save(); g.translate((a2[0] + b2[0]) / 2, (a2[1] + b2[1]) / 2); g.rotate(ang); g.font = "500 11px 'Inter'"; g.textAlign = 'center'; g.textBaseline = 'bottom';
+      g.fillText(c.t, 0, -3); g.restore();
+    });
+    g.restore();
+  }
+  function isoHit(p){ for (let i = isoHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoHits[i].pr)) return isoHits[i]; return null; }
+  /* clic en el preview: abre o cierra el frente (y los que se mueven con el, como Interactuar); Mayus: todos. true si cambio algo */
+  function isoClick(p, todos){
+    const plan = planCocina(), piezas = plan.piezas.concat((plan.caras || []).flatMap(c => c.piezas)), abres = {}, porModulo = {};
+    piezas.forEach(q => { if (q.frente) { if (q.abre) abres[q.frente] = q.abre; (porModulo[q.modulo] = porModulo[q.modulo] || new Set()).add(q.frente); } });
+    if (todos) { const ids = Object.keys(abres), todoAbierto = ids.every(f => abiertos.has(f)); ids.forEach(f => todoAbierto ? abiertos.delete(f) : abiertos.add(f)); return true; }
+    const h = isoHit(p); if (!h) return false;
+    const a = abres[h.frente];
+    const juntos = a && a.grupo ? Object.keys(abres).filter(k => abres[k].grupo === a.grupo) : a && a.independiente ? [h.frente]
+      : a && a.zona ? Object.keys(abres).filter(k => abres[k].zona === a.zona && !abres[k].independiente) : null;
+    const abre = juntos || [...(porModulo[h.modulo] || [h.frente])].filter(f => f in abres);   /* sin grupo ni zona: todo el gabinete */
+    const cierra = juntos ? juntos.concat(Object.keys(abres).filter(k => juntos.includes(abres[k].dentroDe))) : abre;
+    if (abre.every(f => abiertos.has(f))) cierra.forEach(f => abiertos.delete(f)); else abre.forEach(f => abiertos.add(f));
+    return true;
+  }
+  /* captura para exportar: el isometrico con los frentes abiertos que se eligieron en el preview */
+  function capturarIsometrico(o){
+    const esc = isoEscena({ abiertos, cotas: o.cotas !== false });
+    const MARGEN = 30, ancho = esc.bb.x1 - esc.bb.x0, alto = esc.bb.y1 - esc.bb.y0;
     const e = elegirEscala(s => ({ w: ancho * s + 2 * MARGEN, h: alto * s + 2 * MARGEN }));
     const g = new Grabador(ancho * e.s + 2 * MARGEN, alto * e.s + 2 * MARGEN);
-    const X = x => MARGEN + (x - bb.x0) * e.s, Y = y => MARGEN + (y - bb.y0) * e.s;
-    g.lineWidth = 1; g.lineCap = 'round';
-    cajas.forEach(q => tri.filter(t => t.q === q).forEach(t => {
-      g.beginPath(); t.pr.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath();
-      if (t.hole) { const area = a => a.reduce((s, p, i) => { const q = a[(i + 1) % a.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0);
-        const h = area(t.hole) * area(t.pr) > 0 ? t.hole.slice().reverse() : t.hole;
-        h.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath(); }
-      g.fillStyle = o.plano ? '#FFFFFF' : sombra(base(q.p), t.k); g.fill(); g.strokeStyle = o.plano ? '#1F2A33' : sombra(base(q.p), .55); g.stroke();
-    }));
+    const previoC = Object.assign({}, C); Object.assign(C, LIGHT);   /* lo exportado va con la paleta de dia aunque el editor este de noche */
+    try { isoPintar(g, esc, e.s, MARGEN, MARGEN, { plano: !!o.plano, cotas: o.cotas !== false }); } finally { Object.assign(C, previoC); }
     return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista: 'Isometrico', plano: !!o.plano };
   }
   const capturar = (vista, o) => vista === 'Isometrico' ? capturarIsometrico(o) : capturarInterfaz(vista, o);
@@ -9845,11 +10013,39 @@ const LAM = (() => {
           const q = rgbDe(c); return Math.max(q[0], q[1], q[2]) - Math.min(q[0], q[1], q[2]) <= 20; };
         ok([...rell].every(neutro), `${id}: el modo plano trae relleno de color: ${[...rell].filter(c => !neutro(c)).join(', ')}`); }
     }));
+    /* A170: isometrico con frentes abiertos, sin puertas y sin cotas; lo abierto agrega trazos y nada sale con NaN */
+    if (!cfg.closet) try {   /* el plan todavia no cubre closets */
+      const pl = planCocina(), frentes = [...new Set(pl.piezas.filter(p => p.abre).map(p => p.frente))];
+      abiertos.clear();
+      const cerrado = capturarIsometrico({ plano: false, cotas: true });
+      if (frentes.length) {
+        frentes.slice(0, 4).forEach(f => abiertos.add(f));
+        const abierto = capturarIsometrico({ plano: false, cotas: true });
+        ok(abierto.ops.length > cerrado.ops.length, 'isometrico: abrir frentes no agrega trazos (' + cerrado.ops.length + ' contra ' + abierto.ops.length + ')');
+        ok(sinNaN(escribirPdf([pagina(abierto)], 'p')), 'isometrico abierto: PDF con NaN');
+      }
+      ok(sinNaN(escribirPdf([pagina(cerrado)], 'p')), 'isometrico cerrado: PDF con NaN');
+      const sinPuertas = isoEscena({ puertas: false, cotas: false });
+      ok(sinPuertas.tri.length > 0 && !sinPuertas.cotas.length, 'isometrico sin puertas ni cotas');
+    } catch (e) { fallas.push('isometrico con frentes abiertos: ' + e.message); } finally { abiertos.clear(); }
     return fallas;
   }
-  return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe };
+  return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
+    abiertos, isoEscena, isoPintar, isoClick, isoHit };
 })();
 const pruebasLaminas = () => LAM.pruebas();
+/* preview isometrico del editor (A170): el mismo dibujo que se exporta, con clic para abrir o cerrar puertas y cajones */
+function drawIsometrico(){
+  title('ISOMÉTRICO', '');
+  frame = { scale: 1, ox: 0, ground: 0, X: x => x, Z: z => z, W: 0 };
+  let esc;
+  try { esc = LAM.isoEscena({ puertas: showDoors, cotas: measure }); }
+  catch (e) { ctx.save(); ctx.font = "13px 'Inter'"; ctx.fillStyle = C.muted; ctx.fillText(e.message, 40, 130); ctx.restore(); return; }
+  const L = 40, R = 40, T = 96, B = 66, w = esc.bb.x1 - esc.bb.x0, h = esc.bb.y1 - esc.bb.y0, aw = cssW - L - R - 30, ah = cssH - T - B - 30;
+  const s = Math.max(.05, Math.min(aw / w, ah / h)), ox = L + 15 + (aw - w*s)/2, oy = T + 15 + (ah - h*s)/2;
+  LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true });
+  frame = { scale: s, ox, ground: oy + h*s, X: x => ox + x*s, Z: z => oy + h*s - z*s, W: w };
+}
 /* dialogo y entrega de las laminas (A169): en SketchUp Ruby pide la carpeta y guarda los bytes (como Exportar vistas); en el navegador se descargan */
 function exportarLaminas(){
   const lista = k => String(prefs[k] || '').split(',').filter(Boolean), vistas = lista('lamVistas'), modos = lista('lamModos'), fmts = lista('lamFormatos');
@@ -9860,7 +10056,8 @@ function exportarLaminas(){
     + tit('Modo') + op('m', 'plano', 'Plano (blanco y negro)', modos.includes('plano')) + op('m', 'color', 'Color (materiales)', modos.includes('color'))
     + tit('Formato') + op('f', 'pdf', 'PDF', fmts.includes('pdf')) + op('f', 'dxf', 'DXF', fmts.includes('dxf'))
     + tit('Opciones') + op('o', 'cotas', 'Incluir cotas', prefs.lamCotas) + op('o', 'proy', 'Incluir líneas de proyección (abatimientos y proyecciones punteadas)', prefs.lamProy)
-    + `<div class="note-sm" style="margin-top:12px">El PDF reúne las vistas en una hoja A3 por modo; el DXF sale un archivo por vista. Para DWG, abre el DXF en tu CAD y guárdalo.</div>`;
+    + `<div class="note-sm" style="margin-top:12px">El PDF reúne las vistas en una hoja A3 por modo; el DXF sale un archivo por vista. Para DWG, abre el DXF en tu CAD y guárdalo.</div>`
+    + `<div class="note-sm" style="margin-top:6px">${LAM.abiertos.size ? esc(`El isométrico sale con ${LAM.abiertos.size} frente(s) abierto(s), los que elegiste en la vista Isométrico.`) : 'El isométrico sale con todo cerrado; en la vista Isométrico puedes abrir las puertas y cajones que quieras mostrar.'}</div>`;
   showDialog('Exportar láminas', html, [{ text: 'Exportar', primary: true, action: ejecutarLaminas }, { text: 'Cancelar', cancel: true }], 'info', true);
 }
 function ejecutarLaminas(){
