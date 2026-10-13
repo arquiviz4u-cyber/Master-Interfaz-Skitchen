@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A194. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Revision de coherencia y UX de Presentar: 1) panel lateral: laminas y vistas arriba; hoja, isla, notas y cotas, pie y entrega plegados (recuerdan su estado); sin parrafos largos (la ayuda va en el tooltip); cada vista en dos lineas (nombre y boton de duplicar/quitar; B/N, Cotas, Globos y escala); la isla solo aparece si hay una guardada; 2) BUG: las vistas de las laminas de conjunto nuevas no tenian posicion (la lamina de detalles salia vacia): presRefrescar acomoda toda lamina sin posiciones; 3) BUG: el ancho minimo de empacar no coincidia con medirItem y las vistas de conjunto se encimaban; prueba nueva de solapes; 4) acomodo tambien por columnas (aprovecha la hoja: torres con alzados a 1:25); alzado e interiores suben de escala juntos y el isometrico y el despiece no pasan de 1:100 y 1:50; 5) el conteo de herrajes de torres pasa a la lamina de detalles si no caben legibles; 6) DXF con nombres legibles (lamina, numero y titulo); 7) despiece: mas aire bajo el esquema.
    A193. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar (usuario 13/10): 1) parrilla en el isometrico: placa entera de cristal negro con sus zonas de coccion (antes un marco con hueco); 2) doble clic en el fondo de un alzado interior (conjunto y alzado sin puertas del editor) pone las cotas de entrepanos de esa columna, no del gabinete (it.entre = x en cm); 3) el corte no lleva el texto superior «SECCION A-A»; 4) el detalle de cajon tipo nombra «bajo torre de hornos» o «bajo alacena» (cap.sub); 5) al escalar una vista o recortar su marco salen lineas guia con los bordes de las demas, y el recorte se imanta; 6) el esquema del despiece muestra la proyeccion de abatimiento de los frentes (puerta: triangulo hacia su bisagra; elevable: lambda; cajon: nada) y los equipos punteados.
    A192. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar y exportar (usuario 13/10): 1) «Alzado con puertas» pasa a «Alzado descriptivo» y no va de fabrica; 2) las lineas de proyeccion y los marcos de las vistas son dos casillas (L.proy, L.marcos); sin «Muestras de materiales en columna» (doble clic en la leyenda); 3) titulo y escala de cada vista se mueven solo en horizontal o vertical y dejan linea guia; 4) tapetas laterales de las torres con las torres (vista general y despiece), tira del despiece con las proyecciones de los equipos y sin solape; 5) pistones y vastagos como barras en los interiores y en el alzado sin puertas; hornos y microondas con cristal y manija; 6) interiores: una cota de la altura interior por gabinete distinto, sin cotas entre cajones, y doble clic en el fondo de un gabinete para cotas de entrepanos (it.entre); 7) torres: el conteo de herrajes va en la misma lamina si los alzados siguen a 1:25 (presAcomodarConjunto), detalle de especiero anexado a torre o refrigerador, el isometrico baja de escala antes que los alzados; 8) marcos de recorte: tiradores en el centro de cada borde (it.rec), marcos y separaciones al minimo, cotas del alzado del conjunto mas juntas; 9) corte: la parrilla con su hueco en la cubierta y su cuerpo; gola con el perfil en acero.
    A191. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar (usuario 13/10): 1) corte en blanco y negro: gola y zoclo con contorno (desaparecian); 2) isometrico y isometrico del conjunto sin escala, a gusto, con los tiradores de las esquinas; 3) cuadro de herrajes: las esquinas cambian las columnas del marco (el texto no se escala; it.cols); 4) sin detalle de bisagra, corredera ni pistones (ni en el menu ni al cargar); 5) hueco de la tarja con nariz: la losa con hueco ya no se pinta como prisma (el inglete la tapaba); 6) detalle de nariz: cotas solo numericas, perfil de gola en estilo moderno y sin cota del espesor de la nariz; 7) despiece de cajon con las correderas de lado en el perfil; 8) despiece de frentes: un solo esquema del conjunto y cada grupo con su tono.
@@ -1795,7 +1796,12 @@
   .pres-lado label.pf span { display: block; font-size: 11px; color: #6B7680; margin-bottom: 2px; }
   .pres-lado input[type=text], .pres-lado select { width: 100%; box-sizing: border-box; height: 28px; font: inherit; border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; background: var(--surface); color: var(--text); }
   .pres-lado .pres-fila select { width: 74px; flex: none; }
-  .pres-fila { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
+  .pres-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 5px 6px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; }
+  .pres-fila > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pres-opc { flex-basis: 100%; display: flex; gap: 14px; padding-left: 22px; }   /* A194: las casillas de la vista en su propia linea */
+  .pres-lado details { border-top: 1px solid var(--line); margin-top: 10px; }
+  .pres-lado summary { cursor: pointer; padding: 8px 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6B7680; font-weight: 600; }
+  .pres-lado .pres-linea { display: flex; gap: 6px; align-items: end; } .pres-lado .pres-linea > * { flex: 1 1 0; min-width: 0; margin: 0; }
   .pres-fila.sel { background: var(--ink-soft); border-color: var(--ink); }
   .pres-fila .pres-av { flex-basis: 100%; font-size: 11px; color: #C2410C; }
   .pres-lienzo { flex: 1; position: relative; min-width: 0; }
@@ -10787,7 +10793,7 @@ const LAM = (() => {
         const eq = todasC.filter(p => p.rol === 'equipo' && f(p, cara) && p.ancho > 0 && p.alto > 0);   /* las proyecciones: hornos, micro y demas equipos, punteados */
         g.strokeStyle = '#2F4858';
         eq.forEach(p => g.strokeRect(ox + (p.x - xa) * ks, oy + (zb - p.z - p.alto) * ke, Math.max(1.2, p.ancho * ks), Math.max(1.2, p.alto * ke)));
-        g.restore(); y = oy + (zb - za) * ke + 34; schemeR = ox + (xb - xa) * ks + 30; }
+        g.restore(); y = oy + (zb - za) * ke + 52; schemeR = ox + (xb - xa) * ks + 30; }   /* A194: aire para las cotas de la primera pieza */
       const yIni = y;
       lista.forEach(q => { const w = q.w * sc, h = q.h * sc;
         if (y + h > hMax && (x > M + 24 || y > yIni)) { x += colW + 56; y = x < schemeR ? yIni : M + 22; colW = 0; }
@@ -11337,10 +11343,10 @@ const LAM = (() => {
 
   /* empaca vistas ya capturadas a su escala en filas dentro del area de la hoja (fuera de la franja); null si no caben */
   function empacarMejor(items){
-    if (empacar(items)) return items;
+    if (empacar(items) || empacarCols(items)) return items;
     const medida = it => { const bb = it.bbEf || (it.it && it.it.bbEf) || it.cap.bb; return [bb.w * PX_MM, bb.h * PX_MM]; };
     const por = f => items.slice().sort((a, b) => f(medida(b)) - f(medida(a)));
-    for (const ord of [por(m => m[1]), por(m => m[0]), por(m => m[0] * m[1])]) if (empacar(ord)) return items;
+    for (const ord of [por(m => m[1]), por(m => m[0]), por(m => m[0] * m[1])]) if (empacar(ord) || empacarCols(ord)) return items;
     if (items.length <= 7) {   /* pocas vistas: se prueban todos los ordenes */
       const usado = new Array(items.length).fill(false), cur = [];
       const rec = () => { if (cur.length === items.length) return !!empacar(cur.slice());
@@ -11350,10 +11356,29 @@ const LAM = (() => {
     }
     return null;
   }
-  function empacar(items){
-    const H = HOJA, k = H.k, m = H.margen, g = 3 * k, tit = 8.4 * k, pad = 2.2 * k, minW = 50 * k;   /* A192: marcos al minimo legible */
+  /* A194: acomodo por columnas (de arriba hacia abajo); sirve cuando las filas dejan demasiado hueco */
+  function empacarCols(items){
+    const H = HOJA, k = H.k, m = H.margen, g = 3 * k, tit = 8.4 * k, pad = 2.2 * k;
     const W = H.ancho - 2 * m - H.franja - g, Hh = H.alto - 2 * m;
-    const cs = items.map(it => { const bb = it.bbEf || (it.it && it.it.bbEf) || it.cap.bb; return { it, w: Math.max(minW, bb.w * PX_MM + 2 * pad), h: bb.h * PX_MM + 2 * pad + tit }; });   /* A178: con la isla de la planta */
+    const cs = items.map(it => { const bb = it.bbEf || (it.it && it.it.bbEf) || it.cap.bb, vv = it.it ? it.it.vista : it.vista, mw = (vv && ES_CONJUNTO(vv) && vv !== 'ConjTitulo' ? 64 : 50) * k;
+      return { it, w: Math.max(mw, bb.w * PX_MM + 2 * pad), h: bb.h * PX_MM + 2 * pad + tit }; });
+    if (cs.some(c => c.w > W + .01 || c.h > Hh + .01)) return null;
+    const cols = []; let col = null;
+    cs.forEach(c => { if (!col || col.h + g + c.h > Hh + .01) { col = { cs: [], w: 0, h: 0 }; cols.push(col); }
+      col.h += (col.cs.length ? g : 0) + c.h; col.w = Math.max(col.w, c.w); col.cs.push(c); });
+    const anchoTot = cols.reduce((a, c) => a + c.w, 0) + (cols.length - 1) * g;
+    if (anchoTot > W + .01) return null;
+    const sepH = (W - cols.reduce((a, c) => a + c.w, 0)) / (cols.length + 1); let x = m + sepH;
+    cols.forEach(c => { const sepV = (Hh - c.cs.reduce((a, q) => a + q.h, 0)) / (c.cs.length + 1); let y = m + sepV;
+      c.cs.forEach(q => { q.it.celda = { x: x + (c.w - q.w) / 2, y, w: q.w, h: q.h, tit, pad, caja: { w: q.w - 2 * pad, h: q.h - 2 * pad - tit } }; y += q.h + sepV; });
+      x += c.w + sepH; });
+    return items;
+  }
+  function empacar(items){
+    const H = HOJA, k = H.k, m = H.margen, g = 3 * k, tit = 8.4 * k, pad = 2.2 * k;   /* A192: marcos al minimo legible */
+    const W = H.ancho - 2 * m - H.franja - g, Hh = H.alto - 2 * m;
+    const cs = items.map(it => { const bb = it.bbEf || (it.it && it.it.bbEf) || it.cap.bb, vv = it.it ? it.it.vista : it.vista, mw = (vv && ES_CONJUNTO(vv) && vv !== 'ConjTitulo' ? 64 : 50) * k;   /* A194: el ancho minimo es el mismo que usa medirItem (antes las vistas de conjunto se solapaban) */
+      return { it, w: Math.max(mw, bb.w * PX_MM + 2 * pad), h: bb.h * PX_MM + 2 * pad + tit }; });   /* A178: con la isla de la planta */
     if (cs.some(c => c.w > W + .01 || c.h > Hh + .01)) return null;
     const filas = []; let fila = null;
     cs.forEach(c => { if (!fila || fila.w + g + c.w > W + .01) { fila = { cs: [], w: 0, h: 0 }; filas.push(fila); }
@@ -11508,6 +11533,8 @@ const LAM = (() => {
         try { medirItem(it, capPres(L, it), L); } catch (e) { it.error = e.message; } });
       L.vistas.forEach(it => { if (it.on && it.cap && isFinite(it.x) && isFinite(it.y)) fijar(it, it.x, it.y); });
     });
+    /* A194: una lamina con vistas sin posicion (recien creada) se acomoda sola */
+    L.hojas.forEach((_, h) => { if (enHoja(L, h).some(it => it.on && it.cap && !isFinite(it.x))) presReacomodar(L, h); });
   }
   /* acomoda las vistas encendidas a su escala actual; si no caben, sube la escala solo de las que no caben (de 1:20 hacia 1:100) */
   /* A189: Reacomodar ofrece varias opciones (ordenes distintos de las filas); cada clic pasa a la siguiente y devuelve { i, de } */
@@ -11524,8 +11551,8 @@ const LAM = (() => {
       if (its.length <= 6) { const usado = new Array(its.length).fill(false), cur = [], rec = () => { if (cur.length === its.length) { ordenes.push(cur.slice()); return; }
         for (let i = 0; i < its.length; i++) { if (usado[i]) continue; usado[i] = true; cur.push(its[i]); rec(); cur.pop(); usado[i] = false; } }; rec(); }
       const vistos = new Set(), opciones = [];
-      for (const ord of ordenes) { if (opciones.length >= 8) break;
-        if (!empacar(ord)) continue;
+      for (const ord of ordenes) for (const empaca of [empacar, empacarCols]) { if (opciones.length >= 8) break;   /* A194: por filas y por columnas */
+        if (!empaca(ord)) continue;
         const firma = its.map(q => `${Math.round(q.celda.x)},${Math.round(q.celda.y)}`).join('|'); if (vistos.has(firma)) continue; vistos.add(firma);
         opciones.push(its.map(q => ({ q, x: q.celda.x, y: q.celda.y, celda: q.celda }))); }
       if (opciones.length) {
@@ -11538,11 +11565,13 @@ const LAM = (() => {
         let alt = ok.map(it => ({ it, n: it.n, cap: it.cap, bbEf: it.bbEf })), hallado = false;
         for (let paso = 0; paso < 24 && !hallado; paso++) {
           const DET = ['ConjGola', 'ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero', 'ConjNariz'], prio = q => ALZ.includes(q.it.vista) ? 3 : LIBRE.includes(q.it.vista) || DET.includes(q.it.vista) ? 1 : q.n >= 50 ? 2 : 0;   /* A192: primero el isometrico (a gusto), los alzados se quedan en 1:25 hasta el final */   /* primero las vistas generales hasta 1:50, luego los detalles y al final 1:100 */
-          const orden2 = (a2, b2) => prio(a2) - prio(b2) || b2.bbEf.w * b2.bbEf.h - a2.bbEf.w * a2.bbEf.h, sube = q => !['ConjLocal', 'ConjTitulo', 'ConjHerrajes'].includes(q.it.vista) && (LIBRE.includes(q.it.vista) ? q.n < 300 : ESCALAS.some(e => e > q.n));
+          const orden2 = (a2, b2) => prio(a2) - prio(b2) || b2.bbEf.w * b2.bbEf.h - a2.bbEf.w * a2.bbEf.h, sube = q => !['ConjLocal', 'ConjTitulo', 'ConjHerrajes'].includes(q.it.vista) && (LIBRE.includes(q.it.vista) ? q.n < 100 : q.it.vista === 'ConjDespiece' ? q.n < 50 : ESCALAS.some(e => e > q.n));   /* A194: el isometrico y el despiece no se vuelven ilegibles: antes suben los alzados */
           const cand = alt.filter(sube).sort(orden2)[0];   /* la vista que mas hoja ocupa, aunque sea un detalle */
           if (!cand) break;
           const nn = LIBRE.includes(cand.it.vista) ? Math.round(cand.n * 1.15 * 10) / 10 : ESCALAS.find(e => e > cand.n);
           try { const cp = capturar(cand.it.vista, Object.assign(opcCap(L, cand.it), { escalaFija: nn })); cand.n = nn; cand.cap = cp; cand.bbEf = bbDe(L, { vista: cand.it.vista, cap: cp, rec: cand.it.rec }); } catch (e) { break; }
+          /* A194: alzado e interiores del mismo conjunto suben juntos para quedar a la misma escala */
+          if (ALZ.includes(cand.it.vista)) alt.filter(q => q !== cand && ALZ.includes(q.it.vista) && q.it.hoja === cand.it.hoja && q.n < nn).forEach(q => { try { const cp = capturar(q.it.vista, Object.assign(opcCap(L, q.it), { escalaFija: nn })); q.n = nn; q.cap = cp; q.bbEf = bbDe(L, { vista: q.it.vista, cap: cp, rec: q.it.rec }); } catch (e) { /* se queda */ } });
           if (empacarMejor(alt)) hallado = true;
         }
         if (!hallado) { const b = limitesHoja(); ok.forEach((it, i) => fijar(it, b.x0 + i * 10, b.y0 + i * 10)); return; }
@@ -11557,7 +11586,7 @@ const LAM = (() => {
   function presAcomodarConjunto(L, h){
     presReacomodar(L, h);
     const hv = L.vistas.find(v => v.hoja === h && v.vista === 'ConjHerrajes');
-    if (hv && L.vistas.some(v => v.hoja === h && v.on && ['ConjAlzado', 'ConjInterior'].includes(v.vista) && v.n > 25)) {
+    if (hv && L.vistas.some(v => v.hoja === h && v.on && (['ConjAlzado', 'ConjInterior'].includes(v.vista) && v.n > 25 || v.vista === 'ConjIso' && v.n > 100 || v.vista === 'ConjDespiece' && v.n > 50))) {   /* A194: tambien si el isometrico o el despiece quedarian ilegibles */
       let h2 = L.hojas.findIndex((q, i) => i > h && q.grupo === L.hojas[h].grupo && (q.cara || 0) === (L.hojas[h].cara || 0));
       if (h2 < 0) { L.hojas.push({ nombre: `${L.hojas[h].nombre} · ${T('detalles')}`, grupo: L.hojas[h].grupo, cara: L.hojas[h].cara || 0 }); h2 = L.hojas.length - 1; }
       hv.hoja = h2; const DEF = { ConjLocal: 100, ConjDespiece: 25, ConjIso: 50, ConjAlzado: 25, ConjInterior: 25 }; L.vistas.filter(v => v.hoja === h && DEF[v.vista]).forEach(v => { v.n = DEF[v.vista]; });
@@ -12302,8 +12331,10 @@ const LAM = (() => {
       detalles.forEach((d, i) => paginas.push(Object.assign({}, d, { datos: Object.assign({}, dDatos, { hoja: hoja(paginas.length + 1), materiales: [], herrajes: [], notas: [] }) })));
       const bin = escribirPdf(paginas, `${prodNombre()}`);
       files.push({ name: `${prefijo}_${sello}_presentar.pdf`, url: 'data:application/pdf;base64,' + b64(bin) });
-      if (dxf) todos.forEach(({ it, cap }) => { const slug = it.id.replace(/[^A-Za-z0-9]/g, '').toLowerCase();
-        files.push({ name: `${prefijo}_${sello}_${slug}${it.plano ? '_plano' : ''}.dxf`, url: 'data:application/dxf;base64,' + b64(escribirDxf(cap)) }); });
+      if (dxf) { const usados = new Set();   /* A194: nombres legibles: lamina, numero y titulo de la vista (antes llevaban el id interno) */
+        todos.forEach(({ it, cap }) => { let slug = `L${it.hoja + 1}-${String(todos.findIndex(q => q.it === it) + 1).padStart(2, '0')}_` + T(tituloItem(L, it)).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          while (usados.has(slug)) slug += 'b'; usados.add(slug);
+          files.push({ name: `${prefijo}_${sello}_${slug}${it.plano ? '_plano' : ''}.dxf`, url: 'data:application/dxf;base64,' + b64(escribirDxf(cap)) }); }); }
       return { files, omitidas };
     });
   }
@@ -12471,6 +12502,10 @@ const LAM = (() => {
       ok(h0 > 0 && !L0.vistas.some(v => v.vista === 'ConjBisagra' || v.vista === 'ConjCorredera' || v.vista === 'ConjPiston') && L0.vistas.filter(v => v.vista === 'ConjLocal' && v.grupo === 'bajos').length === 2 && L0.hojas.length >= 3, 'conjunto de bajos: dos laminas (general y detalles), sin detalle de bisagra, corredera ni piston');
       ['ConjBisagra'].forEach(v => { try { const c = capturar(v, { plano: false, cotas: true, proy: true, escalaFija: v === 'ConjBisagra' ? 2 : 10, grupo: 'bajos', cara: 0, cotasSueltas: true });
         ok(c.ops.length > 5 && sinNaN(JSON.stringify(c.bb)), v + ': sin trazos o con NaN (' + c.ops.length + ')'); } catch (e2) { fallas.push(v + ': ' + e2.message); } });
+      { const L1 = presNueva({ papel: 'A3', vistas: ['AlzadoInterior', 'Planta'] }); presRefrescar(L1); ['bajos', 'altos'].forEach(g => { const hh = presAgregarConjunto(L1, g, 0); if (hh > 0) { presRefrescar(L1); presAcomodarConjunto(L1, hh); } });
+        const malas = []; L1.hojas.forEach((_, hh) => { const vs = enHoja(L1, hh).filter(v => v.on && v.cap);   /* A194: ninguna vista se encima con otra */
+          for (let i = 0; i < vs.length; i++) for (let j = i + 1; j < vs.length; j++) { const a2 = vs[i], b2 = vs[j]; if (a2.x < b2.x + b2.w - .2 && b2.x < a2.x + a2.w - .2 && a2.y < b2.y + b2.h - .2 && b2.y < a2.y + a2.h - .2) malas.push(`${hh}:${a2.vista}/${b2.vista}`); } });
+        ok(!malas.length, 'laminas con vistas encimadas: ' + malas.join(', ')); }
       ['ConjNariz'].forEach(v => { try { const c = capturar(v, { plano: false, cotas: true, proy: true, escalaFija: 5, grupo: 'bajos', cara: 0, cotasSueltas: true });
         ok(c.ops.length > 8 && c.dims && c.dims.length >= 1 && sinNaN(JSON.stringify(c.bb)), v + ': sin trazos, sin cotas o con NaN (' + c.ops.length + ')'); } catch (e2) { fallas.push(v + ': ' + e2.message); } });
       ['ConjCajon'].forEach(v => { try { const c = capturar(v, { plano: false, cotas: true, proy: true, escalaFija: 10, grupo: 'bajos', cara: 0, cotasSueltas: true });
@@ -12629,6 +12664,7 @@ function presAntes(){ PRES.hist.push(presSnap()); if (PRES.hist.length > 100) PR
 function presTras(){ PRES.sel = PRES.selG = PRES.selM = null; presRefrescar(false); }
 function presDeshacer(){ if (!PRES.hist.length) return; PRES.fut.push(presSnap()); LAM.presRestaurar(PRES.L, PRES.hist.pop()); presTras(); }
 function presRehacer(){ if (!PRES.fut.length) return; PRES.hist.push(presSnap()); LAM.presRestaurar(PRES.L, PRES.fut.pop()); presTras(); }
+function presRecordarDet(e){ const d = e.target; if (d && d.tagName === 'DETAILS' && d.dataset.det) { PRES.det = PRES.det || {}; PRES.det[d.dataset.det] = d.open; } }
 function presLado(){
   const L = PRES.L, e2 = esc, nom = Object.fromEntries(LAM.VISTAS), opt = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${e2(t)}</option>`;
   const NOMS = Object.assign({ ConjLocal: 'Vista general', ConjIso: 'Isométrico del conjunto', ConjAlzado: 'Alzado del conjunto', ConjInterior: 'Interiores del conjunto', ConjGola: 'Detalle de gola',
@@ -12639,16 +12675,16 @@ function presLado(){
     return `<div class="pres-fila${PRES.sel === it ? ' sel' : ''}" data-i="${i}">` +
       `<input type="checkbox" data-pon="${i}"${it.on ? ' checked' : ''} title="Mostrar en la lámina">` +
       `<span style="flex:1;min-width:0">${e2(nombre)}</span>` +
-      `<label class="pres-bn" title="Esta vista en blanco y negro"><input type="checkbox" data-ppl="${i}"${it.plano ? ' checked' : ''}${it.on ? '' : ' disabled'}>B/N</label>` +
-      `<label class="pres-bn" title="Cotas de esta vista"><input type="checkbox" data-pcv="${i}"${(it.cotasV !== undefined ? it.cotasV : L.cotasOn !== false) ? ' checked' : ''}${it.on ? '' : ' disabled'}>Cotas</label>` +
-      (it.vista === 'AlzadoPuertas' ? `<label class="pres-bn" title="Globos de las notas automáticas sobre el alzado"><input type="checkbox" data-pgl="${i}"${it.gl ? ' checked' : ''}${it.on ? '' : ' disabled'}>Globos</label>` : '') +
-      ((fija || it.vista === 'Isometrico' || it.vista === 'ConjIso') ? '<span style="width:74px;font-size:11px;color:var(--ink-soft)">libre</span>' : `<select data-pesc="${i}"${it.on ? '' : ' disabled'}>${(LAM.ES_CONJUNTO(it.vista) ? LAM.ESC_DET : [10, 20, 25, 50, 100]).map(q => opt(q, '1:' + q, q === it.n)).join('')}</select>`) +
       `<button class="btn btn-icon pres-mini" data-pdup="${i}" title="Duplicar esta vista">&#10697;</button>` +
       (dup ? `<button class="btn btn-icon pres-mini" data-pdel="${i}" title="Quitar esta vista">&#10005;</button>` : '') +
-      (it.vista === 'Isometrico' ? `<div class="pres-corte"><button class="btn pres-mini" data-pabrir="${i}">Abrir / cerrar todos</button><span>${(it.abiertos || [...LAM.abiertos]).length} abierto(s) · doble clic en un módulo</span></div>` : '') +
-      (it.vista === 'ConjIso' ? `<label class="pres-corte"><input type="checkbox" data-pexp="${i}"${it.explotado ? ' checked' : ''}> Separar los frentes (despiece)</label>` +
-        `<div class="pres-corte"><button class="btn pres-mini" data-pabrir="${i}">Abrir / cerrar todos</button><span>${(it.abiertos || []).length} abierto(s) · doble clic en un frente</span></div>` : '') +
-      (it.vista === 'Corte' ? `<label class="pres-corte">Posición del corte (cm desde la izquierda)<input type="number" step="0.5" min="0" data-pcorte="${i}" value="${Math.round(it.corte * 10) / 10}"></label>` : '') +
+      (it.vista === 'ConjTitulo' ? '' : `<div class="pres-opc">` +
+        `<label class="pres-bn" title="Esta vista en blanco y negro"><input type="checkbox" data-ppl="${i}"${it.plano ? ' checked' : ''}${it.on ? '' : ' disabled'}>B/N</label>` +
+        (it.vista === 'ConjHerrajes' ? '' : `<label class="pres-bn" title="Cotas de esta vista"><input type="checkbox" data-pcv="${i}"${(it.cotasV !== undefined ? it.cotasV : L.cotasOn !== false) ? ' checked' : ''}${it.on ? '' : ' disabled'}>Cotas</label>`) +
+        (it.vista === 'AlzadoPuertas' ? `<label class="pres-bn" title="Globos de las notas automáticas sobre el alzado"><input type="checkbox" data-pgl="${i}"${it.gl ? ' checked' : ''}${it.on ? '' : ' disabled'}>Globos</label>` : '') + (fija ? '' : (it.vista === 'Isometrico' || it.vista === 'ConjIso') ? '<span style="margin-left:auto;font-size:11px;color:#6B7680">escala libre</span>' : `<select style="margin-left:auto" data-pesc="${i}"${it.on ? '' : ' disabled'}>${(LAM.ES_CONJUNTO(it.vista) ? LAM.ESC_DET : [10, 20, 25, 50, 100]).map(q => opt(q, '1:' + q, q === it.n)).join('')}</select>`) + '</div>') +
+      (it.vista === 'Isometrico' ? `<div class="pres-corte"><button class="btn pres-mini" data-pabrir="${i}" title="Doble clic en un módulo del isométrico abre o cierra sus puertas y cajones">Abrir / cerrar todos</button><span>${(it.abiertos || [...LAM.abiertos]).length} abiertos</span></div>` : '') +
+      (it.vista === 'ConjIso' ? `<label class="pres-corte"><input type="checkbox" data-pexp="${i}"${it.explotado ? ' checked' : ''}> Separar los frentes</label>` +
+        `<div class="pres-corte"><button class="btn pres-mini" data-pabrir="${i}" title="Doble clic en un frente del isométrico lo abre o lo cierra">Abrir / cerrar todos</button><span>${(it.abiertos || []).length} abiertos</span></div>` : '') +
+      (it.vista === 'Corte' ? `<label class="pres-corte">Corte a (cm)<input type="number" step="0.5" min="0" data-pcorte="${i}" value="${Math.round(it.corte * 10) / 10}"></label>` : '') +
       (it.on && it.error ? `<div class="pres-av">${e2(it.error)}</div>` : it.on && it.fuera ? '<div class="pres-av">No cabe en el papel a esta escala: elige una escala menor o un papel más grande.</div>' : '') + '</div>';
   }).join('');
   const campos = [['proyecto', 'Proyecto'], ['cliente', 'Cliente'], ['autor', 'Autor'], ['fecha', 'Fecha de emisión'], ['dibujo', 'Dibujo (descripción)'], ['escala', 'Escala (texto)'], ['revision', 'Revisión']]
@@ -12671,27 +12707,24 @@ function presLado(){
         `<label class="pf"><span>Giro</span><select data-pislarot>${[0, 90, 180, 270].map(q => opt(q, q + '°', ((is.rot % 360) + 360) % 360 === q)).join('')}</select></label>` +
         (geoI ? `<div class="note-sm" style="margin-top:4px;${gapI < 107 && gapI >= 0 ? 'color:#C2410C' : ''}">Pasillo con la cocina: ${e2(String(Math.round(gapI * 10) / 10))} cm${gapI < 107 && gapI >= 0 ? ' (el mínimo NKBA es 107 cm)' : ''}</div>` : '') : '')
     : '<div class="note-sm">Guarda una isla desde el comando Line-Island (Guardar configuración) y aparecerá aquí para colocarla frente a esta cocina.</div>');
-  const conjHtml = cfg.closet ? '' : islaHtml + '<h4>Láminas de conjunto</h4>' + hojasHtml +
-    `<label class="pf" style="margin-top:8px"><span>Conjunto</span><select data-pgrupo>${grupos}</select></label>${caras}` +
-    '<button class="btn" id="presCrearConjunto" style="margin-top:4px">Crear lámina del conjunto</button>' +
-    '<div class="note-sm" style="margin-top:6px">Cada lámina trae la vista general con el volumen en color, el despiece de frentes, el isométrico del conjunto (abre los frentes con doble clic), el alzado con puertas y cajones, los interiores, la gola y los herrajes.</div>';
-  presEl('presLado').innerHTML = conjHtml + '<h4>Hoja</h4>' +
-    `<label class="pf"><span>Papel</span><select data-ppapel>${Object.keys(LAM.PAPELES).map(k => opt(k, LAM.PAPEL_TXT[k], k === L.papel)).join('')}</select></label>` +
-    chk('cotasOn', 'Cotas (en todas las vistas; cada vista puede cambiarlas aparte)', L.cotasOn !== false) + chk('proy', 'Líneas de proyección', L.proy) + chk('marcos', 'Marcos de las vistas', L.marcos !== false) + chk('notas', 'Notas numeradas', L.notas) +
-    '<h4>Vistas de esta lámina</h4>' + filas +
-    `<label class="pf" style="margin-top:8px"><span>Agregar vista</span><select data-pagregar><option value="">Elige una vista…</option>${LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')))
+  /* A194: lo de todos los dias arriba (laminas y vistas); lo demas, plegado y sin parrafos largos (la ayuda va en el tooltip) */
+  const det = (clave, titulo, cuerpo, abierto = false) => `<details data-det="${clave}"${(PRES.det && clave in PRES.det ? PRES.det[clave] : abierto) ? ' open' : ''}><summary>${e2(titulo)}</summary>${cuerpo}</details>`;
+  const crear = cfg.closet ? '' : '<h4>Láminas</h4>' + hojasHtml +
+    `<div class="pres-linea" style="margin-top:8px"><label class="pf"><span>Conjunto</span><select data-pgrupo>${grupos}</select></label>${caras}</div>` +
+    '<button class="btn" id="presCrearConjunto" style="margin-top:6px;width:100%" title="Cada lámina trae la vista general con el volumen en color, el despiece de frentes, el isométrico del conjunto, el alzado con puertas y cajones, los interiores y, en otra lámina, los detalles y los herrajes">Crear lámina del conjunto</button>';
+  const agregar = `<label class="pf" style="margin-top:8px"><span>Agregar vista</span><select data-pagregar><option value="">Elige una vista…</option>${LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')))
       .concat(L.hojas[L.hoja] && L.hojas[L.hoja].grupo ? [['ConjLocal', 'Vista general'], ['ConjIso', 'Isométrico del conjunto'], ['ConjAlzado', 'Alzado del conjunto'], ['ConjInterior', 'Interiores del conjunto'], ['ConjGola', 'Detalle de gola'], ['ConjDespiece', 'Despiece de frentes'], ['ConjCajon', 'Detalle de cajón tipo'], ['ConjNariz', 'Detalle de nariz'], ['ConjEspiero', 'Detalle de especiero'], ['ConjHerrajes', 'Herrajes']] : [])
-      .map(([v, t]) => opt(v, v === 'Corte' ? 'Otro corte' : t, false)).join('')}</select></label>` +
-    `<div class="note-sm" style="margin-top:8px">${LAM.abiertos.size ? e2(`El isométrico sale con ${LAM.abiertos.size} frente(s) abierto(s), los que elegiste en la vista Isométrico.`) : 'El isométrico sale con todo cerrado; en la vista Isométrico eliges qué puertas y cajones salen abiertos.'}</div>` +
-    '<h4>Notas</h4>' + (notas || '<div class="note-sm">Sin notas: el closet todavía no tiene plan de piezas.</div>') +
-    '<button class="btn" id="presRestGlobos" style="margin-top:6px">Restablecer globos</button>' +
-    '<h4>Cotas</h4><div class="note-sm">Arrastra la línea de una cota para correrla (en perpendicular; las del isométrico, en libre) o su número para moverlo aparte; Supr la quita. Doble clic en un módulo del isométrico abre o cierra sus puertas y cajones.</div>' +
-    '<button class="btn" id="presRestCotas" style="margin-top:6px">Restablecer cotas</button>' +
-    '<h4>Pie de lámina</h4>' + campos +
-    `<div style="display:flex;gap:6px;margin-top:6px"><button class="btn" id="presLogo">${prefs.lamLogo ? 'Cambiar logo…' : 'Cargar logo…'}</button>${prefs.lamLogo ? '<button class="btn" id="presLogoQuitar">Quitar logo</button>' : ''}</div>` +
-    '<div class="note-sm" style="margin-top:6px">Sin logo, el pie lleva el nombre del producto. También puedes hacer clic en un dato del pie, sobre la hoja, para editarlo.</div>' +
-    '<h4>Entrega</h4>' + chk('detalle', 'Incluir las hojas de detalle por unidad (piezas, medidas, espesor y cantidades)', L.detalle) + chk('dxf', 'Incluir un DXF por vista', L.dxf) +
-    '<div class="note-sm" style="margin-top:8px">Arrastra una vista para moverla; se imanta a los márgenes y a las demás. Flechas: 1 mm (con Mayús, 5 mm). Rueda: acercar. Arrastrar el fondo: desplazar. Globos: arrastra el globo para moverlo o su punto para anclarlo en otro lugar; doble clic para editar su texto; Supr quita la nota. Corte: arrastra su línea en el alzado o en la planta. Ctrl+Z deshace.</div>';
+      .map(([v, t]) => opt(v, v === 'Corte' ? 'Otro corte' : t, false)).join('')}</select></label>`;
+  const opciones = `<label class="pf"><span>Papel</span><select data-ppapel>${Object.keys(LAM.PAPELES).map(k => opt(k, LAM.PAPEL_TXT[k], k === L.papel)).join('')}</select></label>` +
+    chk('cotasOn', 'Cotas', L.cotasOn !== false) + chk('proy', 'Líneas de proyección', L.proy) + chk('marcos', 'Marcos de las vistas', L.marcos !== false) + chk('notas', 'Notas numeradas', L.notas);
+  const notasHtml = (notas || '<div class="note-sm">Sin notas todavía.</div>') +
+    '<div class="pres-linea" style="margin-top:6px"><button class="btn" id="presRestGlobos" title="Regresa los globos al reparto automático">Restablecer globos</button><button class="btn" id="presRestCotas" title="Arrastra la línea de una cota para correrla o su número para moverlo aparte; Supr la quita">Restablecer cotas</button></div>';
+  const pie = campos + `<div style="display:flex;gap:6px;margin-top:6px"><button class="btn" id="presLogo" title="Sin logo, el pie lleva el nombre del producto. También puedes hacer clic en un dato del pie, sobre la hoja, para editarlo.">${prefs.lamLogo ? 'Cambiar logo…' : 'Cargar logo…'}</button>${prefs.lamLogo ? '<button class="btn" id="presLogoQuitar">Quitar logo</button>' : ''}</div>`;
+  const entrega = chk('detalle', 'Hojas de detalle por unidad', L.detalle) + chk('dxf', 'Un DXF por vista', L.dxf);
+  const hayIsla = !(cfg.isla || cfg.closet) && (guardadas.length || (is && is.id));
+  presEl('presLado').innerHTML = crear + '<h4>Vistas de esta lámina</h4>' + filas + agregar +
+    det('hoja', 'Hoja y opciones', opciones) + (hayIsla ? det('isla', 'Isla guardada', islaHtml.replace(/<h4>.*?<\/h4>/, '')) : '') + det('notas', 'Notas y cotas', notasHtml) + det('pie', 'Pie de lámina', pie) + det('entrega', 'Entrega', entrega) +
+    '<div class="note-sm" style="margin-top:10px" title="Arrastra una vista para moverla; se imanta a los márgenes y a las demás. Flechas: 1 mm (Mayús, 5 mm). Mayús + clic: varias vistas. Esquinas: escala; bordes: recorte. Rueda: acercar; arrastrar el fondo: desplazar. Doble clic en un frente del isométrico lo abre; en un interior, cota de entrepaños. Ctrl+Z deshace.">Arrastra para mover · esquinas: escala · bordes: recorte (pasa el puntero para más)</div>';
   trUI();
 }
 function presRefrescar(rehacer){
@@ -12737,6 +12770,7 @@ function presCargarLogo(){
 }
 (() => {
   const cv = presEl('presCanvas'), lado = presEl('presLado');
+  lado.addEventListener('toggle', presRecordarDet, true);   /* A194: los desplegables recuerdan si estaban abiertos */
   const pos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
   const mmDe = p => ({ x: (p.x - PRES.ox) / PRES.Z, y: (p.y - PRES.oy) / PRES.Z });
   const confirmaDrag = () => { PRES.hist.push(PRES.pend); if (PRES.hist.length > 100) PRES.hist.shift(); PRES.fut = []; };
