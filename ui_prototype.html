@@ -288,6 +288,19 @@
        diagonal y ciego) lleva bajo la cubierta fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa; la
        cubierta lleva cama solo con nariz; 5b) la gola del esquinero se une a inglete con la de las caras: arranca en el limite de la
        columna y va a la profundidad del perfil de las caras (alma entre hondo - e y hondo; antes estaba un espesor mas adentro).
+   A172. [Master hecho 12/10; falta Revit y probar la entrega en SketchUp] Hoja de composicion (usuario 12/10, referencias de Instagram:
+       Sage Studio y Studio Baroli): varias vistas numeradas en una sola hoja, con titulo y escala bajo cada una, y una franja de rotulo
+       a la derecha (proyecto, cliente, estudio, autor, fecha, dibujo, escala indicada, revision, hoja 01/01) con la leyenda de
+       materiales usados y el conteo de herrajes del plan (bisagras, correderas, jaladeras, pistones, taquetes) y la nota de alcance.
+       Papel: A4, A3 (de fabrica en MX), A2, A1, Tabloide 11 x 17 (de fabrica en EE. UU.) y ARCH D 24 x 36; margen, franja y texto
+       escalan con el papel. La escala de cada vista es la normalizada mas grande en que cabe su tinta en su celda (no el lienzo
+       virtual, que incluye margenes de la interfaz) y se verifica la escala efectiva, porque la planta no escala linealmente. La
+       ultima vista ocupa las celdas libres (el isometrico crece). Dialogo con papel, composicion si/no y los campos del rotulo
+       (prefs lamPapel, lamComposicion, lamProyecto, lamCliente, lamEstudio, lamAutor, lamRevision, lamDibujo: del usuario, no del
+       proyecto). Sin composicion queda una vista por hoja. En el alzado interior exportado ya no salen las ayudas «N repisas».
+       Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
+       cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
+       interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
    A171. [Master hecho 12/10; sin pasos en Revit ni SketchUp: el preview es del editor] Isometrico con cotas, aperturas y preview (usuario
        12/10): 1) cotas: cadena de anchos y total al frente de cada cara, fondo de la cubierta y cadena de alturas con la total (en el
        editor con Medir; al exportar, por la casilla de cotas); 2) herrajes: con las puertas cerradas no se ve nada interior (bisagras,
@@ -1959,7 +1972,7 @@ const PREFS_DEF = { frentesA111: false, fijacionA149: false, region: 'MX', pasoR
      la misma bajo la cubierta y entre cajones. El traslape tras los frentes sale de ahi: L = altoL - holgura; C = (altoC - holgura) / 2 */
   perfiles: { aluminio: { fondoL: 2.6, altoL: 5.7, fondoC: 2.6, altoC: 7.4, holgura: 4.0 }, melamina: { fondoL: 4.0, altoL: 6.3, fondoC: 4.0, altoC: 9.6, holgura: 3.0 } },
   iman: true, imanTol: 1.5, resaltado: true, preguntarGuardar: true,
-  exportAncho: 3840, exportFormato: 'png', exportCotas: false, exportProyeccion: false, exportPrefijo: '', exportPrompt: '', lamVistas: 'AlzadoPuertas,AlzadoInterior,Planta,Corte,Isometrico', lamModos: 'plano,color', lamFormatos: 'pdf,dxf', lamCotas: true, lamProy: true, licencia: '' };
+  exportAncho: 3840, exportFormato: 'png', exportCotas: false, exportProyeccion: false, exportPrefijo: '', exportPrompt: '', lamVistas: 'AlzadoPuertas,AlzadoInterior,Planta,Corte,Isometrico', lamModos: 'plano,color', lamFormatos: 'pdf,dxf', lamCotas: true, lamProy: true, lamPapel: '', lamComposicion: true, lamProyecto: '', lamCliente: '', lamEstudio: '', lamAutor: '', lamRevision: 'R00', lamDibujo: '', licencia: '' };
 const mergePrefs = (base, over) => { for (const k in over) { if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k] && typeof base[k] === 'object') mergePrefs(base[k], over[k]); else if (k in base) base[k] = over[k]; } return base; };
 let prefs = JSON.parse(JSON.stringify(PREFS_DEF));
 try { const saved = JSON.parse(localStorage.getItem('cabynetry.ajustes') || 'null'); if (saved) mergePrefs(prefs, saved); } catch (e) { /* sin almacenamiento: valores de fabrica */ }
@@ -4958,10 +4971,11 @@ function drawCanvas(){
   const hv = hover; if (!prefs.resaltado) hover = null;
   try { drawCanvasCore(); } finally { hover = hv; }
 }
+const LIENZO_MIN = { w: 320, h: 240 };   /* A172: las laminas capturan en lienzos virtuales mas chicos; solo ahi baja */
 function drawCanvasCore(){
   ctx.clearRect(0, 0, cssW, cssH);
   miraHits = []; tabHits = []; frontHits = []; planCaraHits = []; esqGripHits = []; hits = []; dimHits = []; partHits = []; gripHits = []; materialHits = []; pieceHits = []; guideHits = []; edges = []; edgeOwner = null; wallRect = null; frame = null;
-  if (cssW < 320 || cssH < 240) return; /* area minima: con menos, la escala saldria negativa */
+  if (cssW < LIENZO_MIN.w || cssH < LIENZO_MIN.h) return; /* area minima: con menos, la escala saldria negativa */
   Object.assign(C, dark && !exporting ? DARK : LIGHT);
   if (cfg.closet) Object.assign(C, dark && !exporting ? CLOSET_DARK : CLOSET_LIGHT);
   if (view === 'Isometrico') drawIsometrico();
@@ -6530,7 +6544,7 @@ function drawInterior(m, body, Z, mat, sel){
     drawers.forEach(f => { const y1 = Z(f.z0), y0 = Z(Math.max(f.z0 + 4, f.z1 - 3)); ctx.strokeRect(body.x + t + 2, y0, Math.max(2, body.w - 2*t - 4), y1 - y0); });
     ctx.restore();
   }
-  if (!showDoors) {
+  if (!showDoors && !exporting) {   /* A172: ayuda de pantalla; en la lamina estorba a escalas chicas */
     const txt = drawers.length ? 'Cajas' : n ? (n === 1 ? '1 repisa' : n + ' repisas') : 'Sin repisas';
     ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(txt, body.x + 4, body.y + body.h - 17); ctx.textBaseline = 'alphabetic';
@@ -8909,6 +8923,12 @@ const EN = {
   'Longitud': 'Length', 'Altura de muro': 'Wall height', 'Escala': 'Scale', 'no disponible en closet': 'not available for closets',
   'Medidas de referencia para fabricación, generadas con {0}. Verifique en obra antes de cortar.': 'Reference measurements for manufacturing, generated with {0}. Verify on site before cutting.',
   'No sustituye la toma de medidas ni el despiece del taller. Reporte cualquier diferencia en la hoja de diferencias.': "It does not replace on-site measuring or the shop's cut list. Report any difference on the differences sheet.",
+  'Hoja': 'Sheet', 'Papel': 'Paper', 'Rótulo': 'Title block', 'Proyecto': 'Project', 'Cliente': 'Client', 'Estudio': 'Studio', 'Autor': 'Author', 'Revisión': 'Revision',
+  'Dibujo (descripción)': 'Drawing (description)', 'Una hoja de composición por modo (vistas numeradas, escala bajo cada una y franja de rótulo)': 'One composition sheet per mode (numbered views, scale under each and title strip)',
+  'Con composición, el PDF es una hoja por modo con todas las vistas; sin ella, una hoja por vista. El DXF sale un archivo por vista. Para DWG, abre el DXF en tu CAD y guárdalo.': 'With composition, the PDF is one sheet per mode with all the views; without it, one sheet per view. The DXF is one file per view. For DWG, open the DXF in your CAD and save it.',
+  'PROYECTO': 'PROJECT', 'CLIENTE': 'CLIENT', 'ESTUDIO': 'STUDIO', 'AUTOR': 'AUTHOR', 'FECHA DE EMISIÓN': 'ISSUE DATE', 'DIBUJO': 'DRAWING', 'ESCALA': 'SCALE', 'REVISIÓN': 'REVISION',
+  'MATERIALES': 'MATERIALS', 'HERRAJES': 'HARDWARE', 'NOTA': 'NOTE', 'HOJA': 'SHEET', 'Bisagras': 'Hinges', 'Correderas (juegos)': 'Slides (sets)', 'Jaladeras': 'Pulls', 'Pistones': 'Lift pistons', 'Taquetes': 'Anchors',
+  'Cocina': 'Kitchen', 'Isla': 'Island', 'Closet': 'Closet',
   'ISOMÉTRICO': 'ISOMETRIC', 'Isométrico · clic en una puerta o un cajón para abrirlo o cerrarlo · Mayús + clic: abrir o cerrar todo · Puertas: ver el interior · Medir: cotas.': 'Isometric · click a door or drawer to open or close it · Shift + click: open or close all · Doors: see the interior · Measure: dimensions.',
   'El isométrico sale con todo cerrado; en la vista Isométrico puedes abrir las puertas y cajones que quieras mostrar.': 'The isometric comes out fully closed; in the Isometric view you can open the doors and drawers you want to show.'
 };
@@ -9544,7 +9564,13 @@ document.getElementById('btnAmpliar').addEventListener('click', () => { if (enSk
    Ruby/C# solo guardan los bytes (como en Exportar vistas). Fuera: modo color completo en DXF (solo rectangulos), capas por
    pieza (van por tipo de trazo), L y U con varias caras en alzado (sale la cara activa). */
 const LAM = (() => {
-  const PX_MM = 25.4 / 96, ESCALAS = [10, 20, 25, 50, 100], HOJA = { ancho: 420, alto: 297, margen: 10, rotulo: 28 };   /* A3 apaisada, mm */
+  const PX_MM = 25.4 / 96, ESCALAS = [10, 20, 25, 50, 100];
+  /* papel (A172, apaisado, mm): serie ISO y los de uso en EE. UU. (Tabloide y ARCH D). k escala margen, franja y texto respecto de A3 */
+  const PAPELES = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], Tabloid: [431.8, 279.4], ArchD: [914.4, 609.6] };
+  const PAPEL_TXT = { A4: 'A4 (297 × 210 mm)', A3: 'A3 (420 × 297 mm)', A2: 'A2 (594 × 420 mm)', A1: 'A1 (841 × 594 mm)', Tabloid: 'Tabloide 11 × 17 in', ArchD: 'ARCH D 24 × 36 in' };
+  const hojaDe = nombre => { const ok = nombre in PAPELES, [w, h] = PAPELES[ok ? nombre : 'A3'], k = Math.max(.75, Math.min(2, Math.sqrt(w * h / (420 * 297))));
+    return { nombre: ok ? nombre : 'A3', ancho: w, alto: h, k, margen: Math.round(10 * Math.max(.8, Math.min(1.5, k))), rotulo: Math.round(28 * k), franja: Math.round(54 * k) }; };
+  let HOJA = hojaDe('A3');   /* la hoja en uso: generar() la cambia mientras arma los archivos */
   const VISTAS = [['AlzadoPuertas', 'Alzado con puertas'], ['AlzadoInterior', 'Alzado sin puertas'], ['Planta', 'Planta'], ['Corte', 'Corte'], ['Isometrico', 'Isométrico']];
   const NOTA = ['Medidas de referencia para fabricación, generadas con {0}. Verifique en obra antes de cortar.',
     'No sustituye la toma de medidas ni el despiece del taller. Reporte cualquier diferencia en la hoja de diferencias.'];
@@ -9624,17 +9650,33 @@ const LAM = (() => {
   const envolver = g => new Proxy(g, { get(t, k){ const v = t[k]; return v !== undefined ? (typeof v === 'function' ? v.bind(t) : v) : () => {}; }, set(t, k, v){ t[k] = v; return true; } });
 
   /* ---- captura de una vista de la interfaz a la escala de papel mas grande que cabe ---- */
-  const LIBRE = { w: HOJA.ancho - 2 * HOJA.margen, h: HOJA.alto - 2 * HOJA.margen - HOJA.rotulo };
-  function elegirEscala(medirTamano){
-    /* medirTamano(pxPorCm) => {w, h} en px; la menor escala (mayor dibujo) en la que cabe en la hoja */
-    for (const n of ESCALAS) { const s = (10 / n) / PX_MM, d = medirTamano(s); if (d && d.w * PX_MM <= LIBRE.w + .01 && d.h * PX_MM <= LIBRE.h + .01) return { n, s, d }; }
+  const libre = (h = HOJA) => ({ w: h.ancho - 2 * h.margen, h: h.alto - 2 * h.margen - h.rotulo });
+  function elegirEscala(medirTamano, caja){
+    /* medirTamano(pxPorCm) => {w, h} en px; la menor escala (mayor dibujo) en la que cabe en la caja (mm) o, sin ella, en la hoja */
+    const L = caja || libre();
+    for (const n of ESCALAS) { const s = (10 / n) / PX_MM, d = medirTamano(s); if (d && d.w * PX_MM <= L.w + .01 && d.h * PX_MM <= L.h + .01) return { n, s, d }; }
     const n = ESCALAS[ESCALAS.length - 1], s = (10 / n) / PX_MM; return { n, s, d: medirTamano(s) };
+  }
+  /* caja de tinta de una captura (px): lo que de verdad dibujan los trazos, rellenos y textos, sin los margenes del lienzo virtual */
+  function cajaTinta(ops, pad = 5){
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    const pt = (x, y) => { if (isFinite(x) && isFinite(y)) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); } };
+    ops.forEach(o => {
+      if (o.t === 'fill' || o.t === 'stroke') o.ruta.forEach(sb => sb.pts.forEach(p => pt(p[0], p[1])));
+      else if (o.t === 'text') {
+        const w = anchoHelv(o.s, o.tam, o.neg), dx = o.al === 'center' ? -w / 2 : (o.al === 'right' || o.al === 'end') ? -w : 0, c = Math.cos(o.ang), sn = Math.sin(o.ang);
+        [[dx, 0], [dx + w, 0], [dx, -o.tam], [dx + w, -o.tam]].forEach(([u, v]) => pt(o.x + u * c - v * sn, o.y + u * sn + v * c));
+      }
+    });
+    if (x0 > x1) { x0 = y0 = 0; x1 = y1 = 1; }
+    return { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad };
   }
   function capturarInterfaz(vista, o){
     const k = { ctx, view, showDoors, flat, measure, medirTodo, exporting, selection, selectedPart, hover, focusPanel, upperFocus, pieces, cssW, cssH, frame,
       cotas: prefs.exportCotas, proy: prefs.exportProyeccion };
     try {
       exporting = true; selection = new Set(); selectedPart = null; hover = null; focusPanel = null; upperFocus = null; pieces = new Set();
+      LIENZO_MIN.w = LIENZO_MIN.h = 40;
       flat = !!o.plano; measure = !!o.cotas; medirTodo = !!o.cotas; prefs.exportCotas = !!o.cotas; prefs.exportProyeccion = !!o.proy;
       view = vista === 'Corte' ? 'Seccion' : vista === 'Planta' ? 'Planta' : 'Alzado'; showDoors = vista !== 'AlzadoInterior';
       const A = { w: 1400, h: 900 };
@@ -9642,20 +9684,31 @@ const LAM = (() => {
       const escalaDe = f => { dibujar(f); return frame ? frame.scale : NaN; };
       const s1 = escalaDe(1), s2 = escalaDe(2);
       if (!isFinite(s1) || !isFinite(s2)) throw new Error('La vista no se pudo dibujar: ' + vista);
-      const acota = f => Math.min(30, Math.max(.2, f));
+      const acota = f => Math.min(30, Math.max(.05, f));
       const estimar = s => { const b = s2 - s1; return acota(Math.abs(b) < 1e-9 ? 1 : (s - (2 * s1 - s2)) / b); };
       /* la escala del dibujo es casi lineal en el tamano del lienzo: secante hasta caer en la de papel (menos de 0.2 %) */
       const resolver = sT => { let fa = 1, sa = s1, fb = 2, sb = s2, f = estimar(sT);
         for (let i = 0; i < 6; i++) { const s = escalaDe(f); if (Math.abs(s - sT) / sT < .002) return f; fa = fb; sa = sb; fb = f; sb = s;
           const d = sb - sa; f = acota(Math.abs(d) < 1e-9 ? f : fa + (sT - sa) * (fb - fa) / d); }
         return f; };
-      const e = elegirEscala(s => { const f = estimar(s); return { w: A.w * f, h: A.h * f }; });
-      const g = dibujar(resolver(e.s));
-      return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista, plano: !!o.plano };
+      /* de la escala mas grande a la mas chica: la primera cuya tinta cabe en la caja y cuya escala efectiva coincide con la pedida
+         (algunas vistas, como la planta, no escalan linealmente con el lienzo) */
+      const L = o.caja || libre(); let elegida = null, ultima = null;
+      for (const nn of ESCALAS) {
+        const sT = (10 / nn) / PX_MM, g = dibujar(resolver(sT));
+        if (!frame) continue;
+        const real = frame.scale, bb = cajaTinta(g.ops), exacta = Math.abs(real - sT) / sT < .02;
+        ultima = { g, bb, n: exacta ? nn : Math.max(1, Math.round(10 / (real * PX_MM))) };
+        if (exacta && bb.w * PX_MM <= L.w + .01 && bb.h * PX_MM <= L.h + .01) { elegida = ultima; break; }
+      }
+      const e = elegida || ultima;
+      if (!e) throw new Error('La vista no se pudo dibujar: ' + vista);
+      const g = e.g;
+      return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista, plano: !!o.plano, bb: e.bb };
     } finally {
       ctx = k.ctx; view = k.view; showDoors = k.showDoors; flat = k.flat; measure = k.measure; medirTodo = k.medirTodo; exporting = k.exporting;
       selection = k.selection; selectedPart = k.selectedPart; hover = k.hover; focusPanel = k.focusPanel; upperFocus = k.upperFocus; pieces = k.pieces;
-      cssW = k.cssW; cssH = k.cssH; frame = k.frame; prefs.exportCotas = k.cotas; prefs.exportProyeccion = k.proy;
+      cssW = k.cssW; cssH = k.cssH; frame = k.frame; prefs.exportCotas = k.cotas; prefs.exportProyeccion = k.proy; LIENZO_MIN.w = 320; LIENZO_MIN.h = 240;
     }
   }
 
@@ -9838,12 +9891,12 @@ const LAM = (() => {
   /* captura para exportar: el isometrico con los frentes abiertos que se eligieron en el preview */
   function capturarIsometrico(o){
     const esc = isoEscena({ abiertos, cotas: o.cotas !== false });
-    const MARGEN = 30, ancho = esc.bb.x1 - esc.bb.x0, alto = esc.bb.y1 - esc.bb.y0;
-    const e = elegirEscala(s => ({ w: ancho * s + 2 * MARGEN, h: alto * s + 2 * MARGEN }));
+    const MARGEN = 14, ancho = esc.bb.x1 - esc.bb.x0, alto = esc.bb.y1 - esc.bb.y0;
+    const e = elegirEscala(s => ({ w: ancho * s + 2 * MARGEN, h: alto * s + 2 * MARGEN }), o.caja);
     const g = new Grabador(ancho * e.s + 2 * MARGEN, alto * e.s + 2 * MARGEN);
     const previoC = Object.assign({}, C); Object.assign(C, LIGHT);   /* lo exportado va con la paleta de dia aunque el editor este de noche */
     try { isoPintar(g, esc, e.s, MARGEN, MARGEN, { plano: !!o.plano, cotas: o.cotas !== false }); } finally { Object.assign(C, previoC); }
-    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista: 'Isometrico', plano: !!o.plano };
+    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista: 'Isometrico', plano: !!o.plano, bb: cajaTinta(g.ops) };
   }
   const capturar = (vista, o) => vista === 'Isometrico' ? capturarIsometrico(o) : capturarInterfaz(vista, o);
 
@@ -9851,6 +9904,7 @@ const LAM = (() => {
   const lat1 = s => { let r = ''; for (const ch of String(s)) { const c = ch.charCodeAt(0); r += c < 256 ? ch : ({ 0x2026: '\x85', 0x2013: '\x96', 0x2014: '\x97', 0x2022: '\x95' }[c] || '?'); } return r; };
   const lit = s => lat1(s).replace(/[\\()]/g, m => '\\' + m);
   function paginaPdf(pag, alfas){
+    if (pag.tipo === 'composicion') return paginaComposicionPdf(pag, alfas);
     const H = HOJA.alto, out = contenidoVista(pag, alfas), yTop = HOJA.alto - HOJA.margen - HOJA.rotulo;
     const t = (s, x, y, tam, neg) => out.push(`q 0 g BT /${neg ? 'F2' : 'F1'} ${f2(tam)} Tf 1 0 0 1 ${f2(x)} ${f2(H - y)} Tm (${lit(s)}) Tj ET Q`);
     out.push(`q 0.35 w 0 G ${HOJA.margen} ${HOJA.margen} ${HOJA.ancho - 2 * HOJA.margen} ${HOJA.alto - 2 * HOJA.margen} re S Q`);   /* marco */
@@ -9947,6 +10001,79 @@ const LAM = (() => {
     return par.join('\n') + '\n';
   }
 
+  /* ---- composicion (A172): varias vistas numeradas en una hoja, con titulo y escala bajo cada una y la franja de rotulo a la derecha ---- */
+  const cuadricula = nv => nv <= 1 ? [1, 1] : nv === 2 ? [2, 1] : nv <= 4 ? [2, 2] : [3, 2];
+  function celdas(nv){
+    const H = HOJA, [cols, filas] = cuadricula(nv), m = H.margen, g = 4 * H.k, tit = 9 * H.k, pad = 3 * H.k;
+    const w = H.ancho - 2 * m - H.franja - g, h = H.alto - 2 * m, cw = (w - (cols - 1) * g) / cols, ch = (h - (filas - 1) * g) / filas;
+    const libres = cols * filas - nv;   /* celdas sin vista al final: las ocupa la ultima vista (el isometrico crece) */
+    return Array.from({ length: nv > 0 ? nv : 1 }, (_, i) => { const c = i % cols, f = Math.floor(i / cols), extra = i === nv - 1 ? libres : 0, w2 = cw + extra * (cw + g);
+      return { x: m + c * (cw + g), y: m + f * (ch + g), w: w2, h: ch, tit, pad, caja: { w: w2 - 2 * pad, h: ch - 2 * pad - tit } }; });
+  }
+  /* campos del rotulo y leyendas: todo sale de lo que el usuario escribe y del plan (materiales usados y conteo de herrajes) */
+  function datosHoja(modo, r = {}){
+    let pl; try { pl = planCocina(); } catch (e) { pl = { piezas: [], materiales: [] }; }   /* el closet aun no tiene plan de piezas: leyenda vacia */
+    const piezas = pl.piezas.concat((pl.caras || []).flatMap(c => c.piezas));
+    const info = id => { const m = (pl.materiales || []).find(q => q.id === id); if (m) return { nombre: m.nombre, rgb: m.rgb };
+      const d = typeof PREDETERMINADOS === 'object' && PREDETERMINADOS[id]; return d ? { nombre: d.nombre, rgb: d.rgb } : { nombre: id, rgb: [200, 200, 200] }; };
+    const usados = []; piezas.forEach(p => { if (p.material && !usados.includes(p.material)) usados.push(p.material); });
+    const limpio = m => Object.assign({}, m, { nombre: String(m.nombre || '').replace(/\s+predeterminad[oa]$/i, '') });
+    const cuenta = f => piezas.filter(f).length;
+    const herrajes = [['Bisagras', cuenta(p => p.tipo === 'Bisagra' && p.estado !== 'abierto')], ['Correderas (juegos)', Math.round(cuenta(p => p.tipo === 'Corredera') / 2)],
+      ['Jaladeras', cuenta(p => p.tipo === 'Jaladera' || p.tipo === 'Boton')], ['Pistones', cuenta(p => p.tipo === 'Piston')], ['Taquetes', cuenta(p => p.tipo === 'Taquete')]].filter(q => q[1] > 0);
+    const hoy = new Date(), dd = hoy.toLocaleDateString(prefs.idioma === 'en' ? 'en-US' : 'es-MX'), kind = cfg.isla ? 'Isla' : cfg.closet ? 'Closet' : 'Cocina';
+    return { modo,
+      campos: [['PROYECTO', r.proyecto], ['CLIENTE', r.cliente], ['ESTUDIO', r.estudio], ['AUTOR', r.autor], ['FECHA DE EMISIÓN', dd],
+        ['DIBUJO', r.dibujo || `${T(kind)} · ${modo === 'plano' ? T('Plano') : T('Color')}`], ['ESCALA', 'Indicada'], ['REVISIÓN', r.revision || 'R00']],
+      materiales: usados.map(info).map(limpio), herrajes, hoja: '01/01' };
+  }
+  function paginaComposicion(items, datos){
+    return { tipo: 'composicion', datos, vistas: items.map(({ cap, celda }, i) => ({ ops: cap.ops, celda, num: String(i + 1).padStart(2, '0'), n: cap.n, nombre: NOMBRES[cap.vista],
+      ox: celda.x + celda.pad + (celda.caja.w - cap.bb.w * PX_MM) / 2 - cap.bb.x0 * PX_MM, oy: celda.y + celda.pad + (celda.caja.h - cap.bb.h * PX_MM) / 2 - cap.bb.y0 * PX_MM })) };
+  }
+  function paginaComposicionPdf(pag, alfas){
+    const H = HOJA, Hh = H.alto, k = H.k, out = [], d = pag.datos;
+    const t = (s2, x, y, tam, neg, color = '#000000') => out.push(`q ${col(color, 'rg')} BT /${neg ? 'F2' : 'F1'} ${f2(tam)} Tf 1 0 0 1 ${f2(x)} ${f2(Hh - y)} Tm (${lit(s2)}) Tj ET Q`);
+    const ln = (x1, y1, x2, y2, w = .25, c = '#000000') => out.push(`q ${f2(w)} w ${col(c, 'RG')} ${f2(x1)} ${f2(Hh - y1)} m ${f2(x2)} ${f2(Hh - y2)} l S Q`);
+    const corta = (s2, ancho, tam, neg) => { let r = String(s2); const orig = r; while (r.length > 1 && anchoHelv(r, tam, neg) > ancho) r = r.slice(0, -1); return r === orig ? r : r.replace(/.$/, '…'); };
+    const parrafo = (texto, ancho, tam) => { const out2 = []; let linea = ''; String(texto).split(/\s+/).forEach(w => { const prueba = linea ? linea + ' ' + w : w;
+      if (anchoHelv(prueba, tam) > ancho && linea) { out2.push(linea); linea = w; } else linea = prueba; }); if (linea) out2.push(linea); return out2; };
+    /* vistas: cada una con su numero, nombre y escala bajo el dibujo */
+    pag.vistas.forEach(v => {
+      out.push(...contenidoVista(v, alfas));
+      const c = v.celda, yT = c.y + c.h - 2.6 * k, x = c.x + c.pad;
+      ln(x, yT - 5.8 * k, c.x + c.w - c.pad, yT - 5.8 * k, .2, '#9AA3AB');
+      t(v.num, x, yT, 5.4 * k, true); t(T(v.nombre).toUpperCase(), x + 9.5 * k, yT, 3.2 * k, false);
+      const esc2 = `${T('ESCALA')} 1:${v.n}`; t(esc2, c.x + c.w - c.pad - anchoHelv(esc2, 2.6 * k), yT, 2.6 * k, false, '#555555');
+    });
+    /* marco y franja de rotulo */
+    const x0 = H.ancho - H.margen - H.franja, y0 = H.margen, w = H.franja, h = H.alto - 2 * H.margen, pad = 3.6 * k, ancho = w - 2 * pad;
+    out.push(`q 0.5 w 0 G ${f2(H.margen)} ${f2(Hh - H.margen - h)} ${f2(H.ancho - 2 * H.margen)} ${f2(h)} re S Q`);
+    ln(x0, y0, x0, y0 + h, .35);
+    let y = y0 + pad;
+    t(prodNombre(), x0 + pad, y + 6.5 * k, 7.4 * k, true); t('by Drawlibri', x0 + pad, y + 11.4 * k, 3 * k, false, '#555555');
+    y += 16 * k; ln(x0, y, x0 + w, y, .3);
+    d.campos.forEach(([etq, val]) => {
+      t(T(etq), x0 + pad, y + 4.3 * k, 2 * k, false, '#6B7680');
+      t(corta(val || '—', ancho, 3.2 * k, false), x0 + pad, y + 9.4 * k, 3.2 * k, false, val ? '#000000' : '#9AA3AB');
+      y += 11.6 * k; ln(x0, y, x0 + w, y, .15, '#9AA3AB');
+    });
+    const fin = y0 + h - 21 * k;   /* lo que queda sobre el bloque de hoja */
+    const titulo = txt => { if (y + 8 * k > fin) return false; t(T(txt), x0 + pad, y + 5.5 * k, 2.3 * k, true, '#444444'); y += 7.5 * k; return true; };
+    if (d.materiales.length && titulo('MATERIALES')) d.materiales.slice(0, 7).forEach(m => {
+      if (y + 5 * k > fin) return;
+      out.push(`q ${col(hexDe(m.rgb), 'rg')} ${f2(x0 + pad)} ${f2(Hh - (y + 3.4 * k))} ${f2(3.2 * k)} ${f2(3.2 * k)} re f Q`);
+      out.push(`q 0.15 w 0 G ${f2(x0 + pad)} ${f2(Hh - (y + 3.4 * k))} ${f2(3.2 * k)} ${f2(3.2 * k)} re S Q`);
+      t(corta(m.nombre, ancho - 5 * k, 2.5 * k, false), x0 + pad + 5 * k, y + 2.7 * k, 2.5 * k, false); y += 5 * k; });
+    if (d.herrajes.length && titulo('HERRAJES')) d.herrajes.forEach(([nom, c]) => { if (y + 4.6 * k > fin) return;
+      t(T(nom), x0 + pad, y + 2.6 * k, 2.5 * k, false); const q = String(c); t(q, x0 + w - pad - anchoHelv(q, 2.6 * k, true), y + 2.6 * k, 2.6 * k, true); y += 4.6 * k; });
+    if (titulo('NOTA')) parrafo(`${T(NOTA[0]).replace('{0}', prodNombre() + ' by Drawlibri')} ${T(NOTA[1])}`, ancho, 2.1 * k).forEach(l => { if (y + 3.2 * k > fin) return; t(l, x0 + pad, y + 2.4 * k, 2.1 * k, false, '#333333'); y += 3.2 * k; });
+    ln(x0, fin, x0 + w, fin, .3);
+    t(T('HOJA'), x0 + pad, fin + 6 * k, 2.2 * k, false, '#6B7680'); t(d.hoja, x0 + pad, fin + 15.5 * k, 9.5 * k, true);
+    return out;
+  }
+  const hexDe = rgb => '#' + [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round(rgb[i]))).toString(16).padStart(2, '0')).join('');
+
   /* ---- ensamblado: hoja con rotulo, nota de alcance y los nombres de archivo ---- */
   const prodNombre = () => (typeof prodName === 'string' && prodName) ? prodName : 'Skitchen';
   const NOMBRES = { AlzadoPuertas: 'Alzado con puertas', AlzadoInterior: 'Alzado sin puertas', Planta: 'Planta', Corte: 'Corte', Isometrico: 'Isométrico' };
@@ -9959,23 +10086,38 @@ const LAM = (() => {
       { s: T(NOTA[0]).replace('{0}', prodNombre() + ' by Drawlibri'), tam: 2.2 }, { s: T(NOTA[1]), tam: 2.2 }];
   }
   function pagina(cap){
-    return { ops: cap.ops, ox: HOJA.margen + (LIBRE.w - cap.w * PX_MM) / 2, oy: HOJA.margen + (LIBRE.h - cap.h * PX_MM) / 2, rotulo: rotulo(cap) };
+    const L = libre(), b = cap.bb;   /* la tinta centrada en la hoja */
+    return { ops: cap.ops, ox: HOJA.margen + (L.w - b.w * PX_MM) / 2 - b.x0 * PX_MM, oy: HOJA.margen + (L.h - b.h * PX_MM) / 2 - b.y0 * PX_MM, rotulo: rotulo(cap) };
   }
-  /* sel: { vistas: [clave], modos: ['plano', 'color'], formatos: ['pdf', 'dxf'], cotas, proy } => { files: [{name, url}], omitidas: [texto] } */
+  /* sel: { vistas, modos, formatos, cotas, proy, papel ('A3'...), composicion (true: una hoja con todas las vistas), rotulo: {proyecto, cliente,
+     estudio, autor, revision, dibujo} } => { files: [{name, url}], omitidas: [texto] } */
   function generar(sel, prefijo, sello){
-    const files = [], omitidas = [], b64 = s => btoa(s);
-    const caps = {};   /* por modo: lista de capturas */
+    const previa = HOJA; HOJA = hojaDe(sel.papel || 'A3');
+    try { return generarEn(sel, prefijo, sello); } finally { HOJA = previa; }
+  }
+  function generarEn(sel, prefijo, sello){
+    const files = [], omitidas = [], b64 = s2 => btoa(s2), caps = {}, hojas = {};   /* caps: por modo, a tamano de hoja; hojas: en su celda */
     const usables = sel.vistas.filter(v => {
       if (cfg.closet && (v === 'Planta' || v === 'Isometrico')) { omitidas.push(`${T(NOMBRES[v])}: ${T('no disponible en closet')}`); return false; }
       return true; });
+    const pdf = sel.formatos.includes('pdf'), dxf = sel.formatos.includes('dxf'), compo = pdf && sel.composicion !== false && usables.length > 0;
+    const cel = compo ? celdas(usables.length) : null;
     sel.modos.forEach(modo => {
-      caps[modo] = [];
-      usables.forEach(v => { try { caps[modo].push(capturar(v, { plano: modo === 'plano', cotas: sel.cotas, proy: sel.proy })); }
-        catch (e) { omitidas.push(`${T(NOMBRES[v])} (${modo}): ${e.message}`); } });
+      caps[modo] = []; hojas[modo] = [];
+      usables.forEach((v, i) => {
+        const o = { plano: modo === 'plano', cotas: sel.cotas, proy: sel.proy };
+        if (!compo || dxf) { try { caps[modo].push(capturar(v, o)); } catch (e) { omitidas.push(`${T(NOMBRES[v])} (${modo}): ${e.message}`); } }
+        if (compo) { try { hojas[modo].push({ cap: capturar(v, Object.assign({}, o, { caja: cel[i].caja })), celda: cel[i] }); }
+          catch (e) { if (!dxf) omitidas.push(`${T(NOMBRES[v])} (${modo}): ${e.message}`); } }
+      });
     });
     sel.modos.forEach(modo => {
+      if (compo && hojas[modo].length) {
+        const bin = escribirPdf([paginaComposicion(hojas[modo], datosHoja(modo, sel.rotulo || {}))], `${prodNombre()} · ${modo === 'plano' ? T('Plano') : T('Color')}`);
+        files.push({ name: `${prefijo}_${sello}_composicion_${modo}.pdf`, url: 'data:application/pdf;base64,' + b64(bin) });
+      }
       if (!caps[modo].length) return;
-      if (sel.formatos.includes('pdf')) {
+      if (pdf && !compo) {
         const bin = escribirPdf(caps[modo].map(pagina), `${prodNombre()} · ${modo === 'plano' ? T('Plano') : T('Color')}`);
         files.push({ name: `${prefijo}_${sello}_laminas_${modo}.pdf`, url: 'data:application/pdf;base64,' + b64(bin) });
       }
@@ -9996,7 +10138,7 @@ const LAM = (() => {
       try { cap = capturar(v, { plano, cotas: true, proy: true }); } catch (e) { fallas.push(`${id}: ${e.message}`); return; }
       ok(cap.ops.length > 10, `${id}: casi sin trazos (${cap.ops.length})`);
       ok(ESCALAS.includes(cap.n), `${id}: escala ${cap.n} no normalizada`);
-      ok(cap.w * PX_MM <= LIBRE.w + 1 && cap.h * PX_MM <= LIBRE.h + 1 || cap.n === ESCALAS[ESCALAS.length - 1], `${id}: no cabe en la hoja`);
+      ok(cap.bb.w * PX_MM <= libre().w + 1 && cap.bb.h * PX_MM <= libre().h + 1 || cap.n >= ESCALAS[ESCALAS.length - 1], `${id}: no cabe en la hoja`);
       const pdf = escribirPdf([pagina(cap)], 'prueba');
       ok(pdf.startsWith('%PDF-1.4') && pdf.endsWith('%%EOF\n'), `${id}: PDF sin cabecera o sin cierre`);
       ok(sinNaN(pdf), `${id}: PDF con NaN`);
@@ -10013,6 +10155,18 @@ const LAM = (() => {
           const q = rgbDe(c); return Math.max(q[0], q[1], q[2]) - Math.min(q[0], q[1], q[2]) <= 20; };
         ok([...rell].every(neutro), `${id}: el modo plano trae relleno de color: ${[...rell].filter(c => !neutro(c)).join(', ')}`); }
     }));
+    /* A172: la hoja de composicion en cada papel: PDF valido, sin NaN, y la franja cabe en la hoja */
+    Object.keys(PAPELES).forEach(papel => {
+      const id = 'composicion/' + papel;
+      try {
+        const vistas = VISTAS.map(v => v[0]).filter(v => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')));
+        const r = generar({ vistas, modos: ['plano', 'color'], formatos: ['pdf'], cotas: true, proy: true, papel, composicion: true,
+          rotulo: { proyecto: 'Casa de prueba con un nombre bastante largo para la franja', cliente: 'Cliente', estudio: 'Estudio', autor: 'Autor', revision: 'R01' } }, 'p', 's');
+        ok(r.files.length === 2 && r.files.every(f => f.name.includes('composicion')), `${id}: archivos inesperados`);
+        r.files.forEach(f => { const b = atob(f.url.split(',')[1]); ok(b.startsWith('%PDF-1.4') && b.endsWith('%%EOF\n') && sinNaN(b), `${id}: PDF invalido en ${f.name}`);
+          ok(/\/Count 1 /.test(b), `${id}: la composicion es una sola hoja`); });
+      } catch (e) { fallas.push(`${id}: ${e.message}`); }
+    });
     /* A170: isometrico con frentes abiertos, sin puertas y sin cotas; lo abierto agrega trazos y nada sale con NaN */
     if (!cfg.closet) try {   /* el plan todavia no cubre closets */
       const pl = planCocina(), frentes = [...new Set(pl.piezas.filter(p => p.abre).map(p => p.frente))];
@@ -10031,7 +10185,7 @@ const LAM = (() => {
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
-    abiertos, isoEscena, isoPintar, isoClick, isoHit };
+    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja };
 })();
 const pruebasLaminas = () => LAM.pruebas();
 /* preview isometrico del editor (A170): el mismo dibujo que se exporta, con clic para abrir o cerrar puertas y cajones */
@@ -10052,24 +10206,33 @@ function exportarLaminas(){
   const op = (g, v, t, on) => `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-lam="${g}" value="${v}"${on ? ' checked' : ''}><span>${esc(t)}</span></label>`;
   const tit = t => `<div style="font-weight:600;margin:12px 0 4px">${esc(t)}</div>`;
   const hay = LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')));
+  const papelSel = prefs.lamPapel && prefs.lamPapel in LAM.PAPELES ? prefs.lamPapel : prefs.region === 'US' ? 'Tabloid' : 'A3';   /* A3 en MX; Tabloide en EE. UU. */
   const html = tit('Vistas') + hay.map(([v, t]) => op('v', v, t, vistas.includes(v))).join('')
     + tit('Modo') + op('m', 'plano', 'Plano (blanco y negro)', modos.includes('plano')) + op('m', 'color', 'Color (materiales)', modos.includes('color'))
     + tit('Formato') + op('f', 'pdf', 'PDF', fmts.includes('pdf')) + op('f', 'dxf', 'DXF', fmts.includes('dxf'))
+    + tit('Hoja') + `<label class="field" style="display:block;margin:5px 0"><span>Papel</span><select data-lamsel="papel" style="margin-top:4px">${Object.keys(LAM.PAPELES).map(k => `<option value="${k}"${k === papelSel ? ' selected' : ''}>${esc(LAM.PAPEL_TXT[k])}</option>`).join('')}</select></label>`
+    + op('c', 'composicion', 'Una hoja de composición por modo (vistas numeradas, escala bajo cada una y franja de rótulo)', prefs.lamComposicion)
+    + tit('Rótulo') + [['proyecto', 'Proyecto'], ['cliente', 'Cliente'], ['estudio', 'Estudio'], ['autor', 'Autor'], ['revision', 'Revisión'], ['dibujo', 'Dibujo (descripción)']]
+      .map(([k, t]) => `<label class="field" style="display:block;margin:5px 0"><span>${esc(t)}</span><input type="text" data-lamtxt="${k}" value="${esc(prefs['lam' + k[0].toUpperCase() + k.slice(1)] || '')}" style="margin-top:4px;width:100%"></label>`).join('')
     + tit('Opciones') + op('o', 'cotas', 'Incluir cotas', prefs.lamCotas) + op('o', 'proy', 'Incluir líneas de proyección (abatimientos y proyecciones punteadas)', prefs.lamProy)
-    + `<div class="note-sm" style="margin-top:12px">El PDF reúne las vistas en una hoja A3 por modo; el DXF sale un archivo por vista. Para DWG, abre el DXF en tu CAD y guárdalo.</div>`
+    + `<div class="note-sm" style="margin-top:12px">Con composición, el PDF es una hoja por modo con todas las vistas; sin ella, una hoja por vista. El DXF sale un archivo por vista. Para DWG, abre el DXF en tu CAD y guárdalo.</div>`
     + `<div class="note-sm" style="margin-top:6px">${LAM.abiertos.size ? esc(`El isométrico sale con ${LAM.abiertos.size} frente(s) abierto(s), los que elegiste en la vista Isométrico.`) : 'El isométrico sale con todo cerrado; en la vista Isométrico puedes abrir las puertas y cajones que quieras mostrar.'}</div>`;
-  showDialog('Exportar láminas', html, [{ text: 'Exportar', primary: true, action: ejecutarLaminas }, { text: 'Cancelar', cancel: true }], 'info', true);
+  showDialog('Exportar láminas', `<div style="max-height:62vh;overflow-y:auto;padding-right:8px">${html}</div>`, [{ text: 'Exportar', primary: true, action: ejecutarLaminas }, { text: 'Cancelar', cancel: true }], 'info', true);
 }
 function ejecutarLaminas(){
   const toma = g => [...document.querySelectorAll(`#modalBody [data-lam="${g}"]:checked`)].map(e => e.value);
-  const v = toma('v'), m = toma('m'), f = toma('f'), o = toma('o');
-  prefs.lamVistas = v.join(','); prefs.lamModos = m.join(','); prefs.lamFormatos = f.join(','); prefs.lamCotas = o.includes('cotas'); prefs.lamProy = o.includes('proy'); savePrefs();
+  const v = toma('v'), m = toma('m'), f = toma('f'), o = toma('o'), c = toma('c');
+  const papel = (document.querySelector('#modalBody [data-lamsel="papel"]') || {}).value || 'A3';
+  const rotulo = {}; document.querySelectorAll('#modalBody [data-lamtxt]').forEach(e => { rotulo[e.dataset.lamtxt] = e.value.trim(); });
+  prefs.lamVistas = v.join(','); prefs.lamModos = m.join(','); prefs.lamFormatos = f.join(','); prefs.lamCotas = o.includes('cotas'); prefs.lamProy = o.includes('proy');
+  prefs.lamPapel = papel; prefs.lamComposicion = c.includes('composicion');
+  Object.keys(rotulo).forEach(k => { prefs['lam' + k[0].toUpperCase() + k.slice(1)] = rotulo[k]; }); savePrefs();
   if (!v.length || !m.length || !f.length) { showDialog('Exportar láminas', 'Selecciona al menos una vista, un modo y un formato.', [{ text: 'Aceptar', primary: true, action: exportarLaminas }], 'warn'); return; }
   setStatus('Generando láminas…');
   const now = new Date(), two = n => String(n).padStart(2, '0'), kind = cfg.isla ? 'isla' : cfg.closet ? 'closet' : 'cocina';
   const sello = `${now.getFullYear()}${two(now.getMonth()+1)}${two(now.getDate())}_${two(now.getHours())}${two(now.getMinutes())}`;
   let r;
-  try { r = LAM.generar({ vistas: v, modos: m, formatos: f, cotas: prefs.lamCotas, proy: prefs.lamProy }, prefs.exportPrefijo.trim() || kind, sello); }
+  try { r = LAM.generar({ vistas: v, modos: m, formatos: f, cotas: prefs.lamCotas, proy: prefs.lamProy, papel, composicion: prefs.lamComposicion, rotulo }, prefs.exportPrefijo.trim() || kind, sello); }
   catch (err) { showDialog('Exportar láminas', err.message); return; }
   finally { render(); }
   if (!r.files.length) { showDialog('Exportar láminas', r.omitidas.join('\n') || 'No se generó ningún archivo.'); return; }
