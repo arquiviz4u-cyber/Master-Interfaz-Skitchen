@@ -288,6 +288,18 @@
        diagonal y ciego) lleva bajo la cubierta fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa; la
        cubierta lleva cama solo con nariz; 5b) la gola del esquinero se une a inglete con la de las caras: arranca en el limite de la
        columna y va a la profundidad del perfil de las caras (alma entre hondo - e y hondo; antes estaba un espesor mas adentro).
+   A169. [Master hecho 12/10; falta Revit y probar la entrega en SketchUp] Exportar laminas (usuario 12/10): boton «Laminas» junto a
+       Exportar. Vistas: alzado con puertas, alzado sin puertas, planta, corte e isometrico; modos plano y color; formatos PDF vectorial
+       (A3, escala normalizada 1:10 a 1:100, rotulo con la nota de alcance, una hoja por vista) y DXF R12 (1:1 en mm, capas DLB_).
+       El lienzo se cambia por un grabador (LAM.Grabador) y se corre el mismo dibujo del editor (drawCanvasCore, con exporting): lo
+       exportado es lo que se ve. El isometrico no existe en la interfaz y se dibuja desde el plan (marco de cada cara como en
+       SketchUp, hueco de la cubierta, orden de pintor exacto, observador hacia el interior de la L o la U). Cotas y proyecciones por
+       casillas del dialogo (prefs lamCotas y lamProy, aparte de exportCotas). Autoprueba pruebasLaminas() en recta, L, U, isla y
+       closet. En la planta de L y U el resalte de la cara activa ya no sale al exportar y en plano va en blanco.
+       Falta: [Revit] aceptar .pdf y .dxf al guardar lo que manda el master (hoy Exportar vistas solo espera PNG, JPG y texto);
+       [SketchUp] Ruby ya acepta .pdf y .dxf (exportar.rb); probar la entrega real y abrir el DXF en un CAD. Limites: el isometrico
+       no lleva cotas; en DXF el color solo rellena rectangulos; las capas del DXF van por tipo de trazo, no por pieza; en L y U el
+       alzado y el corte salen de la cara activa; el texto del PDF es Helvetica. Presentar sigue fuera del master (C1): esto es Exportar.
    A168. [Pendiente de decidir; investigacion 12/10] Herrajes contra el catalogo tecnico de Blum 2024/2025 (fuente primaria; paginas
        impresas). Nada cambia hasta que el usuario decida; falta en: master, despues Revit y SketchUp. 1) Caja del cajon
        (PLAN_CAJA): lado 1.5 cm contra 12.8 mm del lado de LEGRABOX (p. 208) y piso 1.2 cm contra los 16 mm que suponen las formulas
@@ -1790,6 +1802,10 @@
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5" stroke="#266096" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 11v2.5h11V11" stroke="#266096" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Exportar
     </button>
+    <button class="btn" id="btnLaminas" title="Exportar láminas: PDF vectorial (A3, a escala) y DXF con alzado con y sin puertas, planta, corte e isométrico, en plano y en color, tal como se ven en el editor">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="3" y="2" width="10" height="12" rx="1.5" stroke="#266096" stroke-width="1.4"/><path d="M5.5 6h5M5.5 8.5h5M5.5 11h3" stroke="#266096" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Láminas
+    </button>
     <button class="btn" id="btnRender" title="Render con IA: convierte el alzado en una imagen fotorrealista sin salir del editor (consume créditos del plan)">
       <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M6 1.8 7.2 5 10.4 6.2 7.2 7.4 6 10.6 4.8 7.4 1.6 6.2 4.8 5Z" fill="#266096"/><path d="M12 8.8l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7Z" fill="#266096"/></svg>
       Render IA
@@ -1925,7 +1941,7 @@ const PREFS_DEF = { frentesA111: false, fijacionA149: false, region: 'MX', pasoR
      la misma bajo la cubierta y entre cajones. El traslape tras los frentes sale de ahi: L = altoL - holgura; C = (altoC - holgura) / 2 */
   perfiles: { aluminio: { fondoL: 2.6, altoL: 5.7, fondoC: 2.6, altoC: 7.4, holgura: 4.0 }, melamina: { fondoL: 4.0, altoL: 6.3, fondoC: 4.0, altoC: 9.6, holgura: 3.0 } },
   iman: true, imanTol: 1.5, resaltado: true, preguntarGuardar: true,
-  exportAncho: 3840, exportFormato: 'png', exportCotas: false, exportProyeccion: false, exportPrefijo: '', exportPrompt: '', licencia: '' };
+  exportAncho: 3840, exportFormato: 'png', exportCotas: false, exportProyeccion: false, exportPrefijo: '', exportPrompt: '', lamVistas: 'AlzadoPuertas,AlzadoInterior,Planta,Corte,Isometrico', lamModos: 'plano,color', lamFormatos: 'pdf,dxf', lamCotas: true, lamProy: true, licencia: '' };
 const mergePrefs = (base, over) => { for (const k in over) { if (over[k] && typeof over[k] === 'object' && !Array.isArray(over[k]) && base[k] && typeof base[k] === 'object') mergePrefs(base[k], over[k]); else if (k in base) base[k] = over[k]; } return base; };
 let prefs = JSON.parse(JSON.stringify(PREFS_DEF));
 try { const saved = JSON.parse(localStorage.getItem('cabynetry.ajustes') || 'null'); if (saved) mergePrefs(prefs, saved); } catch (e) { /* sin almacenamiento: valores de fabrica */ }
@@ -6657,9 +6673,9 @@ function drawPlanCocina(){
     if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (dash) ctx.setLineDash(dash); ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); ctx.restore(); };
   const caja = p => { const q = p.map(P), xs = q.map(v => v[0]), ys = q.map(v => v[1]); return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; };
   bajos.forEach(q => { const act = q.k === cfg.cara, sel = act && selection.has(q.m.id);
-    poly(q.p, sel ? C.selFill : act ? C.planSel : (dark ? '#2C3036' : '#F2F3F4'), sel ? C.select : C.line, sel ? 2 : 1);
+    poly(q.p, flat ? C.flat : sel ? C.selFill : act && !exporting ? C.planSel : (dark ? '#2C3036' : '#F2F3F4'), sel ? C.select : C.line, sel ? 2 : 1);   /* A169: lo exportado no lleva resalte de la cara activa */
     const r = caja(q.p); if (act) hits.push({ rect: r, module: q.m }); else planCaraHits.push({ rect: r, k: q.k, id: q.m.id }); });
-  esq.forEach(q => poly(q.p, dark ? '#5A5040' : '#E8D9B8', C.line));
+  esq.forEach(q => poly(q.p, flat ? C.flat : dark ? '#5A5040' : '#E8D9B8', C.line));
   altos.forEach(q => poly(q.p, null, C.muted, 1, [4, 3]));
   muros.forEach(([a, b], k) => { const f = marcos[k], act = k === cfg.cara; ctx.save(); ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = act ? C.accent : C.wallLine; ctx.lineWidth = act ? 4 : 3; ctx.stroke(); ctx.restore();
     /* largo de cada cara por detras de su muro; la activa se edita */
@@ -6766,7 +6782,7 @@ function planGeneral(){
   ctx.save(); ctx.fillStyle = dark ? 'rgba(30,33,36,.92)' : 'rgba(255,255,255,.94)'; ctx.fillRect(bx, by, bw, bh); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(bx + .5, by + .5, bw - 1, bh - 1);
   ctx.fillStyle = C.muted; ctx.font = "600 10px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText('PLANTA GENERAL', bx + 8, by + 6);
   const poly = (p, fill, stroke, w = 1) => { ctx.beginPath(); p.map(P).forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); };
-  polis.forEach(q => poly(q.p, q.esq ? (dark ? '#5A5040' : '#E8D9B8') : q.k === cfg.cara ? C.planSel : (dark ? '#2C3036' : '#F2F3F4'), C.line));
+  polis.forEach(q => poly(q.p, flat ? C.flat : q.esq ? (dark ? '#5A5040' : '#E8D9B8') : q.k === cfg.cara && !exporting ? C.planSel : (dark ? '#2C3036' : '#F2F3F4'), C.line));   /* A169: sin resalte de seleccion al exportar */
   muros.forEach(([a, b], k) => { ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = k === cfg.cara ? C.accent : C.wallLine; ctx.lineWidth = k === cfg.cara ? 3 : 2; ctx.stroke();
     const m = P([(a[0] + b[0])/2, (a[1] + b[1])/2]), f = marcos[k]; ctx.fillStyle = k === cfg.cara ? C.accent : C.muted; ctx.font = "600 10px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(letraCara(k), m[0] - f.n[0]*9, m[1] - f.n[1]*9); });
@@ -8842,7 +8858,17 @@ const EN = {
   'Buscar actualizaciones': 'Check for updates',
   'P12 · prototipo de interfaz': 'P12 · interface prototype',
   'Ajustes: idioma, unidades, cotas, valores de inicio, comportamiento, exportar y licencia': 'Settings: language, units, dimensions, starting values, behavior, export and license',
-  'Ejemplo: 60 cm': 'Example: 60 cm'
+  'Ejemplo: 60 cm': 'Example: 60 cm',
+  'Láminas': 'Sheets', 'Exportar láminas': 'Export sheets', 'Láminas exportadas': 'Exported sheets', 'Vistas': 'Views', 'Modo': 'Mode',
+  'Alzado con puertas': 'Elevation with doors', 'Alzado sin puertas': 'Elevation without doors', 'Corte': 'Section', 'Isométrico': 'Isometric',
+  'Plano (blanco y negro)': 'Flat (black and white)', 'Color (materiales)': 'Color (materials)', 'Incluir cotas': 'Include dimensions',
+  'Incluir líneas de proyección (abatimientos y proyecciones punteadas)': 'Include projection lines (door swings and dotted projections)',
+  'El PDF reúne las vistas en una hoja A3 por modo; el DXF sale un archivo por vista. Para DWG, abre el DXF en tu CAD y guárdalo.': 'The PDF gathers the views on one A3 sheet per mode; the DXF is one file per view. For DWG, open the DXF in your CAD and save it.',
+  'Selecciona al menos una vista, un modo y un formato.': 'Select at least one view, one mode and one format.',
+  'Generando láminas…': 'Generating sheets…', 'Archivos generados:': 'Generated files:', 'No se generó ningún archivo.': 'No file was generated.',
+  'Longitud': 'Length', 'Altura de muro': 'Wall height', 'Escala': 'Scale', 'no disponible en closet': 'not available for closets',
+  'Medidas de referencia para fabricación, generadas con {0}. Verifique en obra antes de cortar.': 'Reference measurements for manufacturing, generated with {0}. Verify on site before cutting.',
+  'No sustituye la toma de medidas ni el despiece del taller. Reporte cualquier diferencia en la hoja de diferencias.': "It does not replace on-site measuring or the shop's cut list. Report any difference on the differences sheet."
 };
 const EN_T = [
   ["La columna lleva solo la campana: sin el gabinete alto{0}; la chimenea llega al tope.", "This column has the range hood only: no wall cabinet{0}; the chimney runs to the top."],
@@ -9468,6 +9494,397 @@ window.addEventListener('load', () => { if (enSketchUp()) sketchup.listo(JSON.st
   ancho: screen.availWidth, alto: screen.availHeight })); });   /* cuando el editor ya dibujo su estado inicial */
 document.getElementById('btnAmpliar').addEventListener('click', () => { if (enSketchUp()) sketchup.ventana('maxima'); });
 
+/* ---------------- Exportar laminas: PDF vectorial y DXF (A169) ----------------
+   El lienzo se cambia por un grabador y se corre el MISMO dibujo de la interfaz (drawCanvasCore): lo exportado es lo que se ve, en
+   plano o en color, con o sin puertas, en alzado, planta y corte. El isometrico no existe en la interfaz: se dibuja aqui desde el
+   plan de piezas con el mismo grabador. Escala de papel normalizada (1:10 a 1:100) y 1 px = 1/96 de pulgada, asi el texto de la
+   interfaz sale a su tamano natural. PDF y DXF se escriben aqui, sin librerias, para que Revit y SketchUp compartan el archivo:
+   Ruby/C# solo guardan los bytes (como en Exportar vistas). Fuera: modo color completo en DXF (solo rectangulos), capas por
+   pieza (van por tipo de trazo), L y U con varias caras en alzado (sale la cara activa). */
+const LAM = (() => {
+  const PX_MM = 25.4 / 96, ESCALAS = [10, 20, 25, 50, 100], HOJA = { ancho: 420, alto: 297, margen: 10, rotulo: 28 };   /* A3 apaisada, mm */
+  const VISTAS = [['AlzadoPuertas', 'Alzado con puertas'], ['AlzadoInterior', 'Alzado sin puertas'], ['Planta', 'Planta'], ['Corte', 'Corte'], ['Isometrico', 'Isométrico']];
+  const NOTA = ['Medidas de referencia para fabricación, generadas con {0}. Verifique en obra antes de cortar.',
+    'No sustituye la toma de medidas ni el despiece del taller. Reporte cualquier diferencia en la hoja de diferencias.'];
+  /* anchos de Helvetica (AFM, milesimas de em) de ASCII 32..126: para alinear el texto del PDF sin incrustar la fuente */
+  const HELV = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,
+    1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,
+    500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+  const anchoHelv = (t, px, neg) => { let w = 0; for (const ch of String(t).normalize('NFD').replace(/[̀-ͯ]/g, '')) { const c = ch.charCodeAt(0); w += c >= 32 && c <= 126 ? HELV[c - 32] : 556; } return w * px / 1000 * (neg ? 1.06 : 1); };
+  const rgbDe = s => {
+    s = String(s || '').trim(); let m;
+    if ((m = /^#([0-9a-f]{3})$/i.exec(s))) return [...m[1]].map(h => parseInt(h + h, 16));
+    if ((m = /^#([0-9a-f]{6})$/i.exec(s))) return [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16));
+    if ((m = /^rgba?\(([^)]+)\)$/i.exec(s))) { const p = m[1].split(',').map(v => parseFloat(v)); return [p[0], p[1], p[2], p.length > 3 ? p[3] : 1]; }
+    return [0, 0, 0];
+  };
+  const f2 = v => String(Math.round(v * 100) / 100), f3 = v => String(Math.round(v * 1000) / 1000);
+  const col = (s, pre) => { const c = rgbDe(s); return `${f3(c[0] / 255)} ${f3(c[1] / 255)} ${f3(c[2] / 255)} ${pre}`; };
+  let real = null;   /* medir texto con el motor del navegador (la fuente de la interfaz) */
+  const medidor = () => real || (real = document.createElement('canvas').getContext('2d'));
+  const T = t => prefs.idioma === 'en' ? trText(t, EN) : t;
+
+  /* ---- grabador de lienzo: misma API que CanvasRenderingContext2D en lo que usa el dibujo; guarda trazos ya transformados ---- */
+  class Grabador {
+    constructor(w, h){ this.canvas = { width: w, height: h }; this.ops = []; this.pila = []; this.m = [1, 0, 0, 1, 0, 0]; this.ruta = []; this.sub = null;
+      this.fillStyle = '#000000'; this.strokeStyle = '#000000'; this.lineWidth = 1; this.font = '10px sans-serif'; this.textAlign = 'start';
+      this.textBaseline = 'alphabetic'; this.globalAlpha = 1; this.lineCap = 'butt'; this.lineJoin = 'miter'; this.globalCompositeOperation = 'source-over'; this.dash = []; }
+    get ec(){ return Math.hypot(this.m[0], this.m[1]); }
+    P(x, y){ const m = this.m; return [m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5]]; }
+    estado(){ return { m: this.m.slice(), fillStyle: this.fillStyle, strokeStyle: this.strokeStyle, lineWidth: this.lineWidth, font: this.font, textAlign: this.textAlign,
+      textBaseline: this.textBaseline, globalAlpha: this.globalAlpha, lineCap: this.lineCap, dash: this.dash.slice() }; }
+    save(){ this.pila.push(this.estado()); this.ops.push({ t: 'q' }); }
+    restore(){ const s = this.pila.pop(); if (!s) return; Object.assign(this, s); this.ops.push({ t: 'Q' }); }
+    translate(x, y){ const m = this.m; this.m = [m[0], m[1], m[2], m[3], m[0]*x + m[2]*y + m[4], m[1]*x + m[3]*y + m[5]]; }
+    scale(x, y){ const m = this.m; this.m = [m[0]*x, m[1]*x, m[2]*y, m[3]*y, m[4], m[5]]; }
+    rotate(a){ const c = Math.cos(a), s = Math.sin(a), m = this.m; this.m = [m[0]*c + m[2]*s, m[1]*c + m[3]*s, -m[0]*s + m[2]*c, -m[1]*s + m[3]*c, m[4], m[5]]; }
+    setTransform(a, b, c, d, e, f){ this.m = [a, b, c, d, e, f]; }
+    setLineDash(d){ this.dash = Array.isArray(d) ? d.slice() : []; }
+    getLineDash(){ return this.dash.slice(); }
+    beginPath(){ this.ruta = []; this.sub = null; }
+    nuevo(p){ this.sub = { pts: [p], cerrada: false }; this.ruta.push(this.sub); }
+    moveTo(x, y){ this.nuevo(this.P(x, y)); }
+    lineTo(x, y){ const p = this.P(x, y); if (!this.sub) this.nuevo(p); else this.sub.pts.push(p); }
+    closePath(){ if (!this.sub) return; this.sub.cerrada = true; const p0 = this.sub.pts[0]; this.sub = null; this.nuevo(p0.slice()); }
+    rect(x, y, w, h){ this.ruta.push({ pts: [this.P(x, y), this.P(x + w, y), this.P(x + w, y + h), this.P(x, y + h)], cerrada: true }); this.nuevo(this.P(x, y)); }
+    arc(x, y, r, a0, a1, ccw = false){
+      const TAU = Math.PI * 2; let d = a1 - a0;
+      if (!ccw) { if (d >= TAU) d = TAU; else if (d < 0) d = ((d % TAU) + TAU) % TAU; }
+      else { if (d <= -TAU) d = -TAU; else if (d > 0) d = ((d % TAU) - TAU) % TAU; }
+      const n = Math.max(6, Math.ceil(Math.abs(d) / (Math.PI / 18))), pts = [];
+      for (let i = 0; i <= n; i++) { const a = a0 + d * i / n; pts.push(this.P(x + r * Math.cos(a), y + r * Math.sin(a))); }
+      const solo = !this.sub || !this.sub.pts.length;
+      if (solo) this.nuevo(pts[0]); this.sub.pts.push(...(solo ? pts.slice(1) : pts));
+      if (solo && Math.abs(d) >= TAU - 1e-9) this.sub.circulo = { c: this.P(x, y), r: r * this.ec };
+    }
+    roundRect(x, y, w, h, r = 0){
+      const q = Math.max(0, Math.min((Array.isArray(r) ? r[0] : r) || 0, Math.abs(w) / 2, Math.abs(h) / 2)), H = Math.PI / 2;
+      if (!q) { this.rect(x, y, w, h); return; }
+      this.moveTo(x + q, y); this.lineTo(x + w - q, y); this.arc(x + w - q, y + q, q, -H, 0); this.lineTo(x + w, y + h - q);
+      this.arc(x + w - q, y + h - q, q, 0, H); this.lineTo(x + q, y + h); this.arc(x + q, y + h - q, q, H, Math.PI); this.lineTo(x, y + q);
+      this.arc(x + q, y + q, q, Math.PI, Math.PI * 1.5); this.closePath();
+    }
+    copia(){ return this.ruta.filter(s => s.pts.length > 1).map(s => ({ pts: s.pts, cerrada: s.cerrada, circulo: s.circulo })); }
+    color(v){ return typeof v === 'string' ? v : '#808080'; }
+    fill(){ const r = this.copia(); if (r.length) this.ops.push({ t: 'fill', ruta: r, color: this.color(this.fillStyle), alpha: this.globalAlpha }); }
+    stroke(){ const r = this.copia(); if (r.length) this.ops.push({ t: 'stroke', ruta: r, color: this.color(this.strokeStyle), ancho: this.lineWidth * this.ec, dash: this.dash.map(v => v * this.ec), alpha: this.globalAlpha, cap: this.lineCap }); }
+    clip(){ this.ops.push({ t: 'clip', ruta: this.copia() }); }
+    fillRect(x, y, w, h){ this.ops.push({ t: 'fill', ruta: [{ pts: [this.P(x, y), this.P(x + w, y), this.P(x + w, y + h), this.P(x, y + h)], cerrada: true }], color: this.color(this.fillStyle), alpha: this.globalAlpha }); }
+    strokeRect(x, y, w, h){ this.ops.push({ t: 'stroke', ruta: [{ pts: [this.P(x, y), this.P(x + w, y), this.P(x + w, y + h), this.P(x, y + h)], cerrada: true }], color: this.color(this.strokeStyle),
+      ancho: this.lineWidth * this.ec, dash: this.dash.map(v => v * this.ec), alpha: this.globalAlpha, cap: this.lineCap }); }
+    clearRect(){}
+    fillText(t, x, y){ const p = this.P(x, y), px = parseFloat((/([\d.]+)px/.exec(this.font) || [0, 12])[1]);
+      this.ops.push({ t: 'text', x: p[0], y: p[1], s: String(t), tam: px * this.ec, ang: Math.atan2(this.m[1], this.m[0]), neg: /\b(bold|[6-9]00)\b/.test(this.font),
+        al: this.textAlign, bl: this.textBaseline, color: this.color(this.fillStyle), alpha: this.globalAlpha }); }
+    measureText(t){ const g = medidor(); g.font = this.font; return g.measureText(String(t)); }
+    drawImage(){} createRadialGradient(){ return { addColorStop(){} }; } createLinearGradient(){ return { addColorStop(){} }; }
+  }
+  const envolver = g => new Proxy(g, { get(t, k){ const v = t[k]; return v !== undefined ? (typeof v === 'function' ? v.bind(t) : v) : () => {}; }, set(t, k, v){ t[k] = v; return true; } });
+
+  /* ---- captura de una vista de la interfaz a la escala de papel mas grande que cabe ---- */
+  const LIBRE = { w: HOJA.ancho - 2 * HOJA.margen, h: HOJA.alto - 2 * HOJA.margen - HOJA.rotulo };
+  function elegirEscala(medirTamano){
+    /* medirTamano(pxPorCm) => {w, h} en px; la menor escala (mayor dibujo) en la que cabe en la hoja */
+    for (const n of ESCALAS) { const s = (10 / n) / PX_MM, d = medirTamano(s); if (d && d.w * PX_MM <= LIBRE.w + .01 && d.h * PX_MM <= LIBRE.h + .01) return { n, s, d }; }
+    const n = ESCALAS[ESCALAS.length - 1], s = (10 / n) / PX_MM; return { n, s, d: medirTamano(s) };
+  }
+  function capturarInterfaz(vista, o){
+    const k = { ctx, view, showDoors, flat, measure, medirTodo, exporting, selection, selectedPart, hover, focusPanel, upperFocus, pieces, cssW, cssH, frame,
+      cotas: prefs.exportCotas, proy: prefs.exportProyeccion };
+    try {
+      exporting = true; selection = new Set(); selectedPart = null; hover = null; focusPanel = null; upperFocus = null; pieces = new Set();
+      flat = !!o.plano; measure = !!o.cotas; medirTodo = !!o.cotas; prefs.exportCotas = !!o.cotas; prefs.exportProyeccion = !!o.proy;
+      view = vista === 'Corte' ? 'Seccion' : vista === 'Planta' ? 'Planta' : 'Alzado'; showDoors = vista !== 'AlzadoInterior';
+      const A = { w: 1400, h: 900 };
+      const dibujar = f => { const g = new Grabador(A.w * f, A.h * f); cssW = g.canvas.width; cssH = g.canvas.height; ctx = envolver(g); frame = null; drawCanvasCore(); return g; };
+      const escalaDe = f => { dibujar(f); return frame ? frame.scale : NaN; };
+      const s1 = escalaDe(1), s2 = escalaDe(2);
+      if (!isFinite(s1) || !isFinite(s2)) throw new Error('La vista no se pudo dibujar: ' + vista);
+      const acota = f => Math.min(30, Math.max(.2, f));
+      const estimar = s => { const b = s2 - s1; return acota(Math.abs(b) < 1e-9 ? 1 : (s - (2 * s1 - s2)) / b); };
+      /* la escala del dibujo es casi lineal en el tamano del lienzo: secante hasta caer en la de papel (menos de 0.2 %) */
+      const resolver = sT => { let fa = 1, sa = s1, fb = 2, sb = s2, f = estimar(sT);
+        for (let i = 0; i < 6; i++) { const s = escalaDe(f); if (Math.abs(s - sT) / sT < .002) return f; fa = fb; sa = sb; fb = f; sb = s;
+          const d = sb - sa; f = acota(Math.abs(d) < 1e-9 ? f : fa + (sT - sa) * (fb - fa) / d); }
+        return f; };
+      const e = elegirEscala(s => { const f = estimar(s); return { w: A.w * f, h: A.h * f }; });
+      const g = dibujar(resolver(e.s));
+      return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista, plano: !!o.plano };
+    } finally {
+      ctx = k.ctx; view = k.view; showDoors = k.showDoors; flat = k.flat; measure = k.measure; medirTodo = k.medirTodo; exporting = k.exporting;
+      selection = k.selection; selectedPart = k.selectedPart; hover = k.hover; focusPanel = k.focusPanel; upperFocus = k.upperFocus; pieces = k.pieces;
+      cssW = k.cssW; cssH = k.cssH; frame = k.frame; prefs.exportCotas = k.cotas; prefs.exportProyeccion = k.proy;
+    }
+  }
+
+  /* ---- isometrico desde el plan de piezas (la interfaz no lo tiene) ---- */
+  function capturarIsometrico(o){
+    const plan = planCocina(), FUERA = new Set(['luz', 'caja', 'repisa', 'division']);   /* con puertas cerradas lo interior no se ve */
+    const cajas = [];
+    const poner = (piezas, org, ex, ey) => piezas.forEach(p => {
+      if (FUERA.has(p.rol) || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
+      /* marco de la cara como en SketchUp (Y = 0 en el muro y la habitacion hacia -Y): una pieza a la distancia y del muro cae en origen + x*ejeX - y*ejeY */
+      const pt = (x, y, z) => [org[0] + x * ex[0] - y * ey[0], org[1] + x * ex[1] - y * ey[1], org[2] + z + x * (ex[2] || 0) - y * (ey[2] || 0)];
+      const x0 = p.x, x1 = p.x + p.ancho, y0 = p.y, y1 = p.y + p.fondo, z0 = p.z, z1 = p.z + p.alto;
+      const q = { p, pt, v: [pt(x0, y0, z0), pt(x1, y0, z0), pt(x1, y1, z0), pt(x0, y1, z0), pt(x0, y0, z1), pt(x1, y0, z1), pt(x1, y1, z1), pt(x0, y1, z1)] };
+      q.c = [0, 1, 2].map(i => q.v.reduce((s, v) => s + v[i], 0) / 8);
+      cajas.push(q);
+    });
+    poner(plan.piezas, [0, 0, 0], [1, 0, 0], [0, 1, 0]);
+    (plan.caras || []).forEach(c => poner(c.piezas, c.origen, c.ejeX, c.ejeY));
+    if (!cajas.length) throw new Error('El plan no trae piezas para el isométrico');
+    /* observador en el cuarto: -Y, arriba y del lado de x opuesto a las demas caras (asi se ven los frentes de la L) */
+    const SX = (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, o = (plan.caras || []).map(c => c.origen[0]);
+      return o.length && o.reduce((a, b) => a + b, 0) / o.length > centro ? -1 : 1; })();
+    /* orden de pintor exacto para cajas alineadas con los ejes: A va antes que B si queda por completo detras de B en algun eje
+       (el orden por centros falla con piezas largas como el backsplash y deja las bisagras delante de las puertas) */
+    cajas.forEach(q => { q.mn = [0, 1, 2].map(i => Math.min(...q.v.map(v => v[i]))); q.mx = [0, 1, 2].map(i => Math.max(...q.v.map(v => v[i]))); });
+    cajas.sort((a, b) => (SX * a.c[0] - a.c[1] + a.c[2]) - (SX * b.c[0] - b.c[1] + b.c[2]));
+    { const orden = [], visto = new Array(cajas.length).fill(false);
+      const detras = (a, b) => (SX > 0 ? a.mx[0] <= b.mn[0] + .01 : a.mn[0] >= b.mx[0] - .01) || a.mn[1] >= b.mx[1] - .01 || a.mx[2] <= b.mn[2] + .01;
+      const visita = i => { if (visto[i]) return; visto[i] = true;
+        for (let j = 0; j < cajas.length; j++) if (j !== i && !visto[j] && detras(cajas[j], cajas[i]) && !detras(cajas[i], cajas[j])) visita(j);
+        orden.push(cajas[i]); };
+      cajas.forEach((_, i) => visita(i)); cajas.splice(0, cajas.length, ...orden); }
+    const C30 = Math.cos(Math.PI / 6), S30 = .5, proy = v => [(SX * v[0] + v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a la derecha y abajo; el cuarto (-Y) a la izquierda y abajo */
+    const caras = [[[0, 1, 2, 3], [0, 0, -1]], [[4, 5, 6, 7], [0, 0, 1]], [[0, 1, 5, 4], [0, -1, 0]], [[3, 2, 6, 7], [0, 1, 0]], [[0, 3, 7, 4], [-1, 0, 0]], [[1, 2, 6, 5], [1, 0, 0]]];
+    const luz = (() => { const l = [.35 * SX, -.45, .82], n = Math.hypot(...l); return l.map(v => v / n); })(), V = [SX, -1, 1];
+    const base = p => { const m = p.material ? mat(p.material) : null; if (m) return rgbOf(m); const e = p.etiqueta;
+      return e === 'frentes' ? C.front : e === 'cubierta' ? '#C8B99F' : e === 'zoclo' ? '#4A4F55' : e === 'backsplash' ? C.backsplash : e === 'herrajes' ? C.metal : e === 'equipos' ? '#B7BEC5' : C.board; };
+    const sombra = (s, k) => { const c = rgbDe(s); return '#' + [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round(c[i] * k))).toString(16).padStart(2, '0')).join(''); };
+    /* normales de cada cara en ejes de la cocina: salen de los vertices, asi vale tambien en L y U */
+    const normal = (q, idx) => { const a = q.v[idx[0]], b = q.v[idx[1]], c = q.v[idx[2]], u = [b[0]-a[0], b[1]-a[1], b[2]-a[2]], w = [c[0]-a[0], c[1]-a[1], c[2]-a[2]];
+      let n = [u[1]*w[2]-u[2]*w[1], u[2]*w[0]-u[0]*w[2], u[0]*w[1]-u[1]*w[0]]; const L = Math.hypot(...n) || 1; n = n.map(v => v / L);
+      const d = [q.c[0], q.c[1], q.c[2]].map((v, i) => v - a[i]); return n[0]*d[0] + n[1]*d[1] + n[2]*d[2] > 0 ? n.map(v => -v) : n; };   /* hacia afuera */
+    const tri = [], bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
+    cajas.forEach(q => caras.forEach(([idx]) => { const n = normal(q, idx); if (n[0]*V[0] + n[1]*V[1] + n[2]*V[2] <= 1e-6) return;
+      const pr = idx.map(i => proy(q.v[i])); pr.forEach(p => { bb.x0 = Math.min(bb.x0, p[0]); bb.x1 = Math.max(bb.x1, p[0]); bb.y0 = Math.min(bb.y0, p[1]); bb.y1 = Math.max(bb.y1, p[1]); });
+      let hole = null; const h = q.p.hueco;
+      if (h && idx[0] === 4 && h.ancho > 0 && h.fondo > 0) { const z1 = q.p.z + q.p.alto, hx = q.p.x + h.x, hy = q.p.y + h.y;
+        hole = [q.pt(hx, hy, z1), q.pt(hx + h.ancho, hy, z1), q.pt(hx + h.ancho, hy + h.fondo, z1), q.pt(hx, hy + h.fondo, z1)].map(proy); }
+      tri.push({ pr, hole, k: .80 + .35 * Math.max(0, n[0]*luz[0] + n[1]*luz[1] + n[2]*luz[2]), q }); }));
+    const MARGEN = 28, ancho = bb.x1 - bb.x0, alto = bb.y1 - bb.y0;
+    const e = elegirEscala(s => ({ w: ancho * s + 2 * MARGEN, h: alto * s + 2 * MARGEN }));
+    const g = new Grabador(ancho * e.s + 2 * MARGEN, alto * e.s + 2 * MARGEN);
+    const X = x => MARGEN + (x - bb.x0) * e.s, Y = y => MARGEN + (y - bb.y0) * e.s;
+    g.lineWidth = 1; g.lineCap = 'round';
+    cajas.forEach(q => tri.filter(t => t.q === q).forEach(t => {
+      g.beginPath(); t.pr.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath();
+      if (t.hole) { const area = a => a.reduce((s, p, i) => { const q = a[(i + 1) % a.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0);
+        const h = area(t.hole) * area(t.pr) > 0 ? t.hole.slice().reverse() : t.hole;
+        h.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath(); }
+      g.fillStyle = o.plano ? '#FFFFFF' : sombra(base(q.p), t.k); g.fill(); g.strokeStyle = o.plano ? '#1F2A33' : sombra(base(q.p), .55); g.stroke();
+    }));
+    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista: 'Isometrico', plano: !!o.plano };
+  }
+  const capturar = (vista, o) => vista === 'Isometrico' ? capturarIsometrico(o) : capturarInterfaz(vista, o);
+
+  /* ---- PDF 1.4 vectorial: Helvetica, WinAnsi; unidades de la pagina en mm (cm 2.8346) ---- */
+  const lat1 = s => { let r = ''; for (const ch of String(s)) { const c = ch.charCodeAt(0); r += c < 256 ? ch : ({ 0x2026: '\x85', 0x2013: '\x96', 0x2014: '\x97', 0x2022: '\x95' }[c] || '?'); } return r; };
+  const lit = s => lat1(s).replace(/[\\()]/g, m => '\\' + m);
+  function paginaPdf(pag, alfas){
+    const H = HOJA.alto, out = contenidoVista(pag, alfas), yTop = HOJA.alto - HOJA.margen - HOJA.rotulo;
+    const t = (s, x, y, tam, neg) => out.push(`q 0 g BT /${neg ? 'F2' : 'F1'} ${f2(tam)} Tf 1 0 0 1 ${f2(x)} ${f2(H - y)} Tm (${lit(s)}) Tj ET Q`);
+    out.push(`q 0.35 w 0 G ${HOJA.margen} ${HOJA.margen} ${HOJA.ancho - 2 * HOJA.margen} ${HOJA.alto - 2 * HOJA.margen} re S Q`);   /* marco */
+    out.push(`q 0.25 w 0 G ${HOJA.margen} ${H - yTop} m ${HOJA.ancho - HOJA.margen} ${H - yTop} l S Q`);                              /* linea del rotulo */
+    const BASE = [5, 12, 17.5, 22.3, 25.7];   /* mm bajo la linea, una por renglon del rotulo */
+    pag.rotulo.forEach((l, i) => t(l.s, HOJA.margen + 4, yTop + BASE[Math.min(i, BASE.length - 1)], l.tam, l.neg));
+    return out;
+  }
+  function contenidoVista(pag, alfas){
+    const ox = pag.ox, oy = pag.oy, H = HOJA.alto, X = x => ox + x * PX_MM, Y = y => H - (oy + y * PX_MM), out = ['q'];
+    const ruta = r => r.map(s => s.pts.map((p, i) => `${f2(X(p[0]))} ${f2(Y(p[1]))} ${i ? 'l' : 'm'}`).join(' ') + (s.cerrada ? ' h' : '')).join(' ');
+    const alfa = a => { if (a >= .999) return ''; const k = 'G' + Math.round(a * 100); alfas.add(k); return `/${k} gs `; };
+    pag.ops.forEach(o => {
+      if (o.t === 'q') out.push('q'); else if (o.t === 'Q') out.push('Q');
+      else if (o.t === 'clip') out.push(ruta(o.ruta) + ' W n');
+      else if (o.t === 'fill') out.push(`q ${alfa(o.alpha)}${col(o.color, 'rg')} ${ruta(o.ruta)} f Q`);
+      else if (o.t === 'stroke') out.push(`q ${alfa(o.alpha)}${col(o.color, 'RG')} ${f2(Math.max(.05, o.ancho * PX_MM))} w ${o.cap === 'round' ? 1 : 0} J ` +
+        (o.dash.length ? `[${o.dash.map(v => f2(Math.max(.1, v * PX_MM))).join(' ')}] 0 d ` : '') + `${ruta(o.ruta)} S Q`);
+      else if (o.t === 'text') {
+        const tam = o.tam * PX_MM, w = anchoHelv(o.s, tam, o.neg);
+        const dx = o.al === 'center' ? -w / 2 : (o.al === 'right' || o.al === 'end') ? -w : 0;
+        const dy = o.bl === 'middle' ? .32 * tam : (o.bl === 'top' || o.bl === 'hanging') ? .72 * tam : o.bl === 'bottom' ? -.2 * tam : 0;
+        const ca = Math.cos(o.ang), sa = Math.sin(o.ang), x = ox + o.x * PX_MM, y = oy + o.y * PX_MM;
+        out.push(`q ${alfa(o.alpha)}${col(o.color, 'rg')} BT /${o.neg ? 'F2' : 'F1'} ${f2(tam)} Tf ${f3(ca)} ${f3(-sa)} ${f3(sa)} ${f3(ca)} ${f2(x + dx * ca - dy * sa)} ${f2(H - (y + dx * sa + dy * ca))} Tm (${lit(o.s)}) Tj ET Q`);
+      }
+    });
+    out.push('Q');
+    return out;
+  }
+  function escribirPdf(paginas, titulo){
+    const partes = ['%PDF-1.4\n%\xE2\xE3\xCF\xD3\n'], offs = []; let largo = partes[0].length;
+    const obj = s => { offs.push(largo); partes.push(s); largo += s.length; };
+    const N = paginas.length, alfas = new Set(), cont = paginas.map(p => lat1('q 2.834646 0 0 2.834646 0 0 cm\n' + paginaPdf(p, alfas).join('\n') + '\nQ'));   /* la pagina se dibuja en mm */
+    const gs = [...alfas].map(k => `/${k} << /ca ${+k.slice(1) / 100} /CA ${+k.slice(1) / 100} >>`).join(' ');
+    obj('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+    obj(`2 0 obj\n<< /Type /Pages /Kids [${paginas.map((_, i) => `${6 + 2 * i} 0 R`).join(' ')}] /Count ${N} >>\nendobj\n`);
+    obj('3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n');
+    obj('4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n');
+    paginas.forEach((p, i) => {
+      obj(`${5 + 2 * i} 0 obj\n<< /Length ${cont[i].length} >>\nstream\n${cont[i]}\nendstream\nendobj\n`);
+      obj(`${6 + 2 * i} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f2(HOJA.ancho * 72 / 25.4)} ${f2(HOJA.alto * 72 / 25.4)}] ` +
+        `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> /ExtGState << ${gs} >> >> /Contents ${5 + 2 * i} 0 R >>\nendobj\n`);
+    });
+    const info = 5 + 2 * N;
+    obj(`${info} 0 obj\n<< /Title (${lit(titulo)}) /Producer (${lit(prodNombre() + ' by Drawlibri')}) >>\nendobj\n`);
+    const xref = largo, total = info + 1;
+    partes.push(`xref\n0 ${total}\n0000000000 65535 f \n` + offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') +
+      `trailer\n<< /Size ${total} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    return partes.join('');
+  }
+
+  /* ---- DXF R12: LINE, TEXT y SOLID; modelo a 1:1 en mm; capas DLB_ ---- */
+  const ACI = [[255, 0, 0, 1], [255, 255, 0, 2], [0, 255, 0, 3], [0, 255, 255, 4], [0, 0, 255, 5], [255, 0, 255, 6], [0, 0, 0, 7], [128, 128, 128, 8], [192, 192, 192, 9]];
+  const aci = s => { const c = rgbDe(s); let b = 7, d = 1e12; ACI.forEach(a => { const q = (a[0] - c[0]) ** 2 + (a[1] - c[1]) ** 2 + (a[2] - c[2]) ** 2; if (q < d) { d = q; b = a[3]; } }); return b; };
+  function escribirDxf(cap){
+    const n = cap.n, k = PX_MM * n, Yh = cap.h, px = v => v * k, py = v => (Yh - v) * k;
+    const par = []; const p = (c, v) => { par.push(String(c), typeof v === 'string' ? lat1(v) : String(v)); };
+    const nm = v => String(Math.round(v * 1000) / 1000);
+    const CAPAS = [['DLB_Contorno', 7, 'CONTINUOUS'], ['DLB_Proyeccion', 8, 'DASHED'], ['DLB_Cotas', 5, 'CONTINUOUS'], ['DLB_Texto', 7, 'CONTINUOUS'], ['DLB_Relleno', 9, 'CONTINUOUS'], ['DLB_Rotulo', 7, 'CONTINUOUS']];
+    const azul = c => { const v = rgbDe(c); return v[2] > v[0] + 40 && v[2] >= v[1]; };
+    const ent = [];
+    const linea = (capa, a, b) => { ent.push(['0', 'LINE', '8', capa, '10', nm(px(a[0])), '20', nm(py(a[1])), '30', '0.0', '11', nm(px(b[0])), '21', nm(py(b[1])), '31', '0.0']); };
+    const texto = (capa, s, x, y, h, ang, hAl, vAl) => { const e = ['0', 'TEXT', '8', capa, '10', nm(x), '20', nm(y), '30', '0.0', '40', nm(h), '1', lat1(s)]; if (ang) e.push('50', nm(ang));
+      if (hAl || vAl) e.push('72', String(hAl), '11', nm(x), '21', nm(y), '31', '0.0', '73', String(vAl)); ent.push(e); };
+    let recorte = 0;
+    cap.ops.forEach(o => {
+      if (o.t === 'clip') recorte++;
+      if (o.t === 'stroke') {
+        const capa = o.dash.length ? 'DLB_Proyeccion' : azul(o.color) ? 'DLB_Cotas' : 'DLB_Contorno';
+        o.ruta.forEach(s => { for (let i = 1; i < s.pts.length; i++) linea(capa, s.pts[i - 1], s.pts[i]); if (s.cerrada && s.pts.length > 2) linea(capa, s.pts[s.pts.length - 1], s.pts[0]); });
+      } else if (o.t === 'fill' && !cap.plano) {
+        o.ruta.forEach(s => { if (s.pts.length === 4 && s.cerrada) { const [a, b, c, d] = s.pts; ent.push(['0', 'SOLID', '8', 'DLB_Relleno', '62', String(aci(o.color)),
+          '10', nm(px(a[0])), '20', nm(py(a[1])), '30', '0.0', '11', nm(px(b[0])), '21', nm(py(b[1])), '31', '0.0', '12', nm(px(d[0])), '22', nm(py(d[1])), '32', '0.0',
+          '13', nm(px(c[0])), '23', nm(py(c[1])), '33', '0.0']); } });
+      } else if (o.t === 'text') {
+        const h = o.tam * k * .72, hAl = o.al === 'center' ? 1 : (o.al === 'right' || o.al === 'end') ? 2 : 0, vAl = o.bl === 'middle' ? 2 : (o.bl === 'top' || o.bl === 'hanging') ? 3 : o.bl === 'bottom' ? 1 : 0;
+        texto(azul(o.color) ? 'DLB_Cotas' : 'DLB_Texto', o.s, px(o.x), py(o.y), h, -o.ang * 180 / Math.PI, hAl, vAl);
+      }
+    });
+    p(0, 'SECTION'); p(2, 'HEADER'); p(9, '$ACADVER'); p(1, 'AC1009'); p(9, '$DWGCODEPAGE'); p(3, 'ANSI_1252'); p(0, 'ENDSEC');
+    p(0, 'SECTION'); p(2, 'TABLES');
+    p(0, 'TABLE'); p(2, 'LTYPE'); p(70, 2);
+    p(0, 'LTYPE'); p(2, 'CONTINUOUS'); p(70, 0); p(3, 'Solid line'); p(72, 65); p(73, 0); p(40, '0.0');
+    p(0, 'LTYPE'); p(2, 'DASHED'); p(70, 0); p(3, 'Dashed'); p(72, 65); p(73, 2); p(40, nm(6 * n)); p(49, nm(4 * n)); p(49, nm(-2 * n));
+    p(0, 'ENDTAB');
+    p(0, 'TABLE'); p(2, 'LAYER'); p(70, CAPAS.length);
+    CAPAS.forEach(c => { p(0, 'LAYER'); p(2, c[0]); p(70, 0); p(62, c[1]); p(6, c[2]); });
+    p(0, 'ENDTAB');
+    p(0, 'TABLE'); p(2, 'STYLE'); p(70, 1); p(0, 'STYLE'); p(2, 'STANDARD'); p(70, 0); p(40, '0.0'); p(41, '1.0'); p(50, '0.0'); p(71, 0); p(42, '2.5'); p(3, 'txt'); p(4, ''); p(0, 'ENDTAB');
+    p(0, 'ENDSEC');
+    p(0, 'SECTION'); p(2, 'ENTITIES');
+    ent.forEach(e => par.push(...e));
+    p(0, 'ENDSEC'); p(0, 'EOF');
+    return par.join('\n') + '\n';
+  }
+
+  /* ---- ensamblado: hoja con rotulo, nota de alcance y los nombres de archivo ---- */
+  const prodNombre = () => (typeof prodName === 'string' && prodName) ? prodName : 'Skitchen';
+  const NOMBRES = { AlzadoPuertas: 'Alzado con puertas', AlzadoInterior: 'Alzado sin puertas', Planta: 'Planta', Corte: 'Corte', Isometrico: 'Isométrico' };
+  function rotulo(cap){
+    const dims = (() => { try { return `${T('Longitud')} ${medida(cfg.longitud)} · ${T('Altura de muro')} ${medida(cfg.alturaMuro)}`; } catch (e) { return ''; } })();
+    const hoy = new Date(), dd = hoy.toLocaleDateString(prefs.idioma === 'en' ? 'en-US' : 'es-MX');
+    return [{ s: `${prodNombre()} · by Drawlibri`, tam: 4.2, neg: true },
+      { s: `${T(NOMBRES[cap.vista])} · ${cap.plano ? T('Plano') : T('Color')} · ${T('Escala')} 1:${cap.n}`, tam: 3.2 },
+      { s: `${dims}${dims ? ' · ' : ''}${dd}`, tam: 2.6 },
+      { s: T(NOTA[0]).replace('{0}', prodNombre() + ' by Drawlibri'), tam: 2.2 }, { s: T(NOTA[1]), tam: 2.2 }];
+  }
+  function pagina(cap){
+    return { ops: cap.ops, ox: HOJA.margen + (LIBRE.w - cap.w * PX_MM) / 2, oy: HOJA.margen + (LIBRE.h - cap.h * PX_MM) / 2, rotulo: rotulo(cap) };
+  }
+  /* sel: { vistas: [clave], modos: ['plano', 'color'], formatos: ['pdf', 'dxf'], cotas, proy } => { files: [{name, url}], omitidas: [texto] } */
+  function generar(sel, prefijo, sello){
+    const files = [], omitidas = [], b64 = s => btoa(s);
+    const caps = {};   /* por modo: lista de capturas */
+    const usables = sel.vistas.filter(v => {
+      if (cfg.closet && (v === 'Planta' || v === 'Isometrico')) { omitidas.push(`${T(NOMBRES[v])}: ${T('no disponible en closet')}`); return false; }
+      return true; });
+    sel.modos.forEach(modo => {
+      caps[modo] = [];
+      usables.forEach(v => { try { caps[modo].push(capturar(v, { plano: modo === 'plano', cotas: sel.cotas, proy: sel.proy })); }
+        catch (e) { omitidas.push(`${T(NOMBRES[v])} (${modo}): ${e.message}`); } });
+    });
+    sel.modos.forEach(modo => {
+      if (!caps[modo].length) return;
+      if (sel.formatos.includes('pdf')) {
+        const bin = escribirPdf(caps[modo].map(pagina), `${prodNombre()} · ${modo === 'plano' ? T('Plano') : T('Color')}`);
+        files.push({ name: `${prefijo}_${sello}_laminas_${modo}.pdf`, url: 'data:application/pdf;base64,' + b64(bin) });
+      }
+      if (sel.formatos.includes('dxf')) caps[modo].forEach(c => {
+        const txt = escribirDxf(c), slug = c.vista.replace(/[^A-Za-z]/g, '').toLowerCase();
+        files.push({ name: `${prefijo}_${sello}_${slug}_${modo}.dxf`, url: 'data:application/dxf;base64,' + b64(txt) });
+      });
+    });
+    return { files, omitidas };
+  }
+
+  /* ---- autoprueba (navegador o SketchUp): lista de fallas, vacia si todo esta bien ---- */
+  function pruebas(){
+    const fallas = [], ok = (c, t) => { if (!c) fallas.push(t); };
+    const sinNaN = s => !/NaN|Infinity|undefined/.test(s);
+    VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico'))).forEach(([v]) => [true, false].forEach(plano => {
+      let cap; const id = `${v}/${plano ? 'plano' : 'color'}`;
+      try { cap = capturar(v, { plano, cotas: true, proy: true }); } catch (e) { fallas.push(`${id}: ${e.message}`); return; }
+      ok(cap.ops.length > 10, `${id}: casi sin trazos (${cap.ops.length})`);
+      ok(ESCALAS.includes(cap.n), `${id}: escala ${cap.n} no normalizada`);
+      ok(cap.w * PX_MM <= LIBRE.w + 1 && cap.h * PX_MM <= LIBRE.h + 1 || cap.n === ESCALAS[ESCALAS.length - 1], `${id}: no cabe en la hoja`);
+      const pdf = escribirPdf([pagina(cap)], 'prueba');
+      ok(pdf.startsWith('%PDF-1.4') && pdf.endsWith('%%EOF\n'), `${id}: PDF sin cabecera o sin cierre`);
+      ok(sinNaN(pdf), `${id}: PDF con NaN`);
+      const sx = +/startxref\n(\d+)\n%%EOF/.exec(pdf)[1]; ok(pdf.substr(sx, 4) === 'xref', `${id}: startxref apunta fuera de la tabla`);
+      const offs = [...pdf.substr(sx).matchAll(/^(\d{10}) 00000 n $/gm)].map(m => +m[1]);
+      offs.forEach((o, i) => ok(pdf.substr(o, String(i + 1).length + 6) === `${i + 1} 0 obj`, `${id}: objeto ${i + 1} mal ubicado`));
+      const dxf = escribirDxf(cap), lin = dxf.split('\n'); if (lin[lin.length - 1] === '') lin.pop();
+      ok(lin.length % 2 === 0 && lin[lin.length - 2] === '0' && lin[lin.length - 1] === 'EOF', `${id}: DXF mal cerrado`);
+      ok(sinNaN(dxf), `${id}: DXF con NaN`);
+      ok(/\nLINE\n/.test(dxf), `${id}: DXF sin lineas`);
+      if (plano) {   /* plano: blanco, grises y fondos translucidos (la interfaz deja los grises del muro y de los rotulos); nada de color de material */
+        const rell = new Set(cap.ops.filter(o => o.t === 'fill').map(o => String(o.color).toLowerCase()));
+        const neutro = c => { const m = /^rgba\((\d+), ?(\d+), ?(\d+), ?([\d.]+)/.exec(c); if (m) return +m[4] <= .5 || Math.max(+m[1], +m[2], +m[3]) - Math.min(+m[1], +m[2], +m[3]) <= 20;
+          const q = rgbDe(c); return Math.max(q[0], q[1], q[2]) - Math.min(q[0], q[1], q[2]) <= 20; };
+        ok([...rell].every(neutro), `${id}: el modo plano trae relleno de color: ${[...rell].filter(c => !neutro(c)).join(', ')}`); }
+    }));
+    return fallas;
+  }
+  return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe };
+})();
+const pruebasLaminas = () => LAM.pruebas();
+/* dialogo y entrega de las laminas (A169): en SketchUp Ruby pide la carpeta y guarda los bytes (como Exportar vistas); en el navegador se descargan */
+function exportarLaminas(){
+  const lista = k => String(prefs[k] || '').split(',').filter(Boolean), vistas = lista('lamVistas'), modos = lista('lamModos'), fmts = lista('lamFormatos');
+  const op = (g, v, t, on) => `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-lam="${g}" value="${v}"${on ? ' checked' : ''}><span>${esc(t)}</span></label>`;
+  const tit = t => `<div style="font-weight:600;margin:12px 0 4px">${esc(t)}</div>`;
+  const hay = LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')));
+  const html = tit('Vistas') + hay.map(([v, t]) => op('v', v, t, vistas.includes(v))).join('')
+    + tit('Modo') + op('m', 'plano', 'Plano (blanco y negro)', modos.includes('plano')) + op('m', 'color', 'Color (materiales)', modos.includes('color'))
+    + tit('Formato') + op('f', 'pdf', 'PDF', fmts.includes('pdf')) + op('f', 'dxf', 'DXF', fmts.includes('dxf'))
+    + tit('Opciones') + op('o', 'cotas', 'Incluir cotas', prefs.lamCotas) + op('o', 'proy', 'Incluir líneas de proyección (abatimientos y proyecciones punteadas)', prefs.lamProy)
+    + `<div class="note-sm" style="margin-top:12px">El PDF reúne las vistas en una hoja A3 por modo; el DXF sale un archivo por vista. Para DWG, abre el DXF en tu CAD y guárdalo.</div>`;
+  showDialog('Exportar láminas', html, [{ text: 'Exportar', primary: true, action: ejecutarLaminas }, { text: 'Cancelar', cancel: true }], 'info', true);
+}
+function ejecutarLaminas(){
+  const toma = g => [...document.querySelectorAll(`#modalBody [data-lam="${g}"]:checked`)].map(e => e.value);
+  const v = toma('v'), m = toma('m'), f = toma('f'), o = toma('o');
+  prefs.lamVistas = v.join(','); prefs.lamModos = m.join(','); prefs.lamFormatos = f.join(','); prefs.lamCotas = o.includes('cotas'); prefs.lamProy = o.includes('proy'); savePrefs();
+  if (!v.length || !m.length || !f.length) { showDialog('Exportar láminas', 'Selecciona al menos una vista, un modo y un formato.', [{ text: 'Aceptar', primary: true, action: exportarLaminas }], 'warn'); return; }
+  setStatus('Generando láminas…');
+  const now = new Date(), two = n => String(n).padStart(2, '0'), kind = cfg.isla ? 'isla' : cfg.closet ? 'closet' : 'cocina';
+  const sello = `${now.getFullYear()}${two(now.getMonth()+1)}${two(now.getDate())}_${two(now.getHours())}${two(now.getMinutes())}`;
+  let r;
+  try { r = LAM.generar({ vistas: v, modos: m, formatos: f, cotas: prefs.lamCotas, proy: prefs.lamProy }, prefs.exportPrefijo.trim() || kind, sello); }
+  catch (err) { showDialog('Exportar láminas', err.message); return; }
+  finally { render(); }
+  if (!r.files.length) { showDialog('Exportar láminas', r.omitidas.join('\n') || 'No se generó ningún archivo.'); return; }
+  entregarLaminas(r);
+}
+function entregarLaminas(r){
+  if (enSketchUp()) { if (r.omitidas.length) setStatus(r.omitidas.join(' · ')); exportarEnSketchUp(r.files); return; }
+  const nota = r.omitidas.length ? `<div class="note-sm" style="color:#C2410C;margin-top:10px">${r.omitidas.map(esc).join('<br>')}</div>` : '';
+  const list = r.files.map(q => `<a href="${q.url}" download="${esc(q.name)}">${esc(q.name)}</a>`).join('');
+  const todo = () => r.files.forEach((q, i) => setTimeout(() => { const a = document.createElement('a'); a.href = q.url; a.download = q.name; document.body.appendChild(a); a.click(); a.remove(); }, i*250));
+  showDialog('Láminas exportadas', `Archivos generados:<div class="file-list">${list}</div>${nota}`, [{ text: 'Descargar todo', action: todo, keepOpen: true }, { text: 'Listo', primary: true, cancel: true }], 'info', true);
+}
 /* ---------------- Exportar vistas (ExportViews / ExportTo) ----------------
    PNG limpios a 3x (alzado, alzado interior, planta: sin cotas ni seleccion) y un texto para render con IA. */
 function exportViews(){
@@ -9519,6 +9936,7 @@ function sketchupExportado(ok, carpeta, nombres){
     '<div style="margin-top:10px">Sube el alzado (y la planta como referencia) a tu herramienta de IA y pega el texto del archivo «prompt».</div>', [{ text: 'Listo', primary: true, cancel: true }], 'info', true);
 }
 document.getElementById('btnExport').addEventListener('click', exportViews);
+document.getElementById('btnLaminas').addEventListener('click', exportarLaminas);
 
 /* ---------------- Texto base para la IA (Exportar y Render con IA) ---------------- */
 function promptLineas(){
