@@ -11016,7 +11016,7 @@ const LAM = (() => {
   }
   function paginaComposicion(items, datos){
     let k2 = 0;
-    return { tipo: 'composicion', datos, vistas: items.map(({ cap, celda, nombre }) => ({ ops: cap.ops, celda, num: cap.sinTitulo ? '' : String(++k2).padStart(2, '0'), n: cap.n, nombre: nombre || NOMBRES[cap.vista],
+    return { tipo: 'composicion', datos, vistas: items.map(({ cap, celda, nombre, tt, te }) => ({ ops: cap.ops, celda, tt, te, num: cap.sinTitulo ? '' : String(++k2).padStart(2, '0'), n: cap.n, nombre: nombre || NOMBRES[cap.vista],
       sinEscala: !!cap.sinEscala, sinTitulo: !!cap.sinTitulo,
       ox: celda.x + celda.pad + (celda.caja.w - cap.bb.w * PX_MM) / 2 - cap.bb.x0 * PX_MM, oy: celda.y + celda.pad + (celda.caja.h - cap.bb.h * PX_MM) / 2 - cap.bb.y0 * PX_MM })) };
   }
@@ -11035,8 +11035,9 @@ const LAM = (() => {
       const c = v.celda, yT = c.y + c.h - 2.6 * k, x = c.x + c.pad;
       ln(x, yT - 5.8 * k, c.x + c.w - c.pad, yT - 5.8 * k, .2, '#9AA3AB');
       const esc2 = v.sinEscala ? '' : `${T('ESCALA')} 1:${v.n}`, libre2 = c.w - 2 * c.pad - 9.5 * k - (esc2 ? anchoHelv(esc2, 2.6 * k) + 3 * k : 0);
-      t(v.num, x, yT, 5.4 * k, true); t(corta2(T(v.nombre).toUpperCase(), Math.max(10 * k, libre2), 3.2 * k, false), x + 9.5 * k, yT, 3.2 * k, false);
-      if (esc2) t(esc2, c.x + c.w - c.pad - anchoHelv(esc2, 2.6 * k), yT, 2.6 * k, false, '#555555');
+      const tt = v.tt || { dx: 0, dy: 0 }, te = v.te || { dx: 0, dy: 0 };   /* A186: el titulo y la escala se mueven aparte */
+      t(v.num, x + tt.dx, yT + tt.dy, 5.4 * k, true); t(corta2(T(v.nombre).toUpperCase(), Math.max(10 * k, libre2), 3.2 * k, false), x + 9.5 * k + tt.dx, yT + tt.dy, 3.2 * k, false);
+      if (esc2) t(esc2, c.x + c.w - c.pad - anchoHelv(esc2, 2.6 * k) + te.dx, yT + te.dy, 2.6 * k, false, '#555555');
     });
     /* marco y franja de rotulo */
     const x0 = H.ancho - H.margen - H.franja, y0 = H.margen, w = H.franja, h = H.alto - 2 * H.margen, pad = 3.6 * k, ancho = w - 2 * pad;
@@ -11486,9 +11487,30 @@ const LAM = (() => {
       return mejor;
     });
   }
+  /* A186: las cotas de una misma columna (o fila) se mueven juntas aunque no esten pegadas (entre repisas, por ejemplo), y la linea se
+     imanta a otras columnas; h.grupo = [{ id, base }], h.imanes = posiciones de las otras lineas (mm de hoja) */
+  function presGrupoCota(L, h){
+    conHoja(L.papel, () => {
+      h.grupo = null; h.imanes = [];
+      if (h.parte === 'texto' || (h.tipo !== 'v' && h.tipo !== 'h')) return;
+      const gs = geomCotas(L, h.it), ref = gs.find(g => g.id === h.id); if (!ref) return;
+      const idx = ref.tipo === 'v' ? 0 : 1, mismo = g => g.tipo === ref.tipo && Math.abs(g.p1[idx] - ref.p1[idx]) < .8;
+      const ov = (L.cotas && L.cotas[h.it.id]) || {};
+      h.grupo = gs.filter(mismo).map(g => ({ id: g.id, base: { dx: (ov[g.id] || {}).dx || 0, dy: (ov[g.id] || {}).dy || 0 } }));
+      h.refPos = ref.p1[idx];
+      h.imanes = gs.filter(g => g.tipo === ref.tipo && !mismo(g)).map(g => g.p1[idx]);
+    });
+  }
   function presMoverCota(L, h, mx, my){
     const o = ((L.cotas = L.cotas || {})[h.it.id] = L.cotas[h.it.id] || {}), q = (o[h.id] = o[h.id] || {}), r = v => Math.round(v * 100) / 100;
-    const ddx = mx - h.inicio.x, ddy = my - h.inicio.y, b = h.base;
+    let ddx = mx - h.inicio.x, ddy = my - h.inicio.y; const b = h.base;
+    if (h.parte !== 'texto' && h.grupo && (h.tipo === 'v' || h.tipo === 'h')) {
+      let dd = h.tipo === 'v' ? ddx : ddy;
+      const pos = h.refPos + dd, im = (h.imanes || []).reduce((m, c) => Math.abs(c - pos) < 1.6 && (m === null || Math.abs(c - pos) < Math.abs(m - pos)) ? c : m, null);
+      if (im !== null) dd += im - pos;
+      h.grupo.forEach(gm => { const qm = (o[gm.id] = o[gm.id] || {}); if (h.tipo === 'v') qm.dx = r(gm.base.dx + dd); else qm.dy = r(gm.base.dy + dd); });
+      return;
+    }
     if (h.parte === 'texto') { q.tx = r((b.tx || 0) + ddx); q.ty = r((b.ty || 0) + ddy); }
     else if (h.tipo === 'v') q.dx = r((b.dx || 0) + ddx);
     else if (h.tipo === 'h') q.dy = r((b.dy || 0) + ddy);
@@ -11536,6 +11558,23 @@ const LAM = (() => {
   const flechaCorte = it => { const k = HOJA.k; return { x: it.x + it.w - 14 * k, y: it.y + 2 * k, w: 11 * k, h: 7.5 * k }; };
   const presHitFlecha = (L, it, mx, my) => conHoja(L.papel, () => { const r = flechaCorte(it); return mx >= r.x - 1 && mx <= r.x + r.w + 1 && my >= r.y - 1 && my <= r.y + r.h + 1; });
   const dirCorte = it => it.dir || (() => { try { return miraCorte(it.corte); } catch (e) { return 1; } })();
+  /* rectangulos (mm de hoja) del titulo y de la escala de una vista, con su desplazamiento */
+  function cajasTexto(L, it){
+    const k = HOJA.k, c = celdaDe(it), yT = c.y + c.h - 2.6 * k, x = c.x + c.pad, tt = it.tt || { dx: 0, dy: 0 }, te = it.te || { dx: 0, dy: 0 }, out = [];
+    if (!it.cap || it.cap.sinTitulo) return out;
+    const esc2 = it.cap.sinEscala ? '' : `${T('ESCALA')} 1:${it.cap.n}`, nom = T(tituloItem(L, it)).toUpperCase();
+    const wT = 9.5 * k + Math.min(anchoHelv(nom, 3.2 * k), Math.max(10 * k, c.w - 2 * c.pad - 9.5 * k - (esc2 ? anchoHelv(esc2, 2.6 * k) + 3 * k : 0)));
+    out.push({ k: 'tt', it, x: x + tt.dx, y: yT + tt.dy - 5.6 * k, w: wT, h: 6.2 * k });
+    if (esc2) { const w2 = anchoHelv(esc2, 2.6 * k); out.push({ k: 'te', it, x: c.x + c.w - c.pad - w2 + te.dx, y: yT + te.dy - 3 * k, w: w2, h: 3.8 * k }); }
+    return out;
+  }
+  const presHitTexto = (L, mx, my, tol) => conHoja(L.papel, () => { let r = null;
+    enHoja(L).filter(it => it.on && it.cap).forEach(it => cajasTexto(L, it).forEach(b => { if (mx >= b.x - tol * .3 && mx <= b.x + b.w + tol * .3 && my >= b.y - tol * .3 && my <= b.y + b.h + tol * .3) r = b; }));
+    return r; });
+  function presMoverTexto(L, h, mx, my){
+    const q = h.it[h.k] = { dx: Math.round((h.base.dx + mx - h.inicio.x) * 100) / 100, dy: Math.round((h.base.dy + my - h.inicio.y) * 100) / 100 };
+    if (!q.dx && !q.dy) h.it[h.k] = undefined;
+  }
   const presHitMarca = (L, mx, my, tol) => conHoja(L.papel, () => marcasHoja(L).reverse().find(m => Math.abs(mx - m.mx) <= 1.2 + tol * .5 && my >= m.my0 - 2 && my <= m.my1 + 2) || null);
   /* arrastra la marca de un corte a lo largo del alzado o de la planta (cm desde el extremo izquierdo, a 0.5 cm) */
   function presMoverMarca(L, m, mx){
@@ -11704,7 +11743,7 @@ const LAM = (() => {
       if (L.proy !== false) { g.save(); g.setLineDash([4, 4]); its.forEach(it => { g.strokeStyle = 'rgba(38,96,150,.28)'; g.lineWidth = 1; g.strokeRect(X(it.x), Y(it.y), it.w * Z, it.h * Z); }); g.restore(); }   /* A186: los marcos se apagan con las lineas de proyeccion */
       const datos = Object.assign({}, L.datos, { hoja });
       let k3 = 0;
-      const pg = { datos, vistas: its.map(it => ({ celda: celdaDe(it), num: it.cap.sinTitulo ? '' : String(++k3).padStart(2, '0'), n: it.cap.n, nombre: tituloItem(L, it), sinEscala: !!it.cap.sinEscala, sinTitulo: !!it.cap.sinTitulo })) };
+      const pg = { datos, vistas: its.map(it => ({ celda: celdaDe(it), num: it.cap.sinTitulo ? '' : String(++k3).padStart(2, '0'), n: it.cap.n, nombre: tituloItem(L, it), tt: it.tt, te: it.te, sinEscala: !!it.cap.sinEscala, sinTitulo: !!it.cap.sinTitulo })) };
       dibujarHojaBase(Object.assign({}, base, { vista: (cv2, i) => { const it = its[i], cap = it.cap, { ix, iy } = tintaDe(it);
         const b = bitmapDe(cap, PX_MM * Z * dpr, v.rapido); g.drawImage(b.cv, X(ix), Y(iy), cap.bb.w * PX_MM * Z, cap.bb.h * PX_MM * Z); } }), pg);
       const gs = globosHoja(L), ms = marcasHoja(L);
@@ -11744,7 +11783,7 @@ const LAM = (() => {
           const datos = datosHoja(null, datosRotulo(L), h === 0 ? (L.notasLista || []) : []);
           const gs = globosHoja(L), ms = marcasHoja(L), conSobre = it => Object.assign({}, it.cap, { ops: it.cap.ops.concat(opsSobre(L, it, gs, ms)), bb: it.bbEf || it.cap.bb });
           const cs = its.map(it => ({ it, cap: conSobre(it) })); cs.forEach(c => todos.push(c));
-          paginas.push(paginaComposicion(cs.map(c => ({ cap: c.cap, celda: celdaDe(c.it), nombre: tituloItem(L, c.it) })), Object.assign({}, datos, { hoja: hoja(paginas.length + 1) })));
+          paginas.push(paginaComposicion(cs.map(c => ({ cap: c.cap, celda: celdaDe(c.it), nombre: tituloItem(L, c.it), tt: c.it.tt, te: c.it.te })), Object.assign({}, datos, { hoja: hoja(paginas.length + 1) })));
         }
       } finally { L.hoja = previa; }
       if (!paginas.length) throw new Error(T('No hay vistas en la lámina: enciende al menos una.'));
@@ -11915,7 +11954,7 @@ const LAM = (() => {
     abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales,
     presNueva, presRefrescar, presReacomodar, presMover, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
-    presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas,
+    presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto,
     presHitGlobo, presMoverGlobo, presRestablecer, presAgregar, presQuitar, presInstantanea, presRestaurar, presHitMarca, presMoverMarca, marcasHoja,
     herrajesSobre, Grabador, presAgregarConjunto, presQuitarHoja, frenteBajo, presAlternarFrente, conjuntoDisponible, GRUPOS, GRUPO_CORTO, ESC_DET, ES_CONJUNTO, enHoja,
     detallesDe, fijarLogo, tituloItem, letraDe, centrosCorte, api: LAM_API };
@@ -12181,7 +12220,11 @@ function presCargarLogo(){
       if (cor && LAM.presHitFlecha(L, cor, m.x, m.y)) { presAntes(); cor.dir = -LAM.dirCorte(cor); presRefrescar(false); return; }   /* girar el corte */
       const ch = LAM.presHitCota(L, m.x, m.y, tol);
       if (ch) { PRES.selG = null; PRES.selM = null; PRES.sel = null; PRES.selC = { it: ch.it.id, i: ch.id }; PRES.pend = presSnap();
+        LAM.presGrupoCota(L, ch);
         const q = ((L.cotas || {})[ch.it.id] || {})[ch.id] || {}; PRES.drag = { k: 'cota', ch: Object.assign(ch, { inicio: { x: m.x, y: m.y }, base: { dx: q.dx || 0, dy: q.dy || 0, d: q.d || 0, tx: q.tx || 0, ty: q.ty || 0 } }), movido: false }; presLado(); presDibujar(); return; }
+      const th = LAM.presHitTexto(L, m.x, m.y, tol);   /* titulo o escala de una vista: se mueven aparte */
+      if (th) { const b0 = th.it[th.k] || { dx: 0, dy: 0 }; PRES.selG = null; PRES.selM = null; PRES.sel = null; PRES.pend = presSnap();
+        PRES.drag = { k: 'texto', h: { it: th.it, k: th.k, inicio: { x: m.x, y: m.y }, base: { dx: b0.dx, dy: b0.dy } }, movido: false }; presLado(); presDibujar(); return; }
       const ih = LAM.presHitIsla(L, m.x, m.y);
       const mk0 = LAM.presHitMarca(L, m.x, m.y, tol);
       if (ih && !mk0) { PRES.selG = null; PRES.selM = null; PRES.sel = ih.it; PRES.pend = presSnap(); PRES.drag = { k: 'isla', ih, movido: false }; presLado(); presDibujar(); return; }
@@ -12204,13 +12247,14 @@ function presCargarLogo(){
       if (hv !== PRES.hoverC) { PRES.hoverC = hv; presDibujar(true); } }
     if (!d) { const cor = PRES.hoverC && PRES.L.vistas.find(q => q.id === PRES.hoverC);
       if (cor && LAM.presHitFlecha(PRES.L, cor, m.x, m.y)) { cv.style.cursor = 'pointer'; return; }
-      cv.style.cursor = PRES.pag < PRES.L.hojas.length && (LAM.presHitCota(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitGlobo(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitMarca(PRES.L, m.x, m.y, 6 / PRES.Z)) ? 'pointer'
+      cv.style.cursor = PRES.pag < PRES.L.hojas.length && (LAM.presHitCota(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitTexto(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitGlobo(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitMarca(PRES.L, m.x, m.y, 6 / PRES.Z)) ? 'pointer'
       : (PRES.L.camposHoja || []).some(c => m.x >= c.x && m.x <= c.x + c.w && m.y >= c.y && m.y <= c.y + c.h) ? 'text' : PRES.pag < PRES.L.hojas.length && LAM.presHit(PRES.L, m.x, m.y) ? 'grab' : 'default'; return; }
     if (d.k === 'pan') { PRES.ox = d.ox + p.x - d.px; PRES.oy = d.oy + p.y - d.py; presDibujar(true); return; }
     d.movido = true;
     if (d.k === 'globo') LAM.presMoverGlobo(PRES.L, d.gh, m.x, m.y);
     else if (d.k === 'isla') { cv.style.cursor = 'grabbing'; LAM.presMoverIsla(PRES.L, d.ih.it, m.x, m.y, d.ih.off); }
     else if (d.k === 'cota') { cv.style.cursor = 'grabbing'; LAM.presMoverCota(PRES.L, d.ch, m.x, m.y); }
+    else if (d.k === 'texto') { cv.style.cursor = 'grabbing'; LAM.presMoverTexto(PRES.L, d.h, m.x, m.y); }
     else if (d.k === 'marca') LAM.presMoverMarca(PRES.L, d.mk, m.x);
     else { cv.style.cursor = 'grabbing'; PRES.guias = LAM.presMover(PRES.L, d.it, m.x - d.dx, m.y - d.dy); }
     presDibujar(true);
