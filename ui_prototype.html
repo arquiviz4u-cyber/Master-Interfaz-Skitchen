@@ -10097,7 +10097,7 @@ const LAM = (() => {
     todas.forEach(p => { if (p.frente && p.abre) abres[p.frente] = p.abre; });
     const open = new Set([...(o.abiertos || abiertos)].filter(f => f in abres));   /* ids que ya no existen se ignoran */
     const modAbierto = new Set(todas.filter(p => p.frente && open.has(p.frente)).map(p => p.modulo));
-    const cajas = [], herr = [];
+    const cajas = [], herr = [], cazF = [];
     const SX = (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, og = (plan.caras || []).map(c => c.origen[0]);
       return og.length && og.reduce((a, b) => a + b, 0) / og.length > centro ? -1 : 1; })();   /* observador en el cuarto y del lado contrario a las demas caras */
     caras.forEach((cara, ci) => cara.piezas.forEach(p => {
@@ -10115,7 +10115,10 @@ const LAM = (() => {
       if (mod) {
         const gira = m && m.gira && m.eje && m.eje[2] === 1, rot = gira && Math.abs(Math.abs(m.g) - 90) < 1 ? (m.g > 0 ? 90 : -90) : 0;
         const sim = !(m && m.gira && !rot) ? simDe(mod.archivo, 'i', mod.espejo, { SX, rot, k: mod.sy }) : null;   /* giros distintos de 90: se queda la caja */
-        if (sim && COR_CAJA[mod.archivo]) simQ = { id: sim.id, flip: sim.flip, O: mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m) };   /* A185: ordenada con las demas cajas */
+        const OO = sim ? mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m) : null;
+        if (sim && COR_CAJA[mod.archivo]) simQ = { id: sim.id, flip: sim.flip, O: OO };   /* A185: ordenada con las demas cajas */
+        else if (sim && FAM[mod.archivo] === 'arm') simQ = { id: sim.id, flip: sim.flip, O: OO, ar: true };
+        else if (sim && FAM[mod.archivo] === 'caz' && p.frente) { cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }   /* va con su puerta */
         else if (sim) { herr.push({ id: sim.id, flip: sim.flip, O: mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m) }); return; }
       }
       const K = v => [cara.org[0] + v[0] * cara.ex[0] + v[1] * cara.ey[0], cara.org[1] + v[0] * cara.ex[1] + v[1] * cara.ey[1], cara.org[2] + v[2]];
@@ -10125,6 +10128,7 @@ const LAM = (() => {
       const q = { ci, extra: !!cara.extra, p, sim: simQ, v: [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0), P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], abierto };
       q.c = [0, 1, 2].map(i => q.v.reduce((s, v) => s + v[i], 0) / 8);
       q.mn = [0, 1, 2].map(i => Math.min(...q.v.map(v => v[i]))); q.mx = [0, 1, 2].map(i => Math.max(...q.v.map(v => v[i])));
+      if (simQ && simQ.ar) { q.mn[0] += .3; q.mx[0] -= .3; }   /* la placa toca el lateral: que el lateral quede detras */
       /* huecos (A99/A170): rectangulos que atraviesan la pieza; sus paredes se ven por dentro */
       q.huecos = [p.hueco].concat(p.huecos || []).filter(h => h && h.ancho > 0 && h.fondo > 0).map(h => {
         const hx0 = x0 + h.x, hx1 = hx0 + h.ancho, hy0 = y0 + h.y, hy1 = hy0 + h.fondo;
@@ -10142,15 +10146,32 @@ const LAM = (() => {
        cajas que se tocan, el de menor centro de los que quedan. El recorrido en profundidad anterior pintaba el piso y la trasera
        del cuerpo despues de los cajones sacados */
     const detras = (a, b) => (SX > 0 ? a.mx[0] <= b.mn[0] + .01 : a.mn[0] >= b.mx[0] - .01) || a.mn[1] >= b.mx[1] - .01 || a.mx[2] <= b.mn[2] + .01;
-    const N = cajas.length, faltan = new Array(N).fill(0), despues = Array.from({ length: N }, () => []);
+    const N = cajas.length, faltan = new Array(N).fill(0), peso = new Array(N).fill(0), despues = Array.from({ length: N }, () => []);
+    /* casco convexo de cada caja en pantalla y cuanto se tapan: un contacto de canto (gola sobre un lateral) no es un tapado y metia ciclos */
+    const casco = pts => { const P = pts.slice().sort((p, q) => p[0] - q[0] || p[1] - q[1]), cr = (o, a2, b2) => (a2[0] - o[0]) * (b2[1] - o[1]) - (a2[1] - o[1]) * (b2[0] - o[0]), H = [];
+      for (const pass of [0, 1]) { const ini = H.length; (pass ? P.slice().reverse() : P).forEach(p => { while (H.length >= ini + 2 && cr(H[H.length - 2], H[H.length - 1], p) <= 1e-9) H.pop(); H.push(p); }); H.pop(); }
+      return H; };
+    const areaP = P => P.reduce((t, p, k) => { const q = P[(k + 1) % P.length]; return t + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
+    cajas.forEach(q => { q.hull = casco(q.v.map(v => [(SX * v[0] + v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]])); if (q.hull.length > 2 && areaP(q.hull) < 0) q.hull.reverse(); });
+    const recorta = (S, Cc) => { let out = S;   /* Sutherland-Hodgman: la parte de S dentro del convexo Cc (antihorario) */
+      for (let k = 0; k < Cc.length && out.length; k++) { const c1 = Cc[k], c2 = Cc[(k + 1) % Cc.length], inp = out; out = [];
+        const dentro = p => (c2[0] - c1[0]) * (p[1] - c1[1]) - (c2[1] - c1[1]) * (p[0] - c1[0]) >= 0;
+        for (let i2 = 0; i2 < inp.length; i2++) { const cur = inp[i2], prv = inp[(i2 + inp.length - 1) % inp.length], dc = dentro(cur), dp = dentro(prv);
+          if (dc !== dp) { const x1 = prv[0], y1 = prv[1], x2 = cur[0], y2 = cur[1], x3 = c1[0], y3 = c1[1], x4 = c2[0], y4 = c2[1], den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+            if (Math.abs(den) > 1e-12) { const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den; out.push([x1 + t * (x2 - x1), y1 + t * (y2 - y1)]); } }
+          if (dc) out.push(cur); } }
+      return out; };
+    const solapan = (a, b) => a.hull.length > 2 && b.hull.length > 2 ? Math.abs(areaP(recorta(a.hull, b.hull))) : 1e3;   /* cm2 de pantalla que una tapa a la otra */
     for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      const ar = solapan(cajas[i], cajas[j]); if (ar <= .6) continue;
       const ij = detras(cajas[i], cajas[j]), ji = detras(cajas[j], cajas[i]);
-      if (ij && !ji) { despues[i].push(j); faltan[j]++; } else if (ji && !ij) { despues[j].push(i); faltan[i]++; } }
-    const orden = [], hecho = new Array(N).fill(false);
+      if (ij && !ji) { despues[i].push([j, ar]); faltan[j]++; peso[j] += ar; } else if (ji && !ij) { despues[j].push([i, ar]); faltan[i]++; peso[i] += ar; } }
+    const orden = [], hecho = new Array(N).fill(false), forzadas = [];
     for (let k = 0; k < N; k++) {
       let pick = -1; for (let i = 0; i < N; i++) if (!hecho[i] && faltan[i] === 0) { pick = i; break; }
-      if (pick < 0) for (let i = 0; i < N; i++) if (!hecho[i]) { pick = i; break; }   /* ciclo: el de menor centro */
-      hecho[pick] = true; orden.push(cajas[pick]); despues[pick].forEach(j => { faltan[j]--; }); }
+      if (pick < 0) { let mejor = 1e18; for (let i = 0; i < N; i++) if (!hecho[i] && peso[i] < mejor) { mejor = peso[i]; pick = i; }
+        forzadas.push(cajas[pick].p.id); }   /* ciclo (cajas finas en molinete): sale la que menos tapado pendiente tiene */
+      hecho[pick] = true; orden.push(cajas[pick]); despues[pick].forEach(([j, w]) => { faltan[j]--; peso[j] -= w; }); }
     const proy = v => [(SX * v[0] + v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a un lado y abajo; el cuarto (-Y) al otro y abajo */
     const V = [SX, -1, 1], luz = vunit([.35 * SX, -.45, .82]);
     const caraIdx = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]];
@@ -10158,10 +10179,15 @@ const LAM = (() => {
       const d = vsub(ref, pts[0]); return (vpunto(n, d) > 0) === haciaAfuera ? vmul(n, -1) : n; };
     const tri = [], bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
     const cuenta = pr => pr.forEach(p => { bb.x0 = Math.min(bb.x0, p[0]); bb.x1 = Math.max(bb.x1, p[0]); bb.y0 = Math.min(bb.y0, p[1]); bb.y1 = Math.max(bb.y1, p[1]); });
+    const simTri = (q, S) => { tri.push({ t: 'sim', q, id: S.id, flip: S.flip, O: S.O });
+      const c = HSYM[S.id], pr = proy(S.O), a = c.u0 / 100, b = (c.u0 + c.w) / 100;
+      cuenta([[pr[0] + (S.flip ? -b : a), pr[1] + c.v0 / 100], [pr[0] + (S.flip ? -a : b), pr[1] + (c.v0 + c.h) / 100]]); };
+    const ultimaDe = {}; orden.forEach(q => { if (q.p.rol === 'frente' && q.p.frente) ultimaDe[q.p.frente] = q; });
+    const cazHechas = new Set();
     orden.forEach(q => {
-      if (q.sim) { tri.push({ t: 'sim', q, id: q.sim.id, flip: q.sim.flip, O: q.sim.O });
-        const c = HSYM[q.sim.id], pr = proy(q.sim.O), a = c.u0 / 100, b = (c.u0 + c.w) / 100;
-        cuenta([[pr[0] + (q.sim.flip ? -b : a), pr[1] + c.v0 / 100], [pr[0] + (q.sim.flip ? -a : b), pr[1] + (c.v0 + c.h) / 100]]); return; }
+      const trasPuerta = () => { if (q.p.rol === 'frente' && q.p.frente && ultimaDe[q.p.frente] === q)
+        cazF.forEach((c, i) => { if (c.frente === q.p.frente) { simTri(q, c); cazHechas.add(i); } }); };   /* la cazoleta va en la cara de su puerta */
+      if (q.sim) { simTri(q, q.sim); trasPuerta(); return; }
       caraIdx.forEach((idx, fi) => {
         const pts = idx.map(i => q.v[i]), n = normalHacia(pts, q.c, true);
         if (vpunto(n, V) <= 1e-6) return;
@@ -10175,13 +10201,15 @@ const LAM = (() => {
         if (vpunto(n, V) <= 1e-6) return;
         const pr = pts.map(proy); cuenta(pr); tri.push({ t: 'pared', pr, k: .70, q }); }));
       q.perf.forEach(f => { if (vpunto(f.n, V) <= 1e-6) return; const pr = f.pts.map(proy); cuenta(pr); tri.push({ t: 'perf', pr, k: .5, q }); });
+      trasPuerta();
     });
+    cazF.forEach((c, i) => { if (!cazHechas.has(i)) herr.push({ id: c.id, flip: c.flip, O: c.O }); });   /* sin puerta en la escena: encima de todo */
     const carasF = o.filtro ? caras.map((c, ci) => Object.assign({}, c, { piezas: c.piezas.filter(p => o.filtro(p, ci)) })) : caras;
     const cotas = o.cotas === false ? [] : isoCotas(carasF, proy);
     cotas.forEach(c => { cuenta([proy(c.a), proy(c.b), proy(vadd(c.a, vmul(c.d, 1.12))), proy(vadd(c.b, vmul(c.d, 1.12)))]); });
     herr.forEach(h => { const pr = proy(h.O), c = HSYM[h.id], a = c.u0 / 100, b = (c.u0 + c.w) / 100;
       cuenta([[pr[0] + (h.flip ? -b : a), pr[1] + c.v0 / 100], [pr[0] + (h.flip ? -a : b), pr[1] + (c.v0 + c.h) / 100]]); });
-    return { tri, cotas, bb, proy, SX, abres, open, herr };
+    return { tri, cotas, bb, proy, SX, abres, open, herr, forzadas };
   }
 
   /* cotas del isometrico: cadena de anchos y total al frente de cada cara, fondo de la cubierta y cadena de alturas en la primera cara */
