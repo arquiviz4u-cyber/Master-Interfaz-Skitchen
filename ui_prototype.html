@@ -10635,19 +10635,19 @@ const LAM = (() => {
     if (!fr.length) throw new Error(T('Este conjunto no tiene frentes'));
     const gr = new Map(); fr.forEach(p => { const k = `${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = gr.get(k) || { p, n: 0 }; q.n++; gr.set(k, q); });
     const lista = [...gr.values()].sort((a, b) => b.p.alto - a.p.alto || b.p.ancho - a.p.ancho), sc = (10 / o.escalaFija) / PX_MM, M = 30, G = 38, hMax = 560;
-    const g = new Grabador(900, 900), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
+    const g = new Grabador(900, 900), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
     let x = M + 24, y = M + 22, colW = 0, altoTot = 0;
     try {
       lista.forEach(q => { const w = q.p.ancho * sc, h = q.p.alto * sc;
         if (y + h > hMax && y > M + 22) { x += colW + 56; y = M + 22; colW = 0; }
         caja2D(g, x, y, w, h, plano ? '#FFFFFF' : colorPieza(q.p), plano ? '#222222' : '#4A5057', 1);
-        cotaH(g, x, x + w, y - 8, fmt(q.p.ancho)); cotaV(g, x - 10, y, y + h, fmt(q.p.alto));
+        J.H(x, x + w, y - 8, fmt(q.p.ancho)); J.V(x - 10, y, y + h, fmt(q.p.alto));
         if (q.n > 1) { g.save(); g.fillStyle = '#1F2A33'; g.font = "600 11px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(`× ${q.n}`, x + w + 8, y + h / 2); g.restore(); }
         colW = Math.max(colW, w); y += h + G; altoTot = Math.max(altoTot, y); });
       const e = Math.min(...fr.map(p => p.fondo));
       g.save(); g.fillStyle = '#444444'; g.font = "500 10px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(`${T('Espesor')}: ${medida(e)}`, M + 24, Math.min(altoTot, hMax + 40) + 8); g.restore();
     } finally { Object.assign(C, previoC); }
-    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjDespiece', plano, bb: cajaTinta(g.ops) };
+    return J.fin({ ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjDespiece', plano, bb: cajaTinta(g.ops) });
   }
   /* bisagra de cazoleta dibujada con volumen: cazoleta con su aro, alas con tornillos, brazo articulado y placa de montaje.
      (cx, cy): centro de la cazoleta; k: px por mm. Los tonos de acero se apagan en el modo plano */
@@ -10692,9 +10692,23 @@ const LAM = (() => {
     if (!items.length) throw new Error(T('Este conjunto no lleva herrajes'));
     const BW = 214, BH = 218, GAP = 16, g = new Grabador(items.length * (BW + GAP) + 20, BH + 20), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
     const icono = (k, cx, cy) => { g.save(); g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.fillStyle = plano ? '#FFFFFF' : '#9AA3AB'; g.lineWidth = 1.2; g.lineJoin = 'round';
-      if (k === 'bisagra') { g.restore(); g.drawImage(IMGS.bisagra_3d, cx - 76, cy - 46, 152, 152 * IMGS.bisagra_3d.h / IMGS.bisagra_3d.w); return; }
-      if (k === 'corredera') { g.beginPath(); g.rect(cx - 40, cy - 6, 80, 12); g.fill(); g.stroke(); g.beginPath(); g.rect(cx - 40, cy + 8, 80, 6); g.fill(); g.stroke();
-        for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(cx + i * 10, cy - 6); g.lineTo(cx + i * 10, cy + 6); g.stroke(); } }
+      if (k === 'bisagra') { g.restore();
+        let eb = null; try { eb = escenaBisagra(o); } catch (x) { eb = null; }
+        if (eb) { const sb = 8, w = 17, h = 12; ventanaIso(g, eb, w, h, sb, cx - w * sb / 2, cy - h * sb / 2 + 4, plano); return; }
+        g.drawImage(IMGS.bisagra_3d, cx - 76, cy - 46, 152, 152 * IMGS.bisagra_3d.h / IMGS.bisagra_3d.w); return; }
+      if (k === 'corredera') { g.restore();   /* las tres partes del modelo en su sitio: fija, media y movil (isometrico) */
+        const ids = ['cor_fija.i+', 'cor_media.i+', 'cor_movil.i+'].filter(i => HSYM[i]);
+        if (ids.length) { const u0 = Math.min(...ids.map(i => HSYM[i].u0)), u1 = Math.max(...ids.map(i => HSYM[i].u0 + HSYM[i].w)), v0 = Math.min(...ids.map(i => HSYM[i].v0)), v1 = Math.max(...ids.map(i => HSYM[i].v0 + HSYM[i].h));
+          const sc2 = Math.min(150 / ((u1 - u0) / 100), 70 / ((v1 - v0) / 100)), px = cx - ((u0 + u1) / 2) / 100 * sc2, py = cy + 6 - ((v0 + v1) / 2) / 100 * sc2;
+          ids.forEach(i => dibujarSim(g, i, false, px, py, sc2, plano)); return; }
+        g.save(); g.fillStyle = plano ? '#FFFFFF' : '#9AA3AB'; g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.beginPath(); g.rect(cx - 40, cy - 6, 80, 12); g.fill(); g.stroke(); g.restore(); return; }
+      if (k === 'piston') { g.restore();   /* cuerpo cilindrico, vastago y las dos rotulas, en isometrico */
+        const ux = Math.cos(Math.PI / 6), uy = -Math.sin(Math.PI / 6), nx = -uy, ny = ux, P = (t, r) => [cx - 52 * ux + t * ux + r * nx, cy + 22 - 52 * uy + t * uy + r * ny];
+        const faja = (t0, t1, r, col) => { const a = P(t0, -r), b = P(t1, -r), c = P(t1, r), d2 = P(t0, r); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d2[0], d2[1]); g.closePath(); g.fill(); g.stroke(); };
+        g.save(); g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.lineWidth = .9; g.lineJoin = 'round';
+        faja(0, 12, 3.2, plano ? '#FFFFFF' : '#C7CDD3'); faja(12, 70, 8.5, plano ? '#F2F3F5' : '#9CA4AC'); faja(70, 76, 7.4, plano ? '#E3E6E9' : '#6F7881'); faja(76, 132, 3, plano ? '#FFFFFF' : '#DDE1E5'); faja(132, 146, 5.2, plano ? '#E3E6E9' : '#8E969E');
+        [[0, 0], [146, 0]].forEach(([t]) => { const c = P(t, 0); g.fillStyle = plano ? '#FFFFFF' : '#B7BEC5'; g.beginPath(); g.arc(c[0], c[1], 4.2, 0, Math.PI * 2); g.fill(); g.stroke(); });
+        g.restore(); return; }
       else if (k === 'taquete') { [[-18, 6], [0, -2], [18, 6]].forEach(([dx, dy]) => { g.beginPath(); g.rect(cx + dx - 5, cy + dy - 14, 10, 28); g.fill(); g.stroke();
         for (let i = -10; i <= 10; i += 6) { g.beginPath(); g.moveTo(cx + dx - 5, cy + dy + i); g.lineTo(cx + dx + 5, cy + dy + i); g.stroke(); } }); }
       else if (k === 'jaladera') { g.beginPath(); g.rect(cx - 34, cy - 5, 68, 10); g.fill(); g.stroke(); [-26, 26].forEach(dx => { g.beginPath(); g.rect(cx + dx - 3, cy + 5, 6, 12); g.fill(); g.stroke(); }); }
@@ -10708,45 +10722,52 @@ const LAM = (() => {
         g.font = "600 12px 'Inter'"; g.fillText(`${T('Cantidad')}: ${cant}`, x + BW / 2, y + 134);
         g.font = "400 10px 'Inter'"; g.fillStyle = '#333333'; lineas.filter(Boolean).forEach((t, j) => g.fillText(t, x + BW / 2, y + 152 + j * 14)); g.restore(); });
     } finally { Object.assign(C, previoC); }
-    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: 1, vista: 'ConjHerrajes', plano, bb: cajaTinta(g.ops), sinEscala: true };
+    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: 1, vista: 'ConjHerrajes', plano, sinEscala: true,
+      bb: { x0: 0, y0: 0, x1: g.canvas.width, y1: g.canvas.height, w: g.canvas.width, h: g.canvas.height } };
   }
-  /* detalle de la bisagra de cazoleta como dibujo CAD, sacado del modelo real (bisagra_cerrada.skp): alzado (cara que va contra el
-     frente), perfil, planta y corte por el centro, solo lineas (contorno grueso y aristas finas) con sus ejes y medidas tomadas del
-     modelo; mas el taladro del frente de PLAN_BISAGRA */
+  /* A186: la bisagra de cazoleta en 3D tipo dibujo: una puerta abierta del conjunto con su cazoleta, el brazo y el lateral, acercada y
+     vista desde el cuarto (el isometrico de la cara, recortado alrededor de la bisagra). Sin alzado, perfil, planta ni corte */
+  function escenaBisagra(o){
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), todas = piezasCara(plan, cara);
+    const fr = todas.filter(p => p.rol === 'frente' && f(p, cara) && (p.perforaciones || []).length);
+    if (!fr.length) return null;
+    const d = fr[0];
+    const esc = isoEscena({ abiertos: new Set([d.frente]), cotas: false, plan: o.grupo === 'isla' && o.planIsla ? o.planIsla.plan : undefined,
+      filtro: (p, ci) => ci === cara && p.modulo === d.modulo && (p.frente === d.frente || p.rol === 'panel') });
+    const sims = esc.tri.filter(t => t.t === 'sim'), arm = sims.find(t => /^arm_ab/.test(t.id));
+    if (!arm) return null;
+    const pa = esc.proy(arm.O), cups = sims.filter(t => /^caz\./.test(t.id)).map(t => ({ t, p: esc.proy(t.O) })).sort((u, v) => Math.hypot(u.p[0] - pa[0], u.p[1] - pa[1]) - Math.hypot(v.p[0] - pa[0], v.p[1] - pa[1]));
+    /* centro de la bisagra: el de lo que ocupan sus dos simbolos (cada uno cuelga de su origen) */
+    const tt = [arm].concat(cups.length ? [cups[0].t] : []), x0 = [], y0 = [];
+    tt.forEach(t => { const c = HSYM[t.id], p = esc.proy(t.O), a = c.u0 / 100, b = (c.u0 + c.w) / 100, k = t.flip ? -1 : 1;
+      x0.push(p[0] + Math.min(k * a, k * b), p[0] + Math.max(k * a, k * b)); y0.push(p[1] + c.v0 / 100, p[1] + (c.v0 + c.h) / 100); });
+    return { esc, d, c: [(Math.min(...x0) + Math.max(...x0)) / 2, (Math.min(...y0) + Math.max(...y0)) / 2] };
+  }
+  /* pinta la ventana (w x h cm del modelo) de la escena alrededor de c, a s px por cm, con su esquina en (ox, oy) */
+  function ventanaIso(g, eb, w, h, s, ox, oy, plano){
+    const esc = Object.assign({}, eb.esc, { bb: { x0: eb.c[0] - w / 2, y0: eb.c[1] - h / 2, x1: eb.c[0] + w / 2, y1: eb.c[1] + h / 2 } });
+    g.save(); g.beginPath(); g.rect(ox, oy, w * s, h * s); g.clip(); isoPintar(g, esc, s, ox, oy, { plano, cotas: false }); g.restore();
+  }
   function capturarBisagraConjunto(o){
-    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), plano = !!o.plano;
-    const fr = piezasCara(plan, cara).filter(p => p.rol === 'frente' && f(p, cara) && (p.perforaciones || []).length);
-    if (!fr.length) throw new Error(T('Este conjunto no lleva bisagras de cazoleta'));
-    const d = fr[0], B = typeof PLAN_BISAGRA === 'object' ? PLAN_BISAGRA : { cazoleta: 3.5, hondo: 1.2, canto: 2.25 };
+    const eb = escenaBisagra(o), plano = !!o.plano;
+    if (!eb) throw new Error(T('Este conjunto no lleva bisagras de cazoleta'));
+    const d = eb.d, B = typeof PLAN_BISAGRA === 'object' ? PLAN_BISAGRA : { cazoleta: 3.5, hondo: 1.2, canto: 2.25 };
     const dia = d.perforaciones[0].diametro || B.cazoleta, hondo = B.hondo, canto = B.canto, e = d.fondo, tb = canto - dia / 2;
-    const s = (10 / o.escalaFija) / PX_MM, M = 40, mm = v => `${Math.round(v * 100) / 10}`, GAP = 44;
-    const vistas = [['frente', 'ALZADO'], ['lado', 'PERFIL'], ['planta', 'PLANTA'], ['corte', 'CORTE A–A']].map(([k, t]) => [k, t, HCAD_DET[k]]);
-    const anchos = vistas.map(([, , c]) => c.w / 100 * s), altos = vistas.map(([, , c]) => c.h / 100 * s), hMax = Math.max(...altos);
-    const g = new Grabador(M * 2 + anchos.reduce((a, b) => a + b, 0) + GAP * 3, M * 2 + 30 + hMax + 130), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
+    const s = (10 / o.escalaFija) / PX_MM, M = 30, mm = v => `${Math.round(v * 100) / 10}`, Wc = 24, Hc = 17;
+    const g = new Grabador(M * 2 + Wc * s, M * 2 + 22 + Hc * s + 56), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
     try {
-      let x = M; const y0 = M + 22;
-      vistas.forEach(([k, titulo, c], i) => {
-        const w = anchos[i], h = altos[i], oy = y0 + (hMax - h) / 2;
-        g.save(); g.fillStyle = '#444444'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(T(titulo), x, y0 - 8); g.restore();
-        dibujarCad(g, { k: c.k, v: c.v }, x, oy, s, plano, { u0: c.u0 / 100, v0: c.v0 / 100, minMm: .15, grueso: 1.1, fino: .55 });
-        g.save(); g.strokeStyle = '#B5433B'; g.lineWidth = .5; g.setLineDash([9, 2, 2, 2]);   /* ejes de los taladros de los tornillos y de la cazoleta */
-        (c.c || []).forEach(([cx, cy, r]) => { const X = x + (cx / 100 - c.u0 / 100) * s, Y = oy + (cy / 100 - c.v0 / 100) * s, q = (r / 100 + .35) * s;
-          g.beginPath(); g.moveTo(X - q, Y); g.lineTo(X + q, Y); g.moveTo(X, Y - q); g.lineTo(X, Y + q); g.stroke(); });
-        g.restore();
-        cotaH(g, x, x + w, oy + h + 18, mm(c.w / 100)); cotaV(g, x - 12, oy, oy + h, mm(c.h / 100));
-        if (k === 'frente' && (c.c || []).length >= 2) {   /* distancia entre los tornillos de las alas */
-          const cs = c.c.slice().sort((a, b) => b[2] - a[2] || a[1] - b[1]).slice(0, 2).sort((a, b) => a[1] - b[1]);
-          if (Math.abs(cs[0][0] - cs[1][0]) < 20) cotaV(g, x + (cs[0][0] / 100 - c.u0 / 100) * s + 22, oy + (cs[0][1] / 100 - c.v0 / 100) * s, oy + (cs[1][1] / 100 - c.v0 / 100) * s, mm((cs[1][1] - cs[0][1]) / 100));
-        }
-        x += w + GAP;
-      });
+      const y0 = M + 18;
+      g.save(); g.fillStyle = '#444444'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(T('BISAGRA DE CAZOLETA · VISTA 3D'), M, y0 - 8); g.restore();
+      ventanaIso(g, eb, Wc, Hc, s, M, y0, plano);
+      g.save(); g.strokeStyle = '#9AA3AB'; g.lineWidth = .6; g.setLineDash([4, 3]); g.strokeRect(M, y0, Wc * s, Hc * s); g.restore();
       g.save(); g.fillStyle = '#333333'; g.font = "500 10px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-      const yT = y0 + hMax + 66;
+      const yT = y0 + Hc * s + 22;
       g.fillText(`${T('Taladro en el frente')}: Ø ${mm(dia)} mm × ${mm(hondo)} mm ${T('de profundidad')} · ${T('centro a')} ${mm(canto)} mm ${T('del canto')} (TB ${mm(tb)} mm; ${T('Blum pide')} 3–7 mm)`, M, yT);
-      g.fillText(`${T('Frente de')} ${mm(e)} mm: ${T('quedan')} ${mm(e - hondo)} mm ${T('sobre el fondo del taladro')} · ${T('modelo')} bisagra_cerrada.skp`, M, yT + 15);
+      g.fillText(`${T('Frente de')} ${mm(e)} mm: ${T('quedan')} ${mm(e - hondo)} mm ${T('sobre el fondo del taladro')}`, M, yT + 15);
       g.restore();
     } finally { Object.assign(C, previoC); }
-    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjBisagra', plano, bb: cajaTinta(g.ops) };
+    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjBisagra', plano,
+      bb: { x0: 0, y0: 0, x1: g.canvas.width, y1: g.canvas.height, w: g.canvas.width, h: g.canvas.height } };   /* la ventana recorta: lo de fuera no cuenta */
   }
   /* encabezado de la lamina del conjunto: titulo grande y subtitulo espaciado */
   function capturarTituloConjunto(o){
