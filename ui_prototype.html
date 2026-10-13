@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A198. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Alzado e isometrico del conjunto: el zoclo, la cubierta y el backsplash se cortan donde hay una torre o aparato fuera del conjunto; estufa y lavavajillas de frente (perillas, ventana, manija); iconos del despiece sobre el esquema, centrados en lo que ocupa el modulo, y los aparatos sin frente salen como bloque gris con su icono.
    A197. [Master hecho 13/10; sin pasos en Revit ni SketchUp] El esquema del despiece lleva un icono del componente del modulo (tarja, parrilla, campana, torre de hornos, alacena, refrigerador, estufa, lavavajillas) en su frente mayor; sin los rectangulos punteados de equipos.
    A196. [Master hecho 13/10; sin pasos en Revit ni SketchUp] El despiece de frentes sale a color de fabrica (B/N apagado) y los tonos del esquema son una triada con vecinos analogos, a 55 % de saturacion; en B/N, grises medios.
    A195. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar (usuario 13/10): 1) el despiece de la tapeta muestra su frente (ancho por alto) con el fondo anotado, no el lateral; 2) sin el dialogo «Laminas» (Presentar cubre todo); 3) hojas de detalle por unidad apagadas de fabrica; 4) «Alzado con frentes» y «Alzado sin puertas» a la misma escala en la primera lamina, y todas las vistas en blanco y negro salvo los isometricos (y la vista general); 5) el encabezado (linea sobre el titulo) se mueve con el titulo y la escala y tambien se agarra; sin lineas guia al arrastrar. Las laminas ya guardadas conservan sus ajustes.
@@ -10213,11 +10214,9 @@ const LAM = (() => {
        local mire al cuarto: la proyeccion global de sus ejes locales es la del simbolo, espejada en horizontal si la cara va girada */
     const simCara = cara => { const ex = cara.ex, ey = cara.ey, vy = SX * ey[0] - ey[1], a = SX * ey[0] + ey[1], sx = SX * ex[0] - ex[1];
       return Math.abs(vy + 1) < .01 && Math.abs(Math.abs(a) - 1) < .01 && Math.abs(Math.abs(sx) - 1) < .01 ? { sx: Math.round(sx), f: Math.round(a) } : null; };
-    caras.forEach((cara, ci) => cara.piezas.forEach(p0 => {
+    const trocear = (piezas, ci) => !o.recorte || ci !== 0 ? piezas : piezas.flatMap(p => p.modulo || !['zoclo', 'cubierta', 'backsplash'].includes(p.rol) ? [p] : trocearEn(p, p.rol === 'backsplash' ? o.recorte.mod : o.recorte.todo));
+    caras.forEach((cara, ci) => trocear(cara.piezas, ci).forEach(p0 => {
       let p = p0;
-      if (o.recorte && ci === 0 && !p.modulo && ['zoclo', 'cubierta', 'backsplash'].includes(p.rol)) {   /* A186: solo la parte de zoclo y cubierta de este conjunto */
-        const a = Math.max(p.x, o.recorte[0]), b = Math.min(p.x + p.ancho, o.recorte[1]); if (b - a < .5) return;
-        if (a !== p.x || b !== p.x + p.ancho) { const dx = a - p.x, mv = h => h && Object.assign({}, h, { x: h.x - dx }); p = Object.assign({}, p, { x: a, ancho: b - a }, p0.hueco ? { hueco: mv(p0.hueco) } : {}, p0.huecos ? { huecos: p0.huecos.map(mv) } : {}); } }   /* A190: los huecos (tarja) siguen en su sitio */
       if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
       const fs = o.sinCad ? null : simCara(cara);
       if (o.filtro && !o.filtro(p, ci)) return;   /* A177: solo el conjunto pedido */
@@ -10604,6 +10603,23 @@ const LAM = (() => {
     g.strokeStyle = stroke; g.lineWidth = lw; g.beginPath(); g.rect(x, y, Math.max(.4, w), Math.max(.4, h)); g.stroke(); g.restore(); };
   const agrupaIguales = (valores, tol = .05) => { const out = []; valores.forEach(v => { const r = out[out.length - 1]; if (r && Math.abs(r.v - v) < tol) r.n++; else out.push({ v, n: 1 }); }); return out; };
   /* alzado del conjunto: con puertas (cada puerta y cajon con su medida: el despiece) o sin ellas (interiores y sus luces) */
+  /* A198: tramos de muro que ocupan los gabinetes del conjunto (y sus tapetas): lo que cae entre ellos (una torre, un refrigerador) no lleva zoclo ni cubierta */
+  function intervalosConjunto(cuerpos, tapetas){
+    const por = {}; cuerpos.forEach(p => { const e = por[p.modulo] = por[p.modulo] || [1e9, -1e9]; e[0] = Math.min(e[0], p.x); e[1] = Math.max(e[1], p.x + p.ancho); });
+    const unir = lista => { const iv = []; lista.sort((a, b) => a[0] - b[0]).forEach(e => { const u = iv[iv.length - 1]; if (u && e[0] <= u[1] + .6) u[1] = Math.max(u[1], e[1]); else iv.push([e[0], e[1]]); }); return iv; };
+    const mods = Object.values(por);
+    return { mod: unir(mods.map(e => e.slice())), todo: unir(mods.concat(tapetas.map(p => [p.x, p.x + p.ancho]))) };
+  }
+  function trocearEn(p, iv){
+    const out = [];
+    iv.forEach(([ra, rb], k) => { const a = Math.max(p.x, ra), b = Math.min(p.x + p.ancho, rb); if (b - a < .5) return;
+      if (Math.abs(a - p.x) < .01 && Math.abs(b - p.x - p.ancho) < .01) { out.push(p); return; }
+      const dx = a - p.x, w = b - a, mv = h => h && h.x - dx >= -.01 && h.x - dx + h.ancho <= w + .01 ? Object.assign({}, h, { x: h.x - dx }) : null;
+      const q = Object.assign({}, p, { id: p.id + '~' + k, x: a, ancho: w }); delete q.hueco; delete q.huecos;
+      const h1 = mv(p.hueco); if (h1) q.hueco = h1; const hs = (p.huecos || []).map(mv).filter(Boolean); if (hs.length) q.huecos = hs;
+      out.push(q); });
+    return out;
+  }
   /* A193: luces entre tableros (piso, repisas, cama, techo) de cada gabinete en la columna que cruza la posicion x (cm) */
   function lucesColumna(piezas, x){
     const por = new Map();
@@ -10621,7 +10637,15 @@ const LAM = (() => {
     g.save(); g.lineWidth = .8; g.strokeStyle = tinta;
     const r = (rx, ry, rw, rh, f) => { g.fillStyle = f; g.fillRect(rx, ry, rw, rh); g.strokeRect(rx, ry, rw, rh); };
     r(x, y, w, h, marco);
-    if (tipo === 'Horno') { const m = Math.min(w, h) * .07; r(x + m, y + h * .26, w - 2 * m, h * .62, cristal);
+    if (tipo === 'Estufa') {   /* estufa de gas: perillas arriba, ventana del horno y manija */
+      const m = Math.min(w, h) * .05, py = y + h * .04;
+      for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(x + w * (.14 + .18 * i), py + h * .045, Math.max(1.2, Math.min(w, h) * .035), 0, Math.PI * 2); g.fillStyle = plano ? '#FFFFFF' : '#C7CDD3'; g.fill(); g.stroke(); }
+      r(x + m, y + h * .26, w - 2 * m, h * .6, cristal);
+      g.lineWidth = Math.max(1.4, h * .03); g.beginPath(); g.moveTo(x + w * .12, y + h * .2); g.lineTo(x + w * .88, y + h * .2); g.stroke(); }
+    else if (tipo === 'Lavavajillas') {   /* panel liso con manija y tira de controles */
+      r(x + w * .05, y + h * .04, w * .9, h * .1, plano ? '#FFFFFF' : '#2C3338');
+      g.lineWidth = Math.max(1.4, h * .03); g.beginPath(); g.moveTo(x + w * .15, y + h * .25); g.lineTo(x + w * .85, y + h * .25); g.stroke(); }
+    else if (tipo === 'Horno') { const m = Math.min(w, h) * .07; r(x + m, y + h * .26, w - 2 * m, h * .62, cristal);
       g.lineWidth = Math.max(1.4, h * .035); g.beginPath(); g.moveTo(x + w * .12, y + h * .16); g.lineTo(x + w * .88, y + h * .16); g.stroke(); }   /* la manija */
     else { const m = Math.min(w, h) * .08, pw = w * .24; r(x + m, y + m, w - pw - 2.5 * m, h - 2 * m, cristal); r(x + w - pw - m / 2, y + m, pw - m / 2, h - 2 * m, plano ? '#FFFFFF' : '#2C3338'); }
     g.restore();
@@ -10637,12 +10661,8 @@ const LAM = (() => {
     /* A186: el conjunto muestra solo sus gabinetes y la parte de zoclo y cubierta que les corresponde (sin tapetas ni la extension del muro) */
     if (o.grupo !== 'isla') {
       const mp = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
-      if (mp.length) { const tp = ps.filter(p => p.rol === 'tapeta' && !p.modulo);   /* A190: el zoclo y la cubierta llegan hasta las tapetas laterales */
-        const xa = Math.min(...mp.concat(tp).map(p => p.x)), xb = Math.max(...mp.concat(tp).map(p => p.x + p.ancho)), xm = Math.min(...mp.map(p => p.x)), xn = Math.max(...mp.map(p => p.x + p.ancho));
-        ps = ps.map(p => { if (p.modulo || !['zoclo', 'cubierta', 'backsplash'].includes(p.rol)) return p;   /* las tapetas laterales se quedan, con su color */
-          const lo = p.rol === 'backsplash' ? xm : xa, hi = p.rol === 'backsplash' ? xn : xb;
-          const a = Math.max(p.x, lo), b = Math.min(p.x + p.ancho, hi); if (b - a < .5) return null;
-          return a === p.x && b === p.x + p.ancho ? p : Object.assign({}, p, { x: a, ancho: b - a }); }).filter(Boolean); }
+      if (mp.length) { const tp = ps.filter(p => p.rol === 'tapeta' && !p.modulo), iv = intervalosConjunto(mp, tp);   /* A190: hasta las tapetas; A198: y cortado donde hay una torre */
+        ps = ps.flatMap(p => p.modulo || !['zoclo', 'cubierta', 'backsplash'].includes(p.rol) ? [p] : trocearEn(p, p.rol === 'backsplash' ? iv.mod : iv.todo)); }
     }
     if (!ps.length) throw new Error(T('Este conjunto no tiene piezas en esta cara'));
     const x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x + p.ancho)), z0 = Math.min(...ps.map(p => p.z)), z1 = Math.max(...ps.map(p => p.z + p.alto));
@@ -10656,7 +10676,7 @@ const LAM = (() => {
           g.strokeStyle = plano ? '#222222' : '#4A5057'; g.lineWidth = dd + 1.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
           g.strokeStyle = plano ? '#FFFFFF' : '#B9C0C7'; g.lineWidth = dd; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.restore(); return; }
         caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? (p.rol === 'frente' ? '#FFFFFF' : '#F2F4F6') : colorPieza(p), plano ? '#222222' : '#4A5057', p.rol === 'frente' ? 1 : .7, { p, sc, plano });
-        if (p.rol === 'equipo' && (p.tipo === 'Horno' || p.tipo === 'Microondas')) detalleEquipo(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, p.tipo, plano); });
+        if (p.rol === 'equipo' && ['Horno', 'Microondas', 'Estufa', 'Lavavajillas'].includes(p.tipo)) detalleEquipo(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, p.tipo, plano); });
       herrajes.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'f', mo.espejo); if (q) dibujarSim(g, q.id, q.flip, X(mo.origen[0]), Y(mo.origen[2]), sc, plano); });
       const cuerpos = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
       const ext = {}; cuerpos.forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || { a: 1e9, b: -1e9, id: p.modulo }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
@@ -10749,7 +10769,7 @@ const LAM = (() => {
     const loc = vista === 'ConjLocal';
     let recorte; if (!loc && !isla) { const mp = piezasCara(planDeConj(o), o.cara || 0).filter(p => p.modulo && f(p, o.cara || 0) && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
       const tp = piezasCara(planDeConj(o), o.cara || 0).filter(p => p.rol === 'tapeta' && !p.modulo && f(p, o.cara || 0));   /* A190: hasta las tapetas laterales */
-      if (mp.length) recorte = [Math.min(...mp.concat(tp).map(p => p.x)), Math.max(...mp.concat(tp).map(p => p.x + p.ancho))]; }
+      if (mp.length) recorte = intervalosConjunto(mp, tp); }
     const esc = isoEscena({ abiertos: new Set(loc ? [] : o.abiertos || []), cotas: !loc && o.cotas !== false, filtro: loc || isla ? null : f, explotar: loc ? 0 : o.explotado ? 16 : 0, recorte,
       plan: !loc && isla ? o.planIsla.plan : undefined, extraCaras: loc ? o.extraCaras : undefined });
     const tinte = loc ? q => coloresConj(!!o.plano, isla ? q.extra : (!q.extra && f(q.p, q.ci))) : null;
@@ -10796,9 +10816,17 @@ const LAM = (() => {
       /* A191: un solo esquema pequeno del conjunto; cada grupo de piezas tiene un tono (gama) y lo lleva en su etiqueta */
       const tono = i => plano ? `hsl(0,0%,${42 + (i * 17) % 38}%)` : `hsl(${(210 + 120 * (i % 3) + 25 * Math.floor(i / 3)) % 360},55%,${48 + (Math.floor(i / 3) % 2) * 10}%)`;   /* A196: triada con vecinos analogos; saturacion de 55 % */
       lista.forEach((q, i) => { q.tono = tono(i); });
-      { const todos = fr.concat(tap), xa = Math.min(...todos.map(p => p.x)), xb = Math.max(...todos.map(p => p.x + p.ancho)), za = Math.min(...todos.map(p => p.z)), zb = Math.max(...todos.map(p => p.z + p.alto));
-        const ks = Math.min(220 / Math.max(1, xb - xa), 190 / Math.max(1, zb - za)), ke = ks, ox = M + 24, oy = M + 14;
+      const eqs = todasC.filter(p => p.rol === 'equipo' && p.modulo && f(p, cara) && p.ancho > 0 && p.alto > 0 && ['Estufa', 'Lavavajillas', 'Refrigerador', 'Frigobar'].includes(p.tipo));   /* A198: aparatos sin frente: bloque gris y su icono */
+      { const todos = fr.concat(tap, eqs), xa = Math.min(...todos.map(p => p.x)), xb = Math.max(...todos.map(p => p.x + p.ancho)), za = Math.min(...todos.map(p => p.z)), zb = Math.max(...todos.map(p => p.z + p.alto));
+        /* A198: el icono del componente va sobre el esquema, centrado en lo que ocupa el modulo; el esquema baja para dejarle sitio */
+        const mods = modulosPorId(), porMod = {};
+        const clave = m => !m ? null : cfg.moduloTarja === m.id && cfg.tipoTarja > 0 ? 'tarja' : m.parrilla ? 'parrilla' : m.upper && hasCampana(m) ? 'campana' : m.tipo === 'Hornos' ? 'horno' : m.tipo === 'Alacena' ? 'alacena'
+          : m.tipo === 'Refri' ? 'refri' : m.tipo === 'Estufa' ? 'estufa' : m.tipo === 'Lavavajillas' ? 'lavavajillas' : null;
+        fr.concat(eqs).forEach(p => { if (!p.modulo) return; const e = porMod[p.modulo] = porMod[p.modulo] || { a: 1e9, b: -1e9 }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
+        const iconos = Object.keys(porMod).map(id => ({ k: clave(mods[id]), a: porMod[id].a, b: porMod[id].b })).filter(q => q.k);
+        const ks = Math.min(220 / Math.max(1, xb - xa), 190 / Math.max(1, zb - za)), ke = ks, ox = M + 24, oy = M + 14 + (iconos.length ? 24 : 0);
         g.save(); g.lineWidth = .5; g.strokeStyle = '#6B7680';
+        eqs.forEach(p => { g.fillStyle = '#D5DADF'; g.fillRect(ox + (p.x - xa) * ks, oy + (zb - p.z - p.alto) * ke, p.ancho * ks, p.alto * ke); g.strokeRect(ox + (p.x - xa) * ks, oy + (zb - p.z - p.alto) * ke, p.ancho * ks, p.alto * ke); });
         lista.forEach(q => { g.fillStyle = q.tono; q.ps.forEach(p => { const rx = ox + (p.x - xa) * ks, rw = Math.max(1.2, p.ancho * ks), ry = oy + (zb - p.z - p.alto) * ke, rh = Math.max(1.2, p.alto * ke); g.fillRect(rx, ry, rw, rh); g.strokeRect(rx, ry, rw, rh);  }); });
         /* A193: la proyeccion de abatimiento de los frentes: puerta, triangulo hacia su bisagra; puerta elevable, lambda; el cajon no abate */
         g.setLineDash([3, 2]); g.strokeStyle = '#1F2A33'; g.lineWidth = .7;
@@ -10809,13 +10837,7 @@ const LAM = (() => {
           else if (p.abre.tipo === 'Elevable' || p.abre.tipo === 'Piston') { g.moveTo(rx, ry + rh); g.lineTo(rx + rw / 2, ry); g.lineTo(rx + rw, ry + rh); }
           g.stroke(); });
         g.setLineDash([]);
-        /* A197: el icono del componente que lleva el modulo, una vez, en su frente mayor */
-        { const mods = modulosPorId(), vistos = new Set();
-          const clave = m => !m ? null : cfg.moduloTarja === m.id && cfg.tipoTarja > 0 ? 'tarja' : m.parrilla ? 'parrilla' : m.upper && hasCampana(m) ? 'campana' : m.tipo === 'Hornos' ? 'horno' : m.tipo === 'Alacena' ? 'alacena'
-            : m.tipo === 'Refri' ? 'refri' : m.tipo === 'Estufa' ? 'estufa' : m.tipo === 'Lavavajillas' ? 'lavavajillas' : null;
-          fr.slice().sort((a2, b2) => b2.ancho * b2.alto - a2.ancho * a2.alto).forEach(p => { if (!p.modulo || vistos.has(p.modulo)) return; const kk = clave(mods[p.modulo]); if (!kk) return;
-            const rx = ox + (p.x - xa) * ks, rw = p.ancho * ks, ry = oy + (zb - p.z - p.alto) * ke, rh = p.alto * ke, sz = Math.min(rw, rh, 20) * .8; if (sz < 7) return;
-            vistos.add(p.modulo); dibujarIconoEquipo(g, kk, rx + rw / 2, ry + rh / 2, sz); }); }
+        iconos.forEach(q => dibujarIconoEquipo(g, q.k, ox + ((q.a + q.b) / 2 - xa) * ks, oy - 13, 18));
         g.restore(); y = oy + (zb - za) * ke + 52; schemeR = ox + (xb - xa) * ks + 30; }   /* A194: aire para las cotas de la primera pieza */
       const yIni = y;
       lista.forEach(q => { const w = q.w * sc, h = q.h * sc;
