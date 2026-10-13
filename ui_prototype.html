@@ -3457,7 +3457,7 @@ function planDePiezas(c = cfg){
       }
       xs.push(h.x1);
       for (let i = 1; i <= nRep; i++) {
-        const zc = h.z0 + (h.z1 - h.z0)*i/(nRep + 1);
+        const luz = (h.z1 - h.z0 - nRep*e)/(nRep + 1), zc = h.z0 + i*luz + (i - .5)*e;   /* A188: las luces entre tableros quedan iguales */
         for (let b = 0; b < xs.length; b += 2) add({ id: base + ':repisa:' + i + (nDiv ? ':' + b/2 : ''), rol: 'repisa', modulo: dueno.id, tipo: 'Repisa', x: xs[b], y: h.y0, z: zc - e/2, ancho: xs[b + 1] - xs[b], fondo: h.y1 - h.y0, alto: e, material: matPanel(dueno, zona, 'repisa.' + i, 'Repisas'), etiqueta: 'gabinetes' });
       }
     };
@@ -5404,9 +5404,9 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     brd({ x: body.x, y: body.y, w: body.w, h: t }, mm); brd({ x: body.x, y: Z(z0) - t, w: body.w, h: t }, mm); brd({ x: xw - t, y: body.y, w: t, h: body.h }, mm);
     const fr = fronts(m).filter(f => f.kind !== 'Gola' && f.z1 > z0 + .5 && f.z0 < z1 - .5);   /* A131: traslape real; los frentes que solo tocan el borde son de la otra caja */
     fr.forEach(f => { brd({ x: body.x - t, y: Z(f.z1), w: t, h: (f.z1 - f.z0)*s }, mm);
-      if (f.kind === 'Cajon' && !f.fijo) { const [ca, cb] = cajaDeCajon(m, f, z0 + 1.8, z1 - 1.8), q = { x: body.x + 2, y: Z(cb), w: Math.max(2, body.w - t - 6*s), h: (cb - ca)*s }; ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });   /* A126: como en 3D */
+      if (f.kind === 'Cajon' && !f.fijo) { const [ca, cb] = cajaDeCajon(m, f, z0 + 1.8, z1 - 1.8), atras = PLAN_CUERPO.fondo + PLAN_CAJA.retiro + PLAN_CUERPO.lateral, q = { x: body.x, y: Z(cb), w: Math.max(2, (D - atras)*s), h: (cb - ca)*s };   /* A188: como en el plan: pegada al frente */ ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });   /* A126: como en 3D */
     const n = conRepisas && !fr.some(f => f.kind === 'Cajon') ? shelvesOf(m) : 0, inner = z1 - z0 - 3.6;
-    for (let k = 1; k <= n; k++) brd({ x: body.x + 2, y: Z(z0 + 1.8 + inner*k/(n + 1) + .9), w: body.w - 2*t, h: t }, mm);
+    for (let k = 1; k <= n; k++) { const lz = (inner - n*1.8)/(n + 1); brd({ x: body.x + 2, y: Z(z0 + 1.8 + k*lz + (k - .5)*1.8 + .9), w: body.w - 2*t, h: t }, mm); }
     /* A125 (usuario, 09/10): jaladeras en corte (clasica y simple): salen del frente; puertas a lo largo, cajones de canto, boton */
     if (cfg.style !== 'Moderna') fr.forEach(f => { if (f.kind === 'Elevable' || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
       const L = cfg.largoJaladera, vert = f.kind === 'Puerta', ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0), sale = 2.5;
@@ -5419,7 +5419,7 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
   /* A118 (usuario, 08/10): repisas de un tramo [a, b] (como drawShelves: n repartidas en su luz) y, si no es el primero, su tablero divisorio */
   const repisas = (m, a, b, n, D, d0 = 0, div = false) => { const mm = m.material || cfg.materialGeneral, inner = b - a - 3.6;
     if (div) brd({ x: P(D), y: Z(a + 1.8), w: (D - d0)*s - t, h: t }, mm);
-    for (let k = 1; k <= n; k++) brd({ x: P(D) + 2, y: Z(a + 1.8 + inner*k/(n + 1) + .9), w: (D - d0)*s - t - 2, h: t }, mm); };
+    for (let k = 1; k <= n; k++) { const lz = (inner - n*1.8)/(n + 1); brd({ x: P(D) + 2, y: Z(a + 1.8 + k*lz + (k - .5)*1.8 + .9), w: (D - d0)*s - t - 2, h: t }, mm); } };
   const low = moduloEn(false, xc), up = moduloEn(true, xc), out = { low, up };
   /* A141 (usuario, 11/10): por la columna de una esquina, el corte de las piezas reales del esquinero */
   const mEsq = low && low.esquina ? low : up && up.esquina ? up : null;
@@ -5920,7 +5920,7 @@ function drawIslandSection(inset){   /* inset (A115): dibujada junto al alzado f
     fr.forEach(f => { board({ x: body.x - t, y: Y(f.z1), w: t, h: (f.z1 - f.z0)*s });
       if (f.kind === 'Cajon' && !f.fijo) { const z1 = Math.max(f.z0 + 4, f.z1 - 3), q = { x: body.x + 2, y: Y(z1), w: Math.max(2, body.w - t - 6*s), h: (z1 - f.z0 - 1)*s }; ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });
     const n = fr.some(f => f.kind === 'Cajon') ? 0 : shelvesOf(mod), inner = cfg.altoBajos - 3.6;
-    for (let k = 1; k <= n; k++) board({ x: body.x + 2, y: Y(zb + 1.8 + inner*k/(n + 1) + .9), w: body.w - t - 2, h: t });
+    for (let k = 1; k <= n; k++) { const lz = (inner - n*1.8)/(n + 1); board({ x: body.x + 2, y: Y(zb + 1.8 + k*lz + (k - .5)*1.8 + .9), w: body.w - t - 2, h: t }); }
     if (selection.has(mod.id)) { ctx.fillStyle = 'rgba(219,238,248,.35)'; ctx.fillRect(body.x, body.y, body.w, body.h); post.push(() => outline(body, C.accent, 3)); }
     ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText(`${nombreModulo(mod)} · ${fmt(mod.ancho)}${uS()}`, body.x + 4, body.y + t + 4); ctx.textBaseline = 'alphabetic';
     materialHits.push({ rect: body, key: 'mod:' + mod.id }); hits.push({ rect: body, module: mod });   /* F4: el gabinete cortado, no todos */
@@ -6228,7 +6228,7 @@ function esquinerosPlan(add, r2, sep, tf){
     else if (techo) losa(pre + ':techo', 'panel', 'Techo', modulo, canal > 0 ? interior(fa - ng, fb - ng) : inner, z1 - e1, z1, mat, et);   /* A158: ng */
     /* A140 (usuario 11/10): la alacena con puerta diagonal lleva repisas en L (a todo el fondo de cada ala); el triangulo tras la puerta queda libre */
     const pr = rep ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - rep[1], b - e1], [LA - rep[1], rep[0]], [LA - a + e1, rep[0]]] : repisasL ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, fa], [LA - a + e1, fa]] : inner;
-    for (let i = 1; i <= repisas; i++) { const z = z0 + (z1 - z0)*i/(repisas + 1); losa(pre + ':repisa:' + i, 'repisa', 'Repisa', modulo, pr, z - e1/2, z + e1/2, gm('Repisas'), et); }
+    for (let i = 1; i <= repisas; i++) { const luz = (z1 - z0 - repisas*e1)/(repisas + 1), z = z0 + i*luz + (i - .5)*e1; losa(pre + ':repisa:' + i, 'repisa', 'Repisa', modulo, pr, z - e1/2, z + e1/2, gm('Repisas'), et); }
     return inner;
   };
   /* A143: con gola las hojas bajan la holgura y el perfil corre detras de cada ala; un ala que llega a la barra perpendicular no lleva hoja */
@@ -6519,7 +6519,7 @@ function drawShelves(body, count, owner, zone, divider = false, sel = false){
   piece(inner, 'Interior', sel ? C.interiorSel : C.interior, 'fondo'); outline(inner, C.line, 1);
   ctx.strokeStyle = C.line; ctx.lineWidth = 1;
   for (let i = 1; i <= count; i++) {
-    const y = inner.y + inner.h - inner.h*i/(count+1) - t/2, q = { x: inner.x, y, w: inner.w, h: t }; edgeY(y); edgeY(y + t);
+    const lz = (inner.h - count*t)/(count + 1), y = inner.y + inner.h - i*(lz + t), q = { x: inner.x, y, w: inner.w, h: t }; edgeY(y); edgeY(y + t);   /* A188: luces iguales */
     piece(q, 'Repisas', C.shelf, 'repisa.' + i); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(q.x, q.y, q.w, q.h);
   }
   if (divider) { const nd = typeof divider === 'number' ? divider : Math.max(1, owner && owner.divisiones || 1);   /* Divisiones verticales (1 a 4; sin limite en cajas unidas, A41) */
