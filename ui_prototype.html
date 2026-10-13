@@ -10170,7 +10170,11 @@ const LAM = (() => {
        local mire al cuarto: la proyeccion global de sus ejes locales es la del simbolo, espejada en horizontal si la cara va girada */
     const simCara = cara => { const ex = cara.ex, ey = cara.ey, vy = SX * ey[0] - ey[1], a = SX * ey[0] + ey[1], sx = SX * ex[0] - ex[1];
       return Math.abs(vy + 1) < .01 && Math.abs(Math.abs(a) - 1) < .01 && Math.abs(Math.abs(sx) - 1) < .01 ? { sx: Math.round(sx), f: Math.round(a) } : null; };
-    caras.forEach((cara, ci) => cara.piezas.forEach(p => {
+    caras.forEach((cara, ci) => cara.piezas.forEach(p0 => {
+      let p = p0;
+      if (o.recorte && ci === 0 && !p.modulo && ['zoclo', 'cubierta', 'backsplash'].includes(p.rol)) {   /* A186: solo la parte de zoclo y cubierta de este conjunto */
+        const a = Math.max(p.x, o.recorte[0]), b = Math.min(p.x + p.ancho, o.recorte[1]); if (b - a < .5) return;
+        if (a !== p.x || b !== p.x + p.ancho) p = Object.assign({}, p, { x: a, ancho: b - a }); }
       if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
       const fs = o.sinCad ? null : simCara(cara);
       if (o.filtro && !o.filtro(p, ci)) return;   /* A177: solo el conjunto pedido */
@@ -10469,6 +10473,7 @@ const LAM = (() => {
     if (grupo === 'isla') return () => true;   /* todo lo de la isla */
     const mods = modulosPorId(); let zBA = 150; try { zBA = baseAltos(); } catch (e) { /* valor por defecto */ }
     return (p, ci) => { if (ci !== (cara || 0)) return false;
+      if (!p.modulo && p.rol === 'tapeta') return false;   /* A186: ni tapetas ni extras en la vista de un conjunto */
       const m = p.modulo && mods[p.modulo], g = m ? (m.upper ? 'altos' : (isSpecial(m) || isRefri(m)) ? 'torres' : 'bajos') : p.rol === 'backsplash' ? 'muro' : (p.z + p.alto / 2 >= zBA ? 'altos' : 'bajos');
       return g === grupo; };
   }
@@ -10492,6 +10497,16 @@ const LAM = (() => {
     g.beginPath(); g.moveTo(x, ya); g.lineTo(x, yb); g.moveTo(x - 5, ya); g.lineTo(x + 5, ya); g.moveTo(x - 5, yb); g.lineTo(x + 5, yb);
     [ya, yb].forEach(y => { g.moveTo(x - 3.5, y + 3.5); g.lineTo(x + 3.5, y - 3.5); }); g.stroke();
     g.translate(x - 3, (ya + yb) / 2); g.rotate(-Math.PI / 2); g.font = "500 11px 'Inter'"; g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillText(texto, 0, 0); g.restore();
+  }
+  /* A186: las cotas de las vistas de conjunto salen como objetos (cap.dims) para poder moverlas en Presentar; en el dialogo de laminas se dibujan */
+  function juegoCotas(g, o){
+    const sueltas = !!o.cotasSueltas, dims = [];
+    return { dims,
+      H: (xa, xb, y, t) => sueltas ? dims.push([xa, y, xb, y, String(t)]) : cotaH(g, xa, xb, y, t),
+      V: (x, ya, yb, t) => sueltas ? dims.push([x, ya, x, yb, String(t)]) : cotaV(g, x, ya, yb, t),
+      fin: cap => { if (!dims.length) return cap; const xs = [], ys = []; dims.forEach(d => { xs.push(d[0], d[2]); ys.push(d[1], d[3]); });
+        const x0 = Math.min(cap.bb.x0, Math.min(...xs) - 18), y0 = Math.min(cap.bb.y0, Math.min(...ys) - 18), x1 = Math.max(cap.bb.x1, Math.max(...xs) + 18), y1 = Math.max(cap.bb.y1, Math.max(...ys) + 18);
+        cap.dims = dims; cap.bb = { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 }; return cap; } };
   }
   const colorPieza = p => { const m = p.material ? mat(p.material) : null; if (m) return rgbOf(m); const e = p.etiqueta;
     return e === 'frentes' ? C.front : e === 'cubierta' ? '#C8B99F' : e === 'zoclo' ? '#4A4F55' : e === 'backsplash' ? C.backsplash : e === 'herrajes' ? C.metal : e === 'equipos' ? '#B7BEC5' : C.board; };
@@ -10517,7 +10532,7 @@ const LAM = (() => {
     if (!ps.length) throw new Error(T('Este conjunto no tiene piezas en esta cara'));
     const x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x + p.ancho)), z0 = Math.min(...ps.map(p => p.z)), z1 = Math.max(...ps.map(p => p.z + p.alto));
     const sc = (10 / o.escalaFija) / PX_MM, M = 46, X = x => M + (x - x0) * sc, Y = z => M + (z1 - z) * sc;
-    const g = new Grabador((x1 - x0) * sc + 2 * M, (z1 - z0) * sc + 2 * M), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
+    const g = new Grabador((x1 - x0) * sc + 2 * M, (z1 - z0) * sc + 2 * M), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
     try {
       ps.slice().sort((a, b) => (a.y + a.fondo) - (b.y + b.fondo) || a.z - b.z).forEach(p => {
         caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? (p.rol === 'frente' ? '#FFFFFF' : '#F2F4F6') : colorPieza(p), plano ? '#222222' : '#4A5057', p.rol === 'frente' ? 1 : .7); });
@@ -10529,14 +10544,14 @@ const LAM = (() => {
       let i = 0; const runs = [];
       while (i < mods.length) { let j = i; const w = mods[i].b - mods[i].a; while (j + 1 < mods.length && Math.abs(mods[j + 1].b - mods[j + 1].a - w) < .05 && Math.abs(mods[j + 1].a - mods[j].b) < 1.5) j++;
         runs.push({ a: mods[i].a, b: mods[j].b, n: j - i + 1, w }); i = j + 1; }
-      runs.forEach(r => cotaH(g, X(r.a), X(r.b), M - 18, r.n > 1 ? `${r.n} × ${fmt(r.w)}` : fmt(r.w)));
-      if (runs.length > 1) cotaH(g, X(x0), X(x1), M - 36, medida(x1 - x0));
+      runs.forEach(r => J.H(X(r.a), X(r.b), M - 18, r.n > 1 ? `${r.n} × ${fmt(r.w)}` : fmt(r.w)));
+      if (runs.length > 1) J.H(X(x0), X(x1), M - 36, medida(x1 - x0));
       const cubB = ps.find(p => p.rol === 'cubierta' && !p.modulo), zocB = ps.filter(p => p.rol === 'zoclo');
       if (o.grupo === 'bajos' && cubB) {   /* A186: piso a zoclo, zoclo a bajo cubierta y espesor de la cubierta; total, del piso al lecho superior de la cubierta */
         const niv = [...new Set([z0, zocB.length ? Math.max(...zocB.map(p => p.z + p.alto)) : z0, cubB.z, cubB.z + cubB.alto].map(v => Math.round(v * 100) / 100))].sort((a, b) => a - b);
-        for (let q = 0; q + 1 < niv.length; q++) if (niv[q + 1] - niv[q] > .4) cotaV(g, M - 18, Y(niv[q + 1]), Y(niv[q]), fmt(niv[q + 1] - niv[q]));
-        cotaV(g, M - 36, Y(cubB.z + cubB.alto), Y(z0), medida(cubB.z + cubB.alto - z0));
-      } else cotaV(g, M - 20, Y(z1), Y(z0), medida(z1 - z0));
+        for (let q = 0; q + 1 < niv.length; q++) if (niv[q + 1] - niv[q] > .4) J.V(M - 18, Y(niv[q + 1]), Y(niv[q]), fmt(niv[q + 1] - niv[q]));
+        J.V(M - 36, Y(cubB.z + cubB.alto), Y(z0), medida(cubB.z + cubB.alto - z0));
+      } else J.V(M - 20, Y(z1), Y(z0), medida(z1 - z0));
       if (conPuertas) {   /* despiece: la medida de cada puerta y cajon distinto, una vez, con cuantos hay */
         const todosFr = ps.filter(p => p.rol === 'frente'), yFr = Math.max(...todosFr.map(p => p.y + p.fondo)), fr = todosFr.filter(p => p.y + p.fondo >= yFr - 6), grupos = new Map();   /* solo los del lado que se ve (la isla tiene dos) */
         fr.forEach(p => { const k = `${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = grupos.get(k) || { p, n: 0 }; q.n++; if (p.x < q.p.x - .01 || (Math.abs(p.x - q.p.x) < .01 && p.z < q.p.z)) q.p = p; grupos.set(k, q); });
@@ -10549,10 +10564,10 @@ const LAM = (() => {
         const vistos = new Set();
         mods.forEach(mo => { const k = Math.round((mo.b - mo.a) * 10); if (vistos.has(k)) return; vistos.add(k);
           const tab = ps.filter(p => p.modulo === mo.id && p.rol !== 'frente' && ['Piso', 'Techo', 'Repisa', 'Cama', 'CamaInterior'].includes(p.tipo) && p.ancho > (mo.b - mo.a) * .6).sort((a, b) => a.z - b.z);
-          for (let t = 0; t + 1 < tab.length; t++) { const lo = tab[t].z + tab[t].alto, hi = tab[t + 1].z; if (hi - lo > 2.5) cotaV(g, X(mo.a) + 14 + 12 * (t % 2), Y(hi), Y(lo), fmt(hi - lo)); } });
+          for (let t = 0; t + 1 < tab.length; t++) { const lo = tab[t].z + tab[t].alto, hi = tab[t + 1].z; if (hi - lo > 2.5) J.V(X(mo.a) + 14 + 12 * (t % 2), Y(hi), Y(lo), fmt(hi - lo)); } });
       }
     } finally { Object.assign(C, previoC); }
-    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista, plano, bb: cajaTinta(g.ops) };
+    return J.fin({ ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista, plano, bb: cajaTinta(g.ops) });
   }
   /* detalle de la gola: corte por el centro del gabinete del conjunto que mas perfiles lleva, acercado a cada perfil. Con cajones salen el
      perfil superior (L, o el que diga el estilo) y el de entre cajones (C) lado a lado; con melamina el alma y las alas salen del espesor
@@ -10574,7 +10589,7 @@ const LAM = (() => {
     const yF = Math.max(...cut.filter(p => p.rol === 'frente' || p.tipo === 'Gola' || p.tipo === 'Perfil').map(p => p.y + p.fondo));
     const sc = (10 / o.escalaFija) / PX_MM, M = 46, W = 19 * sc, GAP = 70, mat = cfg.gola === 'Melamina' ? T('melamina') : T('lámina');
     const ventanas = elegidos.map(c => ({ c, wz0: c.z0 - 9, wz1: c.z1 + 9 })), altos = ventanas.map(v => (v.wz1 - v.wz0) * sc), hMax = Math.max(...altos);
-    const g = new Grabador(M * 2 + elegidos.length * W + (elegidos.length - 1) * GAP, M * 2 + hMax + 40), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
+    const g = new Grabador(M * 2 + elegidos.length * W + (elegidos.length - 1) * GAP, M * 2 + hMax + 40), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
     try {
       ventanas.forEach((v, i) => {
         const x0 = M + i * (W + GAP), wy0 = yF - 16, wy1 = yF + 3, hh = (v.wz1 - v.wz0) * sc, y0 = M + (hMax - hh) / 2;
@@ -10584,21 +10599,24 @@ const LAM = (() => {
         g.restore();
         g.save(); g.strokeStyle = '#9AA3AB'; g.lineWidth = .6; g.setLineDash([4, 3]); g.strokeRect(x0, y0, W, hh); g.restore();
         const web = v.c.ps.find(p => p.tipo === 'Gola'), fl = v.c.ps.filter(p => p.tipo === 'Perfil'), forma = i === 0 ? (cfg.perfil || 'L') : 'C';
-        if (web) { cotaV(g, x0 - 16, Y(web.z + web.alto), Y(web.z), `${fmt(web.alto)}`); cotaH(g, X(web.y + web.fondo), X(web.y), y0 + hh + 20, `e ${fmt(web.fondo)}`); }
-        if (fl.length) cotaH(g, X(fl[0].y + fl[0].fondo), X(fl[0].y), y0 - 12, `${fmt(fl[0].fondo)}`);
+        /* A186: del perfil se acota su espesor (alma y alas), no las medidas de la configuracion de gola */
+        if (web) J.H(X(web.y + web.fondo), X(web.y), y0 + hh + 20, `e ${fmt(web.fondo)}`);
+        fl.forEach((q, k) => { const xq = X(q.y) + 14 + 12 * (k % 2); J.V(xq, Y(q.z + q.alto), Y(q.z), `e ${fmt(q.alto)}`); });
         g.save(); g.fillStyle = '#444444'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
         g.fillText(`${T('PERFIL')} ${forma} · ${mat}${fl.length > 1 ? ' · ' + T('entre cajones') : ''}`, x0, M - 28); g.restore();
       });
     } finally { Object.assign(C, previoC); }
-    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjGola', plano,
-      bb: { x0: 0, y0: 0, x1: g.canvas.width, y1: g.canvas.height, w: g.canvas.width, h: g.canvas.height } };   /* la ventana del detalle: lo recortado no cuenta */
+    const capG = { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjGola', plano,
+      bb: { x0: 0, y0: 0, x1: g.canvas.width, y1: g.canvas.height, w: g.canvas.width, h: g.canvas.height } }; return J.fin(capG);   /* la ventana del detalle: lo recortado no cuenta */
   }
   /* isometrico del conjunto (con los frentes que se abrieron y, si se pide, separados) y vista general con el volumen en color */
   function capturarConjuntoIso(vista, o){
     const isla = o.grupo === 'isla', f = filtroConjunto(o.grupo, isla ? 0 : (o.cara || 0));
     if (isla ? !o.planIsla : !conjuntoDisponible(o.grupo, o.cara || 0)) throw new Error(T('Este conjunto no tiene piezas en esta cara'));
     const loc = vista === 'ConjLocal';
-    const esc = isoEscena({ abiertos: new Set(loc ? [] : o.abiertos || []), cotas: !loc && o.cotas !== false, filtro: loc || isla ? null : f, explotar: loc ? 0 : o.explotado ? 16 : 0,
+    let recorte; if (!loc && !isla) { const mp = piezasCara(planDeConj(o), o.cara || 0).filter(p => p.modulo && f(p, o.cara || 0) && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
+      if (mp.length) recorte = [Math.min(...mp.map(p => p.x)), Math.max(...mp.map(p => p.x + p.ancho))]; }
+    const esc = isoEscena({ abiertos: new Set(loc ? [] : o.abiertos || []), cotas: !loc && o.cotas !== false, filtro: loc || isla ? null : f, explotar: loc ? 0 : o.explotado ? 16 : 0, recorte,
       plan: !loc && isla ? o.planIsla.plan : undefined, extraCaras: loc ? o.extraCaras : undefined });
     const tinte = loc ? q => coloresConj(!!o.plano, isla ? q.extra : (!q.extra && f(q.p, q.ci))) : null;
     const cap = capturarIsometrico(Object.assign({}, o, { escena: esc, tinte, sinLeyenda: true, vistaId: vista, conHits: !loc }));
