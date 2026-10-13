@@ -10136,6 +10136,21 @@ const LAM = (() => {
     return S;
   }
 
+  /* A186: el frente de un equipo no es una placa lisa: control, ventana y jaladera del horno, teclado del microondas, puertas del refrigerador.
+     Rectangulos [x0, x1, z0, z1, color] sobre su cara frontal, en ejes del plan */
+  function decoEquipo(p){
+    const w = p.ancho, h = p.alto, X = a => p.x + w * a, Z = a => p.z + h * a, R = (a, b, c, d, col) => ({ x0: X(a), x1: X(b), z0: Z(c), z1: Z(d), c: col });
+    const OSC = '#2A2F34', VID = '#171B1F', MET = '#D6DBE0', LIN = '#6F7881';
+    switch (p.tipo) {
+      case 'Horno': case 'Estufa': return [R(.05, .95, .84, .96, OSC), R(.04, .96, .74, .79, MET), R(.08, .92, .08, .70, VID), R(.14, .86, .12, .66, '#232A31')];
+      case 'Microondas': return [R(.05, .72, .12, .88, VID), R(.09, .68, .17, .83, '#232A31'), R(.77, .95, .12, .88, OSC), R(.80, .92, .70, .84, '#3B434A'), R(.80, .92, .22, .30, MET)];
+      case 'Refrigerador': return [R(0, 1, .695, .705, LIN), R(.08, .12, .72, .90, MET), R(.08, .12, .30, .60, MET)];
+      case 'Frigobar': return [R(.06, .94, .10, .90, '#20262B'), R(.09, .13, .55, .85, MET)];
+      case 'Lavavajillas': return [R(.04, .96, .86, .97, OSC), R(.10, .90, .78, .82, MET)];
+      default: return null;
+    }
+  }
+
   function isoEscena(o = {}){
     const plan = o.plan || planCocina(), conPuertas = o.puertas !== false;
     const caras = [{ piezas: plan.piezas, org: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0] }]
@@ -10191,6 +10206,8 @@ const LAM = (() => {
       q.perf = !abierto ? [] : (p.perforaciones || []).map(f => { const r = f.diametro / 2, pts = [];
         for (let i = 0; i < 20; i++) { const t = i * Math.PI * 2 / 20; pts.push(P(x0 + f.x + r * Math.cos(t), y0, z0 + f.z + r * Math.sin(t))); }
         return { pts, n: vunit(vsub(P(x0, y0 - 1, z0), P(x0, y0, z0))) }; });
+      if (p.etiqueta === 'equipos' && !p.hueco) { const dc = decoEquipo(p), yf = p.y + p.fondo + .03;
+        if (dc) q.deco = dc.map(r => ({ pts: [P(r.x0, yf, r.z0), P(r.x1, yf, r.z0), P(r.x1, yf, r.z1), P(r.x0, yf, r.z1)], color: r.c })); }
       if (p.tipo === 'Condimentero' && p.rol === 'herraje') q.alambre = alambreCondimentero(p).map(([a, b, g]) => [P(a[0], a[1], a[2]), P(b[0], b[1], b[2]), g]);
       const malla = mallaForma(p);   /* A185: pistones, vastagos, perfiles de gola: su forma, no su caja */
       if (malla) q.malla = malla.map(c => { const cen = c.pl.reduce((t, v) => vadd(t, v), [0, 0, 0]).map(t => t / c.pl.length), w0 = P(cen[0], cen[1], cen[2]), w1 = P(cen[0] + c.n[0], cen[1] + c.n[1], cen[2] + c.n[2]);
@@ -10280,6 +10297,7 @@ const LAM = (() => {
       else if (q.malla) { q.malla.forEach(c => { if (vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);
           tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null }); }); }
       else if (!contiene.has(q)) { emitCaras(q); emitExtras(q); }
+      if (q.deco) q.deco.forEach(d => { const pr = d.pts.map(proy); cuenta(pr); tri.push({ t: 'cara', pr, k: 1, q, color: d.color, holes: null }); });
       trasPuerta();
       (despues2.get(qi) || []).forEach(z => emitCaras(z.q));
     });
@@ -10345,7 +10363,7 @@ const LAM = (() => {
           h2.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); });
       }
       const tn = o.tinte ? o.tinte(t.q) : null, c = tn || base(t.q.p);
-      g.fillStyle = plano ? (t.t === 'perf' ? C.line : tn ? '#9AA3AB' : C.flat) : t.t === 'perf' ? '#3A3F45' : sombra(c, t.k);
+      g.fillStyle = t.color ? (plano ? '#B9C0C6' : t.color) : plano ? (t.t === 'perf' ? C.line : tn ? '#9AA3AB' : C.flat) : t.t === 'perf' ? '#3A3F45' : sombra(c, t.k);
       g.fill();
       g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
       if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && t.q.p.frente) isoHits.push({ pr, frente: t.q.p.frente, modulo: t.q.p.modulo });
