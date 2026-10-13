@@ -10972,6 +10972,20 @@ const LAM = (() => {
   }
 
   /* empaca vistas ya capturadas a su escala en filas dentro del area de la hoja (fuera de la franja); null si no caben */
+  function empacarMejor(items){
+    if (empacar(items)) return items;
+    const medida = it => { const bb = it.bbEf || (it.it && it.it.bbEf) || it.cap.bb; return [bb.w * PX_MM, bb.h * PX_MM]; };
+    const por = f => items.slice().sort((a, b) => f(medida(b)) - f(medida(a)));
+    for (const ord of [por(m => m[1]), por(m => m[0]), por(m => m[0] * m[1])]) if (empacar(ord)) return items;
+    if (items.length <= 7) {   /* pocas vistas: se prueban todos los ordenes */
+      const usado = new Array(items.length).fill(false), cur = [];
+      const rec = () => { if (cur.length === items.length) return !!empacar(cur.slice());
+        for (let i = 0; i < items.length; i++) { if (usado[i]) continue; usado[i] = true; cur.push(items[i]); const ok = rec(); cur.pop(); usado[i] = false; if (ok) return true; }
+        return false; };
+      if (rec()) return items;
+    }
+    return null;
+  }
   function empacar(items){
     const H = HOJA, k = H.k, m = H.margen, g = 4 * k, tit = 9 * k, pad = 3 * k, minW = 54 * k;
     const W = H.ancho - 2 * m - H.franja - g, Hh = H.alto - 2 * m;
@@ -11130,15 +11144,19 @@ const LAM = (() => {
       const ok = enHoja(L, h).filter(it => it.on && it.cap);
       if (!ok.length) return;
       let its = ok.map(it => ({ it, cap: it.cap }));
-      if (!empacar(its)) {
-        let hallado = false;
-        for (const nn of ESCALAS) {
-          const alt = [];
-          try { ok.forEach(it => { const nv = it.n <= 10 || it.vista === 'ConjLocal' ? it.n : Math.max(it.n, nn);   /* los detalles (1:5...) y la vista general no se tocan */
-            const cp = capturar(it.vista, Object.assign(opcCap(L, it), { escalaFija: nv })); alt.push({ it, n: nv, cap: cp, bbEf: bbDe(L, { vista: it.vista, cap: cp }) }); }); } catch (e) { continue; }
-          if (empacar(alt)) { alt.forEach(q => { q.it.n = q.n; q.cap.uid = ++uidCap; capCache.set(claveCap(L, q.it), q.cap); medirItem(q.it, q.cap, L); }); its = alt; hallado = true; break; }
+      if (!empacarMejor(its)) {
+        /* A186: la escala que eligio el usuario se respeta; si no cabe, sube solo la de la vista mas grande, un paso cada vez */
+        let alt = ok.map(it => ({ it, n: it.n, cap: it.cap, bbEf: it.bbEf })), hallado = false;
+        for (let paso = 0; paso < 24 && !hallado; paso++) {
+          const cand = alt.filter(q => !(ES_CONJUNTO(q.it.vista) && q.it.n <= 10 || q.it.vista === 'ConjLocal') && ESCALAS.some(e => e > q.n)).sort((p, q) => q.bbEf.w * q.bbEf.h - p.bbEf.w * p.bbEf.h)[0];
+          if (!cand) break;
+          const nn = ESCALAS.find(e => e > cand.n);
+          try { const cp = capturar(cand.it.vista, Object.assign(opcCap(L, cand.it), { escalaFija: nn })); cand.n = nn; cand.cap = cp; cand.bbEf = bbDe(L, { vista: cand.it.vista, cap: cp }); } catch (e) { break; }
+          if (empacarMejor(alt)) hallado = true;
         }
         if (!hallado) { const b = limitesHoja(); ok.forEach((it, i) => fijar(it, b.x0 + i * 10, b.y0 + i * 10)); return; }
+        alt.forEach(q => { if (q.n !== q.it.n) { q.it.n = q.n; q.cap.uid = ++uidCap; capCache.set(claveCap(L, q.it), q.cap); medirItem(q.it, q.cap, L); } });
+        its = alt;
       }
       its.forEach(q => { q.it.x = q.celda.x; q.it.y = q.celda.y; });
     });
