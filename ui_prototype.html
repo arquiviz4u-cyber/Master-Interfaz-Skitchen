@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A196. [Master hecho 13/10; sin pasos en Revit ni SketchUp] El despiece de frentes sale a color de fabrica (B/N apagado) y los tonos del esquema son una triada con vecinos analogos, a 62 % de saturacion; en B/N, grises medios.
    A195. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar (usuario 13/10): 1) el despiece de la tapeta muestra su frente (ancho por alto) con el fondo anotado, no el lateral; 2) sin el dialogo «Laminas» (Presentar cubre todo); 3) hojas de detalle por unidad apagadas de fabrica; 4) «Alzado con frentes» y «Alzado sin puertas» a la misma escala en la primera lamina, y todas las vistas en blanco y negro salvo los isometricos (y la vista general); 5) el encabezado (linea sobre el titulo) se mueve con el titulo y la escala y tambien se agarra; sin lineas guia al arrastrar. Las laminas ya guardadas conservan sus ajustes.
    A194. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Revision de coherencia y UX de Presentar: 1) panel lateral: laminas y vistas arriba; hoja, isla, notas y cotas, pie y entrega plegados (recuerdan su estado); sin parrafos largos (la ayuda va en el tooltip); cada vista en dos lineas (nombre y boton de duplicar/quitar; B/N, Cotas, Globos y escala); la isla solo aparece si hay una guardada; 2) BUG: las vistas de las laminas de conjunto nuevas no tenian posicion (la lamina de detalles salia vacia): presRefrescar acomoda toda lamina sin posiciones; 3) BUG: el ancho minimo de empacar no coincidia con medirItem y las vistas de conjunto se encimaban; prueba nueva de solapes; 4) acomodo tambien por columnas (aprovecha la hoja: torres con alzados a 1:25); alzado e interiores suben de escala juntos y el isometrico y el despiece no pasan de 1:100 y 1:50; 5) el conteo de herrajes de torres pasa a la lamina de detalles si no caben legibles; 6) DXF con nombres legibles (lamina, numero y titulo); 7) despiece: mas aire bajo el esquema.
    A193. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar (usuario 13/10): 1) parrilla en el isometrico: placa entera de cristal negro con sus zonas de coccion (antes un marco con hueco); 2) doble clic en el fondo de un alzado interior (conjunto y alzado sin puertas del editor) pone las cotas de entrepanos de esa columna, no del gabinete (it.entre = x en cm); 3) el corte no lleva el texto superior «SECCION A-A»; 4) el detalle de cajon tipo nombra «bajo torre de hornos» o «bajo alacena» (cap.sub); 5) al escalar una vista o recortar su marco salen lineas guia con los bordes de las demas, y el recorte se imanta; 6) el esquema del despiece muestra la proyeccion de abatimiento de los frentes (puerta: triangulo hacia su bisagra; elevable: lambda; cajon: nada) y los equipos punteados.
@@ -10774,7 +10775,7 @@ const LAM = (() => {
     let x = M + 24, y = M + 22, colW = 0, altoTot = 0, schemeR = 0;
     try {
       /* A191: un solo esquema pequeno del conjunto; cada grupo de piezas tiene un tono (gama) y lo lleva en su etiqueta */
-      const tono = i => plano ? `hsl(0,0%,${28 + (i * 61) % 55}%)` : `hsl(${(i * 47 + 205) % 360},62%,${46 + (i % 3) * 7}%)`;
+      const tono = i => plano ? `hsl(0,0%,${42 + (i * 17) % 38}%)` : `hsl(${(210 + 120 * (i % 3) + 25 * Math.floor(i / 3)) % 360},62%,${52 + (Math.floor(i / 3) % 2) * 8}%)`;   /* A196: triada con vecinos analogos; saturacion de 62 % */
       lista.forEach((q, i) => { q.tono = tono(i); });
       { const todos = fr.concat(tap), xa = Math.min(...todos.map(p => p.x)), xb = Math.max(...todos.map(p => p.x + p.ancho)), za = Math.min(...todos.map(p => p.z)), zb = Math.max(...todos.map(p => p.z + p.alto));
         const ks = Math.min(220 / Math.max(1, xb - xa), 190 / Math.max(1, zb - za)), ke = ks, ox = M + 24, oy = M + 14;
@@ -11627,7 +11628,7 @@ const LAM = (() => {
     const hj = base ? base.hoja : L.hoja, hs = L.hojas[hj] || {};
     const it = { id, vista, hoja: hj, grupo: base ? base.grupo : hs.grupo, cara: base ? base.cara : hs.cara || 0, abiertos: base ? (base.abiertos || []).slice() : [], explotado: base ? base.explotado : false,
       on: true, n: base ? base.n : vista === 'ConjLocal' ? 100 : vista === 'ConjGola' ? 5 : vista === 'Isometrico' ? 50 : 25, x: base && isFinite(base.x) ? base.x + 8 : b0.x0 + 6, y: base && isFinite(base.y) ? base.y + 8 : b0.y0 + 6,
-      plano: base ? base.plano : !['Isometrico', 'ConjLocal', 'ConjIso'].includes(vista), corte: NaN };
+      plano: base ? base.plano : !['Isometrico', 'ConjLocal', 'ConjIso', 'ConjDespiece'].includes(vista), corte: NaN };
     if (vista === 'Corte') { const cs = centrosCorte(), usados = L.vistas.filter(q => q.vista === 'Corte').map(q => q.corte);
       it.corte = cs.find(c => !usados.some(u => Math.abs(u - c) < .5)) ?? (base && isFinite(base.corte) ? Math.min(cfg.longitud, base.corte + 20) : cs[0]); }
     const i = base ? L.vistas.indexOf(base) : L.vistas.length - 1;
@@ -11649,7 +11650,7 @@ const LAM = (() => {
     const tiene = { ConjGola: ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil'), ConjHerrajes: ps.some(p => p.rol === 'herraje'),
       ConjNariz: grupo === 'bajos' && !!cfg.generarCubierta, ConjCajon: !!piezasDeCaja({ grupo, cara, planIsla: vi }, 'cajon'), ConjEspiero: !!piezasDeCaja({ grupo, cara, planIsla: vi }, 'especiero') };   /* sin gola o sin herrajes no se crea la vista */
     const poner = (lista, hh, suf) => lista.filter(([v]) => tiene[v] !== false).forEach(([v, nn]) =>
-      L.vistas.push({ id: `${v}~${stamp}${suf}`, vista: v, hoja: hh, on: true, n: nn, x: NaN, y: NaN, plano: !['ConjLocal', 'ConjIso'].includes(v), corte: NaN, grupo, cara, abiertos: [], explotado: false }));
+      L.vistas.push({ id: `${v}~${stamp}${suf}`, vista: v, hoja: hh, on: true, n: nn, x: NaN, y: NaN, plano: !['ConjLocal', 'ConjIso', 'ConjDespiece'].includes(v), corte: NaN, grupo, cara, abiertos: [], explotado: false }));
     const conHerr = grupo === 'torres';   /* A192: en las torres el conteo de herrajes cabe en la misma lamina */
     poner([['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50], ['ConjAlzado', 25], ['ConjInterior', 25]].concat(conHerr ? [['ConjHerrajes', 1]] : []), h, '');
     const det = [['ConjCajon', 10], ['ConjEspiero', 10], ['ConjGola', 5], ['ConjNariz', 5]].concat(conHerr ? [] : [['ConjHerrajes', 1]]).filter(([v]) => tiene[v] !== false);
