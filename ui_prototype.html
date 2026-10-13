@@ -10138,12 +10138,19 @@ const LAM = (() => {
     if (!cajas.length) throw new Error('El plan no trae piezas para el isométrico');
     /* orden de pintor exacto para cajas alineadas con los ejes: A va antes que B si queda por completo detras de B en algun eje */
     cajas.sort((a, b) => (SX * a.c[0] - a.c[1] + a.c[2]) - (SX * b.c[0] - b.c[1] + b.c[2]));
-    const orden = [], visto = new Array(cajas.length).fill(false);
+    /* A185: orden topologico (Kahn): lo que queda detras va antes; entre los libres sale el de menor centro y, si hay un ciclo de
+       cajas que se tocan, el de menor centro de los que quedan. El recorrido en profundidad anterior pintaba el piso y la trasera
+       del cuerpo despues de los cajones sacados */
     const detras = (a, b) => (SX > 0 ? a.mx[0] <= b.mn[0] + .01 : a.mn[0] >= b.mx[0] - .01) || a.mn[1] >= b.mx[1] - .01 || a.mx[2] <= b.mn[2] + .01;
-    const visita = i => { if (visto[i]) return; visto[i] = true;
-      for (let j = 0; j < cajas.length; j++) if (j !== i && !visto[j] && detras(cajas[j], cajas[i]) && !detras(cajas[i], cajas[j])) visita(j);
-      orden.push(cajas[i]); };
-    cajas.forEach((_, i) => visita(i));
+    const N = cajas.length, faltan = new Array(N).fill(0), despues = Array.from({ length: N }, () => []);
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      const ij = detras(cajas[i], cajas[j]), ji = detras(cajas[j], cajas[i]);
+      if (ij && !ji) { despues[i].push(j); faltan[j]++; } else if (ji && !ij) { despues[j].push(i); faltan[i]++; } }
+    const orden = [], hecho = new Array(N).fill(false);
+    for (let k = 0; k < N; k++) {
+      let pick = -1; for (let i = 0; i < N; i++) if (!hecho[i] && faltan[i] === 0) { pick = i; break; }
+      if (pick < 0) for (let i = 0; i < N; i++) if (!hecho[i]) { pick = i; break; }   /* ciclo: el de menor centro */
+      hecho[pick] = true; orden.push(cajas[pick]); despues[pick].forEach(j => { faltan[j]--; }); }
     const proy = v => [(SX * v[0] + v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a un lado y abajo; el cuarto (-Y) al otro y abajo */
     const V = [SX, -1, 1], luz = vunit([.35 * SX, -.45, .82]);
     const caraIdx = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]];
