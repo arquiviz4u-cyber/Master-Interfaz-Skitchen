@@ -10510,7 +10510,11 @@ const LAM = (() => {
   }
   const colorPieza = p => { const m = p.material ? mat(p.material) : null; if (m) return rgbOf(m); const e = p.etiqueta;
     return e === 'frentes' ? C.front : e === 'cubierta' ? '#C8B99F' : e === 'zoclo' ? '#4A4F55' : e === 'backsplash' ? C.backsplash : e === 'herrajes' ? C.metal : e === 'equipos' ? '#B7BEC5' : C.board; };
-  const caja2D = (g, x, y, w, h, fill, stroke, lw = .8) => { g.save(); g.fillStyle = fill; g.strokeStyle = stroke; g.lineWidth = lw; g.beginPath(); g.rect(x, y, Math.max(.4, w), Math.max(.4, h)); g.fill(); g.stroke(); g.restore(); };
+  /* A186: pz = { p, sc, plano }: con un material de patron (madera, piedra...) la pieza lleva su trama, como en el alzado del editor */
+  const caja2D = (g, x, y, w, h, fill, stroke, lw = .8, pz) => { g.save(); g.fillStyle = fill; g.strokeStyle = stroke; g.lineWidth = lw; g.beginPath(); g.rect(x, y, Math.max(.4, w), Math.max(.4, h)); g.fill();
+    const m = pz && !pz.plano && pz.p && pz.p.material ? mat(pz.p.material) : null, spec = m && m.categoria !== 'Color' ? patternOf(m.patron) : null;
+    if (spec) paintPattern(g, x, y, Math.max(.4, w), Math.max(.4, h), spec, pz.sc * (m.escala || 1), lineColorOf(m));
+    g.strokeStyle = stroke; g.lineWidth = lw; g.beginPath(); g.rect(x, y, Math.max(.4, w), Math.max(.4, h)); g.stroke(); g.restore(); };
   const agrupaIguales = (valores, tol = .05) => { const out = []; valores.forEach(v => { const r = out[out.length - 1]; if (r && Math.abs(r.v - v) < tol) r.n++; else out.push({ v, n: 1 }); }); return out; };
   /* alzado del conjunto: con puertas (cada puerta y cajon con su medida: el despiece) o sin ellas (interiores y sus luces) */
   function capturarAlzadoConjunto(vista, o){
@@ -10535,7 +10539,7 @@ const LAM = (() => {
     const g = new Grabador((x1 - x0) * sc + 2 * M, (z1 - z0) * sc + 2 * M), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
     try {
       ps.slice().sort((a, b) => (a.y + a.fondo) - (b.y + b.fondo) || a.z - b.z).forEach(p => {
-        caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? (p.rol === 'frente' ? '#FFFFFF' : '#F2F4F6') : colorPieza(p), plano ? '#222222' : '#4A5057', p.rol === 'frente' ? 1 : .7); });
+        caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? (p.rol === 'frente' ? '#FFFFFF' : '#F2F4F6') : colorPieza(p), plano ? '#222222' : '#4A5057', p.rol === 'frente' ? 1 : .7, { p, sc, plano }); });
       herrajes.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'f', mo.espejo); if (q) dibujarSim(g, q.id, q.flip, X(mo.origen[0]), Y(mo.origen[2]), sc, plano); });
       const cuerpos = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
       const ext = {}; cuerpos.forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || { a: 1e9, b: -1e9, id: p.modulo }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
@@ -10595,7 +10599,7 @@ const LAM = (() => {
         const x0 = M + i * (W + GAP), wy0 = yF - 16, wy1 = yF + 3, hh = (v.wz1 - v.wz0) * sc, y0 = M + (hMax - hh) / 2;
         const X = y => x0 + (wy1 - y) * sc, Y = z => y0 + (v.wz1 - z) * sc;   /* frente a la izquierda, muro a la derecha */
         g.save(); g.beginPath(); g.rect(x0, y0, W, hh); g.clip();
-        cut.slice().sort((a, b) => a.y - b.y).forEach(p => { caja2D(g, X(p.y + p.fondo), Y(p.z + p.alto), p.fondo * sc, p.alto * sc, plano ? '#E6E9EC' : colorPieza(p), '#1F2A33', 1.1); });
+        cut.slice().sort((a, b) => a.y - b.y).forEach(p => { caja2D(g, X(p.y + p.fondo), Y(p.z + p.alto), p.fondo * sc, p.alto * sc, plano ? '#E6E9EC' : colorPieza(p), '#1F2A33', 1.1, { p, sc, plano }); });
         g.restore();
         g.save(); g.strokeStyle = '#9AA3AB'; g.lineWidth = .6; g.setLineDash([4, 3]); g.strokeRect(x0, y0, W, hh); g.restore();
         const web = v.c.ps.find(p => p.tipo === 'Gola'), fl = v.c.ps.filter(p => p.tipo === 'Perfil'), forma = i === 0 ? (cfg.perfil || 'L') : 'C';
@@ -10640,7 +10644,7 @@ const LAM = (() => {
     try {
       lista.forEach(q => { const w = q.p.ancho * sc, h = q.p.alto * sc;
         if (y + h > hMax && y > M + 22) { x += colW + 56; y = M + 22; colW = 0; }
-        caja2D(g, x, y, w, h, plano ? '#FFFFFF' : colorPieza(q.p), plano ? '#222222' : '#4A5057', 1);
+        caja2D(g, x, y, w, h, plano ? '#FFFFFF' : colorPieza(q.p), plano ? '#222222' : '#4A5057', 1, { p: q.p, sc, plano });
         J.H(x, x + w, y - 8, fmt(q.p.ancho)); J.V(x - 10, y, y + h, fmt(q.p.alto));
         if (q.n > 1) { g.save(); g.fillStyle = '#1F2A33'; g.font = "600 11px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(`× ${q.n}`, x + w + 8, y + h / 2); g.restore(); }
         colW = Math.max(colW, w); y += h + G; altoTot = Math.max(altoTot, y); });
