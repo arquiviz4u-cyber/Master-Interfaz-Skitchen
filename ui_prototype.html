@@ -10088,6 +10088,35 @@ const LAM = (() => {
   const dentroPoli = (p, pr) => { let d = false; for (let i = 0, j = pr.length - 1; i < pr.length; j = i++) {
     if ((pr[i][1] > p.y) !== (pr[j][1] > p.y) && p.x < (pr[j][0] - pr[i][0]) * (p.y - pr[i][1]) / (pr[j][1] - pr[i][1]) + pr[i][0]) d = !d; } return d; };
 
+  /* A185: caras de una pieza con forma (cilindro de a a b, o perfil extruido a todo el largo de su caja), en ejes del plan: cada cara con
+     su poligono y su normal hacia afuera. Sin forma (o con otra), devuelve null y se dibuja la caja */
+  function mallaForma(p){
+    const f = p.forma; if (!f) return null;
+    const O = [p.x, p.y, p.z], mas = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k], caras = [];
+    if (f.tipo === 'cilindro' && f.de && f.a && f.diametro > 0) {
+      const A = mas(O, f.de), B = mas(O, f.a), w = vunit(vsub(B, A));
+      if (!isFinite(w[0]) || Math.hypot(...vsub(B, A)) < 1e-6) return null;
+      const h = Math.abs(w[0]) < .8 ? [1, 0, 0] : [0, 1, 0], u = vunit(vcruz(w, h)), v = vcruz(w, u), r = f.diametro / 2, nl2 = Math.max(3, Math.min(16, f.lados || 8));
+      const ang = k => k * Math.PI * 2 / nl2, anillo = (C, k) => mas(C, mas(vmul(u, Math.cos(ang(k)) * r), vmul(v, Math.sin(ang(k)) * r)));
+      for (let k = 0; k < nl2; k++) { const m = ang(k + .5);
+        caras.push({ pl: [anillo(A, k), anillo(A, k + 1), anillo(B, k + 1), anillo(B, k)], n: mas(vmul(u, Math.cos(m)), vmul(v, Math.sin(m))) }); }
+      caras.push({ pl: Array.from({ length: nl2 }, (_, k) => anillo(A, k)), n: vmul(w, -1) });
+      caras.push({ pl: Array.from({ length: nl2 }, (_, k) => anillo(B, k)), n: w });
+      return caras;
+    }
+    if (f.tipo === 'perfil' && Array.isArray(f.puntos) && f.puntos.length >= 3 && ['x', 'y', 'z'].includes(f.eje)) {
+      const ei = { x: 0, y: 1, z: 2 }[f.eje], L = [p.ancho, p.fondo, p.alto][ei], ejes = [0, 1, 2].filter(i => i !== ei);
+      const pt = (q, t) => { const r = [O[0], O[1], O[2]]; r[ejes[0]] += q[0]; r[ejes[1]] += q[1]; r[ei] += t; return r; };
+      const pts = f.puntos, ar = pts.reduce((t, q, i) => { const r2 = pts[(i + 1) % pts.length]; return t + q[0] * r2[1] - r2[0] * q[1]; }, 0), sg = ar >= 0 ? 1 : -1;
+      pts.forEach((q, i) => { const r2 = pts[(i + 1) % pts.length], da = r2[0] - q[0], db = r2[1] - q[1], nn = [0, 0, 0];
+        nn[ejes[0]] = sg * db; nn[ejes[1]] = -sg * da; caras.push({ pl: [pt(q, 0), pt(r2, 0), pt(r2, L), pt(q, L)], n: vunit(nn) }); });
+      const a0 = [0, 0, 0], a1 = [0, 0, 0]; a0[ei] = -1; a1[ei] = 1;
+      caras.push({ pl: pts.map(q => pt(q, 0)), n: a0 }); caras.push({ pl: pts.map(q => pt(q, L)), n: a1 });
+      return caras;
+    }
+    return null;
+  }
+
   function isoEscena(o = {}){
     const plan = o.plan || planCocina(), conPuertas = o.puertas !== false;
     const caras = [{ piezas: plan.piezas, org: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0] }]
@@ -10137,6 +10166,9 @@ const LAM = (() => {
       q.perf = !abierto ? [] : (p.perforaciones || []).map(f => { const r = f.diametro / 2, pts = [];
         for (let i = 0; i < 20; i++) { const t = i * Math.PI * 2 / 20; pts.push(P(x0 + f.x + r * Math.cos(t), y0, z0 + f.z + r * Math.sin(t))); }
         return { pts, n: vunit(vsub(P(x0, y0 - 1, z0), P(x0, y0, z0))) }; });
+      const malla = mallaForma(p);   /* A185: pistones, vastagos, perfiles de gola: su forma, no su caja */
+      if (malla) q.malla = malla.map(c => { const cen = c.pl.reduce((t, v) => vadd(t, v), [0, 0, 0]).map(t => t / c.pl.length), w0 = P(cen[0], cen[1], cen[2]), w1 = P(cen[0] + c.n[0], cen[1] + c.n[1], cen[2] + c.n[2]);
+        return { pts: c.pl.map(v => P(v[0], v[1], v[2])), n: vunit(vsub(w1, w0)) }; });
       cajas.push(q);
     }));
     if (!cajas.length) throw new Error('El plan no trae piezas para el isométrico');
@@ -10188,6 +10220,9 @@ const LAM = (() => {
       const trasPuerta = () => { if (q.p.rol === 'frente' && q.p.frente && ultimaDe[q.p.frente] === q)
         cazF.forEach((c, i) => { if (c.frente === q.p.frente) { simTri(q, c); cazHechas.add(i); } }); };   /* la cazoleta va en la cara de su puerta */
       if (q.sim) { simTri(q, q.sim); trasPuerta(); return; }
+      if (q.malla) { q.malla.forEach(c => { if (vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);
+          tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null }); });
+        trasPuerta(); return; }
       caraIdx.forEach((idx, fi) => {
         const pts = idx.map(i => q.v[i]), n = normalHacia(pts, q.c, true);
         if (vpunto(n, V) <= 1e-6) return;
