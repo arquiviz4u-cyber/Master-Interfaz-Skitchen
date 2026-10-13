@@ -9860,19 +9860,46 @@ const LAM = (() => {
   const HSYM = Object.assign({}, HSYM_BASE, { 'bis.m': HCAD_DET.lado });   /* el perfil de la bisagra completa viene del detalle (u = -y: muro a la izquierda) */
   const HERR_TIPOS = new Set(['Bisagra', 'Cazoleta', 'Corredera', 'CorrederaMedia', 'CorrederaMovil']);
   const FAM = { bisagra_brazo_cerrada: 'arm', bisagra_brazo_abierta: 'arm', bisagra_cazoleta: 'caz', corredera_fija: 'cor_fija', corredera_media: 'cor_media', corredera_movil: 'cor_movil' };
-  const modeloCad = p => p && p.modelo && p.modelo.origen && FAM[p.modelo.archivo] && HERR_TIPOS.has(p.tipo) ? p.modelo : null;
+  const COR_CAJA = { corredera_fija: MODELO.corredera.fija, corredera_media: MODELO.corredera.media, corredera_movil: MODELO.corredera.movil };
+  /* A185: la corredera del plan no lleva origen (SketchUp la coloca por su caja y la estira); aqui se deduce de la caja: X del archivo = 0 en
+     el canto que toca el lateral, Y = 0 en el frente, Z = 0 en su base; sy = estiramiento a su largo comercial */
+  const modeloCad = p => {
+    if (!p || !p.modelo || !FAM[p.modelo.archivo] || !HERR_TIPOS.has(p.tipo)) return null;
+    if (p.modelo.origen) return p.modelo;
+    const cb = COR_CAJA[p.modelo.archivo]; if (!cb || !(p.fondo > 0)) return null;
+    const [mn, mx] = cb, e = !!p.modelo.espejo, sy = p.fondo / (mx[1] - mn[1]);
+    return { archivo: p.modelo.archivo, espejo: e, origen: [e ? p.x + mx[0] : p.x - mn[0], p.y + mx[1] * sy, p.z - mn[2]], sy };
+  };
+  /* simbolo estirado a lo largo (correderas de 15 a 60 cm): en el corte (m) se escala u; en el isometrico, a lo largo de Y del cuarto
+     (C30, -S30) respecto de la seccion de la pieza (e): es un prisma, asi que solo se alargan sus lineas */
+  const estiraSim = (id, k, vista, e = 0) => {
+    k = Math.round(k * 20) / 20; if (!(k > 0) || Math.abs(k - 1) < .03 || !HSYM[id]) return id;
+    e = Math.round(e * 10) / 10; const nid = `${id}*${k}${vista === 'i' ? '@' + e : ''}`; if (HSYM[nid]) return nid;
+    const b = HSYM[id], cs = Math.sqrt(3) / 2, sn = .5; let a0 = 1e9, b0 = 1e9, a1 = -1e9, b1 = -1e9;
+    const tr = ch => { const r = [];
+      for (let i = 0; i < ch.length; i += 2) { let u = ch[i] / 100, v = ch[i + 1] / 100;
+        if (vista === 'm') u *= k; else { const d = (u * cs - v * sn - e) * (k - 1); u += d * cs; v -= d * sn; }
+        a0 = Math.min(a0, u); a1 = Math.max(a1, u); b0 = Math.min(b0, v); b1 = Math.max(b1, v); r.push(Math.round(u * 100), Math.round(v * 100)); }
+      return r; };
+    const nb = { k: (b.k || []).map(tr), v: (b.v || []).map(tr), p: (b.p || []).map(tr) };
+    nb.u0 = Math.round(a0 * 100); nb.v0 = Math.round(b0 * 100); nb.w = Math.round((a1 - a0) * 100); nb.h = Math.round((b1 - b0) * 100);
+    HSYM[nid] = nb; return nid;
+  };
   /* que simbolo y si va reflejado: vista 'f' alzado, 'm' corte (dir: hacia donde mira), 'i' isometrico (SX: lado del observador; rot: giro de la
      puerta); esp = el modelo va en espejo. Un espejo en X equivale a mirar desde el otro lado: en isometrico es el lado contrario */
   function simDe(arch, vista, esp, o = {}){
     const e = esp ? -1 : 1, fam = FAM[arch]; if (!fam) return null;
     const ok = id => HSYM[id] ? id : null;
     if (vista === 'f') { if (fam === 'caz') return null; const id = ok(fam === 'arm' ? 'arm_ce.f' : fam + '.f'); return id ? { id, flip: e < 0 } : null; }
-    if (vista === 'm') { if (fam === 'caz') return null; const id = ok(fam === 'arm' ? 'bis.m' : fam + '.m'); return id ? { id, flip: (o.dir > 0) !== (e > 0) } : null; }
+    if (vista === 'm') { if (fam === 'caz') return null; let id = ok(fam === 'arm' ? 'bis.m' : fam + '.m');
+      if (id && o.k && fam !== 'arm') id = estiraSim(id, o.k, 'm'); return id ? { id, flip: (o.dir > 0) !== (e > 0) } : null; }
     if (vista === 'i') {
       const lado = (e > 0 ? o.SX : -o.SX) > 0 ? 'i+' : 'i-';
       if (fam === 'arm') { const id = arch === 'bisagra_brazo_abierta' ? ok('arm_ab.' + lado) : null; return id ? { id, flip: false } : null; }
       if (fam === 'caz') { const rot = (o.rot || 0) * e; if (!rot) return null; const id = ok(`caz.r${rot > 0 ? 90 : -90}.${lado}`); return id ? { id, flip: false } : null; }
-      const id = ok(fam + '.' + lado); return id ? { id, flip: false } : null;
+      let id = ok(fam + '.' + lado);
+      if (id && o.k && COR_CAJA[arch]) { const [mn, mx] = COR_CAJA[arch]; id = estiraSim(id, o.k, 'i', ((lado === 'i+' ? 1 : -1) * (mn[0] + mx[0]) / 2 + (mn[2] + mx[2]) / 2) / 2); }
+      return id ? { id, flip: false } : null;
     }
     return null;
   }
@@ -10084,16 +10111,18 @@ const LAM = (() => {
       if (p.estado && p.frente && (p.estado === 'abierto') !== abierto) return;      /* variantes cerrado / abierto de bisagras y correderas */
       const m = abierto && p.estado !== 'abierto' ? movimientoDe(abres[p.frente]) : null;   /* A184: el brazo abierto ya esta en su sitio */
       const mod = ci === 0 && !o.sinCad ? modeloCad(p) : null;   /* A181: el modelo real (solo en la cara principal) */
+      let simQ = null;
       if (mod) {
         const gira = m && m.gira && m.eje && m.eje[2] === 1, rot = gira && Math.abs(Math.abs(m.g) - 90) < 1 ? (m.g > 0 ? 90 : -90) : 0;
-        const sim = !(m && m.gira && !rot) ? simDe(mod.archivo, 'i', mod.espejo, { SX, rot }) : null;   /* giros distintos de 90: se queda la caja */
-        if (sim) { herr.push({ id: sim.id, flip: sim.flip, O: mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m) }); return; }
+        const sim = !(m && m.gira && !rot) ? simDe(mod.archivo, 'i', mod.espejo, { SX, rot, k: mod.sy }) : null;   /* giros distintos de 90: se queda la caja */
+        if (sim && COR_CAJA[mod.archivo]) simQ = { id: sim.id, flip: sim.flip, O: mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m) };   /* A185: ordenada con las demas cajas */
+        else if (sim) { herr.push({ id: sim.id, flip: sim.flip, O: mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m) }); return; }
       }
       const K = v => [cara.org[0] + v[0] * cara.ex[0] + v[1] * cara.ey[0], cara.org[1] + v[0] * cara.ex[1] + v[1] * cara.ey[1], cara.org[2] + v[2]];
       const dyE = o.explotar && (p.rol === 'frente' || (p.frente && (p.tipo === 'Jaladera' || p.tipo === 'Boton'))) ? o.explotar : 0;   /* despiece: los frentes salen al cuarto */
       const P = (x, y, z) => K(mover([x, -(y + dyE), z], m));
       const x0 = p.x, x1 = p.x + p.ancho, y0 = p.y, y1 = p.y + p.fondo, z0 = p.z, z1 = p.z + p.alto;
-      const q = { ci, extra: !!cara.extra, p, v: [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0), P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], abierto };
+      const q = { ci, extra: !!cara.extra, p, sim: simQ, v: [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0), P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], abierto };
       q.c = [0, 1, 2].map(i => q.v.reduce((s, v) => s + v[i], 0) / 8);
       q.mn = [0, 1, 2].map(i => Math.min(...q.v.map(v => v[i]))); q.mx = [0, 1, 2].map(i => Math.max(...q.v.map(v => v[i])));
       /* huecos (A99/A170): rectangulos que atraviesan la pieza; sus paredes se ven por dentro */
@@ -10123,6 +10152,9 @@ const LAM = (() => {
     const tri = [], bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
     const cuenta = pr => pr.forEach(p => { bb.x0 = Math.min(bb.x0, p[0]); bb.x1 = Math.max(bb.x1, p[0]); bb.y0 = Math.min(bb.y0, p[1]); bb.y1 = Math.max(bb.y1, p[1]); });
     orden.forEach(q => {
+      if (q.sim) { tri.push({ t: 'sim', q, id: q.sim.id, flip: q.sim.flip, O: q.sim.O });
+        const c = HSYM[q.sim.id], pr = proy(q.sim.O), a = c.u0 / 100, b = (c.u0 + c.w) / 100;
+        cuenta([[pr[0] + (q.sim.flip ? -b : a), pr[1] + c.v0 / 100], [pr[0] + (q.sim.flip ? -a : b), pr[1] + (c.v0 + c.h) / 100]]); return; }
       caraIdx.forEach((idx, fi) => {
         const pts = idx.map(i => q.v[i]), n = normalHacia(pts, q.c, true);
         if (vpunto(n, V) <= 1e-6) return;
@@ -10186,6 +10218,7 @@ const LAM = (() => {
     if (o.hits) isoHits.length = 0;
     g.save(); g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = 1;
     esc.tri.forEach(t => {
+      if (t.t === 'sim') { const pr0 = esc.proy(t.O); dibujarSim(g, t.id, t.flip, X(pr0[0]), Y(pr0[1]), s, plano); return; }
       const pr = t.pr.map(p => [X(p[0]), Y(p[1])]);
       g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
       if (t.holes && t.holes.length) {
@@ -10334,7 +10367,7 @@ const LAM = (() => {
     try {
       ps.slice().sort((a, b) => (a.y + a.fondo) - (b.y + b.fondo) || a.z - b.z).forEach(p => {
         caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? (p.rol === 'frente' ? '#FFFFFF' : '#F2F4F6') : colorPieza(p), plano ? '#222222' : '#4A5057', p.rol === 'frente' ? 1 : .7); });
-      herrajes.forEach(p => { const q = simDe(p.modelo.archivo, 'f', p.modelo.espejo); if (q) dibujarSim(g, q.id, q.flip, X(p.modelo.origen[0]), Y(p.modelo.origen[2]), sc, plano); });
+      herrajes.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'f', mo.espejo); if (q) dibujarSim(g, q.id, q.flip, X(mo.origen[0]), Y(mo.origen[2]), sc, plano); });
       const cuerpos = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
       const ext = {}; cuerpos.forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || { a: 1e9, b: -1e9, id: p.modulo }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
       const mods = Object.values(ext).sort((a, b) => a.a - b.a);
@@ -11313,16 +11346,16 @@ const LAM = (() => {
     let ps = pl.piezas.filter(p => modeloCad(p) && p.estado !== 'abierto' && !p.ocultaSinPuertas);
     const plano = !!it.plano;
     if (it.vista === 'AlzadoInterior') {
-      ps.forEach(p => { const q = simDe(p.modelo.archivo, 'f', p.modelo.espejo); if (q) dibujarSim(g, q.id, q.flip, m.x0 + m.kx * p.modelo.origen[0], m.z0 + m.kz * p.modelo.origen[2], m.kx, plano); });
+      ps.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'f', mo.espejo); if (q) dibujarSim(g, q.id, q.flip, m.x0 + m.kx * mo.origen[0], m.z0 + m.kz * mo.origen[2], m.kx, plano); });
       return;
     }
     if (m.xw === undefined || !isFinite(it.corte)) return;
     let dir = it.dir || 1; if (!it.dir) { try { dir = miraCorte(it.corte); } catch (e) { dir = 1; } }
     let ids = []; try { ids = [moduloEn(false, it.corte), moduloEn(true, it.corte)].filter(Boolean).map(q => q.id); } catch (e) { ids = []; }
     ps = ps.filter(p => ids.includes(p.modulo) && (dir > 0 ? p.x >= it.corte - .01 : p.x <= it.corte + .01));   /* lo que se ve del lado al que mira el corte */
-    ps.forEach(p => { const q = simDe(p.modelo.archivo, 'm', p.modelo.espejo, { dir }); if (!q) return;
-      const px = dir > 0 ? m.xl + m.s * p.modelo.origen[1] : m.xw - m.s * p.modelo.origen[1];
-      dibujarSim(g, q.id, q.flip, px, m.z0 + m.kz * p.modelo.origen[2], m.s, plano); });
+    ps.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'm', mo.espejo, { dir, k: mo.sy }); if (!q) return;
+      const px = dir > 0 ? m.xl + m.s * mo.origen[1] : m.xw - m.s * mo.origen[1];
+      dibujarSim(g, q.id, q.flip, px, m.z0 + m.kz * mo.origen[2], m.s, plano); });
   }
   function presHitGlobo(L, mx, my, tol){
     return conHoja(L.papel, () => {
