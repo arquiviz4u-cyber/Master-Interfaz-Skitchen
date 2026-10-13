@@ -4211,7 +4211,7 @@ function planDePiezas(c = cfg){
       const pr = qs.find(r => r.abre && r.abre.tipo === 'Elevable'); if (!pr) return;
       const fr = qs.filter(r => r.rol === 'frente'), x0 = Math.min(...fr.map(r => r.x)), x1 = Math.max(...fr.map(r => r.x + r.ancho));
       const yF = Math.min(...fr.map(r => r.y)), z0 = Math.min(...fr.map(r => r.z)), z1 = Math.max(...fr.map(r => r.z + r.alto)), h = z1 - z0;
-      const lat = piezas.filter(r => r.modulo === pr.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.z < z1 && r.z + r.alto > z0 && r.y < yF && r.y + r.fondo >= yF - .01);
+      const lat = piezas.filter(r => r.modulo === pr.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.z < z1 && r.z + r.alto > z0 && r.y < yF && r.y + r.fondo >= yF - PLAN_HOLGURA_PUERTA - .01);   /* A185: el lateral acaba una holgura antes del frente (como las bisagras) */
       const hondo = lat.length ? Math.max(...lat.map(r => r.fondo)) : 0;
       if (h <= 6 || hondo <= 4) return;
       const caida = Math.min(20, h*.35), fijo = Math.min(h - 3, h*.72), dentro = Math.min(16, hondo*.45), inset = Math.min(4, (x1 - x0)/4), t9 = espFrente();
