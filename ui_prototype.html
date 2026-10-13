@@ -6918,6 +6918,7 @@ function drawPlanCocina(){
     const r = caja(q.p); if (act) hits.push({ rect: r, module: q.m }); else planCaraHits.push({ rect: r, k: q.k, id: q.m.id }); });
   esq.forEach(q => poly(q.p, flat ? C.flat : dark ? '#5A5040' : '#E8D9B8', C.line));
   altos.forEach(q => poly(q.p, null, C.muted, 1, [4, 3]));
+  if (altos.length && exporting && proyOn()) { const r0 = caja(altos[0].p); ctx.save(); ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('Gabinetes altos (proyección)', r0.x + 4, r0.y + r0.h - 4); ctx.restore(); }
   muros.forEach(([a, b], k) => { const f = marcos[k], act = k === cfg.cara; ctx.save(); ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = act ? C.accent : C.wallLine; ctx.lineWidth = act ? 4 : 3; ctx.stroke(); ctx.restore();
     /* largo de cada cara por detras de su muro; la activa se edita */
     const off = -26, pa = P([a[0] + f.n[0]*off/sc, a[1] + f.n[1]*off/sc]), pb = P([b[0] + f.n[0]*off/sc, b[1] + f.n[1]*off/sc]);
@@ -7000,7 +7001,9 @@ function drawPlan(){
   }
   /* proyeccion punteada de los altos */
   x = ajusteIzq();
-  highs.forEach(m => { const r = { x: X(x), y: wallY, w: m.ancho*scale, h: m.fondo*scale }; if (!m.reserved && proyOn()) outline(r, C.proj, 1, [5, 3]); x += m.ancho; });
+  let rotulado = false;
+  highs.forEach(m => { const r = { x: X(x), y: wallY, w: m.ancho*scale, h: m.fondo*scale }; if (!m.reserved && proyOn()) { outline(r, C.proj, 1, [5, 3]);
+      if (!rotulado && exporting) { rotulado = true; post.push(() => { ctx.save(); ctx.fillStyle = C.proj; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('Gabinetes altos (proyección)', r.x + 4, r.y + r.h - 4); ctx.restore(); }); } } x += m.ancho; });   /* A188: leyenda de la proyeccion */
   post.forEach(f => f());
   /* cotas */
   const yTop = Math.min(wallY - 12, ...doors().map(d => Y(d.fondo) - d.ancho*scale)) - 26;
@@ -11200,7 +11203,9 @@ const LAM = (() => {
     ln(x0, y0, x0, y0 + h, .35);
     let y = y0 + pad;
     if (d.logo && S.img) { const r = Math.min(ancho / d.logo.w, 13 * k / d.logo.h); S.img(d.logo, x0 + pad, y + 1.5 * k, d.logo.w * r, d.logo.h * r); }
-    else { t(prodNombre(), x0 + pad, y + 6.5 * k, 7.4 * k, true); t('by Drawlibri', x0 + pad, y + 11.4 * k, 3 * k, false, '#555555'); }
+    else { const nom = prodNombre(), cut = /^drawdrobe$/i.test(nom) ? 4 : Math.min(4, nom.length), marca = /^drawdrobe$/i.test(nom) ? '#5B3FA0' : '#266096';   /* A188: colores de marca */
+      t(nom.slice(0, cut), x0 + pad, y + 6.5 * k, 7.4 * k, true, marca); t(nom.slice(cut), x0 + pad + anchoHelv(nom.slice(0, cut), 7.4 * k, true), y + 6.5 * k, 7.4 * k, false, '#13212B');
+      t('by Drawlibri', x0 + pad, y + 11.4 * k, 3 * k, false, '#6B7680'); }
     y += 16 * k; ln(x0, y, x0 + w, y, .3);
     d.campos.forEach(([etq, val, clave]) => {
       if (S.campo && clave) S.campo(clave, x0, y, w, 11.6 * k);
@@ -11702,6 +11707,14 @@ const LAM = (() => {
     ps.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'm', mo.espejo, { dir, k: mo.sy }); if (!q) return;
       const px = dir > 0 ? m.xl + m.s * mo.origen[1] : m.xw - m.s * mo.origen[1];
       dibujarSim(g, q.id, q.flip, px, m.z0 + m.kz * mo.origen[2], m.s, plano); });
+    /* A188: los pistones (cerrados) en el corte: cuerpo y vastago como lineas gruesas desde el ancla hasta la puerta */
+    const pis = pl.piezas.filter(p => (p.tipo === 'Piston' || p.tipo === 'Vastago') && p.estado === 'cerrado' && p.forma && p.forma.tipo === 'cilindro' && ids.includes(p.modulo)
+      && (dir > 0 ? p.x >= it.corte - .01 : p.x <= it.corte + .01));
+    const xs = pis.map(p => p.x), xN = pis.length ? (dir > 0 ? Math.min(...xs) : Math.max(...xs)) : 0;   /* solo el mas cercano al corte */
+    pis.filter(p => Math.abs(p.x - xN) < .5).forEach(p => { const f = p.forma, A = [p.y + f.de[1], p.z + f.de[2]], B = [p.y + f.a[1], p.z + f.a[2]];
+      const PX = y => dir > 0 ? m.xl + m.s * y : m.xw - m.s * y, PY = z => m.z0 + m.kz * z;
+      g.save(); g.lineCap = 'round'; g.strokeStyle = plano ? '#222222' : p.tipo === 'Vastago' ? '#9AA3AB' : '#4A5057'; g.lineWidth = Math.max(1.2, f.diametro * m.s);
+      g.beginPath(); g.moveTo(PX(A[0]), PY(A[1])); g.lineTo(PX(B[0]), PY(B[1])); g.stroke(); g.restore(); });
   }
   function presHitGlobo(L, mx, my, tol){
     return conHoja(L.papel, () => {
@@ -12284,6 +12297,7 @@ function presLado(){
       `<label class="pres-bn" title="Esta vista en blanco y negro"><input type="checkbox" data-ppl="${i}"${it.plano ? ' checked' : ''}${it.on ? '' : ' disabled'}>B/N</label>` +
       `<label class="pres-bn" title="Cotas de esta vista"><input type="checkbox" data-pcv="${i}"${(it.cotasV !== undefined ? it.cotasV : L.cotasOn !== false) ? ' checked' : ''}${it.on ? '' : ' disabled'}>Cotas</label>` +
       (fija ? '<span style="width:74px"></span>' : `<select data-pesc="${i}"${it.on ? '' : ' disabled'}>${(LAM.ES_CONJUNTO(it.vista) ? LAM.ESC_DET : [10, 20, 25, 50, 100]).map(q => opt(q, '1:' + q, q === it.n)).join('')}</select>`) +
+      `<button class="btn btn-icon pres-mini" data-pesc-d="${i}" title="Más grande (escala menor)"${it.on ? '' : ' disabled'}>+</button><button class="btn btn-icon pres-mini" data-pesc-u="${i}" title="Más chica (escala mayor)"${it.on ? '' : ' disabled'}>&minus;</button>` +
       `<button class="btn btn-icon pres-mini" data-pdup="${i}" title="Duplicar esta vista">&#10697;</button>` +
       (dup ? `<button class="btn btn-icon pres-mini" data-pdel="${i}" title="Quitar esta vista">&#10005;</button>` : '') +
       (it.vista === 'Isometrico' ? `<div class="pres-corte"><button class="btn pres-mini" data-pabrir="${i}">Abrir / cerrar todos</button><span>${(it.abiertos || [...LAM.abiertos]).length} abierto(s) · doble clic en un módulo</span></div>` : '') +
@@ -12466,6 +12480,11 @@ function presCargarLogo(){
       if (t.dataset.phdel !== undefined) { presAntes(); LAM.presQuitarHoja(L, +t.dataset.phdel); PRES.pag = Math.min(PRES.pag, L.hojas.length - 1); PRES.sel = null; presRefrescar(false); return; }
       if (t.dataset.pabrir !== undefined) { presAntes(); LAM.presAlternarFrente(L.vistas[+t.dataset.pabrir], null, true); presRefrescar(false); return; }
       if (t.id === 'presLogoQuitar') { prefs.lamLogo = ''; prefs.lamLogoW = 0; prefs.lamLogoH = 0; savePrefs(); LAM.fijarLogo(''); L.datos = null; presLado(); presDibujar(); return; }
+      const escalas = it0 => LAM.ES_CONJUNTO(it0.vista) ? LAM.ESC_DET : [10, 20, 25, 50, 100];
+      if (t.dataset.pescD !== undefined || t.dataset.pescU !== undefined) {   /* A188: subir o bajar la escala de la vista por las ya establecidas */
+        const i0 = +(t.dataset.pescD !== undefined ? t.dataset.pescD : t.dataset.pescU), it0 = L.vistas[i0], es = escalas(it0), k0 = es.indexOf(it0.n);
+        const k1 = Math.max(0, Math.min(es.length - 1, (k0 < 0 ? es.findIndex(e => e >= it0.n) : k0) + (t.dataset.pescU !== undefined ? 1 : -1)));
+        if (es[k1] !== it0.n) { presAntes(); it0.n = es[k1]; presRefrescar(false); } return; }
       if (t.dataset.pdup !== undefined) { presAntes(); const it = LAM.presAgregar(L, L.vistas[+t.dataset.pdup].vista, L.vistas[+t.dataset.pdup]); PRES.sel = it; presRefrescar(false); return; }
       if (t.dataset.pdel !== undefined) { presAntes(); LAM.presQuitar(L, L.vistas[+t.dataset.pdel]); PRES.sel = null; presRefrescar(false); return; }
     }
