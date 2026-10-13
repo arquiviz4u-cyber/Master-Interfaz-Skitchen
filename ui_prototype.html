@@ -10242,29 +10242,46 @@ const LAM = (() => {
       cuenta([[pr[0] + (S.flip ? -b : a), pr[1] + c.v0 / 100], [pr[0] + (S.flip ? -a : b), pr[1] + (c.v0 + c.h) / 100]]); };
     const ultimaDe = {}; orden.forEach(q => { if (q.p.rol === 'frente' && q.p.frente) ultimaDe[q.p.frente] = q; });
     const cazHechas = new Set();
-    orden.forEach(q => {
-      const trasPuerta = () => { if (q.p.rol === 'frente' && q.p.frente && ultimaDe[q.p.frente] === q)
-        cazF.forEach((c, i) => { if (c.frente === q.p.frente) { simTri(q, c); cazHechas.add(i); } }); };   /* la cazoleta va en la cara de su puerta */
-      if (q.sim) { simTri(q, q.sim); trasPuerta(); return; }
-      if (q.alambre) { const segs = q.alambre.map(([a, b, g]) => [proy(a), proy(b), g]); segs.forEach(sg => cuenta([sg[0], sg[1]]));
-        tri.push({ t: 'alambre', segs, q }); trasPuerta(); return; }
-      if (q.malla) { q.malla.forEach(c => { if (vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);
-          tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null }); });
-        trasPuerta(); return; }
-      caraIdx.forEach((idx, fi) => {
-        const pts = idx.map(i => q.v[i]), n = normalHacia(pts, q.c, true);
-        if (vpunto(n, V) <= 1e-6) return;
-        const pr = pts.map(proy); cuenta(pr);
-        const arriba = fi === 1;   /* [4,5,6,7]: la cara superior lleva los huecos */
-        tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(n, luz)), q, holes: arriba ? q.huecos.map(h => h.arriba.map(proy)) : null });
-      });
+    /* A186: lo que va dentro del hueco de una pieza (la tina de la tarja, el equipo de la parrilla) se pinta antes que su cara superior
+       y despues de las paredes del hueco: asi la cubierta tapa lo que cuelga bajo ella y la tina cubre las paredes del hueco */
+    const antes = new Map(), despues2 = new Map(), contiene = new Set();
+    orden.forEach((q, qi) => {
+      if (!q.huecos || !q.huecos.length || q.sim || q.malla || q.alambre) return;
+      const hs = q.huecos.map(h => { const pts = h.arriba.concat(h.abajo), xs = pts.map(v => v[0]), ys = pts.map(v => v[1]); return [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]; });
+      let prim = Infinity, ult = -1;
+      orden.forEach((b, bi) => { if (b === q || b.sim || (b.p.rol === 'luz')) return;
+        if (b.mx[2] <= q.mx[2] + .5 && b.mn[2] < q.mx[2] - .01 && hs.some(hh => b.mn[0] >= hh[0] - .1 && b.mx[0] <= hh[1] + .1 && b.mn[1] >= hh[2] - .1 && b.mx[1] <= hh[3] + .1)) { prim = Math.min(prim, bi); ult = Math.max(ult, bi); } });
+      if (ult < 0) return;
+      contiene.add(q);
+      const a = Math.min(qi, prim), d = Math.max(qi, ult);
+      antes.set(a, (antes.get(a) || []).concat({ q, k: 'extras' })); despues2.set(d, (despues2.get(d) || []).concat({ q, k: 'caras' })); });
+    const emitCaras = q => caraIdx.forEach((idx, fi) => {
+      const pts = idx.map(i => q.v[i]), n = normalHacia(pts, q.c, true);
+      if (vpunto(n, V) <= 1e-6) return;
+      const pr = pts.map(proy); cuenta(pr);
+      const arriba = fi === 1;   /* [4,5,6,7]: la cara superior lleva los huecos */
+      tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(n, luz)), q, holes: arriba ? q.huecos.map(h => h.arriba.map(proy)) : null });
+    });
+    const emitExtras = q => {
       q.huecos.forEach(h => h.arriba.forEach((a, i) => { const b = h.arriba[(i + 1) % 4], c = h.abajo[(i + 1) % 4], d = h.abajo[i], pts = [a, b, c, d];
         const cen = [0, 1, 2].map(k => (h.arriba[0][k] + h.arriba[2][k]) / 2);
         const n = normalHacia(pts, cen, false);   /* la pared mira al centro del hueco */
         if (vpunto(n, V) <= 1e-6) return;
         const pr = pts.map(proy); cuenta(pr); tri.push({ t: 'pared', pr, k: .70, q }); }));
       q.perf.forEach(f => { if (vpunto(f.n, V) <= 1e-6) return; const pr = f.pts.map(proy); cuenta(pr); tri.push({ t: 'perf', pr, k: .5, q }); });
+    };
+    orden.forEach((q, qi) => {
+      (antes.get(qi) || []).forEach(z => emitExtras(z.q));
+      const trasPuerta = () => { if (q.p.rol === 'frente' && q.p.frente && ultimaDe[q.p.frente] === q)
+        cazF.forEach((c, i) => { if (c.frente === q.p.frente) { simTri(q, c); cazHechas.add(i); } }); };   /* la cazoleta va en la cara de su puerta */
+      if (q.sim) simTri(q, q.sim);
+      else if (q.alambre) { const segs = q.alambre.map(([a, b, g]) => [proy(a), proy(b), g]); segs.forEach(sg => cuenta([sg[0], sg[1]]));
+        tri.push({ t: 'alambre', segs, q }); }
+      else if (q.malla) { q.malla.forEach(c => { if (vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);
+          tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null }); }); }
+      else if (!contiene.has(q)) { emitCaras(q); emitExtras(q); }
       trasPuerta();
+      (despues2.get(qi) || []).forEach(z => emitCaras(z.q));
     });
     cazF.forEach((c, i) => { if (!cazHechas.has(i)) herr.push({ id: c.id, flip: c.flip, O: c.O }); });   /* sin puerta en la escena: encima de todo */
     const carasF = o.filtro ? caras.map((c, ci) => Object.assign({}, c, { piezas: c.piezas.filter(p => o.filtro(p, ci)) })) : caras;
