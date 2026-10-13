@@ -10147,35 +10147,41 @@ const LAM = (() => {
     const cajas = [], herr = [], cazF = [];
     const SX = (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, og = (plan.caras || []).map(c => c.origen[0]);
       return og.length && og.reduce((a, b) => a + b, 0) / og.length > centro ? -1 : 1; })();   /* observador en el cuarto y del lado contrario a las demas caras */
+    /* A185: el simbolo de un herraje (proyeccion de su modelo con el observador a (sx, -1) de la cara) sirve a cualquier cara cuyo eje Y
+       local mire al cuarto: la proyeccion global de sus ejes locales es la del simbolo, espejada en horizontal si la cara va girada */
+    const simCara = cara => { const ex = cara.ex, ey = cara.ey, vy = SX * ey[0] - ey[1], a = SX * ey[0] + ey[1], sx = SX * ex[0] - ex[1];
+      return Math.abs(vy + 1) < .01 && Math.abs(Math.abs(a) - 1) < .01 && Math.abs(Math.abs(sx) - 1) < .01 ? { sx: Math.round(sx), f: Math.round(a) } : null; };
     caras.forEach((cara, ci) => cara.piezas.forEach(p => {
       if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
+      const fs = o.sinCad ? null : simCara(cara);
       if (o.filtro && !o.filtro(p, ci)) return;   /* A177: solo el conjunto pedido */
       if (!conPuertas && p.ocultaSinPuertas) return;
       const abierto = !!(conPuertas && p.frente && open.has(p.frente));
       const interior = p.rol === 'caja' || p.rol === 'repisa' || p.rol === 'division' || (p.rol === 'herraje' && INTERIOR.has(p.tipo));
-      if (p.tipo === 'Cazoleta' && !(ci === 0 && !o.sinCad && modeloCad(p))) return;   /* la cazoleta es la perforacion de la puerta: circulo al abrirla; con modelo, el modelo */
+      if (p.tipo === 'Cazoleta' && !(fs && modeloCad(p))) return;   /* la cazoleta es la perforacion de la puerta: circulo al abrirla; con modelo, el modelo */
       if (interior && conPuertas && !abierto && !modAbierto.has(p.modulo)) return;   /* con puertas cerradas lo interior no se ve */
       if (p.estado && p.frente && (p.estado === 'abierto') !== abierto) return;      /* variantes cerrado / abierto de bisagras y correderas */
       const m = abierto && p.estado !== 'abierto' ? movimientoDe(abres[p.frente]) : null;   /* A184: el brazo abierto ya esta en su sitio */
-      const mod = ci === 0 && !o.sinCad ? modeloCad(p) : null;   /* A181: el modelo real (solo en la cara principal) */
+      const K = v => [cara.org[0] + v[0] * cara.ex[0] + v[1] * cara.ey[0], cara.org[1] + v[0] * cara.ex[1] + v[1] * cara.ey[1], cara.org[2] + v[2]];
+      const mod = fs ? modeloCad(p) : null;   /* A181: el modelo real; A185: en toda cara que mira al observador */
       let simQ = null;
       if (mod) {
         const gira = m && m.gira && m.eje && m.eje[2] === 1, rot = gira && Math.abs(Math.abs(m.g) - 90) < 1 ? (m.g > 0 ? 90 : -90) : 0;
-        const sim = !(m && m.gira && !rot) ? simDe(mod.archivo, 'i', mod.espejo, { SX, rot, k: mod.sy }) : null;   /* giros distintos de 90: se queda la caja */
-        const OO = sim ? mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m) : null;
+        const sim0 = !(m && m.gira && !rot) ? simDe(mod.archivo, 'i', mod.espejo, { SX: fs.sx, rot, k: mod.sy }) : null;   /* giros distintos de 90: se queda la caja */
+        const sim = sim0 && { id: sim0.id, flip: fs.f < 0 !== !!sim0.flip };
+        const OO = sim ? K(mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m)) : null;
         if (sim && COR_CAJA[mod.archivo]) simQ = { id: sim.id, flip: sim.flip, O: OO };   /* A185: ordenada con las demas cajas */
         else if (sim && FAM[mod.archivo] === 'arm') simQ = { id: sim.id, flip: sim.flip, O: OO, ar: true };
         else if (sim && FAM[mod.archivo] === 'caz' && p.frente) { cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }   /* va con su puerta */
-        else if (sim) { herr.push({ id: sim.id, flip: sim.flip, O: mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m) }); return; }
+        else if (sim) { herr.push({ id: sim.id, flip: sim.flip, O: OO }); return; }
       }
-      const K = v => [cara.org[0] + v[0] * cara.ex[0] + v[1] * cara.ey[0], cara.org[1] + v[0] * cara.ex[1] + v[1] * cara.ey[1], cara.org[2] + v[2]];
       const dyE = o.explotar && (p.rol === 'frente' || (p.frente && (p.tipo === 'Jaladera' || p.tipo === 'Boton'))) ? o.explotar : 0;   /* despiece: los frentes salen al cuarto */
       const P = (x, y, z) => K(mover([x, -(y + dyE), z], m));
       const x0 = p.x, x1 = p.x + p.ancho, y0 = p.y, y1 = p.y + p.fondo, z0 = p.z, z1 = p.z + p.alto;
       const q = { ci, extra: !!cara.extra, p, sim: simQ, v: [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0), P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], abierto };
       q.c = [0, 1, 2].map(i => q.v.reduce((s, v) => s + v[i], 0) / 8);
       q.mn = [0, 1, 2].map(i => Math.min(...q.v.map(v => v[i]))); q.mx = [0, 1, 2].map(i => Math.max(...q.v.map(v => v[i])));
-      if (simQ && simQ.ar) { q.mn[0] += .3; q.mx[0] -= .3; }   /* la placa toca el lateral: que el lateral quede detras */
+      if (simQ && simQ.ar) { q.mn[0] += .3; q.mx[0] -= .3; q.mn[1] += .3; q.mx[1] -= .3; }   /* la placa toca el lateral: que el lateral quede detras */
       /* huecos (A99/A170): rectangulos que atraviesan la pieza; sus paredes se ven por dentro */
       q.huecos = [p.hueco].concat(p.huecos || []).filter(h => h && h.ancho > 0 && h.fondo > 0).map(h => {
         const hx0 = x0 + h.x, hx1 = hx0 + h.ancho, hy0 = y0 + h.y, hy1 = hy0 + h.fondo;
