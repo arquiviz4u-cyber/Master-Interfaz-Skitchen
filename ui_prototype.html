@@ -10468,7 +10468,7 @@ const LAM = (() => {
   function leyendaMats(mats, anchoMax, columna){
     if (!mats.length) return { h: 0, dibuja(){} };
     const tam = 9, colw = Math.max(...mats.map(m => anchoHelv(m.nombre, tam))) + 22, cols = columna ? 1 : Math.max(1, Math.min(mats.length, Math.floor(anchoMax / colw))), filas = Math.ceil(mats.length / cols);
-    return { h: 16 + filas * 13 + 4, dibuja(g, x, y, plano){
+    return { h: 16 + filas * 13 + 4, w: cols * colw, dibuja(g, x, y, plano){
       g.save(); g.fillStyle = '#444444'; g.font = "600 8px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(T('MATERIALES'), x, y + 8);
       mats.forEach((m, i) => { const c = i % cols, f = Math.floor(i / cols), px = x + c * colw, py = y + 14 + f * 13;
         g.fillStyle = plano ? '#FFFFFF' : hexDe(m.rgb); g.fillRect(px, py, 8, 8); g.strokeStyle = '#555555'; g.lineWidth = .5; g.strokeRect(px, py, 8, 8);
@@ -10489,9 +10489,11 @@ const LAM = (() => {
     try { isoHits.length = 0; isoPintar(g, esc, e.s, MARGEN, MARGEN, { plano: !!o.plano, cotas: o.cotas !== false && !sueltas, tinte: o.tinte, hits: !!o.conHits });
       if (o.conHits) hits = isoHits.map(h => ({ pr: h.pr, frente: h.frente, modulo: h.modulo }));
       if (o.globos) globosIso(g, esc, o.globos, e.s, MARGEN);
-      ley.dibuja(g, MARGEN, MARGEN + alto * e.s + 8, !!o.plano); }
+      if (!o.leyendaSuelta) ley.dibuja(g, MARGEN, MARGEN + alto * e.s + 8, !!o.plano); }
     finally { Object.assign(C, previoC); isoHits.length = 0; }
     let dimsIso = null, bb = cajaTinta(g.ops);
+    const mats = o.leyendaSuelta && !o.sinLeyenda ? materialesUsados() : null, leyP = mats && mats.length ? { mats, x: MARGEN, y: MARGEN + alto * e.s + 8 } : null;   /* A188: la leyenda va aparte para poder moverla */
+    if (leyP) { const lw = leyendaMats(mats, Math.max(ancho * e.s, 150), !!o.matCol); bb = { x0: bb.x0, y0: bb.y0, x1: Math.max(bb.x1, leyP.x + lw.w), y1: Math.max(bb.y1, leyP.y + lw.h), w: 0, h: 0 }; bb.w = bb.x1 - bb.x0; bb.h = bb.y1 - bb.y0; }
     if (sueltas) {
       const Pp = v => { const p = esc.proy(v); return [MARGEN + (p[0] - esc.bb.x0) * e.s, MARGEN + (p[1] - esc.bb.y0) * e.s]; };
       dimsIso = esc.cotas.map(c => ({ a: Pp(c.a), b: Pp(c.b), a2: Pp(vadd(c.a, c.d)), b2: Pp(vadd(c.b, c.d)), a3: Pp(vadd(c.a, vmul(c.d, 1.1))), b3: Pp(vadd(c.b, vmul(c.d, 1.1))), t: c.t }));
@@ -10500,7 +10502,7 @@ const LAM = (() => {
         bb = { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 }; }
     }
     return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista: o.vistaId || 'Isometrico', plano: !!o.plano, bb,
-      iso: { esc, s: e.s, M: MARGEN, u0: esc.bb.x0, v0: esc.bb.y0 }, hits, dimsIso };
+      iso: { esc, s: e.s, M: MARGEN, u0: esc.bb.x0, v0: esc.bb.y0 }, hits, dimsIso, ley: leyP, anchoLey: Math.max(ancho * e.s, 150) };
   }
   /* ---- conjuntos (A177): los gabinetes bajos, altos o torres de una cara, vistos aparte desde el plan de piezas ---- */
   const GRUPOS = { bajos: 'Gabinetes bajos', altos: 'Gabinetes altos', torres: 'Torres', isla: 'Isla' };
@@ -11267,7 +11269,7 @@ const LAM = (() => {
     it.vista === 'Corte' ? Math.round((it.corte || 0) * 10) + letraDe(L, it) + ':' + (it.dir || 0) : '',
     ES_CONJUNTO(it.vista) ? [it.grupo, it.cara || 0, (it.abiertos || []).slice().sort().join(','), it.explotado ? 1 : 0, numeroConjunto(L, it)].join(':') : '',
     it.vista === 'Isometrico' || it.vista === 'ConjLocal' || it.grupo === 'isla' ? islaFirma(L) : '', it.vista === 'Isometrico' && it.abiertos ? 'o:' + it.abiertos.slice().sort().join(',') : '', [...abiertos].sort().join(',')].join('|');
-  const opcCap = (L, it) => ({ plano: !!it.plano, cotas: cotasDe(L, it), proy: !!L.proy, matCol: !!L.matCol, globos: [],   /* los globos y las marcas de corte se pintan aparte */
+  const opcCap = (L, it) => ({ plano: !!it.plano, cotas: cotasDe(L, it), proy: !!L.proy, matCol: !!L.matCol, leyendaSuelta: it.vista === 'Isometrico', globos: [],   /* los globos y las marcas de corte se pintan aparte */
     corte: it.vista === 'Corte' ? it.corte : undefined, letra: it.vista === 'Corte' ? letraDe(L, it) : undefined, cotasSueltas: true, conHits: it.vista === 'Isometrico', dirCorte: it.vista === 'Corte' ? it.dir : undefined,
     abiertosIso: it.vista === 'Isometrico' && it.abiertos ? it.abiertos : undefined,
     grupo: it.grupo, cara: it.cara || 0, abiertos: it.vista === 'Isometrico' ? it.abiertos || undefined : it.abiertos, explotado: !!it.explotado, numero: ES_CONJUNTO(it.vista) ? numeroConjunto(L, it) : undefined,
@@ -11336,7 +11338,7 @@ const LAM = (() => {
   }
   /* desplazamiento (mm de hoja) del titulo o de la escala de una vista: { dx, dy } o nada */
   const textoMov = v => v && typeof v === 'object' && isFinite(v.dx) && isFinite(v.dy) && (v.dx || v.dy) ? { dx: Math.round(v.dx * 100) / 100, dy: Math.round(v.dy * 100) / 100 } : undefined;
-  const CAMPOS_VISTA = ['id', 'vista', 'hoja', 'on', 'n', 'x', 'y', 'plano', 'corte', 'dir', 'grupo', 'cara', 'abiertos', 'explotado', 'cotasV', 'tt', 'te'];
+  const CAMPOS_VISTA = ['id', 'vista', 'hoja', 'on', 'n', 'x', 'y', 'plano', 'corte', 'dir', 'grupo', 'cara', 'abiertos', 'explotado', 'cotasV', 'tt', 'te', 'ley', 'leyCol'];
   const copiaVista = it => { const r = {}; CAMPOS_VISTA.forEach(k => { if (it[k] !== undefined) r[k] = it[k]; }); return r; };
   /* o: { papel, cotas, proy, notas, notasEd, rotulo, vistas: [ids], guardado: [{id, vista, on, n, x, y, plano, corte}], globos, detalle, dxf, escalaVistas, escalaIso } */
   function presNueva(o){
@@ -11352,7 +11354,7 @@ const LAM = (() => {
         const it = { id: nuevoId(g && g.id && !usados.has(g.id) ? g.id : v), vista: v, hoja: g && num(g.hoja) && g.hoja < L.hojas.length ? g.hoja : 0, on: g ? g.on !== false : true,
           n: g && ESC_DET.includes(g.n) ? g.n : v === 'Isometrico' ? (o.escalaIso || 50) : (o.escalaVistas || 25),
           x: g && num(g.x) ? g.x : NaN, y: g && num(g.y) ? g.y : NaN, plano: !!(g && g.plano), corte: g && num(g.corte) ? g.corte : NaN, dir: g && (g.dir === 1 || g.dir === -1) ? g.dir : undefined,
-          grupo: undefined, cara: 0, abiertos: [], explotado: false, cotasV: g && typeof g.cotasV === 'boolean' ? g.cotasV : undefined, tt: textoMov(g && g.tt), te: textoMov(g && g.te) };
+          grupo: undefined, cara: 0, abiertos: [], explotado: false, cotasV: g && typeof g.cotasV === 'boolean' ? g.cotasV : undefined, tt: textoMov(g && g.tt), te: textoMov(g && g.te), ley: textoMov(g && g.ley), leyCol: g && typeof g.leyCol === 'boolean' ? g.leyCol : undefined };
         if (v === 'Corte' && !num(it.corte)) it.corte = centros[0];
         L.vistas.push(it); });
     });
@@ -11695,6 +11697,8 @@ const LAM = (() => {
     const cap = it.cap, gr = new Grabador(Math.max(cap.w, cap.bb.x1 + 600), Math.max(cap.h, cap.bb.y1 + 900));
     gs.filter(g => g.it === it).forEach(g => dibujarGlobo(gr, g.n, g.ap[0], g.ap[1], g.ap[0] + g.dx / PX_MM, g.ap[1] + g.dy / PX_MM));
     ms.filter(m => m.host === it).forEach(m => dibujarMarca(gr, m.px[0], m.px[1], m.px[2], m.dir, m.letra));
+    if (it.vista === 'Isometrico' && cap.ley) { const d = it.ley || { dx: 0, dy: 0 }, lg = leyendaMats(cap.ley.mats, cap.anchoLey, it.leyCol !== undefined ? !!it.leyCol : !!L.matCol);
+      lg.dibuja(gr, cap.ley.x + d.dx / PX_MM, cap.ley.y + d.dy / PX_MM, !!it.plano); }   /* A188: la leyenda de materiales, aparte y movible */
     if (it.vista === 'Planta') dibujarIslaPlanta(gr, L, it);
     if (it.vista === 'AlzadoInterior' || it.vista === 'Corte') herrajesSobre(gr, L, it);
     opsCotas(L, it, gr);
@@ -11755,6 +11759,20 @@ const LAM = (() => {
     const q = h.it[h.k] = { dx: Math.round((h.base.dx + mx - h.inicio.x) * 100) / 100, dy: Math.round((h.base.dy + my - h.inicio.y) * 100) / 100 };
     if (!q.dx && !q.dy) h.it[h.k] = undefined;
   }
+  /* rectangulo (mm de hoja) de la leyenda de materiales de un isometrico */
+  function cajaLeyenda(L, it){
+    const cap = it.cap; if (!cap || !cap.ley) return null;
+    const { ix, iy } = tintaDe(it), d = it.ley || { dx: 0, dy: 0 }, lg = leyendaMats(cap.ley.mats, cap.anchoLey, it.leyCol !== undefined ? !!it.leyCol : !!L.matCol);
+    return { it, x: ix + (cap.ley.x - cap.bb.x0) * PX_MM + d.dx, y: iy + (cap.ley.y - cap.bb.y0) * PX_MM + d.dy, w: lg.w * PX_MM, h: lg.h * PX_MM };
+  }
+  const presHitLey = (L, mx, my, tol) => conHoja(L.papel, () => { let r = null;
+    enHoja(L).filter(it => it.on && it.cap).forEach(it => { const b = cajaLeyenda(L, it); if (b && mx >= b.x - tol * .3 && mx <= b.x + b.w + tol * .3 && my >= b.y - tol * .3 && my <= b.y + b.h + tol * .3) r = b; });
+    return r; });
+  function presMoverLey(L, h, mx, my){
+    const q = { dx: Math.round((h.base.dx + mx - h.inicio.x) * 100) / 100, dy: Math.round((h.base.dy + my - h.inicio.y) * 100) / 100 };
+    h.it.ley = q.dx || q.dy ? q : undefined;
+  }
+  const presAlternarLey = (L, it) => { it.leyCol = !(it.leyCol !== undefined ? it.leyCol : !!L.matCol); };
   const presHitMarca = (L, mx, my, tol) => conHoja(L.papel, () => marcasHoja(L).reverse().find(m => Math.abs(mx - m.mx) <= 1.2 + tol * .5 && my >= m.my0 - 2 && my <= m.my1 + 2) || null);
   /* arrastra la marca de un corte a lo largo del alzado o de la planta (cm desde el extremo izquierdo, a 0.5 cm) */
   function presMoverMarca(L, m, mx){
@@ -12151,7 +12169,7 @@ const LAM = (() => {
     abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales,
     presNueva, presRefrescar, presReacomodar, presMover, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
-    presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista,
+    presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
     presHitGlobo, presMoverGlobo, presRestablecer, presAgregar, presQuitar, presInstantanea, presRestaurar, presHitMarca, presMoverMarca, marcasHoja,
     herrajesSobre, Grabador, presAgregarConjunto, presQuitarHoja, frenteBajo, presAlternarFrente, conjuntoDisponible, GRUPOS, GRUPO_CORTO, ESC_DET, ES_CONJUNTO, enHoja,
     detallesDe, fijarLogo, tituloItem, letraDe, centrosCorte, api: LAM_API };
@@ -12420,6 +12438,9 @@ function presCargarLogo(){
       if (ch) { PRES.selG = null; PRES.selM = null; PRES.sel = null; PRES.selC = { it: ch.it.id, i: ch.id }; PRES.pend = presSnap();
         LAM.presGrupoCota(L, ch);
         const q = ((L.cotas || {})[ch.it.id] || {})[ch.id] || {}; PRES.drag = { k: 'cota', ch: Object.assign(ch, { inicio: { x: m.x, y: m.y }, base: { dx: q.dx || 0, dy: q.dy || 0, d: q.d || 0, tx: q.tx || 0, ty: q.ty || 0 } }), movido: false }; presLado(); presDibujar(); return; }
+      const lh = LAM.presHitLey(L, m.x, m.y, tol);   /* leyenda de materiales: se mueve; doble clic cambia fila/columna */
+      if (lh) { const b0 = lh.it.ley || { dx: 0, dy: 0 }; PRES.selG = null; PRES.selM = null; PRES.sel = null; PRES.pend = presSnap();
+        PRES.drag = { k: 'ley', h: { it: lh.it, inicio: { x: m.x, y: m.y }, base: { dx: b0.dx, dy: b0.dy } }, movido: false }; presLado(); presDibujar(); return; }
       const th = LAM.presHitTexto(L, m.x, m.y, tol);   /* titulo o escala de una vista: se mueven aparte */
       if (th) { const b0 = th.it[th.k] || { dx: 0, dy: 0 }; PRES.selG = null; PRES.selM = null; PRES.sel = null; PRES.pend = presSnap();
         PRES.drag = { k: 'texto', h: { it: th.it, k: th.k, inicio: { x: m.x, y: m.y }, base: { dx: b0.dx, dy: b0.dy } }, movido: false }; presLado(); presDibujar(); return; }
@@ -12445,7 +12466,7 @@ function presCargarLogo(){
       if (hv !== PRES.hoverC) { PRES.hoverC = hv; presDibujar(true); } }
     if (!d) { const cor = PRES.hoverC && PRES.L.vistas.find(q => q.id === PRES.hoverC);
       if (cor && LAM.presHitFlecha(PRES.L, cor, m.x, m.y)) { cv.style.cursor = 'pointer'; return; }
-      cv.style.cursor = PRES.pag < PRES.L.hojas.length && (LAM.presHitCota(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitTexto(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitGlobo(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitMarca(PRES.L, m.x, m.y, 6 / PRES.Z)) ? 'pointer'
+      cv.style.cursor = PRES.pag < PRES.L.hojas.length && (LAM.presHitCota(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitTexto(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitLey(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitGlobo(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitMarca(PRES.L, m.x, m.y, 6 / PRES.Z)) ? 'pointer'
       : (PRES.L.camposHoja || []).some(c => m.x >= c.x && m.x <= c.x + c.w && m.y >= c.y && m.y <= c.y + c.h) ? 'text' : PRES.pag < PRES.L.hojas.length && LAM.presHit(PRES.L, m.x, m.y) ? 'grab' : 'default'; return; }
     if (d.k === 'pan') { PRES.ox = d.ox + p.x - d.px; PRES.oy = d.oy + p.y - d.py; presDibujar(true); return; }
     d.movido = true;
@@ -12453,6 +12474,7 @@ function presCargarLogo(){
     else if (d.k === 'isla') { cv.style.cursor = 'grabbing'; LAM.presMoverIsla(PRES.L, d.ih.it, m.x, m.y, d.ih.off); }
     else if (d.k === 'cota') { cv.style.cursor = 'grabbing'; LAM.presMoverCota(PRES.L, d.ch, m.x, m.y); }
     else if (d.k === 'texto') { cv.style.cursor = 'grabbing'; LAM.presMoverTexto(PRES.L, d.h, m.x, m.y); }
+    else if (d.k === 'ley') { cv.style.cursor = 'grabbing'; LAM.presMoverLey(PRES.L, d.h, m.x, m.y); }
     else if (d.k === 'marca') LAM.presMoverMarca(PRES.L, d.mk, m.x);
     else { cv.style.cursor = 'grabbing'; PRES.guias = LAM.presMover(PRES.L, d.it, m.x - d.dx, m.y - d.dy); }
     presDibujar(true);
@@ -12468,6 +12490,7 @@ function presCargarLogo(){
   }, { passive: false });
   cv.addEventListener('dblclick', e => {
     const m = mmDe(pos(e)); if (PRES.pag >= PRES.L.hojas.length) return;
+    const lh = LAM.presHitLey(PRES.L, m.x, m.y, 4 / PRES.Z); if (lh) { presAntes(); LAM.presAlternarLey(PRES.L, lh.it); presGuardar(); presDibujar(); return; }   /* A188: doble clic: de filas a columna */
     const it = LAM.presHit(PRES.L, m.x, m.y), fb = it ? LAM.frenteBajo(PRES.L, it, m.x, m.y) : null;
     if (it && fb) { presAntes(); LAM.presAlternarFrente(it, fb, e.shiftKey); PRES.sel = it; presRefrescar(false); return; }   /* abrir o cerrar un frente del conjunto */
     const gh = LAM.presHitGlobo(PRES.L, m.x, m.y, 6 / PRES.Z); if (!gh) return;
