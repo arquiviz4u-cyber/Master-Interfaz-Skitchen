@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A203. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Cotas: dos filas o columnas ya no se pegan (separacion minima al imantarse) y Mayus + arrastrar mueve solo esa cota; la marca de color de los despieces se conserva en B/N; correderas del detalle de cajon de lado, anidadas, delante de la caja y la fija de su altura; el conteo de herrajes siempre en la primera lamina del conjunto.
    A202. [Master hecho 13/10; Ruby y Revit pendientes: leer modelo.giro] Las bisagras de la puerta elevable usan el modelo real de la bisagra (brazo cerrado, brazo abierto y cazoleta, como en las de lateral) girado 90 grados: su eje corre a lo ancho y su lateral queda contra la cara inferior del techo (modelo.giro = 90; x = ox + (Z - refZ), y = oy - (Y - refY), z = oz + (X - refX)); la puerta lleva su perforacion de cazoleta. El master las dibuja en el alzado (simbolo transpuesto); en el isometrico y el corte salen como caja.
    A201. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Reparto minimo con prioridad: alzados, despieces, isometricos y cajones conservan su escala; si no caben bajan primero el cuadro de herrajes (100/80/67 %, textos legibles; selector en la fila), luego nariz y gola (1:5 a 1:10) y solo despues un detalle pasa a la lamina de detalles. Gabinetes superiores unidos con pistones: pareja de pistones en cada division de la puerta unica y bisagras reales (modelo girado, contra el techo) en su canto superior, dos entre cada par de pistones.
    A200. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Reparto minimo de laminas por conjunto: todas las vistas en una lamina a sus escalas y, mientras no quepan, el detalle mas grande pasa a una lamina de detalles; un cajon (y especiero) por cada medida distinta de frente, con la marca de color de su grupo, el frente dibujado y su cantidad; cada conjunto con su propia triada de color (sin repetir entre bajos, altos y torres).
@@ -10872,7 +10873,7 @@ const LAM = (() => {
     let x = M + 24, y = M + 22, colW = 0, altoTot = 0, schemeR = 0;
     try {
       /* A191: un solo esquema pequeno del conjunto; cada grupo de piezas tiene un tono (gama) y lo lleva en su etiqueta */
-      lista.forEach((q, i) => { q.tono = tonoGrupo(i, plano, o.grupo); });
+      lista.forEach((q, i) => { q.tono = tonoGrupo(i, false, o.grupo); });   /* A203: la marca de color se conserva en B/N */
       const eqs = todasC.filter(p => p.rol === 'equipo' && p.modulo && f(p, cara) && p.ancho > 0 && p.alto > 0 && ['Estufa', 'Lavavajillas', 'Refrigerador', 'Frigobar'].includes(p.tipo));   /* A198: aparatos sin frente: bloque gris y su icono */
       { const todos = fr.concat(tap, eqs), xa = Math.min(...todos.map(p => p.x)), xb = Math.max(...todos.map(p => p.x + p.ancho)), za = Math.min(...todos.map(p => p.z)), zb = Math.max(...todos.map(p => p.z + p.alto));
         /* A198: el icono del componente va sobre el esquema, centrado en lo que ocupa el modulo; el esquema baja para dejarle sitio */
@@ -11091,8 +11092,10 @@ const LAM = (() => {
     const gi = Math.max(0, Math.min(grupos.length - 1, o.variante || 0)), fid = grupos[gi].fids[0], piezas = elegidas.filter(p => p.frente === fid).concat(cond.filter(p => p.frente === fid));
     const fr = todas.find(p => p.rol === 'frente' && p.frente === fid), cor = todas.filter(p => p.tipo === 'Corredera' && String(p.id).startsWith(fid + ':'));
     const m0 = piezas[0] && piezas[0].modulo, bx0 = Math.min(...piezas.map(p => p.x)), bx1 = Math.max(...piezas.map(p => p.x + p.ancho));
-    const lat = todas.filter(p => p.modulo === m0 && ['Corredera', 'CorrederaMedia', 'CorrederaMovil'].includes(p.tipo) && p.estado !== 'abierto'
-      && (p.frente === fid || (p.tipo === 'Corredera' && p.x >= bx0 - 5 && p.x + p.ancho <= bx1 + 5)));
+    const propias = todas.filter(p => p.modulo === m0 && ['CorrederaMedia', 'CorrederaMovil'].includes(p.tipo) && p.frente === fid && p.estado !== 'abierto');
+    const zRef = propias.length ? propias[0].z : (piezas[0] ? piezas[0].z : 0);
+    const fijas = todas.filter(p => p.modulo === m0 && p.tipo === 'Corredera' && p.x >= bx0 - 5 && p.x + p.ancho <= bx1 + 5).sort((a, b) => Math.abs(a.z - zRef) - Math.abs(b.z - zRef));   /* A203: la fija de su altura, no la de otro cajon */
+    const lat = (fijas[0] ? [fijas[0]] : []).concat(propias);
     return { piezas, fr, cor, fid, cond: cond.length > 0, lat, variantes: grupos.length, cantidad: grupos[gi].fids.length };
   }
   function capturarCajaConjunto(o, kind){
@@ -11104,7 +11107,7 @@ const LAM = (() => {
       z0 = Math.min(bz0, ...FR.map(p => p.z)), z1 = Math.max(bz1, ...FR.map(p => p.z + p.alto)), W = x1 - x0, D = y1 - y0, H = z1 - z0;
     const wP = W * sc, dP = D * sc, hP = H * sc, wFr = wP;
     /* A200: la marca de color es la del frente en el despiece de frentes: asi el cajon se identifica con su grupo */
-    let tono = '#8A949C'; if (!plano && d.fr) { try { tono = mapaTonos(o).get(d.fr.id) || tono; } catch (e) { /* gris */ } }
+    let tono = '#8A949C'; if (d.fr) { try { tono = mapaTonos(o).get(d.fr.id) || tono; } catch (e) { /* gris */ } }   /* A203: la marca de color se conserva en B/N */
     /* lista de piezas: igual medida y tipo juntas */
     const grupos = new Map(); P.forEach(p => { const dim = [p.ancho, p.fondo, p.alto].map(v => Math.round(v * 10) / 10).sort((a, b) => b - a), k = `${p.tipo}|${dim.join('x')}`; const q = grupos.get(k) || { tipo: p.tipo, dim, n: 0 }; q.n++; grupos.set(k, q); });
     if (d.fr) grupos.set('frente', { tipo: T('Frente'), dim: [d.fr.ancho, d.fr.alto, d.fr.fondo].map(v => Math.round(v * 10) / 10), n: 1 });
@@ -11124,9 +11127,10 @@ const LAM = (() => {
       /* perfil: el frente a la izquierda, el fondo a la derecha */
       const xp = M + anchoV + GAP; vTit('PERFIL', xp); const Xp = y => xp + (y1 - y) * sc, Yp = z => ya + (z1 - z) * sc;
       const tonoCor = { Corredera: '#7F8A93', CorrederaMedia: '#A9B1B8', CorrederaMovil: '#C9CED3' };
-      d.lat.slice().sort((a, b) => b.x - a.x).filter((p, i, arr) => arr.findIndex(q => q.tipo === p.tipo) === i).forEach(p =>   /* las correderas, de lado: fija, media y movil */
-        caja2D(g, Xp(p.y + p.fondo), Yp(p.z + p.alto), p.fondo * sc, p.alto * sc, plano ? '#FFFFFF' : tonoCor[p.tipo], plano ? '#222222' : '#4A5057', .8, { p, sc, plano }));
       P.slice().sort((a, b) => b.x - a.x).forEach(p => caja2D(g, Xp(p.y + p.fondo), Yp(p.z + p.alto), p.fondo * sc, p.alto * sc, col(p), tinta, .8, { p, sc, plano }));
+      /* las correderas, de lado y delante de la caja (van en el lateral del gabinete): la fija, la media y la movil anidadas, cada una con su largo */
+      ['Corredera', 'CorrederaMedia', 'CorrederaMovil'].forEach(tp => { const p = d.lat.find(q => q.tipo === tp); if (!p) return;
+        caja2D(g, Xp(p.y + p.fondo), Yp(p.z + p.alto), p.fondo * sc, p.alto * sc, plano ? '#FFFFFF' : tonoCor[tp], plano ? '#222222' : '#3A3F45', 1, { p, sc, plano }); });
       if (d.fr) frente2D(Xp(d.fr.y + d.fr.fondo), Yp(d.fr.z + d.fr.alto), d.fr.fondo * sc, d.fr.alto * sc);
       J.H(Xp(by1), Xp(by0), Yp(z1) - 10, fmt(by1 - by0));
       /* planta: x a la derecha, el frente abajo */
@@ -11691,7 +11695,8 @@ const LAM = (() => {
           const nn = LIBRE.includes(cand.it.vista) ? Math.round(cand.n * 1.15 * 10) / 10 : ESCALAS.find(e => e > cand.n);
           try { const cp = capturar(cand.it.vista, Object.assign(opcCap(L, cand.it), { escalaFija: nn })); cand.n = nn; cand.cap = cp; cand.bbEf = bbDe(L, { vista: cand.it.vista, cap: cp, rec: cand.it.rec }); } catch (e) { break; }
           /* A194: alzado e interiores del mismo conjunto suben juntos para quedar a la misma escala */
-          if (ALZ.includes(cand.it.vista)) alt.filter(q => q !== cand && ALZ.includes(q.it.vista) && q.it.hoja === cand.it.hoja && q.n < nn).forEach(q => { try { const cp = capturar(q.it.vista, Object.assign(opcCap(L, q.it), { escalaFija: nn })); q.n = nn; q.cap = cp; q.bbEf = bbDe(L, { vista: q.it.vista, cap: cp, rec: q.it.rec }); } catch (e) { /* se queda */ } });
+          const pareja = q => ALZ.includes(cand.it.vista) ? ALZ.includes(q.it.vista) : ['ConjCajon', 'ConjEspiero'].includes(cand.it.vista) && q.it.vista === cand.it.vista;   /* A203: los cajones tipo comparten escala */
+          if (ALZ.includes(cand.it.vista) || ['ConjCajon', 'ConjEspiero'].includes(cand.it.vista)) alt.filter(q => q !== cand && pareja(q) && q.it.hoja === cand.it.hoja && q.n < nn).forEach(q => { try { const cp = capturar(q.it.vista, Object.assign(opcCap(L, q.it), { escalaFija: nn })); q.n = nn; q.cap = cp; q.bbEf = bbDe(L, { vista: q.it.vista, cap: cp, rec: q.it.rec }); } catch (e) { /* se queda */ } });
           if (empacarMejor(alt)) hallado = true;
         }
         if (!hallado) { const b = limitesHoja(); ok.forEach((it, i) => fijar(it, b.x0 + i * 10, b.y0 + i * 10)); return; }
@@ -11708,7 +11713,7 @@ const LAM = (() => {
     return conHoja(L.papel, () => { const its = enHoja(L, h).filter(it => it.on && it.cap).map(it => ({ it, cap: it.cap })); return !its.length || !!empacarMejor(its); });
   }
   function presAcomodarConjunto(L, h){
-    const DET = ['ConjCajon', 'ConjEspiero', 'ConjNariz', 'ConjGola', 'ConjHerrajes'], propia = L.hojas[h];
+    const DET = ['ConjCajon', 'ConjEspiero', 'ConjNariz', 'ConjGola'], propia = L.hojas[h];   /* A203: el conteo de herrajes siempre se queda en la primera lamina */
     const area = v => { const b = v.bbEf || v.cap.bb; return b.w * b.h; };
     const movidas = [];
     /* prioridad: alzados, despieces, isometricos y cajones conservan su escala; si no caben, bajan primero los herrajes (hasta 67 %), luego
@@ -12131,7 +12136,7 @@ const LAM = (() => {
       const gs = geomCotas(L, h.it), ref = gs.find(g => g.id === h.id); if (!ref) return;
       const idx = ref.tipo === 'v' ? 0 : 1, mismo = g => g.tipo === ref.tipo && Math.abs(g.p1[idx] - ref.p1[idx]) < .8;
       const ov = (L.cotas && L.cotas[h.it.id]) || {};
-      h.grupo = gs.filter(mismo).map(g => ({ id: g.id, base: { dx: (ov[g.id] || {}).dx || 0, dy: (ov[g.id] || {}).dy || 0 } }));
+      h.grupo = gs.filter(h.solo ? g => g.id === ref.id : mismo).map(g => ({ id: g.id, base: { dx: (ov[g.id] || {}).dx || 0, dy: (ov[g.id] || {}).dy || 0 } }));   /* A203: Mayus mueve solo esa cota */
       h.refPos = ref.p1[idx];
       h.imanes = gs.filter(g => g.tipo === ref.tipo && !mismo(g)).map(g => g.p1[idx]);
     });
@@ -12141,8 +12146,10 @@ const LAM = (() => {
     let ddx = mx - h.inicio.x, ddy = my - h.inicio.y; const b = h.base;
     if (h.parte !== 'texto' && h.grupo && (h.tipo === 'v' || h.tipo === 'h')) {
       let dd = h.tipo === 'v' ? ddx : ddy;
-      const pos = h.refPos + dd, im = (h.imanes || []).reduce((m, c) => Math.abs(c - pos) < 1.6 && (m === null || Math.abs(c - pos) < Math.abs(m - pos)) ? c : m, null);
-      if (im !== null) dd += im - pos;
+      /* A203: dos filas o columnas nunca quedan en el mismo sitio (ya no se podrian despegar): se imantan a una separacion minima de la vecina */
+      const pos = h.refPos + dd, SEP = 3.5;
+      let mejor = null; (h.imanes || []).forEach(c => { const d = pos - c; if (Math.abs(d) < SEP + 1.2) { const t = c + (d >= 0 ? SEP : -SEP); if (mejor === null || Math.abs(t - pos) < Math.abs(mejor - pos)) mejor = t; } });
+      if (mejor !== null) dd += mejor - pos;
       h.grupo.forEach(gm => { const qm = (o[gm.id] = o[gm.id] || {}); if (h.tipo === 'v') qm.dx = r(gm.base.dx + dd); else qm.dy = r(gm.base.dy + dd); });
       return;
     }
@@ -12880,7 +12887,7 @@ function presCargarLogo(){
       if (cor && LAM.presHitFlecha(L, cor, m.x, m.y)) { presAntes(); cor.dir = -LAM.dirCorte(cor); presRefrescar(false); return; }   /* girar el corte */
       const ch = LAM.presHitCota(L, m.x, m.y, tol);
       if (ch) { PRES.selG = null; PRES.selM = null; PRES.sel = null; PRES.selC = { it: ch.it.id, i: ch.id }; PRES.pend = presSnap();
-        LAM.presGrupoCota(L, ch);
+        ch.solo = e.shiftKey; LAM.presGrupoCota(L, ch);
         const q = ((L.cotas || {})[ch.it.id] || {})[ch.id] || {}; PRES.drag = { k: 'cota', ch: Object.assign(ch, { inicio: { x: m.x, y: m.y }, base: { dx: q.dx || 0, dy: q.dy || 0, d: q.d || 0, tx: q.tx || 0, ty: q.ty || 0 } }), movido: false }; presLado(); presDibujar(); return; }
       const lh = LAM.presHitLey(L, m.x, m.y, tol);   /* leyenda de materiales: se mueve; doble clic cambia fila/columna */
       if (lh) { const b0 = lh.it.ley || { dx: 0, dy: 0 }; PRES.selG = null; PRES.selM = null; PRES.sel = null; PRES.pend = presSnap();
