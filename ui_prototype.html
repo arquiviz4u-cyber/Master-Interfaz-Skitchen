@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A197. [Master hecho 13/10; sin pasos en Revit ni SketchUp] El esquema del despiece lleva un icono del componente del modulo (tarja, parrilla, campana, torre de hornos, alacena, refrigerador, estufa, lavavajillas) en su frente mayor; sin los rectangulos punteados de equipos.
    A196. [Master hecho 13/10; sin pasos en Revit ni SketchUp] El despiece de frentes sale a color de fabrica (B/N apagado) y los tonos del esquema son una triada con vecinos analogos, a 55 % de saturacion; en B/N, grises medios.
    A195. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar (usuario 13/10): 1) el despiece de la tapeta muestra su frente (ancho por alto) con el fondo anotado, no el lateral; 2) sin el dialogo «Laminas» (Presentar cubre todo); 3) hojas de detalle por unidad apagadas de fabrica; 4) «Alzado con frentes» y «Alzado sin puertas» a la misma escala en la primera lamina, y todas las vistas en blanco y negro salvo los isometricos (y la vista general); 5) el encabezado (linea sobre el titulo) se mueve con el titulo y la escala y tambien se agarra; sin lineas guia al arrastrar. Las laminas ya guardadas conservan sus ajustes.
    A194. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Revision de coherencia y UX de Presentar: 1) panel lateral: laminas y vistas arriba; hoja, isla, notas y cotas, pie y entrega plegados (recuerdan su estado); sin parrafos largos (la ayuda va en el tooltip); cada vista en dos lineas (nombre y boton de duplicar/quitar; B/N, Cotas, Globos y escala); la isla solo aparece si hay una guardada; 2) BUG: las vistas de las laminas de conjunto nuevas no tenian posicion (la lamina de detalles salia vacia): presRefrescar acomoda toda lamina sin posiciones; 3) BUG: el ancho minimo de empacar no coincidia con medirItem y las vistas de conjunto se encimaban; prueba nueva de solapes; 4) acomodo tambien por columnas (aprovecha la hoja: torres con alzados a 1:25); alzado e interiores suben de escala juntos y el isometrico y el despiece no pasan de 1:100 y 1:50; 5) el conteo de herrajes de torres pasa a la lamina de detalles si no caben legibles; 6) DXF con nombres legibles (lamina, numero y titulo); 7) despiece: mas aire bajo el esquema.
@@ -10762,6 +10763,24 @@ const LAM = (() => {
     return cap;
   }
   /* despiece de frentes: cada puerta y cajon distinto plano, con su medida, su espesor y cuantos hay (como las hojas de unidad de referencia) */
+  /* A197: icono del componente que lleva el frente (tarja, parrilla, campana, torre de hornos, alacena, refrigerador...) */
+  function dibujarIconoEquipo(g, k, cx, cy, sz){
+    const h = sz / 2 * .78, lw = Math.max(.8, sz * .07);
+    g.save(); g.fillStyle = 'rgba(255,255,255,.92)'; g.strokeStyle = '#1F2A33'; g.lineWidth = .6; g.beginPath();
+    if (g.roundRect) g.roundRect(cx - sz / 2, cy - sz / 2, sz, sz, sz * .18); else g.rect(cx - sz / 2, cy - sz / 2, sz, sz); g.fill(); g.stroke();
+    g.lineWidth = lw; g.lineJoin = 'round'; g.lineCap = 'round';
+    const R = (x0, y0, x1, y1) => g.strokeRect(cx + x0 * h, cy + y0 * h, (x1 - x0) * h, (y1 - y0) * h), L = (x0, y0, x1, y1) => { g.beginPath(); g.moveTo(cx + x0 * h, cy + y0 * h); g.lineTo(cx + x1 * h, cy + y1 * h); g.stroke(); };
+    const C = (x, y, r) => { g.beginPath(); g.arc(cx + x * h, cy + y * h, r * h, 0, Math.PI * 2); g.stroke(); };
+    if (k === 'tarja') { R(-.8, -.05, .8, .75); L(0, -.05, 0, -.6); L(0, -.6, .4, -.6); C(0, .35, .12); }
+    else if (k === 'parrilla') { C(-.45, -.45, .28); C(.45, -.45, .28); C(-.45, .45, .28); C(.45, .45, .28); }
+    else if (k === 'campana') { R(-.25, -.9, .25, -.2); g.beginPath(); g.moveTo(cx - .25 * h, cy - .2 * h); g.lineTo(cx - .9 * h, cy + .6 * h); g.lineTo(cx + .9 * h, cy + .6 * h); g.lineTo(cx + .25 * h, cy - .2 * h); g.stroke(); }
+    else if (k === 'horno') { R(-.8, -.8, .8, .8); R(-.55, -.15, .55, .55); C(-.4, -.5, .08); C(.4, -.5, .08); }
+    else if (k === 'alacena') { R(-.5, -.9, .5, .9); L(-.5, -.3, .5, -.3); L(-.5, .3, .5, .3); }
+    else if (k === 'refri') { R(-.5, -.9, .5, .9); L(-.5, -.35, .5, -.35); L(.25, -.7, .25, -.5); L(.25, -.2, .25, .1); }
+    else if (k === 'estufa') { C(-.4, -.45, .24); C(.4, -.45, .24); R(-.7, .1, .7, .8); }
+    else if (k === 'lavavajillas') { R(-.8, -.8, .8, .8); C(0, .1, .35); L(-.8, -.45, .8, -.45); }
+    g.restore();
+  }
   function capturarDespieceConjunto(o){
     const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), plano = !!o.plano;
     const todasC = piezasCara(plan, cara), fr = todasC.filter(p => p.rol === 'frente' && f(p, cara) && p.ancho > 0 && p.alto > 0 && p.tipo !== 'Gola');
@@ -10789,6 +10808,14 @@ const LAM = (() => {
           if (p.abre.tipo === 'Puerta') { const der = p.abre.lado === 'derecha', xf = der ? rx : rx + rw, xb = der ? rx + rw : rx; g.moveTo(xf, ry); g.lineTo(xb, ry + rh / 2); g.lineTo(xf, ry + rh); }
           else if (p.abre.tipo === 'Elevable' || p.abre.tipo === 'Piston') { g.moveTo(rx, ry + rh); g.lineTo(rx + rw / 2, ry); g.lineTo(rx + rw, ry + rh); }
           g.stroke(); });
+        g.setLineDash([]);
+        /* A197: el icono del componente que lleva el modulo, una vez, en su frente mayor */
+        { const mods = modulosPorId(), vistos = new Set();
+          const clave = m => !m ? null : cfg.moduloTarja === m.id && cfg.tipoTarja > 0 ? 'tarja' : m.parrilla ? 'parrilla' : m.upper && hasCampana(m) ? 'campana' : m.tipo === 'Hornos' ? 'horno' : m.tipo === 'Alacena' ? 'alacena'
+            : m.tipo === 'Refri' ? 'refri' : m.tipo === 'Estufa' ? 'estufa' : m.tipo === 'Lavavajillas' ? 'lavavajillas' : null;
+          fr.slice().sort((a2, b2) => b2.ancho * b2.alto - a2.ancho * a2.alto).forEach(p => { if (!p.modulo || vistos.has(p.modulo)) return; const kk = clave(mods[p.modulo]); if (!kk) return;
+            const rx = ox + (p.x - xa) * ks, rw = p.ancho * ks, ry = oy + (zb - p.z - p.alto) * ke, rh = p.alto * ke, sz = Math.min(rw, rh, 20) * .8; if (sz < 7) return;
+            vistos.add(p.modulo); dibujarIconoEquipo(g, kk, rx + rw / 2, ry + rh / 2, sz); }); }
         g.restore(); y = oy + (zb - za) * ke + 52; schemeR = ox + (xb - xa) * ks + 30; }   /* A194: aire para las cotas de la primera pieza */
       const yIni = y;
       lista.forEach(q => { const w = q.w * sc, h = q.h * sc;
