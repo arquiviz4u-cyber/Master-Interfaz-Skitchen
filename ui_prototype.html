@@ -12802,7 +12802,8 @@ const presPref = k => 'lam' + k[0].toUpperCase() + k.slice(1);
 function presGuardar(){
   const L = PRES.L; if (!L) return;
   const r = v => isFinite(v) ? Math.round(v * 10) / 10 : null;
-  prefs.lamLayoutJson = JSON.stringify({ v: 2, papel: L.papel, detalle: L.detalle, dxf: L.dxf, matCol: !!L.matCol,
+  prefs[L.esCloset ? 'lamLayoutClosetJson' : 'lamLayoutJson'] = JSON.stringify({ v: 2,   /* A207: la disposicion del closet es aparte de la de la cocina */
+     papel: L.papel, detalle: L.detalle, dxf: L.dxf, matCol: !!L.matCol,
     hojas: L.hojas, vistas: L.vistas.map(it => Object.assign(LAM.copiaVista(it), { x: r(it.x), y: r(it.y), corte: r(it.corte) })),
     isla: L.isla, cotas: L.cotas || {}, globos: L.globos || {} });
   prefs.lamPapel = L.papel; prefs.lamCotas = L.cotasOn !== false; prefs.lamProy = L.proy; prefs.lamMarcos = L.marcos !== false; prefs.lamNotas = L.notas; prefs.lamNotasJson = JSON.stringify(L.notasEd || {});
@@ -12811,7 +12812,7 @@ function presGuardar(){
 }
 function presAbrir(){
   let g = {}, ed = {};
-  try { g = JSON.parse(prefs.lamLayoutJson || '{}') || {}; } catch (e) { g = {}; }
+  try { g = JSON.parse(prefs[cfg.closet ? 'lamLayoutClosetJson' : 'lamLayoutJson'] || '{}') || {}; } catch (e) { g = {}; }
   try { ed = JSON.parse(prefs.lamNotasJson || '{}') || {}; } catch (e) { ed = {}; }
   const rotulo = {}; PRES_CAMPOS.forEach(k => { rotulo[k] = prefs[presPref(k)] || ''; });
   const vistas = LAM.VISTAS.map(q => q[0]).filter(v => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')));
@@ -12819,8 +12820,9 @@ function presAbrir(){
   LAM.presLimpiar(); LAM.fijarLogo(prefs.lamLogo || '', prefs.lamLogoW, prefs.lamLogoH);
   PRES.L = LAM.presNueva({ papel: g.papel && g.papel in LAM.PAPELES ? g.papel : papelIni,
     cotasOn: prefs.lamCotas !== false, matCol: !!g.matCol, proy: prefs.lamProy !== false, marcos: prefs.lamMarcos !== false, notas: prefs.lamNotas !== false, notasEd: ed, rotulo, vistas,
-    guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, cotas: g.cotas, detalle: g.detalle, dxf: g.dxf, hojas: cfg.closet ? null : g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
+    guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, cotas: g.cotas, detalle: g.detalle, dxf: g.dxf, hojas: g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
     escalaVistas: prefs.lamEscalaVistas, escalaIso: prefs.lamEscalaIso });
+  PRES.L.esCloset = !!cfg.closet;   /* A207: la lamina sabe de que producto es (su disposicion se guarda aparte) */
   Object.assign(PRES, { sel: null, selG: null, selM: null, drag: null, guias: [], pag: 0, hist: [], fut: [], pend: null, abierto: true });
   presEl('presentar').classList.add('open');
   presLado(); presAjustar();
