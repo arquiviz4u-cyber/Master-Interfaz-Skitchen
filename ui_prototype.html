@@ -5516,7 +5516,10 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
       if (conCama(up) && cfg.style === 'Moderna' && !sinPuertas(up)) { const un = golaHondo(true), mm = up.material || cfg.materialGeneral;
         const piso = { x: P(up.fondo - un), y: Z(z0) - t, w: (up.fondo - un)*s, h: t }; ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(ub.x, Z(z0) - t, ub.w, t);
         brd(piso, mm); brd({ x: ub.x, y: Z(z0) - 2*t, w: ub.w, h: t }, mm); }
-      if (hs > 0) caja(up, zTop - hs, zTop, up.fondoSuperior > 0 ? up.fondoSuperior : up.fondo, false);
+      if (hs > 0) { const dS = up.fondoSuperior > 0 ? up.fondoSuperior : up.fondo, mm2 = up.material || cfg.materialGeneral;
+        caja(up, zTop - hs, zTop, dS, false);
+        if (up.tipoSuperior === 'Repisas') repisas(up, zTop - hs, zTop, up.repisasSuperior || 0, dS);
+        else if (up.tipoSuperior !== 'Piston' || up.mostrarPuertaSuperior !== false) brd({ x: P(dS) - t, y: Z(zTop - .2), w: t, h: (hs - .4)*s }, mm2);   /* A186: su frente, que no se veia */ }
     }
     out.Du = isDoble(up) && up.fondoSuperior > 0 && !soloCamp(up) ? up.fondoSuperior : up.fondo;   /* A131: la cota de arriba es la del modulo superior */
   }
@@ -9893,7 +9896,7 @@ const LAM = (() => {
     const ok = id => HSYM[id] ? id : null;
     if (vista === 'f') { if (fam === 'caz') return null; const id = ok(fam === 'arm' ? 'arm_ce.f' : fam + '.f'); return id ? { id, flip: e < 0 } : null; }
     if (vista === 'm') { if (fam === 'caz') return null; let id = ok(fam === 'arm' ? 'bis.m' : fam + '.m');
-      if (id && o.k && fam !== 'arm') id = estiraSim(id, o.k, 'm'); return id ? { id, flip: (o.dir > 0) !== (e > 0) } : null; }
+      if (id && o.k && fam !== 'arm') id = estiraSim(id, o.k, 'm'); return id ? { id, flip: !(o.dir > 0) } : null; }   /* A186: el espejo del modelo no gira su perfil: invertir el corte lo reflejaba mal */
     if (vista === 'i') {
       const lado = (e > 0 ? o.SX : -o.SX) > 0 ? 'i+' : 'i-';
       if (fam === 'arm') { const id = arch === 'bisagra_brazo_abierta' ? ok('arm_ab.' + lado) : null; return id ? { id, flip: false } : null; }
@@ -10334,7 +10337,8 @@ const LAM = (() => {
       const dy = 22;   /* los anchos van delante de los gabinetes */
       out.push({ a: K(x0, yFrente, z0), b: K(x1, yFrente, z0), d: D(0, dy, 0), t: medida(x1 - x0) });   /* A176: solo las generales, como el alzado */
       if (ci === 0) {
-        const cub = ps.filter(p => p.rol === 'cubierta'), fondoCub = cub.length ? Math.max(...cub.map(p => p.y + p.fondo)) : yFrente;
+        const cub = ps.filter(p => p.rol === 'cubierta'), fb = ps.filter(p => p.rol === 'frente' && p.z < 100 && p.fondo < 5),
+          fondoCub = fb.length ? Math.min(...fb.map(p => p.y)) : cub.length ? Math.max(...cub.map(p => p.y + p.fondo)) : yFrente;   /* A186: 60 como la planta, no 61.8 de la cubierta con su vuelo */
         out.push({ a: K(x1, 0, z0), b: K(x1, fondoCub, z0), d: D(24, 0, 0), t: medida(fondoCub) });   /* fondo de la cubierta, en el extremo del tramo */
         out.push({ a: K(x0, yFrente, z0), b: K(x0, yFrente, z1), d: D(-24, 0, 0), t: medida(z1 - z0) });
       }
@@ -10403,15 +10407,20 @@ const LAM = (() => {
     const piezas = pl.piezas.concat((pl.caras || []).flatMap(c => c.piezas));
     const info = id => { const m = (pl.materiales || []).find(q => q.id === id); if (m) return { nombre: m.nombre, rgb: m.rgb };
       const d = typeof PREDETERMINADOS === 'object' && PREDETERMINADOS[id]; return d ? { nombre: d.nombre, rgb: d.rgb } : { nombre: id, rgb: [200, 200, 200] }; };
-    const usados = []; piezas.forEach(p => { if (p.material && !usados.includes(p.material)) usados.push(p.material); });
-    return usados.map(info).map(m => ({ nombre: String(m.nombre || '').replace(/\s+predeterminad[oa]$/i, ''), rgb: m.rgb }));
+    /* A186: cada muestra lleva el elemento y el material aplicado («Frente · Roble claro»); con el material por defecto, solo el elemento */
+    const ELEM = { gabinetes: 'Cuerpo', frentes: 'Frente', zoclo: 'Zoclo', cubierta: 'Cubierta', backsplash: 'Backsplash', tapetas: 'Tapeta', tapeta: 'Tapeta' }, ORDEN = ['Cuerpo', 'Frente', 'Gola', 'Zoclo', 'Cubierta', 'Backsplash', 'Tapeta'];
+    const vistos = new Map();
+    piezas.forEach(p => { if (!p.material) return; const el = ELEM[p.etiqueta] || (/^DEF_GOLA$/.test(p.material) || p.tipo === 'Gola' || p.tipo === 'Perfil' ? 'Gola' : null); if (!el) return;
+      const k = el + '|' + p.material; if (!vistos.has(k)) vistos.set(k, { el, id: p.material }); });
+    return [...vistos.values()].sort((a2, b2) => ORDEN.indexOf(a2.el) - ORDEN.indexOf(b2.el)).map(({ el, id }) => { const m = info(id), pred = /^DEF_/.test(id) || /predeterminad[oa]$/i.test(String(m.nombre || ''));
+      return { elemento: el, nombre: pred ? T(el) : `${T(el)} · ${String(m.nombre || '').replace(/\s+predeterminad[oa]$/i, '')}`, rgb: m.rgb }; });
   }
-  /* leyenda de materiales bajo el isometrico: cuadro de color y nombre en columnas; devuelve el alto que ocupa (px de captura) */
-  function leyendaMats(mats, anchoMax){
+  /* leyenda de materiales bajo el isometrico: cuadro de color y nombre, en filas o (A186) en una columna; devuelve el alto que ocupa */
+  function leyendaMats(mats, anchoMax, columna){
     if (!mats.length) return { h: 0, dibuja(){} };
-    const tam = 9, colw = Math.max(...mats.map(m => anchoHelv(m.nombre, tam))) + 22, cols = Math.max(1, Math.min(mats.length, Math.floor(anchoMax / colw))), filas = Math.ceil(mats.length / cols);
+    const tam = 9, colw = Math.max(...mats.map(m => anchoHelv(m.nombre, tam))) + 22, cols = columna ? 1 : Math.max(1, Math.min(mats.length, Math.floor(anchoMax / colw))), filas = Math.ceil(mats.length / cols);
     return { h: 16 + filas * 13 + 4, dibuja(g, x, y, plano){
-      g.save(); g.fillStyle = '#444444'; g.font = "600 8px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText('MATERIALES', x, y + 8);
+      g.save(); g.fillStyle = '#444444'; g.font = "600 8px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(T('MATERIALES'), x, y + 8);
       mats.forEach((m, i) => { const c = i % cols, f = Math.floor(i / cols), px = x + c * colw, py = y + 14 + f * 13;
         g.fillStyle = plano ? '#FFFFFF' : hexDe(m.rgb); g.fillRect(px, py, 8, 8); g.strokeStyle = '#555555'; g.lineWidth = .5; g.strokeRect(px, py, 8, 8);
         g.fillStyle = '#222222'; g.font = "400 9px 'Inter'"; g.fillText(m.nombre, px + 12, py + 7.4); });
@@ -10423,7 +10432,7 @@ const LAM = (() => {
     const MARGEN = 14, ancho = esc.bb.x1 - esc.bb.x0, alto = esc.bb.y1 - esc.bb.y0;
     const e = o.escalaFija ? { n: o.escalaFija, s: (10 / o.escalaFija) / PX_MM }
       : elegirEscala(s => ({ w: ancho * s + 2 * MARGEN, h: alto * s + 2 * MARGEN }), o.caja);
-    const ley = leyendaMats(o.sinLeyenda ? [] : materialesUsados(), Math.max(ancho * e.s, 150));   /* A176: los materiales van con el isometrico, no en el pie */
+    const ley = leyendaMats(o.sinLeyenda ? [] : materialesUsados(), Math.max(ancho * e.s, 150), !!o.matCol);   /* A176: los materiales van con el isometrico, no en el pie */
     const g = new Grabador(Math.max(ancho * e.s, 150) + 2 * MARGEN, alto * e.s + 2 * MARGEN + (ley.h ? ley.h + 8 : 0));
     const previoC = Object.assign({}, C); Object.assign(C, LIGHT);   /* lo exportado va con la paleta de dia aunque el editor este de noche */
     let hits = null;
@@ -10639,7 +10648,6 @@ const LAM = (() => {
     const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), plano = !!o.plano;
     const hs = piezasCara(plan, cara).filter(p => p.rol === 'herraje' && f(p, cara));
     const cuenta = t => hs.filter(p => p.tipo === t && p.estado !== 'abierto').length;
-    const taq = hs.find(p => p.tipo === 'Taquete');
     /* bisagras por puerta: cuantas puertas llevan 2, 3... */
     const porFrente = {}; hs.filter(p => p.tipo === 'Bisagra' && p.estado !== 'abierto' && p.frente).forEach(p => { porFrente[p.frente] = (porFrente[p.frente] || 0) + 1; });
     const dist = {}; Object.values(porFrente).forEach(c => { dist[c] = (dist[c] || 0) + 1; });
@@ -10648,7 +10656,6 @@ const LAM = (() => {
     const B = typeof PLAN_BISAGRA === 'object' ? PLAN_BISAGRA : { cazoleta: 3.5, hondo: 1.2, canto: 2.25 };
     const items = [['bisagra', cuenta('Bisagra'), [`${T('Bisagra de cazoleta')} Ø ${Math.round(B.cazoleta * 100) / 10} mm`, `${T('Apertura')} ${grados}°`, `${T('Cazoleta a')} ${Math.round(B.canto * 100) / 10} mm ${T('del canto')}`, lineasBis]],
       ['corredera', Math.round(cuenta('Corredera') / 2), [T('Correderas de extracción total'), T('juegos')]],
-      ['taquete', cuenta('Taquete'), [taq ? `${T('Taquetes de madera')} Ø ${Math.round(Math.min(taq.ancho, taq.alto) * 100) / 10} mm` : T('Taquetes')]],
       ['jaladera', cuenta('Jaladera') + cuenta('Boton'), [T('Jaladeras')]], ['piston', cuenta('Piston'), [T('Pistones de gas')]]].filter(q => q[1] > 0);
     if (!items.length) throw new Error(T('Este conjunto no lleva herrajes'));
     const BW = 214, BH = 218, GAP = 16, g = new Grabador(items.length * (BW + GAP) + 20, BH + 20), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
@@ -10870,7 +10877,7 @@ const LAM = (() => {
     const piezas = pl.piezas.concat((pl.caras || []).flatMap(c => c.piezas));
     const cuenta = f => piezas.filter(f).length;
     const herrajes = [['Bisagras', cuenta(p => p.tipo === 'Bisagra' && p.estado !== 'abierto')], ['Correderas (juegos)', Math.round(cuenta(p => p.tipo === 'Corredera') / 2)],
-      ['Jaladeras', cuenta(p => p.tipo === 'Jaladera' || p.tipo === 'Boton')], ['Pistones', cuenta(p => p.tipo === 'Piston')], ['Taquetes', cuenta(p => p.tipo === 'Taquete')]].filter(q => q[1] > 0);
+      ['Jaladeras', cuenta(p => p.tipo === 'Jaladera' || p.tipo === 'Boton')], ['Pistones', cuenta(p => p.tipo === 'Piston')]].filter(q => q[1] > 0);
     const hoy = new Date(), dd = hoy.toLocaleDateString(prefs.idioma === 'en' ? 'en-US' : 'es-MX'), kind = cfg.isla ? 'Isla' : cfg.closet ? 'Closet' : 'Cocina';
     const dibujoAuto = modo ? `${T(kind)} · ${modo === 'plano' ? T('Plano') : T('Color')}` : T(kind);
     return { modo,
@@ -11070,11 +11077,12 @@ const LAM = (() => {
   const letraDe = (L, it) => String.fromCharCode(65 + Math.max(0, L.vistas.filter(v => v.vista === 'Corte').indexOf(it)));
   const enHoja = (L, h = L.hoja) => L.vistas.filter(it => it.hoja === h);   /* las vistas de una lamina (A177: hay varias) */
   const numeroConjunto = (L, it) => L.hojas.map((h, i) => h.grupo ? i : -1).filter(i => i >= 0).indexOf(it.hoja) + 1;
-  const claveCap = (L, it) => [it.vista, it.n, it.plano ? 1 : 0, L.cotas ? 1 : 0, L.proy ? 1 : 0,
+  const cotasDe = (L, it) => it.cotasV !== undefined && it.cotasV !== null ? !!it.cotasV : L.cotasOn !== false;   /* A186: cada vista puede llevar o no sus cotas */
+  const claveCap = (L, it) => [it.vista, it.n, it.plano ? 1 : 0, cotasDe(L, it) ? 1 : 0, L.proy ? 1 : 0, L.matCol ? 1 : 0,
     it.vista === 'Corte' ? Math.round((it.corte || 0) * 10) + letraDe(L, it) + ':' + (it.dir || 0) : '',
     ES_CONJUNTO(it.vista) ? [it.grupo, it.cara || 0, (it.abiertos || []).slice().sort().join(','), it.explotado ? 1 : 0, numeroConjunto(L, it)].join(':') : '',
     it.vista === 'Isometrico' || it.vista === 'ConjLocal' || it.grupo === 'isla' ? islaFirma(L) : '', it.vista === 'Isometrico' && it.abiertos ? 'o:' + it.abiertos.slice().sort().join(',') : '', [...abiertos].sort().join(',')].join('|');
-  const opcCap = (L, it) => ({ plano: !!it.plano, cotas: !!L.cotas, proy: !!L.proy, globos: [],   /* los globos y las marcas de corte se pintan aparte */
+  const opcCap = (L, it) => ({ plano: !!it.plano, cotas: cotasDe(L, it), proy: !!L.proy, matCol: !!L.matCol, globos: [],   /* los globos y las marcas de corte se pintan aparte */
     corte: it.vista === 'Corte' ? it.corte : undefined, letra: it.vista === 'Corte' ? letraDe(L, it) : undefined, cotasSueltas: true, conHits: it.vista === 'Isometrico', dirCorte: it.vista === 'Corte' ? it.dir : undefined,
     abiertosIso: it.vista === 'Isometrico' && it.abiertos ? it.abiertos : undefined,
     grupo: it.grupo, cara: it.cara || 0, abiertos: it.vista === 'Isometrico' ? it.abiertos || undefined : it.abiertos, explotado: !!it.explotado, numero: ES_CONJUNTO(it.vista) ? numeroConjunto(L, it) : undefined,
@@ -11135,9 +11143,13 @@ const LAM = (() => {
       its.forEach(q => { q.it.x = q.celda.x; q.it.y = q.celda.y; });
     });
   }
+  /* desplazamiento (mm de hoja) del titulo o de la escala de una vista: { dx, dy } o nada */
+  const textoMov = v => v && typeof v === 'object' && isFinite(v.dx) && isFinite(v.dy) && (v.dx || v.dy) ? { dx: Math.round(v.dx * 100) / 100, dy: Math.round(v.dy * 100) / 100 } : undefined;
+  const CAMPOS_VISTA = ['id', 'vista', 'hoja', 'on', 'n', 'x', 'y', 'plano', 'corte', 'dir', 'grupo', 'cara', 'abiertos', 'explotado', 'cotasV', 'tt', 'te'];
+  const copiaVista = it => { const r = {}; CAMPOS_VISTA.forEach(k => { if (it[k] !== undefined) r[k] = it[k]; }); return r; };
   /* o: { papel, cotas, proy, notas, notasEd, rotulo, vistas: [ids], guardado: [{id, vista, on, n, x, y, plano, corte}], globos, detalle, dxf, escalaVistas, escalaIso } */
   function presNueva(o){
-    const L = { papel: o.papel, cotas: o.cotas !== false, proy: o.proy !== false, notas: o.notas !== false, notasEd: o.notasEd || {}, rotulo: o.rotulo || {},
+    const L = { papel: o.papel, cotasOn: o.cotasOn !== false, matCol: !!o.matCol, proy: o.proy !== false, notas: o.notas !== false, notasEd: o.notasEd || {}, rotulo: o.rotulo || {},
       vistas: [], datos: null, detalles: null, notasLista: [], globos: o.globos && typeof o.globos === 'object' ? o.globos : {}, detalle: o.detalle !== false, dxf: !!o.dxf,
       hojas: [{ nombre: 'Lámina general' }], hoja: 0, cotas: o.cotas && typeof o.cotas === 'object' ? o.cotas : {}, isla: o.isla && o.isla.id ? { id: o.isla.id, on: o.isla.on !== false, x: +o.isla.x || 0, y: +o.isla.y || 0, rot: +o.isla.rot || 0 } : null };
     if (Array.isArray(o.hojas) && o.hojas.length) L.hojas = o.hojas.map((h, i) => i === 0 ? { nombre: h.nombre || 'Lámina general' } : { nombre: h.nombre, grupo: h.grupo, cara: h.cara || 0 });
@@ -11149,13 +11161,14 @@ const LAM = (() => {
         const it = { id: nuevoId(g && g.id && !usados.has(g.id) ? g.id : v), vista: v, hoja: g && num(g.hoja) && g.hoja < L.hojas.length ? g.hoja : 0, on: g ? g.on !== false : true,
           n: g && ESC_DET.includes(g.n) ? g.n : v === 'Isometrico' ? (o.escalaIso || 50) : (o.escalaVistas || 25),
           x: g && num(g.x) ? g.x : NaN, y: g && num(g.y) ? g.y : NaN, plano: !!(g && g.plano), corte: g && num(g.corte) ? g.corte : NaN, dir: g && (g.dir === 1 || g.dir === -1) ? g.dir : undefined,
-          grupo: undefined, cara: 0, abiertos: [], explotado: false };
+          grupo: undefined, cara: 0, abiertos: [], explotado: false, cotasV: g && typeof g.cotasV === 'boolean' ? g.cotasV : undefined, tt: textoMov(g && g.tt), te: textoMov(g && g.te) };
         if (v === 'Corte' && !num(it.corte)) it.corte = centros[0];
         L.vistas.push(it); });
     });
     (o.guardado || []).filter(q => q && ES_CONJUNTO(q.vista) && num(q.hoja) && q.hoja > 0 && q.hoja < L.hojas.length && L.hojas[q.hoja].grupo).forEach(q => {
       L.vistas.push({ id: nuevoId(q.id || q.vista), vista: q.vista, hoja: q.hoja, on: q.on !== false, n: ESC_DET.includes(q.n) ? q.n : 25, x: num(q.x) ? q.x : NaN, y: num(q.y) ? q.y : NaN,
-        plano: !!q.plano, corte: NaN, grupo: L.hojas[q.hoja].grupo, cara: L.hojas[q.hoja].cara || 0, abiertos: Array.isArray(q.abiertos) ? q.abiertos : [], explotado: !!q.explotado }); });
+        plano: !!q.plano, corte: NaN, grupo: L.hojas[q.hoja].grupo, cara: L.hojas[q.hoja].cara || 0, abiertos: Array.isArray(q.abiertos) ? q.abiertos : [], explotado: !!q.explotado,
+        cotasV: typeof q.cotasV === 'boolean' ? q.cotasV : undefined, tt: textoMov(q.tt), te: textoMov(q.te) }); });
     presRefrescar(L);
     L.hojas.forEach((_, h) => { if (enHoja(L, h).some(it => it.on && it.cap && !isFinite(it.x))) presReacomodar(L, h); });
     return L;
@@ -11217,11 +11230,11 @@ const LAM = (() => {
     it.abiertos = [...set]; return true;
   }
   /* instantanea para deshacer y rehacer: todo lo que el usuario edita en la lamina */
-  const presInstantanea = L => JSON.stringify({ papel: L.papel, cotas: L.cotas, proy: L.proy, notas: L.notas, detalle: L.detalle, notasEd: L.notasEd, rotulo: L.rotulo, globos: L.globos,
-    hojas: L.hojas, hoja: L.hoja, isla: L.isla, cotas: L.cotas, vistas: L.vistas.map(({ id, vista, hoja, on, n, x, y, plano, corte, dir, grupo, cara, abiertos, explotado }) => ({ id, vista, hoja, on, n, x, y, plano, corte, dir, grupo, cara, abiertos, explotado })) });
+  const presInstantanea = L => JSON.stringify({ papel: L.papel, cotasOn: L.cotasOn, matCol: L.matCol, proy: L.proy, notas: L.notas, detalle: L.detalle, notasEd: L.notasEd, rotulo: L.rotulo, globos: L.globos,
+    hojas: L.hojas, hoja: L.hoja, isla: L.isla, cotas: L.cotas, vistas: L.vistas.map(copiaVista) });
   function presRestaurar(L, json){
-    const o = JSON.parse(json); Object.assign(L, { papel: o.papel, cotas: o.cotas, proy: o.proy, notas: o.notas, detalle: o.detalle, notasEd: o.notasEd, rotulo: o.rotulo, globos: o.globos,
-      hojas: o.hojas || L.hojas, isla: o.isla || null, cotas: o.cotas || {}, hoja: Math.min(o.hoja || 0, (o.hojas || L.hojas).length - 1) });
+    const o = JSON.parse(json); Object.assign(L, { papel: o.papel, cotasOn: o.cotasOn !== false, matCol: !!o.matCol, proy: o.proy, notas: o.notas, detalle: o.detalle, notasEd: o.notasEd, rotulo: o.rotulo, globos: o.globos,
+      hojas: o.hojas || L.hojas, isla: o.isla || null, cotas: o.cotas && typeof o.cotas === 'object' ? o.cotas : {}, hoja: Math.min(o.hoja || 0, (o.hojas || L.hojas).length - 1) });
     L.vistas = o.vistas.map(q => Object.assign({ x: NaN, y: NaN, corte: NaN }, q, { x: q.x === null ? NaN : q.x, y: q.y === null ? NaN : q.y, corte: q.corte === null ? NaN : q.corte }));
   }
   /* mueve una vista imantando sus bordes a los margenes y a los de las otras; devuelve las guias [{eje, v}] para dibujarlas */
@@ -11381,7 +11394,7 @@ const LAM = (() => {
     const cortes = L.vistas.filter(v => v.vista === 'Corte' && v.on && isFinite(v.corte)), out = [];
     enHoja(L).filter(h => h.on && h.cap && h.cap.marco && ['AlzadoPuertas', 'AlzadoInterior', 'Planta'].includes(h.vista)).forEach(h => {
       const m = h.cap.marco, { ix, iy } = tintaDe(h), bb = h.cap.bb;
-      cortes.forEach(c => {
+      cortes.filter(c => c.hoja === h.hoja).forEach(c => {   /* A186: un corte de otra lamina no se marca aqui */
         const x = m.x0 + m.kx * c.corte;
         let y0, y1;
         if (m.z0 !== undefined) { y0 = m.z0 + m.kz * m.H - 8; y1 = m.z0 + 12; } else { y0 = m.y0 - 18; y1 = m.y0 + m.fondo * m.ky + 18; }
@@ -11527,7 +11540,7 @@ const LAM = (() => {
     CamaInterior: 'Cama interior', Puerta: 'Frente de puerta', Cajon: 'Frente de cajón', Losa: 'Cubierta', Frente: 'Zoclo (frente)', Larguero: 'Zoclo (larguero)',
     Travesano: 'Zoclo (travesaño)', Division: 'División', Backsplash: 'Backsplash', Tapeta: 'Tapeta' };
   const NOM_ROL = { backsplash: 'Backsplash', tapeta: 'Tapeta', zoclo: 'Zoclo', cubierta: 'Cubierta', panel: 'Panel', frente: 'Frente', repisa: 'Repisa', division: 'División' };
-  const NOM_HERRAJE = { Bisagra: 'Bisagras', Taquete: 'Taquetes', Corredera: 'Correderas (juegos)', Jaladera: 'Jaladeras', Boton: 'Botones', Piston: 'Pistones', Gola: 'Perfil de gola', Perfil: 'Perfil de gola' };
+  const NOM_HERRAJE = { Bisagra: 'Bisagras', Corredera: 'Correderas (juegos)', Jaladera: 'Jaladeras', Boton: 'Botones', Piston: 'Pistones', Gola: 'Perfil de gola', Perfil: 'Perfil de gola' };
   function detalleUnidades(L){
     let pl; try { pl = planCocina(); } catch (e) { return []; }
     const isla = L && L.isla && L.isla.on ? planIsla(L.isla.id) : null;
@@ -11670,7 +11683,7 @@ const LAM = (() => {
         dibujarHojaBase(base, { datos, vistas: [] }); dibujarDetalle(base, Object.assign({}, dp, { datos })); return;
       }
       const its = ordenLectura(enHoja(L).filter(it => it.on && it.cap));
-      g.save(); g.setLineDash([4, 4]); its.forEach(it => { g.strokeStyle = 'rgba(38,96,150,.28)'; g.lineWidth = 1; g.strokeRect(X(it.x), Y(it.y), it.w * Z, it.h * Z); }); g.restore();
+      if (L.proy !== false) { g.save(); g.setLineDash([4, 4]); its.forEach(it => { g.strokeStyle = 'rgba(38,96,150,.28)'; g.lineWidth = 1; g.strokeRect(X(it.x), Y(it.y), it.w * Z, it.h * Z); }); g.restore(); }   /* A186: los marcos se apagan con las lineas de proyeccion */
       const datos = Object.assign({}, L.datos, { hoja });
       let k3 = 0;
       const pg = { datos, vistas: its.map(it => ({ celda: celdaDe(it), num: it.cap.sinTitulo ? '' : String(++k3).padStart(2, '0'), n: it.cap.n, nombre: tituloItem(L, it), sinEscala: !!it.cap.sinEscala, sinTitulo: !!it.cap.sinTitulo })) };
@@ -11974,10 +11987,10 @@ const presPref = k => 'lam' + k[0].toUpperCase() + k.slice(1);
 function presGuardar(){
   const L = PRES.L; if (!L) return;
   const r = v => isFinite(v) ? Math.round(v * 10) / 10 : null;
-  prefs.lamLayoutJson = JSON.stringify({ v: 2, papel: L.papel, detalle: L.detalle, dxf: L.dxf,
-    hojas: L.hojas, vistas: L.vistas.map(({ id, vista, hoja, on, n, x, y, plano, corte, dir, grupo, cara, abiertos, explotado }) => ({ id, vista, hoja, on, n, x: r(x), y: r(y), plano, corte: r(corte), dir, grupo, cara, abiertos, explotado })),
+  prefs.lamLayoutJson = JSON.stringify({ v: 2, papel: L.papel, detalle: L.detalle, dxf: L.dxf, matCol: !!L.matCol,
+    hojas: L.hojas, vistas: L.vistas.map(it => Object.assign(copiaVista(it), { x: r(it.x), y: r(it.y), corte: r(it.corte) })),
     isla: L.isla, cotas: L.cotas || {}, globos: L.globos || {} });
-  prefs.lamPapel = L.papel; prefs.lamCotas = L.cotas; prefs.lamProy = L.proy; prefs.lamNotas = L.notas; prefs.lamNotasJson = JSON.stringify(L.notasEd || {});
+  prefs.lamPapel = L.papel; prefs.lamCotas = L.cotasOn !== false; prefs.lamProy = L.proy; prefs.lamNotas = L.notas; prefs.lamNotasJson = JSON.stringify(L.notasEd || {});
   PRES_CAMPOS.forEach(k => { prefs[presPref(k)] = L.rotulo[k] || ''; });
   savePrefs();
 }
@@ -11990,7 +12003,7 @@ function presAbrir(){
   const papelIni = prefs.lamPapel && prefs.lamPapel in LAM.PAPELES ? prefs.lamPapel : prefs.region === 'US' ? 'Tabloid' : 'A3';
   LAM.presLimpiar(); LAM.fijarLogo(prefs.lamLogo || '', prefs.lamLogoW, prefs.lamLogoH);
   PRES.L = LAM.presNueva({ papel: g.papel && g.papel in LAM.PAPELES ? g.papel : papelIni,
-    cotas: prefs.lamCotas !== false, proy: prefs.lamProy !== false, notas: prefs.lamNotas !== false, notasEd: ed, rotulo, vistas,
+    cotasOn: prefs.lamCotas !== false, matCol: !!g.matCol, proy: prefs.lamProy !== false, notas: prefs.lamNotas !== false, notasEd: ed, rotulo, vistas,
     guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, cotas: g.cotas, detalle: g.detalle, dxf: g.dxf, hojas: cfg.closet ? null : g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
     escalaVistas: prefs.lamEscalaVistas, escalaIso: prefs.lamEscalaIso });
   Object.assign(PRES, { sel: null, selG: null, selM: null, drag: null, guias: [], pag: 0, hist: [], fut: [], pend: null, abierto: true });
@@ -12038,6 +12051,7 @@ function presLado(){
       `<input type="checkbox" data-pon="${i}"${it.on ? ' checked' : ''} title="Mostrar en la lámina">` +
       `<span style="flex:1;min-width:0">${e2(nombre)}</span>` +
       `<label class="pres-bn" title="Esta vista en blanco y negro"><input type="checkbox" data-ppl="${i}"${it.plano ? ' checked' : ''}${it.on ? '' : ' disabled'}>B/N</label>` +
+      `<label class="pres-bn" title="Cotas de esta vista"><input type="checkbox" data-pcv="${i}"${(it.cotasV !== undefined ? it.cotasV : L.cotasOn !== false) ? ' checked' : ''}${it.on ? '' : ' disabled'}>Cotas</label>` +
       (fija ? '<span style="width:74px"></span>' : `<select data-pesc="${i}"${it.on ? '' : ' disabled'}>${(LAM.ES_CONJUNTO(it.vista) ? LAM.ESC_DET : [10, 20, 25, 50, 100]).map(q => opt(q, '1:' + q, q === it.n)).join('')}</select>`) +
       `<button class="btn btn-icon pres-mini" data-pdup="${i}" title="Duplicar esta vista">&#10697;</button>` +
       (dup ? `<button class="btn btn-icon pres-mini" data-pdel="${i}" title="Quitar esta vista">&#10005;</button>` : '') +
@@ -12073,7 +12087,8 @@ function presLado(){
     '<div class="note-sm" style="margin-top:6px">Cada lámina trae la vista general con el volumen en color, el despiece de frentes, el isométrico del conjunto (abre los frentes con doble clic), el alzado con puertas y cajones, los interiores, la gola y los herrajes.</div>';
   presEl('presLado').innerHTML = conjHtml + '<h4>Hoja</h4>' +
     `<label class="pf"><span>Papel</span><select data-ppapel>${Object.keys(LAM.PAPELES).map(k => opt(k, LAM.PAPEL_TXT[k], k === L.papel)).join('')}</select></label>` +
-    chk('cotas', 'Cotas', L.cotas) + chk('proy', 'Líneas de proyección', L.proy) + chk('notas', 'Notas numeradas', L.notas) +
+    chk('cotasOn', 'Cotas (en todas las vistas; cada vista puede cambiarlas aparte)', L.cotasOn !== false) + chk('proy', 'Líneas de proyección y marcos de las vistas', L.proy) + chk('notas', 'Notas numeradas', L.notas) +
+    chk('matCol', 'Muestras de materiales en columna', L.matCol) +
     '<h4>Vistas de esta lámina</h4>' + filas +
     `<label class="pf" style="margin-top:8px"><span>Agregar vista</span><select data-pagregar><option value="">Elige una vista…</option>${LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')))
       .concat(L.hojas[L.hoja] && L.hojas[L.hoja].grupo ? [['ConjLocal', 'Vista general'], ['ConjIso', 'Isométrico del conjunto'], ['ConjAlzado', 'Alzado del conjunto'], ['ConjInterior', 'Interiores del conjunto'], ['ConjGola', 'Detalle de gola'], ['ConjDespiece', 'Despiece de frentes'], ['ConjBisagra', 'Detalle de bisagra'], ['ConjHerrajes', 'Herrajes']] : [])
@@ -12228,6 +12243,7 @@ function presCargarLogo(){
     if (d.pnt) { const c = lado.querySelector(`[data-pnv="${d.pnt}"]`); editaNota(d.pnt, c ? c.checked : true, t.value); return; }
     if (d.pon !== undefined) { presAntes(); const it = L.vistas[+d.pon]; it.on = t.checked; presRefrescar(it.on && !isFinite(it.x)); return; }
     if (d.ppl !== undefined) { presAntes(); L.vistas[+d.ppl].plano = t.checked; presRefrescar(false); return; }
+    if (d.pcv !== undefined) { presAntes(); L.vistas[+d.pcv].cotasV = t.checked; presRefrescar(false); return; }
     if (d.pisla !== undefined) { presAntes(); L.isla = t.value ? LAM.presIslaPorDefecto(L, t.value) : null; presRefrescar(false); return; }
     if (d.pislax !== undefined) { presAntes(); L.isla.x = +t.value || 0; presRefrescar(false); return; }
     if (d.pislay !== undefined) { presAntes(); L.isla.y = Math.max(0, +t.value || 0); presRefrescar(false); return; }
