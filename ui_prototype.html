@@ -303,6 +303,15 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A178. [Master hecho 12/10; sin pasos en Revit ni SketchUp] Isla combinada en Presentar (usuario 12/10, opcion 2): la isla sigue siendo
+       su propio proyecto (comando Line-Island, guardado en las configuraciones); Presentar la lee de ahi y le da posicion y giro. Panel
+       «Isla en la planta y en la presentacion»: eliges una isla guardada, su distancia al extremo izquierdo y al muro (cm), el giro
+       (0, 90, 180, 270) y si se muestra; el pasillo con los gabinetes de la cocina se mide y avisa si es menor a 107 cm (NKBA). La isla
+       se dibuja en la planta (con sus huecos de tarja y parrilla, cotas y pasillo), se arrastra sobre la hoja a 1 cm y entra al
+       isometrico y a la vista general; la celda de la planta crece para contenerla. Lamina propia «Isla» (conjunto con grupo isla: vista
+       general con la isla en color, despiece, isometrico, alzado, interiores, gola y herrajes) y su pagina de detalle por unidad en el
+       PDF. Se guarda en lamLayoutJson (isla: id, x, y, giro). Falta: archivo del proyecto (la isla se identifica por el id de la
+       configuracion guardada), varias islas, la isla en el corte y en el alzado de la cocina, y avisar si la configuracion cambia.
    A177. [Master hecho 12/10; sin pasos en Revit ni SketchUp] Laminas de conjunto en Presentar (usuario 12/10, con la referencia de
        hojas «UNITE» de Instagram): el boton «Crear lamina del conjunto» agrega una lamina por conjunto (gabinetes bajos, altos o
        torres) y por cara en cocinas L y U. Trae: titulo grande «CONJUNTO 01 : BAJOS · Estructura»; vista general pequena en isometrico
@@ -9041,6 +9050,10 @@ const EN = {
   'Medidas de referencia para fabricación, generadas con {0}. Verifique en obra antes de cortar.': 'Reference measurements for manufacturing, generated with {0}. Verify on site before cutting.',
   'No sustituye la toma de medidas ni el despiece del taller. Reporte cualquier diferencia en la hoja de diferencias.': "It does not replace on-site measuring or the shop's cut list. Report any difference on the differences sheet.",
   'Notas': 'Notes', 'Restablecer globos': 'Reset balloons',
+  'Isla en la planta y en la presentación': 'Island on the plan and in the presentation', 'Isla guardada': 'Saved island', 'Sin isla': 'No island', 'Mostrar la isla': 'Show the island',
+  'A la derecha del muro izq. (cm)': 'From the left wall end (cm)', 'Del muro (cm)': 'From the wall (cm)', 'Giro': 'Rotation', 'ISLA': 'ISLAND', 'Isla': 'Island', 'pasillo': 'aisle',
+  'menor a 107 cm (NKBA)': 'under 107 cm (NKBA)', 'Cubierta, zoclo y tapetas de la isla': 'Countertop, toe kick and end panels of the island',
+  'Guarda una isla desde el comando Line-Island (Guardar configuración) y aparecerá aquí para colocarla frente a esta cocina.': 'Save an island from the Line-Island command (Save configuration) and it will appear here to place it in front of this kitchen.',
   'Láminas de conjunto': 'Group sheets', 'Conjunto': 'Group', 'Cara': 'Side', 'Crear lámina del conjunto': 'Create the group sheet', 'Vistas de esta lámina': 'Views on this sheet',
   'Lámina general': 'General sheet', 'Quitar esta lámina': 'Remove this sheet', 'Separar los frentes (despiece)': 'Separate the fronts (exploded)', 'Abrir / cerrar todos': 'Open / close all',
   'Gabinetes bajos': 'Base cabinets', 'Gabinetes altos': 'Wall cabinets', 'Torres': 'Tall units', 'BAJOS': 'BASE', 'ALTOS': 'WALL', 'TORRES': 'TALL',
@@ -9904,9 +9917,10 @@ const LAM = (() => {
     if ((pr[i][1] > p.y) !== (pr[j][1] > p.y) && p.x < (pr[j][0] - pr[i][0]) * (p.y - pr[i][1]) / (pr[j][1] - pr[i][1]) + pr[i][0]) d = !d; } return d; };
 
   function isoEscena(o = {}){
-    const plan = planCocina(), conPuertas = o.puertas !== false;
+    const plan = o.plan || planCocina(), conPuertas = o.puertas !== false;
     const caras = [{ piezas: plan.piezas, org: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0] }]
-      .concat((plan.caras || []).map(c => ({ piezas: c.piezas, org: c.origen, ex: c.ejeX, ey: c.ejeY })));
+      .concat((plan.caras || []).map(c => ({ piezas: c.piezas, org: c.origen, ex: c.ejeX, ey: c.ejeY })))
+      .concat((o.extraCaras || []).map(c => Object.assign({ extra: true }, c)));   /* A178: la isla combinada */
     const todas = caras.flatMap(c => c.piezas), abres = {};
     todas.forEach(p => { if (p.frente && p.abre) abres[p.frente] = p.abre; });
     const open = new Set([...(o.abiertos || abiertos)].filter(f => f in abres));   /* ids que ya no existen se ignoran */
@@ -9928,7 +9942,7 @@ const LAM = (() => {
       const dyE = o.explotar && (p.rol === 'frente' || (p.frente && (p.tipo === 'Jaladera' || p.tipo === 'Boton'))) ? o.explotar : 0;   /* despiece: los frentes salen al cuarto */
       const P = (x, y, z) => K(mover([x, -(y + dyE), z], m));
       const x0 = p.x, x1 = p.x + p.ancho, y0 = p.y, y1 = p.y + p.fondo, z0 = p.z, z1 = p.z + p.alto;
-      const q = { ci, p, v: [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0), P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], abierto };
+      const q = { ci, extra: !!cara.extra, p, v: [P(x0, y0, z0), P(x1, y0, z0), P(x1, y1, z0), P(x0, y1, z0), P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)], abierto };
       q.c = [0, 1, 2].map(i => q.v.reduce((s, v) => s + v[i], 0) / 8);
       q.mn = [0, 1, 2].map(i => Math.min(...q.v.map(v => v[i]))); q.mx = [0, 1, 2].map(i => Math.max(...q.v.map(v => v[i])));
       /* huecos (A99/A170): rectangulos que atraviesan la pieza; sus paredes se ven por dentro */
@@ -10082,7 +10096,7 @@ const LAM = (() => {
   }
   /* captura para exportar: el isometrico con los frentes abiertos que se eligieron en el preview */
   function capturarIsometrico(o){
-    const esc = o.escena || isoEscena({ abiertos, cotas: o.cotas !== false });
+    const esc = o.escena || isoEscena({ abiertos, cotas: o.cotas !== false, extraCaras: o.extraCaras });
     const MARGEN = 14, ancho = esc.bb.x1 - esc.bb.x0, alto = esc.bb.y1 - esc.bb.y0;
     const e = o.escalaFija ? { n: o.escalaFija, s: (10 / o.escalaFija) / PX_MM }
       : elegirEscala(s => ({ w: ancho * s + 2 * MARGEN, h: alto * s + 2 * MARGEN }), o.caja);
@@ -10099,8 +10113,8 @@ const LAM = (() => {
       iso: { esc, s: e.s, M: MARGEN, u0: esc.bb.x0, v0: esc.bb.y0 }, hits };
   }
   /* ---- conjuntos (A177): los gabinetes bajos, altos o torres de una cara, vistos aparte desde el plan de piezas ---- */
-  const GRUPOS = { bajos: 'Gabinetes bajos', altos: 'Gabinetes altos', torres: 'Torres' };
-  const GRUPO_CORTO = { bajos: 'BAJOS', altos: 'ALTOS', torres: 'TORRES' };
+  const GRUPOS = { bajos: 'Gabinetes bajos', altos: 'Gabinetes altos', torres: 'Torres', isla: 'Isla' };
+  const GRUPO_CORTO = { bajos: 'BAJOS', altos: 'ALTOS', torres: 'TORRES', isla: 'ISLA' };
   const ESC_DET = [2, 5, 10, 20, 25, 50, 100];
   const ES_CONJUNTO = v => /^Conj/.test(v);
   function modulosPorId(){
@@ -10111,11 +10125,13 @@ const LAM = (() => {
   }
   /* a que conjunto pertenece una pieza: por su modulo (torre, alto o bajo) y, sin modulo (cubierta, zoclo, tapetas), por su altura */
   function filtroConjunto(grupo, cara){
+    if (grupo === 'isla') return () => true;   /* todo lo de la isla */
     const mods = modulosPorId(); let zBA = 150; try { zBA = baseAltos(); } catch (e) { /* valor por defecto */ }
     return (p, ci) => { if (ci !== (cara || 0)) return false;
       const m = p.modulo && mods[p.modulo], g = m ? (m.upper ? 'altos' : (isSpecial(m) || isRefri(m)) ? 'torres' : 'bajos') : p.rol === 'backsplash' ? 'muro' : (p.z + p.alto / 2 >= zBA ? 'altos' : 'bajos');
       return g === grupo; };
   }
+  const planDeConj = o => o.grupo === 'isla' && o.planIsla ? o.planIsla.plan : planCocina();
   const piezasCara = (plan, k) => k === 0 ? plan.piezas : ((plan.caras || [])[k - 1] || { piezas: [] }).piezas;
   function conjuntoDisponible(grupo, cara){
     let pl; try { pl = planCocina(); } catch (e) { return false; }
@@ -10142,7 +10158,7 @@ const LAM = (() => {
   const agrupaIguales = (valores, tol = .05) => { const out = []; valores.forEach(v => { const r = out[out.length - 1]; if (r && Math.abs(r.v - v) < tol) r.n++; else out.push({ v, n: 1 }); }); return out; };
   /* alzado del conjunto: con puertas (cada puerta y cajon con su medida: el despiece) o sin ellas (interiores y sus luces) */
   function capturarAlzadoConjunto(vista, o){
-    const plan = planCocina(), cara = o.cara || 0, f = filtroConjunto(o.grupo, cara), conPuertas = vista === 'ConjAlzado', plano = !!o.plano;
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), conPuertas = vista === 'ConjAlzado', plano = !!o.plano;
     const INT = p => p.rol === 'caja' || p.rol === 'repisa' || p.rol === 'division' || (p.rol === 'herraje' && INTERIOR.has(p.tipo));
     const ps = piezasCara(plan, cara).filter(p => p.rol !== 'luz' && p.ancho > 0 && p.fondo > 0 && p.alto > 0 && f(p, cara) && p.tipo !== 'Cazoleta' && p.estado !== 'abierto'
       && !(p.ocultaSinPuertas && !conPuertas) && (conPuertas ? !INT(p) : p.rol !== 'frente'));
@@ -10164,7 +10180,7 @@ const LAM = (() => {
       if (runs.length > 1) cotaH(g, X(x0), X(x1), M - 36, medida(x1 - x0));
       cotaV(g, M - 20, Y(z1), Y(z0), medida(z1 - z0));
       if (conPuertas) {   /* despiece: la medida de cada puerta y cajon distinto, una vez, con cuantos hay */
-        const fr = ps.filter(p => p.rol === 'frente'), grupos = new Map();
+        const todosFr = ps.filter(p => p.rol === 'frente'), yFr = Math.max(...todosFr.map(p => p.y + p.fondo)), fr = todosFr.filter(p => p.y + p.fondo >= yFr - 6), grupos = new Map();   /* solo los del lado que se ve (la isla tiene dos) */
         fr.forEach(p => { const k = `${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = grupos.get(k) || { p, n: 0 }; q.n++; if (p.x < q.p.x - .01 || (Math.abs(p.x - q.p.x) < .01 && p.z < q.p.z)) q.p = p; grupos.set(k, q); });
         grupos.forEach(q => { const t = `${fmt(q.p.ancho)} × ${fmt(q.p.alto)}${q.n > 1 ? ` (×${q.n})` : ''}`, w = q.p.ancho * sc, h = q.p.alto * sc;
           g.save(); g.fillStyle = '#1F2A33'; g.font = "500 9px 'Inter'"; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -10182,7 +10198,7 @@ const LAM = (() => {
   }
   /* detalle de la gola: corte por el centro del primer gabinete del conjunto que la lleva, acercado al perfil */
   function capturarGolaConjunto(o){
-    const plan = planCocina(), cara = o.cara || 0, f = filtroConjunto(o.grupo, cara), plano = !!o.plano, todas = piezasCara(plan, cara);
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), plano = !!o.plano, todas = piezasCara(plan, cara);
     const golas = todas.filter(p => (p.tipo === 'Gola' || p.tipo === 'Perfil') && f(p, cara));
     if (!golas.length) throw new Error(T('Este conjunto no lleva gola'));
     const ref = golas[0], xc = ref.x + ref.ancho / 2, mid = ref.modulo;
@@ -10210,11 +10226,12 @@ const LAM = (() => {
   }
   /* isometrico del conjunto (con los frentes que se abrieron y, si se pide, separados) y vista general con el volumen en color */
   function capturarConjuntoIso(vista, o){
-    const f = filtroConjunto(o.grupo, o.cara || 0);
-    if (!conjuntoDisponible(o.grupo, o.cara || 0)) throw new Error(T('Este conjunto no tiene piezas en esta cara'));
+    const isla = o.grupo === 'isla', f = filtroConjunto(o.grupo, isla ? 0 : (o.cara || 0));
+    if (isla ? !o.planIsla : !conjuntoDisponible(o.grupo, o.cara || 0)) throw new Error(T('Este conjunto no tiene piezas en esta cara'));
     const loc = vista === 'ConjLocal';
-    const esc = isoEscena({ abiertos: new Set(loc ? [] : o.abiertos || []), cotas: !loc && o.cotas !== false, filtro: loc ? null : f, explotar: loc ? 0 : o.explotado ? 16 : 0 });
-    const tinte = loc ? q => coloresConj(!!o.plano, f(q.p, q.ci)) : null;
+    const esc = isoEscena({ abiertos: new Set(loc ? [] : o.abiertos || []), cotas: !loc && o.cotas !== false, filtro: loc || isla ? null : f, explotar: loc ? 0 : o.explotado ? 16 : 0,
+      plan: !loc && isla ? o.planIsla.plan : undefined, extraCaras: loc ? o.extraCaras : undefined });
+    const tinte = loc ? q => coloresConj(!!o.plano, isla ? q.extra : (!q.extra && f(q.p, q.ci))) : null;
     const cap = capturarIsometrico(Object.assign({}, o, { escena: esc, tinte, sinLeyenda: true, vistaId: vista, conHits: !loc }));
     if (loc && o.numero) {   /* el numero del conjunto, en un circulo, arriba a la derecha */
       const gr = new Grabador(cap.w, cap.h), cx = cap.bb.x1 - 12, cy = cap.bb.y0 + 12;
@@ -10226,7 +10243,7 @@ const LAM = (() => {
   }
   /* despiece de frentes: cada puerta y cajon distinto plano, con su medida, su espesor y cuantos hay (como las hojas de unidad de referencia) */
   function capturarDespieceConjunto(o){
-    const plan = planCocina(), cara = o.cara || 0, f = filtroConjunto(o.grupo, cara), plano = !!o.plano;
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), plano = !!o.plano;
     const fr = piezasCara(plan, cara).filter(p => p.rol === 'frente' && f(p, cara) && p.ancho > 0 && p.alto > 0 && p.tipo !== 'Gola');
     if (!fr.length) throw new Error(T('Este conjunto no tiene frentes'));
     const gr = new Map(); fr.forEach(p => { const k = `${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = gr.get(k) || { p, n: 0 }; q.n++; gr.set(k, q); });
@@ -10247,7 +10264,7 @@ const LAM = (() => {
   }
   /* cuadros de herrajes del conjunto: icono, cantidad y especificacion, en recuadros redondeados punteados */
   function capturarHerrajesConjunto(o){
-    const plan = planCocina(), cara = o.cara || 0, f = filtroConjunto(o.grupo, cara), plano = !!o.plano;
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), plano = !!o.plano;
     const hs = piezasCara(plan, cara).filter(p => p.rol === 'herraje' && f(p, cara));
     const cuenta = t => hs.filter(p => p.tipo === t && p.estado !== 'abierto').length;
     const taq = hs.find(p => p.tipo === 'Taquete');
@@ -10508,7 +10525,7 @@ const LAM = (() => {
   function empacar(items){
     const H = HOJA, k = H.k, m = H.margen, g = 4 * k, tit = 9 * k, pad = 3 * k, minW = 54 * k;
     const W = H.ancho - 2 * m - H.franja - g, Hh = H.alto - 2 * m;
-    const cs = items.map(it => ({ it, w: Math.max(minW, it.cap.bb.w * PX_MM + 2 * pad), h: it.cap.bb.h * PX_MM + 2 * pad + tit }));
+    const cs = items.map(it => { const bb = it.bbEf || (it.it && it.it.bbEf) || it.cap.bb; return { it, w: Math.max(minW, bb.w * PX_MM + 2 * pad), h: bb.h * PX_MM + 2 * pad + tit }; });   /* A178: con la isla de la planta */
     if (cs.some(c => c.w > W + .01 || c.h > Hh + .01)) return null;
     const filas = []; let fila = null;
     cs.forEach(c => { if (!fila || fila.w + g + c.w > W + .01) { fila = { cs: [], w: 0, h: 0 }; filas.push(fila); }
@@ -10613,10 +10630,12 @@ const LAM = (() => {
   const claveCap = (L, it) => [it.vista, it.n, it.plano ? 1 : 0, L.cotas ? 1 : 0, L.proy ? 1 : 0,
     it.vista === 'Corte' ? Math.round((it.corte || 0) * 10) + letraDe(L, it) : '',
     ES_CONJUNTO(it.vista) ? [it.grupo, it.cara || 0, (it.abiertos || []).slice().sort().join(','), it.explotado ? 1 : 0, numeroConjunto(L, it)].join(':') : '',
-    [...abiertos].sort().join(',')].join('|');
+    it.vista === 'Isometrico' || it.vista === 'ConjLocal' || it.grupo === 'isla' ? islaFirma(L) : '', [...abiertos].sort().join(',')].join('|');
   const opcCap = (L, it) => ({ plano: !!it.plano, cotas: !!L.cotas, proy: !!L.proy, globos: [],   /* los globos y las marcas de corte se pintan aparte */
     corte: it.vista === 'Corte' ? it.corte : undefined, letra: it.vista === 'Corte' ? letraDe(L, it) : undefined,
-    grupo: it.grupo, cara: it.cara || 0, abiertos: it.abiertos, explotado: !!it.explotado, numero: ES_CONJUNTO(it.vista) ? numeroConjunto(L, it) : undefined });
+    grupo: it.grupo, cara: it.cara || 0, abiertos: it.abiertos, explotado: !!it.explotado, numero: ES_CONJUNTO(it.vista) ? numeroConjunto(L, it) : undefined,
+    extraCaras: it.vista === 'Isometrico' || it.vista === 'ConjLocal' ? extrasIsla(L) : undefined,
+    planIsla: it.grupo === 'isla' && L.isla && L.isla.on ? planIsla(L.isla.id) : null });
   function capPres(L, it){
     const k = claveCap(L, it); let c = capCache.get(k);
     if (!c) { if (capCache.size > 60) capCache.clear(); c = capturar(it.vista, Object.assign(opcCap(L, it), { escalaFija: it.n })); c.uid = ++uidCap; capCache.set(k, c); }
@@ -10624,9 +10643,10 @@ const LAM = (() => {
   }
   const limitesHoja = () => ({ x0: HOJA.margen, y0: HOJA.margen, x1: HOJA.ancho - HOJA.margen - HOJA.franja, y1: HOJA.alto - HOJA.margen });
   /* tamano de la celda de una vista: su tinta mas el margen y la tira del titulo (igual que el empacado automatico) */
-  function medirItem(it, cap){
+  function medirItem(it, cap, L){
     const k = HOJA.k, pad = 3 * k, tit = 9 * k, minW = (ES_CONJUNTO(it.vista) && it.vista !== 'ConjTitulo' ? 76 : 54) * k;
-    it.cap = cap; it.w = Math.max(minW, cap.bb.w * PX_MM + 2 * pad); it.h = cap.bb.h * PX_MM + 2 * pad + tit;
+    it.cap = cap; const bb = L ? bbDe(L, it) : cap.bb; it.bbEf = bb;   /* la planta incluye a la isla combinada */
+    it.w = Math.max(minW, bb.w * PX_MM + 2 * pad); it.h = bb.h * PX_MM + 2 * pad + tit;
     const b = limitesHoja(); it.fuera = it.w > b.x1 - b.x0 + .01 || it.h > b.y1 - b.y0 + .01;
   }
   const celdaDe = it => { const k = HOJA.k, pad = 3 * k, tit = 9 * k; return { x: it.x, y: it.y, w: it.w, h: it.h, tit, pad, caja: { w: it.w - 2 * pad, h: it.h - 2 * pad - tit } }; };
@@ -10648,7 +10668,7 @@ const LAM = (() => {
       L.notasLista = L.notas ? notasFinales(L.notasEd || {}) : []; L.datos = null; L.detalles = null;
       L.vistas.forEach(it => { it.error = null; it.cap = null; it.fuera = false;
         if (!it.on) return;
-        try { medirItem(it, capPres(L, it)); } catch (e) { it.error = e.message; } });
+        try { medirItem(it, capPres(L, it), L); } catch (e) { it.error = e.message; } });
       L.vistas.forEach(it => { if (it.on && it.cap && isFinite(it.x) && isFinite(it.y)) fijar(it, it.x, it.y); });
     });
   }
@@ -10663,8 +10683,8 @@ const LAM = (() => {
         for (const nn of ESCALAS) {
           const alt = [];
           try { ok.forEach(it => { const nv = it.n <= 10 || it.vista === 'ConjLocal' ? it.n : Math.max(it.n, nn);   /* los detalles (1:5...) y la vista general no se tocan */
-            alt.push({ it, n: nv, cap: capturar(it.vista, Object.assign(opcCap(L, it), { escalaFija: nv })) }); }); } catch (e) { continue; }
-          if (empacar(alt)) { alt.forEach(q => { q.it.n = q.n; q.cap.uid = ++uidCap; capCache.set(claveCap(L, q.it), q.cap); medirItem(q.it, q.cap); }); its = alt; hallado = true; break; }
+            const cp = capturar(it.vista, Object.assign(opcCap(L, it), { escalaFija: nv })); alt.push({ it, n: nv, cap: cp, bbEf: bbDe(L, { vista: it.vista, cap: cp }) }); }); } catch (e) { continue; }
+          if (empacar(alt)) { alt.forEach(q => { q.it.n = q.n; q.cap.uid = ++uidCap; capCache.set(claveCap(L, q.it), q.cap); medirItem(q.it, q.cap, L); }); its = alt; hallado = true; break; }
         }
         if (!hallado) { const b = limitesHoja(); ok.forEach((it, i) => fijar(it, b.x0 + i * 10, b.y0 + i * 10)); return; }
       }
@@ -10675,7 +10695,7 @@ const LAM = (() => {
   function presNueva(o){
     const L = { papel: o.papel, cotas: o.cotas !== false, proy: o.proy !== false, notas: o.notas !== false, notasEd: o.notasEd || {}, rotulo: o.rotulo || {},
       vistas: [], datos: null, detalles: null, notasLista: [], globos: o.globos && typeof o.globos === 'object' ? o.globos : {}, detalle: o.detalle !== false, dxf: !!o.dxf,
-      hojas: [{ nombre: 'Lámina general' }], hoja: 0 };
+      hojas: [{ nombre: 'Lámina general' }], hoja: 0, isla: o.isla && o.isla.id ? { id: o.isla.id, on: o.isla.on !== false, x: +o.isla.x || 0, y: +o.isla.y || 0, rot: +o.isla.rot || 0 } : null };
     if (Array.isArray(o.hojas) && o.hojas.length) L.hojas = o.hojas.map((h, i) => i === 0 ? { nombre: h.nombre || 'Lámina general' } : { nombre: h.nombre, grupo: h.grupo, cara: h.cara || 0 });
     const num = v => typeof v === 'number' && isFinite(v), usados = new Set(), centros = centrosCorte();
     const nuevoId = v => { let k = 1, id = v; while (usados.has(id)) id = `${v}#${++k}`; usados.add(id); return id; };
@@ -10714,10 +10734,12 @@ const LAM = (() => {
   /* lamina nueva de un conjunto (bajos, altos o torres de una cara): titulo, vista general con el volumen en color, despiece de frentes,
      isometrico del conjunto, alzado con puertas, interiores, detalle de gola y herrajes; devuelve su indice o -1 si no hay piezas */
   function presAgregarConjunto(L, grupo, cara){
-    if (!conjuntoDisponible(grupo, cara)) return -1;
+    const isla = grupo === 'isla', vi = isla && L.isla && L.isla.on ? planIsla(L.isla.id) : null;
+    if (isla ? !vi : !conjuntoDisponible(grupo, cara)) return -1;
+    if (isla) cara = 0;
     let nom = T(GRUPOS[grupo]); try { if (multiCara()) nom += ` · ${T('Cara')} ${letraCara(cara)}`; } catch (e) { /* una sola cara */ }
     L.hojas.push({ nombre: nom, grupo, cara }); const h = L.hojas.length - 1, stamp = Date.now().toString(36);
-    const fc = filtroConjunto(grupo, cara), ps = piezasCara(planCocina(), cara).filter(p => fc(p, cara));
+    const fc = filtroConjunto(grupo, cara), ps = piezasCara(isla ? vi.plan : planCocina(), cara).filter(p => fc(p, cara));
     const tiene = { ConjGola: ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil'), ConjHerrajes: ps.some(p => p.rol === 'herraje') };   /* sin gola o sin herrajes no se crea la vista */
     [['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50], ['ConjAlzado', 25], ['ConjInterior', 25], ['ConjGola', 5], ['ConjHerrajes', 1]].filter(([v]) => tiene[v] !== false).forEach(([v, nn]) =>
       L.vistas.push({ id: `${v}~${stamp}`, vista: v, hoja: h, on: true, n: nn, x: NaN, y: NaN, plano: false, corte: NaN, grupo, cara, abiertos: [], explotado: false }));
@@ -10751,10 +10773,10 @@ const LAM = (() => {
   }
   /* instantanea para deshacer y rehacer: todo lo que el usuario edita en la lamina */
   const presInstantanea = L => JSON.stringify({ papel: L.papel, cotas: L.cotas, proy: L.proy, notas: L.notas, detalle: L.detalle, notasEd: L.notasEd, rotulo: L.rotulo, globos: L.globos,
-    hojas: L.hojas, hoja: L.hoja, vistas: L.vistas.map(({ id, vista, hoja, on, n, x, y, plano, corte, grupo, cara, abiertos, explotado }) => ({ id, vista, hoja, on, n, x, y, plano, corte, grupo, cara, abiertos, explotado })) });
+    hojas: L.hojas, hoja: L.hoja, isla: L.isla, vistas: L.vistas.map(({ id, vista, hoja, on, n, x, y, plano, corte, grupo, cara, abiertos, explotado }) => ({ id, vista, hoja, on, n, x, y, plano, corte, grupo, cara, abiertos, explotado })) });
   function presRestaurar(L, json){
     const o = JSON.parse(json); Object.assign(L, { papel: o.papel, cotas: o.cotas, proy: o.proy, notas: o.notas, detalle: o.detalle, notasEd: o.notasEd, rotulo: o.rotulo, globos: o.globos,
-      hojas: o.hojas || L.hojas, hoja: Math.min(o.hoja || 0, (o.hojas || L.hojas).length - 1) });
+      hojas: o.hojas || L.hojas, isla: o.isla || null, hoja: Math.min(o.hoja || 0, (o.hojas || L.hojas).length - 1) });
     L.vistas = o.vistas.map(q => Object.assign({ x: NaN, y: NaN, corte: NaN }, q, { x: q.x === null ? NaN : q.x, y: q.y === null ? NaN : q.y, corte: q.corte === null ? NaN : q.corte }));
   }
   /* mueve una vista imantando sus bordes a los margenes y a los de las otras; devuelve las guias [{eje, v}] para dibujarlas */
@@ -10776,6 +10798,108 @@ const LAM = (() => {
     return enHoja(L).filter(it => it.on && it.cap).reverse().find(it => mx >= it.x && mx <= it.x + it.w && my >= it.y && my <= it.y + it.h) || null;
   }
   const presLimpiar = () => capCache.clear();
+  /* ---- isla combinada (A178): una isla guardada en las configuraciones se coloca en la planta, el isometrico y la presentacion de la
+     cocina de pared. Cada archivo sigue siendo suyo: aqui solo se lee su plan de piezas y se le da posicion (x, y en cm desde el
+     extremo izquierdo del muro y desde el muro) y giro (0, 90, 180 o 270) ---- */
+  function islasGuardadas(){ try { return (catalog || []).filter(p => p.layout && p.layout.isla).map(p => ({ id: p.id, nombre: p.name })); } catch (e) { return []; } }
+  const cacheIsla = new Map();
+  function planIsla(id){
+    const it = (typeof catalog !== 'undefined' ? catalog : []).find(p => p.id === id && p.layout && p.layout.isla); if (!it) return null;
+    const k = id + '|' + (it.actualizada || '') + '|' + JSON.stringify(it.layout).length;
+    if (cacheIsla.has(k)) return cacheIsla.get(k);
+    let v = null; try { const c = JSON.parse(JSON.stringify(it.layout)); v = { plan: planDePiezas(c), cfg: c, nombre: it.name, id }; } catch (e) { v = null; }
+    cacheIsla.clear(); cacheIsla.set(k, v); return v;
+  }
+  /* huella de la isla ya girada y puesta: T(xi, yi) -> [x, d] en el cuarto (d: distancia al muro) */
+  function islaGeom(L){
+    if (!L.isla || !L.isla.on) return null;
+    const v = planIsla(L.isla.id); if (!v) return null;
+    const ps = v.plan.piezas.filter(p => p.rol !== 'luz' && p.ancho > 0 && p.fondo > 0);
+    if (!ps.length) return null;
+    const x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x + p.ancho)), y0 = Math.min(...ps.map(p => p.y)), y1 = Math.max(...ps.map(p => p.y + p.fondo));
+    const rot = ((Math.round((L.isla.rot || 0) / 90) % 4) + 4) % 4, M = [[1, 0, 0, 1], [0, -1, 1, 0], [-1, 0, 0, -1], [0, 1, -1, 0]][rot];   /* X = a11 xi + a12 yi ; d = a21 xi + a22 yi */
+    const R = (xi, yi) => [M[0] * xi + M[1] * yi, M[2] * xi + M[3] * yi];
+    const cs = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([a, b]) => R(a, b)), mx = Math.min(...cs.map(c => c[0])), md = Math.min(...cs.map(c => c[1]));
+    const tx = (L.isla.x || 0) - mx, ty = (L.isla.y || 0) - md;
+    return { v, piezas: ps, M, tx, ty, ancho: Math.max(...cs.map(c => c[0])) - mx, fondo: Math.max(...cs.map(c => c[1])) - md, T: (xi, yi) => { const r = R(xi, yi); return [r[0] + tx, r[1] + ty]; } };
+  }
+  /* la isla como una cara mas del isometrico: world = org + xi*ex + (-yi)*ey con ex = (a11, -a21), ey = (-a12, a22) */
+  function extrasIsla(L){
+    const gm = islaGeom(L); if (!gm) return [];
+    return [{ piezas: gm.v.plan.piezas, org: [gm.tx, -gm.ty, 0], ex: [gm.M[0], -gm.M[2], 0], ey: [-gm.M[1], gm.M[3], 0] }];
+  }
+  const islaFirma = L => L.isla && L.isla.on ? [L.isla.id, L.isla.x, L.isla.y, L.isla.rot, (planIsla(L.isla.id) || {}).nombre].join(',') : '';
+  /* frente de los gabinetes de la cocina (d, cm): para medir el pasillo hasta la isla */
+  function frenteCocina(){ try { const pl = planCocina(); return Math.max(0, ...pl.piezas.filter(p => p.rol === 'cubierta' || p.rol === 'frente' || p.rol === 'zoclo').map(p => p.y + p.fondo)); } catch (e) { return 60; } }
+  /* rectangulo de la isla en la hoja (mm) sobre una vista de planta; la isla se pinta como parte de la planta */
+  function islaRectMm(L, it){
+    const gm = islaGeom(L), m = it.cap && it.cap.marco;
+    if (!gm || !m || it.vista !== 'Planta' || m.y0 === undefined) return null;
+    const { ix, iy } = tintaDe(it), bb = it.cap.bb, px = (X, d) => [ix + (m.x0 + m.kx * X - bb.x0) * PX_MM, iy + (m.y0 + m.ky * d - bb.y0) * PX_MM];
+    const a = px(L.isla.x, L.isla.y), b = px(L.isla.x + gm.ancho, L.isla.y + gm.fondo);
+    return { x0: a[0], y0: a[1], x1: b[0], y1: b[1], gm, it };
+  }
+  /* caja de tinta (px de captura) que agrega la isla con sus cotas: la celda de la planta la incluye */
+  function islaBBpx(L, it){
+    const gm = islaGeom(L), m = it.cap && it.cap.marco; if (!gm || !m || it.vista !== 'Planta' || m.y0 === undefined) return null;
+    const X = x => m.x0 + m.kx * x, D = d => m.y0 + m.ky * d, k = frenteCocina();
+    return { x0: X(L.isla.x) - 34, x1: X(L.isla.x + gm.ancho) + 18, y0: Math.min(D(k) - 4, D(L.isla.y) - 22), y1: D(L.isla.y + gm.fondo) + 40 };
+  }
+  function bbDe(L, it){
+    const b = it.cap.bb, r = islaBBpx(L, it); if (!r) return b;
+    const x0 = Math.min(b.x0, r.x0), y0 = Math.min(b.y0, r.y0), x1 = Math.max(b.x1, r.x1), y1 = Math.max(b.y1, r.y1);
+    return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
+  }
+  function dibujarIslaPlanta(g, L, it){
+    const gm = islaGeom(L), m = it.cap.marco; if (!gm || !m || m.y0 === undefined) return;
+    const X = x => m.x0 + m.kx * x, D = d => m.y0 + m.ky * d, plano = !!it.plano, TT = (xi, yi) => { const r = gm.T(xi, yi); return [X(r[0]), D(r[1])]; };
+    const rellenos = { cubierta: plano ? '#FFFFFF' : '#E8DFCC', frente: plano ? '#FFFFFF' : '#F2F2F2', panel: plano ? '#F2F4F6' : '#DCE1E6', zoclo: '#6B7078' };
+    g.save(); g.lineJoin = 'round';
+    gm.piezas.slice().sort((a, b) => (a.z + a.alto) - (b.z + b.alto)).forEach(p => {
+      const c = [[p.x, p.y], [p.x + p.ancho, p.y], [p.x + p.ancho, p.y + p.fondo], [p.x, p.y + p.fondo]].map(([a, b]) => TT(a, b));
+      g.beginPath(); c.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath();
+      g.fillStyle = rellenos[p.rol] || (plano ? '#FFFFFF' : '#EEF1F4'); g.fill(); g.strokeStyle = '#444444'; g.lineWidth = p.rol === 'cubierta' ? 1.1 : .6; g.stroke();
+      [p.hueco].concat(p.huecos || []).filter(h => h && h.ancho > 0 && h.fondo > 0).forEach(h => {   /* huecos de la cubierta (tarja, parrilla): punteados */
+        const hc = [[p.x + h.x, p.y + h.y], [p.x + h.x + h.ancho, p.y + h.y], [p.x + h.x + h.ancho, p.y + h.y + h.fondo], [p.x + h.x, p.y + h.y + h.fondo]].map(([a, b]) => TT(a, b));
+        g.save(); g.setLineDash([4, 3]); g.strokeStyle = '#266096'; g.lineWidth = .9; g.beginPath(); hc.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); g.stroke(); g.restore(); });
+    });
+    g.restore();
+    const x0 = X(L.isla.x), x1 = X(L.isla.x + gm.ancho), d0 = D(L.isla.y), d1 = D(L.isla.y + gm.fondo);
+    g.save(); g.fillStyle = '#1F2A33'; g.font = "700 11px 'Inter'"; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(T('ISLA'), (x0 + x1) / 2, (d0 + d1) / 2); g.restore();
+    cotaH(g, x0, x1, d1 + 24, medida(gm.ancho)); cotaV(g, x0 - 16, d0, d1, medida(gm.fondo));
+    /* pasillo: del frente de los gabinetes de la cocina al canto de la isla, donde se enfrentan */
+    const kf = frenteCocina(), gap = L.isla.y - kf, solapa = L.isla.x < cfg.longitud && L.isla.x + gm.ancho > 0;
+    if (solapa && gap > 0) {
+      const xm = X(Math.max(0, L.isla.x) + (Math.min(cfg.longitud, L.isla.x + gm.ancho) - Math.max(0, L.isla.x)) / 2), corto = gap < 107 - .01;
+      g.save(); g.strokeStyle = corto ? '#C2410C' : AZUL; g.fillStyle = g.strokeStyle; g.lineWidth = 1; g.beginPath(); g.moveTo(xm, D(kf)); g.lineTo(xm, d0);
+      g.moveTo(xm - 5, D(kf)); g.lineTo(xm + 5, D(kf)); g.moveTo(xm - 5, d0); g.lineTo(xm + 5, d0); g.stroke();
+      g.font = "600 11px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(`${T('pasillo')} ${medida(gap)}${corto ? ' · ' + T('menor a 107 cm (NKBA)') : ''}`, xm + 8, (D(kf) + d0) / 2); g.restore();
+    }
+  }
+  /* mueve la isla: el punto que se arrastra conserva su posicion respecto a la isla; a 1 cm */
+  function presMoverIsla(L, it, mx, my, off){
+    const m = it.cap.marco, { ix, iy } = tintaDe(it), bb = it.cap.bb;
+    const X = ((mx - ix) / PX_MM + bb.x0 - m.x0) / m.kx, D = ((my - iy) / PX_MM + bb.y0 - m.y0) / m.ky;
+    if (!isFinite(X) || !isFinite(D)) return;
+    L.isla.x = Math.round(X - off.x); L.isla.y = Math.max(0, Math.round(D - off.y));
+  }
+  function presHitIsla(L, mx, my){
+    for (const it of enHoja(L).filter(q => q.on && q.cap && q.vista === 'Planta').reverse()) {
+      const r = conHoja(L.papel, () => islaRectMm(L, it));
+      if (r && mx >= Math.min(r.x0, r.x1) && mx <= Math.max(r.x0, r.x1) && my >= Math.min(r.y0, r.y1) && my <= Math.max(r.y0, r.y1)) {
+        const m = it.cap.marco, { ix, iy } = conHoja(L.papel, () => tintaDe(it)), bb = it.cap.bb;
+        const X = ((mx - ix) / PX_MM + bb.x0 - m.x0) / m.kx, D = ((my - iy) / PX_MM + bb.y0 - m.y0) / m.ky;
+        return { it, off: { x: X - L.isla.x, y: D - L.isla.y } };
+      }
+    }
+    return null;
+  }
+  /* posicion inicial: centrada frente a la cocina con el pasillo minimo */
+  function presIslaPorDefecto(L, id){
+    const v = planIsla(id); if (!v) return null;
+    const ps = v.plan.piezas.filter(p => p.rol !== 'luz'), ancho = Math.max(...ps.map(p => p.x + p.ancho)) - Math.min(...ps.map(p => p.x));
+    return { id, on: true, x: Math.max(0, Math.round((cfg.longitud - ancho) / 2)), y: Math.round(frenteCocina() + 107), rot: 180 };   /* de frente a la cocina */
+  }
   function presRotulo(L, k, v){ L.rotulo[k] = v; L.datos = null; }
   /* coordenadas de vista (alzado: x y z en cm; isometrico: la proyeccion) <-> px de la captura */
   const aPx = (cap, u, v) => cap.iso ? [cap.iso.M + (u - cap.iso.u0) * cap.iso.s, cap.iso.M + (v - cap.iso.v0) * cap.iso.s]
@@ -10790,7 +10914,7 @@ const LAM = (() => {
     return null;
   }
   /* posicion de la tinta de una vista en la hoja (mm) */
-  const tintaDe = it => { const c = celdaDe(it), b = it.cap.bb; return { ix: c.x + c.pad + (c.caja.w - b.w * PX_MM) / 2, iy: c.y + c.pad + (c.caja.h - b.h * PX_MM) / 2 }; };
+  const tintaDe = it => { const c = celdaDe(it), b = it.bbEf || it.cap.bb; return { ix: c.x + c.pad + (c.caja.w - b.w * PX_MM) / 2 + (it.cap.bb.x0 - b.x0) * PX_MM, iy: c.y + c.pad + (c.caja.h - b.h * PX_MM) / 2 + (it.cap.bb.y0 - b.y0) * PX_MM }; };
   /* los globos de todas las vistas con su posicion en la hoja (mm); lo editado vive en L.globos[idVista][nota] = {u, v, dx, dy} */
   function globosHoja(L){
     const out = [];
@@ -10833,9 +10957,10 @@ const LAM = (() => {
   }
   /* trazos sobre una vista (globos y marcas), en px de su captura: para el lienzo, el PDF y el DXF */
   function opsSobre(L, it, gs, ms){
-    const cap = it.cap, gr = new Grabador(cap.w, cap.h);
+    const cap = it.cap, gr = new Grabador(Math.max(cap.w, cap.bb.x1 + 600), Math.max(cap.h, cap.bb.y1 + 900));
     gs.filter(g => g.it === it).forEach(g => dibujarGlobo(gr, g.n, g.ap[0], g.ap[1], g.ap[0] + g.dx / PX_MM, g.ap[1] + g.dy / PX_MM));
     ms.filter(m => m.host === it).forEach(m => dibujarMarca(gr, m.px[0], m.px[1], m.px[2], m.dir, m.letra));
+    if (it.vista === 'Planta') dibujarIslaPlanta(gr, L, it);
     return gr.ops;
   }
   function presHitGlobo(L, mx, my, tol){
@@ -10869,8 +10994,12 @@ const LAM = (() => {
     Travesano: 'Zoclo (travesaño)', Division: 'División', Backsplash: 'Backsplash', Tapeta: 'Tapeta' };
   const NOM_ROL = { backsplash: 'Backsplash', tapeta: 'Tapeta', zoclo: 'Zoclo', cubierta: 'Cubierta', panel: 'Panel', frente: 'Frente', repisa: 'Repisa', division: 'División' };
   const NOM_HERRAJE = { Bisagra: 'Bisagras', Taquete: 'Taquetes', Corredera: 'Correderas (juegos)', Jaladera: 'Jaladeras', Boton: 'Botones', Piston: 'Pistones', Gola: 'Perfil de gola', Perfil: 'Perfil de gola' };
-  function detalleUnidades(){
+  function detalleUnidades(L){
     let pl; try { pl = planCocina(); } catch (e) { return []; }
+    const isla = L && L.isla && L.isla.on ? planIsla(L.isla.id) : null;
+    return unidadesDe(pl, cfg.modulos || [], '').concat(isla ? unidadesDe(isla.plan, isla.cfg.modulos || [], `${T('Isla')} · `) : []);
+  }
+  function unidadesDe(pl, modulos, pref){
     const piezas = pl.piezas.concat((pl.caras || []).flatMap(c => c.piezas)).filter(p => p.rol !== 'luz');
     const matNom = id => { if (!id) return '—'; const m = (pl.materiales || []).find(q => q.id === id); return String((m && m.nombre) || id).replace(/\s+predeterminad[oa]$/i, ''); };
     const filas = ps => { const mp = new Map();
@@ -10886,9 +11015,9 @@ const LAM = (() => {
       const out = Object.keys(c).map(t => [T(NOM_HERRAJE[t]), t === 'Corredera' ? Math.round(c[t] / 2) : c[t]]).filter(q => q[1] > 0);
       if (largo.gola) out.push([T('Perfil de gola') + ' (' + medida(Math.round(largo.gola * 10) / 10) + ')', 1]);
       return out; };
-    const nomMod = id => { const m = (cfg.modulos || []).find(q => q.id === id); return m ? nombreModulo(m) : id; };
+    const nomMod = id => { const m = modulos.find(q => q.id === id); return pref + (m ? nombreModulo(m) : id); };
     const porMod = new Map(); piezas.forEach(p => { if (!p.modulo) return; if (!porMod.has(p.modulo)) porMod.set(p.modulo, []); porMod.get(p.modulo).push(p); });
-    const orden = (cfg.modulos || []).map(m => m.id), ids = [...porMod.keys()].sort((a, b) => (orden.indexOf(a) < 0 ? 1e9 : orden.indexOf(a)) - (orden.indexOf(b) < 0 ? 1e9 : orden.indexOf(b)));
+    const orden = modulos.map(m => m.id), ids = [...porMod.keys()].sort((a, b) => (orden.indexOf(a) < 0 ? 1e9 : orden.indexOf(a)) - (orden.indexOf(b) < 0 ? 1e9 : orden.indexOf(b)));
     const unidades = [];
     ids.forEach(id => {
       const ps = porMod.get(id), fl = filas(ps), sig = JSON.stringify(fl.map(r => [r.nombre, r.l, r.a, r.e, r.cant, r.mat])) + JSON.stringify(herrajes(ps)), u = unidades.find(q => q.sig === sig);
@@ -10899,14 +11028,14 @@ const LAM = (() => {
         rects: rs.map(p => ({ x: p.x - x0, z: p.z - z0, w: p.ancho, h: p.alto, frente: p.rol === 'frente' })) });
     });
     const gen = piezas.filter(p => !p.modulo && p.rol !== 'herraje');
-    if (gen.length) unidades.push({ sig: 'general', modulos: [], titulo: T('Cubierta, zoclo, backsplash y tapetas del conjunto'), filas: filas(gen), herrajes: [], general: true, rects: [] });
+    if (gen.length) unidades.push({ sig: 'general' + pref, modulos: [], titulo: pref ? T('Cubierta, zoclo y tapetas de la isla') : T('Cubierta, zoclo, backsplash y tapetas del conjunto'), filas: filas(gen), herrajes: [], general: true, rects: [] });
     return unidades;
   }
   /* paginas de detalle: una por unidad y, si la tabla no cabe, las que hagan falta */
   function paginasDetalle(L){
     return conHoja(L.papel, () => {
       const H = HOJA, k = H.k, m = H.margen, fila = 6.4 * k, y0 = m + 36 * k, maxFilas = Math.max(6, Math.floor((H.alto - m - 16 * k - (y0 + 8 * k)) / fila));
-      const pags = [], us = detalleUnidades();
+      const pags = [], us = detalleUnidades(L);
       us.forEach((u, i) => {
         const chunks = []; for (let j = 0; j < u.filas.length; j += maxFilas) chunks.push(u.filas.slice(j, j + maxFilas)); if (!chunks.length) chunks.push([]);
         chunks.forEach((fl, j) => pags.push({ tipo: 'detalle', u, num: i + 1, nUnidades: us.length, filas: fl, parte: j + 1, partes: chunks.length, vistas: [], k0: j * maxFilas }));
@@ -11042,7 +11171,7 @@ const LAM = (() => {
           const its = ordenLectura(enHoja(L, h).filter(it => it.on && it.cap));
           if (!its.length) continue;
           const datos = datosHoja(null, datosRotulo(L), h === 0 ? (L.notasLista || []) : []);
-          const gs = globosHoja(L), ms = marcasHoja(L), conSobre = it => Object.assign({}, it.cap, { ops: it.cap.ops.concat(opsSobre(L, it, gs, ms)) });
+          const gs = globosHoja(L), ms = marcasHoja(L), conSobre = it => Object.assign({}, it.cap, { ops: it.cap.ops.concat(opsSobre(L, it, gs, ms)), bb: it.bbEf || it.cap.bb });
           const cs = its.map(it => ({ it, cap: conSobre(it) })); cs.forEach(c => todos.push(c));
           paginas.push(paginaComposicion(cs.map(c => ({ cap: c.cap, celda: celdaDe(c.it), nombre: tituloItem(L, c.it) })), Object.assign({}, datos, { hoja: hoja(paginas.length + 1) })));
         }
@@ -11195,6 +11324,7 @@ const LAM = (() => {
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
     abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales,
     presNueva, presRefrescar, presReacomodar, presMover, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
+    islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitGlobo, presMoverGlobo, presRestablecer, presAgregar, presQuitar, presInstantanea, presRestaurar, presHitMarca, presMoverMarca, marcasHoja,
     presAgregarConjunto, presQuitarHoja, frenteBajo, presAlternarFrente, conjuntoDisponible, GRUPOS, GRUPO_CORTO, ESC_DET, ES_CONJUNTO, enHoja,
     detallesDe, fijarLogo, tituloItem, letraDe, centrosCorte, api: LAM_API };
@@ -11286,7 +11416,7 @@ function presGuardar(){
   const r = v => isFinite(v) ? Math.round(v * 10) / 10 : null;
   prefs.lamLayoutJson = JSON.stringify({ v: 2, papel: L.papel, detalle: L.detalle, dxf: L.dxf,
     hojas: L.hojas, vistas: L.vistas.map(({ id, vista, hoja, on, n, x, y, plano, corte, grupo, cara, abiertos, explotado }) => ({ id, vista, hoja, on, n, x: r(x), y: r(y), plano, corte: r(corte), grupo, cara, abiertos, explotado })),
-    globos: L.globos || {} });
+    isla: L.isla, globos: L.globos || {} });
   prefs.lamPapel = L.papel; prefs.lamCotas = L.cotas; prefs.lamProy = L.proy; prefs.lamNotas = L.notas; prefs.lamNotasJson = JSON.stringify(L.notasEd || {});
   PRES_CAMPOS.forEach(k => { prefs[presPref(k)] = L.rotulo[k] || ''; });
   savePrefs();
@@ -11301,7 +11431,7 @@ function presAbrir(){
   LAM.presLimpiar(); LAM.fijarLogo(prefs.lamLogo || '', prefs.lamLogoW, prefs.lamLogoH);
   PRES.L = LAM.presNueva({ papel: g.papel && g.papel in LAM.PAPELES ? g.papel : papelIni,
     cotas: prefs.lamCotas !== false, proy: prefs.lamProy !== false, notas: prefs.lamNotas !== false, notasEd: ed, rotulo, vistas,
-    guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, detalle: g.detalle, dxf: g.dxf, hojas: cfg.closet ? null : g.hojas,
+    guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, detalle: g.detalle, dxf: g.dxf, hojas: cfg.closet ? null : g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
     escalaVistas: prefs.lamEscalaVistas, escalaIso: prefs.lamEscalaIso });
   Object.assign(PRES, { sel: null, selG: null, selM: null, drag: null, guias: [], pag: 0, hist: [], fut: [], pend: null, abierto: true });
   presEl('presentar').classList.add('open');
@@ -11364,9 +11494,19 @@ function presLado(){
   const chk = (id, t, on) => `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-popt="${id}"${on ? ' checked' : ''}><span>${e2(t)}</span></label>`;
   const hojasHtml = L.hojas.map((h, i) => `<div class="pres-fila${i === L.hoja ? ' sel' : ''}" data-hoja="${i}"><span style="flex:1;min-width:0">${i + 1}. ${e2(h.nombre)}</span>` +
     (i > 0 ? `<button class="btn btn-icon pres-mini" data-phdel="${i}" title="Quitar esta lámina">&#10005;</button>` : '') + '</div>').join('');
-  const grupos = ['bajos', 'altos', 'torres'].map(gk => opt(gk, LAM.GRUPOS[gk], false)).join('');
+  const grupos = ['bajos', 'altos', 'torres'].concat(L.isla && L.isla.on && LAM.islaGeom(L) ? ['isla'] : []).map(gk => opt(gk, LAM.GRUPOS[gk], false)).join('');
   let caras = ''; try { if (multiCara()) caras = `<label class="pf"><span>Cara</span><select data-pcara>${cfg.caras.map((_, k) => opt(k, letraCara(k), k === 0)).join('')}</select></label>`; } catch (e) { caras = ''; }
-  const conjHtml = cfg.closet ? '' : '<h4>Láminas de conjunto</h4>' + hojasHtml +
+  const guardadas = cfg.isla || cfg.closet ? [] : LAM.islasGuardadas(), is = L.isla;
+  const geoI = is && is.on ? LAM.islaGeom(L) : null, gapI = geoI ? is.y - LAM.frenteCocina() : 0;
+  const islaHtml = cfg.isla || cfg.closet ? '' : '<h4>Isla en la planta y en la presentación</h4>' + (guardadas.length
+    ? `<label class="pf"><span>Isla guardada</span><select data-pisla><option value="">Sin isla</option>${guardadas.map(q => opt(q.id, q.nombre, is && is.id === q.id)).join('')}</select></label>` +
+      (is && is.id ? chk('islaOn', 'Mostrar la isla', is.on) +
+        `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><label class="pf"><span>A la derecha del muro izq. (cm)</span><input type="number" step="1" data-pislax value="${Math.round(is.x)}"></label>` +
+        `<label class="pf"><span>Del muro (cm)</span><input type="number" step="1" min="0" data-pislay value="${Math.round(is.y)}"></label></div>` +
+        `<label class="pf"><span>Giro</span><select data-pislarot>${[0, 90, 180, 270].map(q => opt(q, q + '°', ((is.rot % 360) + 360) % 360 === q)).join('')}</select></label>` +
+        (geoI ? `<div class="note-sm" style="margin-top:4px;${gapI < 107 && gapI >= 0 ? 'color:#C2410C' : ''}">Pasillo con la cocina: ${e2(String(Math.round(gapI * 10) / 10))} cm${gapI < 107 && gapI >= 0 ? ' (el mínimo NKBA es 107 cm)' : ''}</div>` : '') : '')
+    : '<div class="note-sm">Guarda una isla desde el comando Line-Island (Guardar configuración) y aparecerá aquí para colocarla frente a esta cocina.</div>');
+  const conjHtml = cfg.closet ? '' : islaHtml + '<h4>Láminas de conjunto</h4>' + hojasHtml +
     `<label class="pf" style="margin-top:8px"><span>Conjunto</span><select data-pgrupo>${grupos}</select></label>${caras}` +
     '<button class="btn" id="presCrearConjunto" style="margin-top:4px">Crear lámina del conjunto</button>' +
     '<div class="note-sm" style="margin-top:6px">Cada lámina trae la vista general con el volumen en color, el despiece de frentes, el isométrico del conjunto (abre los frentes con doble clic), el alzado con puertas y cajones, los interiores, la gola y los herrajes.</div>';
@@ -11441,7 +11581,10 @@ function presCargarLogo(){
     if (PRES.pag < L.hojas.length) {
       const gh = LAM.presHitGlobo(L, m.x, m.y, tol);
       if (gh) { PRES.selG = { id: gh.g.id, vista: gh.g.vista }; PRES.sel = null; PRES.selM = null; PRES.pend = presSnap(); PRES.drag = { k: 'globo', gh, movido: false }; presLado(); presDibujar(); return; }
-      const mk = LAM.presHitMarca(L, m.x, m.y, tol);
+      const ih = LAM.presHitIsla(L, m.x, m.y);
+      const mk0 = LAM.presHitMarca(L, m.x, m.y, tol);
+      if (ih && !mk0) { PRES.selG = null; PRES.selM = null; PRES.sel = ih.it; PRES.pend = presSnap(); PRES.drag = { k: 'isla', ih, movido: false }; presLado(); presDibujar(); return; }
+      const mk = mk0;
       if (mk) { PRES.selM = mk.corte; PRES.selG = null; PRES.sel = null; PRES.pend = presSnap(); PRES.drag = { k: 'marca', mk, movido: false }; presLado(); presDibujar(); return; }
     }
     const campo = (L.camposHoja || []).find(c => m.x >= c.x && m.x <= c.x + c.w && m.y >= c.y && m.y <= c.y + c.h);
@@ -11460,12 +11603,13 @@ function presCargarLogo(){
     if (d.k === 'pan') { PRES.ox = d.ox + p.x - d.px; PRES.oy = d.oy + p.y - d.py; presDibujar(true); return; }
     d.movido = true;
     if (d.k === 'globo') LAM.presMoverGlobo(PRES.L, d.gh, m.x, m.y);
+    else if (d.k === 'isla') { cv.style.cursor = 'grabbing'; LAM.presMoverIsla(PRES.L, d.ih.it, m.x, m.y, d.ih.off); }
     else if (d.k === 'marca') LAM.presMoverMarca(PRES.L, d.mk, m.x);
     else { cv.style.cursor = 'grabbing'; PRES.guias = LAM.presMover(PRES.L, d.it, m.x - d.dx, m.y - d.dy); }
     presDibujar(true);
   });
   const fin = () => { const d = PRES.drag; PRES.drag = null; PRES.guias = []; cv.style.cursor = 'default';
-    if (d && d.movido && PRES.pend) { confirmaDrag(); PRES.pend = null; if (d.k === 'marca') { presRefrescar(false); return; } presGuardar(); }
+    if (d && d.movido && PRES.pend) { confirmaDrag(); PRES.pend = null; if (d.k === 'marca' || d.k === 'isla') { presRefrescar(false); return; } presGuardar(); }
     presDibujar(); };
   cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin);
   cv.addEventListener('wheel', e => {
@@ -11509,11 +11653,16 @@ function presCargarLogo(){
     if (d.pnt) { const c = lado.querySelector(`[data-pnv="${d.pnt}"]`); editaNota(d.pnt, c ? c.checked : true, t.value); return; }
     if (d.pon !== undefined) { presAntes(); const it = L.vistas[+d.pon]; it.on = t.checked; presRefrescar(it.on && !isFinite(it.x)); return; }
     if (d.ppl !== undefined) { presAntes(); L.vistas[+d.ppl].plano = t.checked; presRefrescar(false); return; }
+    if (d.pisla !== undefined) { presAntes(); L.isla = t.value ? LAM.presIslaPorDefecto(L, t.value) : null; presRefrescar(false); return; }
+    if (d.pislax !== undefined) { presAntes(); L.isla.x = +t.value || 0; presRefrescar(false); return; }
+    if (d.pislay !== undefined) { presAntes(); L.isla.y = Math.max(0, +t.value || 0); presRefrescar(false); return; }
+    if (d.pislarot !== undefined) { presAntes(); L.isla.rot = +t.value; presRefrescar(false); return; }
     if (d.pesc !== undefined) { presAntes(); L.vistas[+d.pesc].n = +t.value; presRefrescar(false); return; }
     if (d.pexp !== undefined) { presAntes(); L.vistas[+d.pexp].explotado = t.checked; presRefrescar(false); return; }
     if (d.pcorte !== undefined) { presAntes(); const it = L.vistas[+d.pcorte]; it.corte = Math.max(0, Math.min(cfg.longitud, +t.value || 0)); presRefrescar(false); return; }
     if (d.pagregar !== undefined) { if (!t.value) return; presAntes(); PRES.sel = LAM.presAgregar(L, t.value, null); presRefrescar(false); return; }
     if (d.ppapel !== undefined) { presAntes(); L.papel = t.value; presRefrescar(true); presAjustar(); return; }
+    if (d.popt === 'islaOn') { presAntes(); L.isla.on = t.checked; presRefrescar(false); return; }
     if (d.popt) { presAntes(); const k = d.popt; if (k === 'detalle' || k === 'dxf') { L[k] = t.checked; presGuardar(); presLado(); presDibujar(); } else { L[k] = t.checked; presRefrescar(false); } return; }
     if (d.prot) { presAntes(); LAM.presRotulo(L, d.prot, t.value.trim()); presGuardar(); presDibujar(); }
   });
