@@ -10504,7 +10504,16 @@ const LAM = (() => {
     const todos = piezasCara(plan, cara).filter(p => p.rol !== 'luz' && p.ancho > 0 && p.fondo > 0 && p.alto > 0 && f(p, cara) && p.tipo !== 'Cazoleta' && p.estado !== 'abierto'
       && !(p.ocultaSinPuertas && !conPuertas) && (conPuertas ? !INT(p) : p.rol !== 'frente'));
     const conCad = true;   /* A181: el herraje con su modelo real, no una caja */
-    const ps = todos.filter(p => !(conCad && modeloCad(p))), herrajes = conCad ? todos.filter(p => modeloCad(p) && !conPuertas) : [];
+    let ps = todos.filter(p => !(conCad && modeloCad(p)));
+    const herrajes = conCad ? todos.filter(p => modeloCad(p) && !conPuertas) : [];
+    /* A186: el conjunto muestra solo sus gabinetes y la parte de zoclo y cubierta que les corresponde (sin tapetas ni la extension del muro) */
+    if (o.grupo !== 'isla') {
+      const mp = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
+      if (mp.length) { const xa = Math.min(...mp.map(p => p.x)), xb = Math.max(...mp.map(p => p.x + p.ancho));
+        ps = ps.map(p => { if (p.modulo || !['zoclo', 'cubierta', 'backsplash', 'tapeta'].includes(p.rol)) return p; if (p.rol === 'tapeta') return null;
+          const a = Math.max(p.x, xa), b = Math.min(p.x + p.ancho, xb); if (b - a < .5) return null;
+          return a === p.x && b === p.x + p.ancho ? p : Object.assign({}, p, { x: a, ancho: b - a }); }).filter(Boolean); }
+    }
     if (!ps.length) throw new Error(T('Este conjunto no tiene piezas en esta cara'));
     const x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x + p.ancho)), z0 = Math.min(...ps.map(p => p.z)), z1 = Math.max(...ps.map(p => p.z + p.alto));
     const sc = (10 / o.escalaFija) / PX_MM, M = 46, X = x => M + (x - x0) * sc, Y = z => M + (z1 - z) * sc;
@@ -10522,7 +10531,12 @@ const LAM = (() => {
         runs.push({ a: mods[i].a, b: mods[j].b, n: j - i + 1, w }); i = j + 1; }
       runs.forEach(r => cotaH(g, X(r.a), X(r.b), M - 18, r.n > 1 ? `${r.n} × ${fmt(r.w)}` : fmt(r.w)));
       if (runs.length > 1) cotaH(g, X(x0), X(x1), M - 36, medida(x1 - x0));
-      cotaV(g, M - 20, Y(z1), Y(z0), medida(z1 - z0));
+      const cubB = ps.find(p => p.rol === 'cubierta' && !p.modulo), zocB = ps.filter(p => p.rol === 'zoclo');
+      if (o.grupo === 'bajos' && cubB) {   /* A186: piso a zoclo, zoclo a bajo cubierta y espesor de la cubierta; total, del piso al lecho superior de la cubierta */
+        const niv = [...new Set([z0, zocB.length ? Math.max(...zocB.map(p => p.z + p.alto)) : z0, cubB.z, cubB.z + cubB.alto].map(v => Math.round(v * 100) / 100))].sort((a, b) => a - b);
+        for (let q = 0; q + 1 < niv.length; q++) if (niv[q + 1] - niv[q] > .4) cotaV(g, M - 18, Y(niv[q + 1]), Y(niv[q]), fmt(niv[q + 1] - niv[q]));
+        cotaV(g, M - 36, Y(cubB.z + cubB.alto), Y(z0), medida(cubB.z + cubB.alto - z0));
+      } else cotaV(g, M - 20, Y(z1), Y(z0), medida(z1 - z0));
       if (conPuertas) {   /* despiece: la medida de cada puerta y cajon distinto, una vez, con cuantos hay */
         const todosFr = ps.filter(p => p.rol === 'frente'), yFr = Math.max(...todosFr.map(p => p.y + p.fondo)), fr = todosFr.filter(p => p.y + p.fondo >= yFr - 6), grupos = new Map();   /* solo los del lado que se ve (la isla tiene dos) */
         fr.forEach(p => { const k = `${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = grupos.get(k) || { p, n: 0 }; q.n++; if (p.x < q.p.x - .01 || (Math.abs(p.x - q.p.x) < .01 && p.z < q.p.z)) q.p = p; grupos.set(k, q); });
