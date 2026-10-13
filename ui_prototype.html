@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A190. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar y corte (usuario 13/10): 1) escala de una vista arrastrando las esquinas de la vista elegida (a las escalas establecidas; sin botones +/-); 2) globos del alzado ocultos de fabrica, casilla Globos por vista; 3) la cubierta en corte llega al pano de los frentes (el vuelo se mide desde el frente) y su cota total suma 1.8 cm; 4) la textura del backsplash y la cubierta sale tambien en blanco y negro (gris); 5) LED: degradado en alzado como % del backsplash (cfg.ledFade, 45 de fabrica; control junto a Simular la luz) y cono en el corte alineado con el backsplash si la tira va pegada; la luz sale en gris en blanco y negro para que la vista no cambie de ancho; 6) modo nocturno ya no cambia colores de piezas en corte, planta y alzados exportados; 7) despiece de frentes con una tira de ubicacion; 8) detalle de nariz (vuelo, altura total y espesor) en la lamina de detalles de bajos; 9) vistas interiores: cotas por cajon y luces entre repisas sin repetir; 10) alzado del conjunto con cotas de tapetas laterales y total que las incluye, zoclo y cubierta hasta las tapetas; 11) hueco de la tarja ya no se desplaza al recortar la cubierta del conjunto; 12) bisagra del cuadro de herrajes: la aprobada (tres partes del modelo, ajustada a su medida).
    A189. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar (usuario 13/10): 1) la bisagra de cazoleta del cuadro de herrajes vuelve a ser la imagen real en bajos y altos; 2) sin detalle de bisagra ni de pistones: basta el cuadro de conteo de herrajes; 3) Reacomodar da hasta 8 opciones de acomodo (cada clic la siguiente, con aviso «Opcion i de n»); 4) cotas del detalle de especiero separadas de los titulos de sus vistas; 5) la bisagra de una puerta cerrada ya no se ve en el isometrico cuando otro frente del modulo esta abierto (caja en la puerta junto al especiero); 6) toda cantidad lleva su unidad (piezas o juegos): cuadros de herrajes, leyenda de herrajes, hojas de detalle por unidad y detalles de cajon y especiero; 7) seleccion multiple de vistas (Mayus, Ctrl o Cmd + clic) que se mueven juntas con el raton o las flechas; 8) cada conjunto sale en dos laminas: la general (vista general, alzados con y sin puertas, isometrico, interiores y despiece de frentes) y la de detalles (vista general, cajon tipo, especiero, gola y herrajes).
    A188. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Presentar y exportar (usuario 13/10): cotas por modulo y total en alzados; luces de repisas iguales; sin taquetes; detalle de bisagra solo con la bisagra contorneada; textos de cotas pegados a su linea; interiores con cota nueva si no se repiten; tapetas laterales (no de piso a techo) en conjunto y despiece; gola con las cotas de la configuracion de perfiles; detalle de cajon tipo y de especiero (alzado, perfil, planta y lista de piezas); piston bajo la puerta y en corte; logo con colores de marca; cajoneras pegadas al frente; leyenda de altos en planta; escala +/- con las escalas establecidas; LED en alzado degradado y en corte nicho con su color; leyenda de materiales del iso movible y en columna con doble clic.
    A187. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Isometrico (usuario 13/10): 1) patrones de material en las caras del isometrico (madera, piedra...: trama recortada a cada cara, solo en color y con materiales de patron); 2) bisagras: la cazoleta solo se dibuja si se ve la cara interior de su puerta (antes, viendo la cara exterior, se veia a traves de ella); con la cara interior a la vista, el brazo se dibuja sobrepuesto a su puerta, no enterrado detras. PENDIENTE: patrones en los frentes de equipos; el PDF con patrones pesa varios MB.
@@ -2325,7 +2326,7 @@ function defaultConfig(length){
     baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, vuelo: 0,
     tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5,
     generarCubierta: true, generarZoclos: true, tipoZoclo: 'madera', retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
-    backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 1, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true, ledTemp: 3000,
+    backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 1, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true, ledFade: 45, ledTemp: 3000,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
     style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, anchoShaker: 5, bisagras: true, cubiertaAPano: false,
     narizCubierta: false, alturaNariz: 5, puertasOcultas: [],
@@ -3340,12 +3341,14 @@ const TEMPERATURAS_LED = [[2700, 'Cálida', [255, 212, 120]], [3000, 'Cálida su
   [4000, 'Neutra', [255, 242, 208]], [5000, 'Día', [250, 249, 238]], [6500, 'Fría', [238, 245, 255]]];
 const rgbKelvin = k => (TEMPERATURAS_LED.find(q => q[0] === k) || TEMPERATURAS_LED[1])[2].slice();
 const rgbLuz = () => rgbKelvin(cfg.ledTemp || 3000);
+const rgbLuzVista = () => flat ? [175, 175, 175] : rgbLuz();   /* A190: en blanco y negro la luz sale en gris: la vista conserva su ancho y sus detalles */
 /* B27 (usuario, 04/10): bloques de iluminacion compartidos por la cocina (LED bajo los altos), la isla (LED sobre los paneles
    posteriores: solo tono y luz) y el closet (LED bajo las repisas): posicion de la tira en su canal y tono / luz simulada */
 const posicionLedHTML = (pieza) => `<div style="margin-top:8px">${radios('ledPos', [['frente', 'Al frente'], ['centro', 'Al centro'], ['atras', 'Atrás']], cfg.ledCentro ? 'centro' : cfg.ledFrente ? 'frente' : 'atras')}</div>`
   + (cfg.ledCentro ? '' : `<div class="grid-2" style="margin-top:10px;align-items:end">${num('ledRet', 'Distancia del borde', cfg.ledRetiro ?? PLAN_LED.retiro, 'cm', 0, 30)}<button class="btn" data-act="ledPano" type="button">Al paño</button></div>`
     + `<div class="note">Del ${cfg.ledFrente ? 'frente' : 'fondo'} del ${pieza} al canal de la tira. De fábrica ${fmt(PLAN_LED.retiro)}${uS()}; «Al paño» la pone en 0.</div>`);
 const tonoLuzHTML = () => `<div style="margin-top:8px">${chk('ledLuz', cfg.ledLuz !== false, 'Simular la luz (SketchUp)')}</div>`
+  + `<div class="grid-2" style="margin-top:8px">${num('ledFade', 'Degradado en alzado (% del backsplash)', cfg.ledFade ?? 45, '%', 5, 100, 5)}</div>`
   + `<div class="temp-led"><label class="field"><span>Temperatura de color</span><select data-act="ledTemp">${TEMPERATURAS_LED.map(([k, t, _]) => `<option value="${k}" ${k === (cfg.ledTemp || 3000) ? 'selected' : ''}>${k} K · ${t}</option>`).join('')}</select></label>`
   + `<span class="temp-muestra" style="background:linear-gradient(rgb(${rgbLuz().join(',')}), rgba(${rgbLuz().join(',')},0))" title="Tono de la luz"></span></div>`;
 
@@ -5063,10 +5066,11 @@ new ResizeObserver(resizeCanvas).observe(canvas.parentElement);
 /* ---- materiales en el lienzo (MaterialSwatches.Paint a la escala del dibujo) ---- */
 function fillMat(x, y, w, h, matId, fallback){
   if (w <= 0 || h <= 0) return;
-  const m = !flat && matId ? mat(matId) : null;
+  const mm = matId ? mat(matId) : null, m = !flat ? mm : null;
   ctx.fillStyle = flat ? C.flat : m ? rgbOf(m) : fallback; ctx.fillRect(x, y, w, h);
-  if (!m || m.categoria === 'Color') return;
-  const spec = patternOf(m.patron); if (spec) paintPattern(ctx, x, y, w, h, spec, frame.scale*(m.escala || 1), lineColorOf(m));
+  const pm = m || (flat ? mm : null);   /* A190: en blanco y negro la textura sigue, solo en gris */
+  if (!pm || pm.categoria === 'Color') return;
+  const spec = patternOf(pm.patron); if (spec) paintPattern(ctx, x, y, w, h, spec, frame.scale*(pm.escala || 1), flat ? '#555555' : lineColorOf(pm));
 }
 
 /* ---- primitivas ---- */
@@ -5232,8 +5236,8 @@ function drawElevation(){
 
   /* LED bajo los altos */
   /* A188 (usuario): solo el degradado de la luz, color de su temperatura, desde la cama de los altos hasta la cubierta (antes una banda y su linea) */
-  if (cfg.led && cfg.ledLuz !== false && highs.length && !flat) cutRun(ajusteIzq(), W - ajusteDer()).forEach(([a, b]) => {
-    const alto = Math.max(10, zBA - altoBarra()), r = RX(a, b, zBA - alto, zBA), [lr, lg, lb] = rgbLuz(), N = 18;
+  if (cfg.led && cfg.ledLuz !== false && highs.length) cutRun(ajusteIzq(), W - ajusteDer()).forEach(([a, b]) => {
+    const alto = Math.max(10, (zBA - altoBarra()) * Math.max(5, Math.min(100, cfg.ledFade ?? 45)) / 100), r = RX(a, b, zBA - alto, zBA), [lr, lg, lb] = rgbLuzVista(), N = 18;   /* A190: el degradado es un % del backsplash (45 de fabrica) */
     ctx.save(); ctx.fillStyle = `rgb(${lr},${lg},${lb})`;
     for (let k = 0; k < N; k++) { ctx.globalAlpha = .62 * Math.pow(1 - k/N, 1.7); ctx.fillRect(r.x, r.y + r.h*k/N, r.w, Math.ceil(r.h/N) + .5); }
     ctx.restore();
@@ -5312,7 +5316,7 @@ function corteX(){
   const first = row(false)[0] || row(true)[0]; return first ? ajusteIzq() + first.ancho/2 : cfg.longitud/2;
 }
 function moduloEn(upper, xc){ let x = ajusteIzq(); for (const m of row(upper)) { if (xc >= x - .01 && xc <= x + m.ancho + .01) return m; x += m.ancho; } return null; }
-const fondoSeccion = () => Math.max(30, ...cfg.modulos.map(m => m.fondo + (m.upper ? 0 : vueloEf() + 4)), ...cfg.modulos.filter(m => m.fondoSuperior > 0).map(m => m.fondoSuperior),
+const fondoSeccion = () => Math.max(30, ...cfg.modulos.map(m => m.fondo + (m.upper ? 0 : vueloEf() + 6)), ...cfg.modulos.filter(m => m.fondoSuperior > 0).map(m => m.fondoSuperior),
   ...(multiCara() ? cfg.modulos.filter(m => m.esquina).map(m => Math.max(...huellaEsquina(m.esquina.k)) + 4) : []));   /* A141: la huella del esquinero */
 /* linea de corte sobre el alzado: punteada, con las flechas mirando hacia la seccion y la letra A */
 function marcaCorte(xp, y0, y1, key, dir = 1){   /* A159: dir, hacia donde mira el corte */
@@ -5331,14 +5335,14 @@ function tituloSeccion(xl, xr, y){ ctx.fillStyle = C.title; ctx.font = "600 12px
 function detalleZoclo(fx, Zf, s, D, larguero){
   const zb = cfg.baseBajos, t = 1.8, zf = cfg.retiroZoclo + t;   /* cara posterior del zoclo desde el frente */
   const rect = (f0, f1, z0, z1) => ({ x: fx(f0), y: Zf(z1), w: (f1 - f0)*s, h: (z1 - z0)*s });
-  if (cfg.tipoZoclo === 'patas') { const P = PLAN_PATA, [, pf, ph] = P.placa, negro = dark ? '#1E2124' : '#3A3D42';
+  if (cfg.tipoZoclo === 'patas') { const P = PLAN_PATA, [, pf, ph] = P.placa, negro = (dark && !exporting) ? '#1E2124' : '#3A3D42';
     const ejes = [Math.max(P.borde, Math.min(D - P.borde, zf + P.clip)), D - P.borde], piezas = [];
     ejes.forEach(f => piezas.push(rect(f - pf/2, f + pf/2, zb - ph, zb), rect(f - P.columna/2, f + P.columna/2, P.baseAlto, zb - ph), rect(f - P.base/2, f + P.base/2, 0, P.baseAlto)));
     piezas.push(rect(zf, ejes[0] - P.columna/2, zb*.45, zb*.45 + 1));   /* clip del zoclo a la columna delantera */
     post.push(() => piezas.forEach(q => { if (q.w <= 0 || q.h <= 0) return; ctx.fillStyle = negro; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); }));
     return; }
   if (larguero) part('plinth', true, [rect(D - t, D, 0, zb)], paintZoclo, post);
-  const tr = rect(zf, larguero ? D - t : D, 0, zb); if (tr.w > 0) post.push(() => { ctx.fillStyle = dark ? 'rgba(120,118,110,.24)' : 'rgba(120,118,110,.18)'; ctx.fillRect(tr.x, tr.y, tr.w, tr.h); outline(tr, C.line, 1); });   /* travesano de la union, mas alla del corte */
+  const tr = rect(zf, larguero ? D - t : D, 0, zb); if (tr.w > 0) post.push(() => { ctx.fillStyle = (dark && !exporting) ? 'rgba(120,118,110,.24)' : 'rgba(120,118,110,.18)'; ctx.fillRect(tr.x, tr.y, tr.w, tr.h); outline(tr, C.line, 1); });   /* travesano de la union, mas alla del corte */
 }
 /* A141 (usuario, 11/10): piezas del esquinero de la columna m (bajo o alto de esquina) en el marco de la cara activa: x a lo largo del
    muro e y desde el muro. La esquina del extremo derecho es la de esta cara; la del izquierdo sale del plan de la cara anterior,
@@ -5389,19 +5393,19 @@ function seccionCocina(xw, s, Z, xc){
   if (dir < 0) drawSeccionCocina(xw, s, Z, xc, dir); else conEspejo(cx, () => drawSeccionCocina(xw, s, Z, xc, dir));   /* A162: pestana a la derecha = muro a la izquierda */
   if (exporting) return;
   ctx.font = "600 12px 'Inter'"; const tw = ctx.measureText('SECCIÓN').width, r = { x: cx + tw/2 + 8, y: Z(cfg.alturaMuro) - 54, w: 20, h: 17 };   /* A162: solo la doble flecha, junto al titulo */
-  ctx.fillStyle = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1);
+  ctx.fillStyle = (dark && !exporting) ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)'; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1);
   ctx.fillStyle = C.ink; ctx.font = "400 12px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⇄', r.x + r.w/2, r.y + r.h/2 + .5); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   miraHits.push({ rect: r, xc });
 }
 function drawSeccionCocina(xw, s, Z, xc, dir = 1){
   const P = d => xw - d*s, t = Math.max(1, 1.8*s), zb = cfg.baseBajos, zBar = altoBarra(), zBA = baseAltos(), zTop = topeAltos(), H = cfg.alturaMuro, A = cfg.altoBajos;
-  const wood = dark ? '#5C5546' : 'rgb(232,224,207)', drawerC = dark ? '#4A5058' : 'rgb(215,220,224)';
+  const wood = (dark && !exporting) ? '#5C5546' : 'rgb(232,224,207)', drawerC = (dark && !exporting) ? '#4A5058' : 'rgb(215,220,224)';
   const brd = (r, mm) => { if (r.w <= 0 || r.h <= 0) return; fillMat(r.x, r.y, r.w, r.h, flat ? null : mm, wood); outline(r, C.line, 1); };
   /* A116 (usuario, 08/10): equipos y especiales en proyeccion (punteado), con su nombre */
   const proy = (d0, d1, z0, z1, txt) => { const q = { x: P(d1), y: Z(z1), w: (d1 - d0)*s, h: (z1 - z0)*s }; if (q.w <= 0 || q.h <= 0) return;
     post.push(() => { outline(q, C.hood, 1.2, [4, 3]); if (txt && q.h > 14) { ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(txt, q.x + 3, q.y + 3); ctx.textBaseline = 'alphabetic'; } }); };
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(P(fondoSeccion()) - 16, Z(0), xw + 16, Z(0)); line(P(fondoSeccion()) - 16, Z(H), xw + 16, Z(H));
-  ctx.fillStyle = dark ? '#3A3F44' : '#E4E6E8'; ctx.fillRect(xw, Z(H), 7, H*s); ctx.lineWidth = 1.5; line(xw, Z(H), xw, Z(0)); ctx.lineWidth = 1;   /* muro */
+  ctx.fillStyle = (dark && !exporting) ? '#3A3F44' : '#E4E6E8'; ctx.fillRect(xw, Z(H), 7, H*s); ctx.lineWidth = 1.5; line(xw, Z(H), xw, Z(0)); ctx.lineWidth = 1;   /* muro */
   const caja = (m, z0, z1, D, conRepisas) => {   /* costado cortado: techo, piso, trasera, frentes, cajones y repisas */
     const mm = m.material || cfg.materialGeneral, body = { x: P(D), y: Z(z1), w: D*s, h: (z1 - z0)*s };
     ctx.fillStyle = selection.has(m.id) ? C.selFill : C.front; ctx.fillRect(body.x, body.y, body.w, body.h);
@@ -5428,7 +5432,7 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
   /* A141 (usuario, 11/10): por la columna de una esquina, el corte de las piezas reales del esquinero */
   const mEsq = low && low.esquina ? low : up && up.esquina ? up : null;
   if (mEsq) { const sep = cfg.separacionPosterior || 0, enCat = id => id && (cfg.catalogo || []).some(q => q.id === id);
-    const tono = q => q.rol === 'cubierta' ? 'rgb(180,185,186)' : q.rol === 'zoclo' ? (dark ? '#4A4A45' : 'rgb(90,90,85)') : q.rol === 'herraje' ? (dark ? '#6E6E6A' : 'rgb(75,75,72)') : q.rol === 'frente' ? (dark ? '#4A5058' : 'rgb(215,220,224)') : wood;
+    const tono = q => q.rol === 'cubierta' ? 'rgb(180,185,186)' : q.rol === 'zoclo' ? ((dark && !exporting) ? '#4A4A45' : 'rgb(90,90,85)') : q.rol === 'herraje' ? ((dark && !exporting) ? '#6E6E6A' : 'rgb(75,75,72)') : q.rol === 'frente' ? ((dark && !exporting) ? '#4A5058' : 'rgb(215,220,224)') : wood;
     const orden = { panel: 0, repisa: 1, division: 1, frente: 2, zoclo: 3, herraje: 4, cubierta: 5 }; let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     /* A162: mas alla del corte, hacia donde mira, solo las repisas (se ve como dan vuelta en L) y la barra; tambien la parte de una pieza
        cortada que sigue mas alla. No los paneles de atras */
@@ -5437,7 +5441,7 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     piezasEsquina(mEsq).forEach(q => { if (!(q.rol === 'repisa' || deBarra(q) || q.rol === 'cubierta' && q.tipo === 'Losa')) return;
       const pts = q.poli || [[q.x, q.y], [q.x + q.ancho, q.y], [q.x + q.ancho, q.y + q.fondo], [q.x, q.y + q.fondo]], cl = recorteMedio(pts, xc, dir); if (cl.length < 3) return;
       const ys = cl.map(v => v[1]), e0 = Math.max(0, Math.min(...ys) - sep), e1 = Math.max(...ys) - sep, r = { x: P(e1), y: Z(q.z + q.alto), w: (e1 - e0)*s, h: q.alto*s }; if (r.w <= .2 || r.h <= .2) return;
-      ctx.fillStyle = dark ? 'rgba(255,255,255,.04)' : 'rgba(80,80,80,.05)'; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.save(); ctx.globalAlpha = .7; outline(r, C.line, 1); ctx.restore();
+      ctx.fillStyle = (dark && !exporting) ? 'rgba(255,255,255,.04)' : 'rgba(80,80,80,.05)'; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.save(); ctx.globalAlpha = .7; outline(r, C.line, 1); ctx.restore();
       if (q.rol === 'repisa' || deBarra(q)) hits.push({ rect: r, module: mEsq }); if (q.rol !== 'cubierta') dMax = Math.max(dMax, e1); });   /* A166: el bajo de la barra abre el panel del esquinero */
     piezasEsquina(mEsq).sort((a, b) => (orden[a.rol] ?? 2) - (orden[b.rol] ?? 2)).forEach(q => cortePieza(q, xc).forEach(([a, b]) => {
       const d0 = a - sep, d1 = b - sep, r = { x: P(d1), y: Z(q.z + q.alto), w: (d1 - d0)*s, h: q.alto*s }; if (r.w <= .2 || r.h <= .2) return;
@@ -5493,7 +5497,7 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
       else if (tipo === 'Especiero') { proy(3, D - 3, zb + 4, zb + A - 6, 'Especiero'); repisas(low, zb + 4, zb + A - 6, 4, D - 3, 3); }   /* A118: niveles del extraible */
     }
     if (!cortaCubierta(low) && cfg.generarCubierta) {
-      cubiertaSeccion(P(D + vueloEf()), xw, Z, s, post);
+      cubiertaSeccion(P(D + 1.8 + vueloEf()), xw, Z, s, post);   /* A190: el vuelo se mide desde el pano de los frentes, no desde el cuerpo */
       if (cfg.moduloTarja === low.id && cfg.tipoTarja > 0) {   /* tarja (como en el alzado: bajo la cubierta) y monomando detras */
         const bd = Math.min(cfg.tarjaFondo, D - cfg.retiroTarja - 4), d1 = D - cfg.retiroTarja, zt = zBar - paquete();
         proy(d1 - bd, d1, zt - cfg.tarjaProf, zt, 'Tarja');
@@ -5518,13 +5522,21 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     if (!soloCamp(up)) {
       const hs = isDoble(up) ? up.altoSuperior : 0;
       const ub = caja(up, z0, zTop - hs, up.fondo, !camp);
-      if (cfg.led && conCama(up) && !flat) {   /* A188: el nicho de la tira LED en la cama, con el color de su temperatura */
+      if (cfg.led && conCama(up)) {   /* A188: el nicho de la tira LED en la cama, con el color de su temperatura */
         const L0 = PLAN_LED, sep0 = cfg.separacionPosterior || 0, yc0 = sep0 + (!cfg.isla && fijacionAltos() === 'frances' ? PLAN_FIJACION.frances.grueso : 0);
         const un0 = cfg.style === 'Moderna' && !sinPuertas(up) ? golaHondo(true) : 0, r00 = (() => { const y1n = sep0 + up.fondo - un0, hueco = y1n - yc0 - L0.ancho, ret = Math.max(0, Math.min(hueco, cfg.ledRetiro ?? L0.retiro));
-          return (cfg.ledCentro ? yc0 + hueco/2 : cfg.ledFrente ? y1n - ret - L0.ancho : yc0 + ret) - sep0; })(), [lr, lg, lb] = rgbLuz();
+          return (cfg.ledCentro ? yc0 + hueco/2 : cfg.ledFrente ? y1n - ret - L0.ancho : yc0 + ret) - sep0; })(), [lr, lg, lb] = rgbLuzVista();
         const nx = P(r00 + L0.ancho), nicho = { x: nx, y: Z(z0) - Math.max(L0.hondo*s, 6), w: Math.max(L0.ancho*s, 9), h: Math.max(L0.hondo*s, 6) };   /* a escalas chicas, un minimo que se vea */
         post.push(() => { ctx.save(); ctx.fillStyle = C.front; ctx.fillRect(nicho.x, nicho.y, Math.max(2, nicho.w), Math.max(2, nicho.h)); ctx.fillStyle = `rgb(${lr},${lg},${lb})`; ctx.fillRect(nicho.x, nicho.y, Math.max(2, nicho.w), Math.max(2, nicho.h));
           ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(nicho.x + .5, nicho.y + .5, Math.max(2, nicho.w) - 1, Math.max(2, nicho.h) - 1);
+          /* A190: cono de luz bajo el nicho; si la tira esta pegada al backsplash, el cono se alinea con el y no lo atraviesa */
+          const hC = Math.max(10, (zBA - zBar) * s * Math.max(5, Math.min(100, cfg.ledFade ?? 45)) / 100), pegada = r00 <= (cfg.backsplash ? Math.max(.5, cfg.espesorBacksplash || 1) : 0) + .6,
+            xTope = xw - (cfg.backsplash ? Math.max(.5, cfg.espesorBacksplash || 1) * s : 0), yb = nicho.y + Math.max(2, nicho.h), NC = 14;
+          ctx.fillStyle = `rgb(${lr},${lg},${lb})`;
+          for (let k = 0; k < NC; k++) { const t0 = k / NC, t1 = (k + 1) / NC, e0 = t0 * hC * .45, e1 = t1 * hC * .45, wN = Math.max(2, nicho.w);
+            const xl0 = nicho.x - e0, xl1 = nicho.x - e1, xr0 = Math.min(xTope, nicho.x + wN + (pegada ? 0 : e0)), xr1 = Math.min(xTope, nicho.x + wN + (pegada ? 0 : e1));
+            ctx.globalAlpha = .5 * Math.pow(1 - (t0 + t1) / 2, 1.5); ctx.beginPath(); ctx.moveTo(xl0, yb + t0 * hC); ctx.lineTo(xr0, yb + t0 * hC); ctx.lineTo(xr1, yb + t1 * hC); ctx.lineTo(xl1, yb + t1 * hC); ctx.closePath(); ctx.fill(); }
+          ctx.globalAlpha = 1;
           ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(`LED ${cfg.ledTemp || 3000} K`, nicho.x + nicho.w + 4, nicho.y + nicho.h + 3); ctx.restore(); }); }
       /* A125: doble cama de los altos con gola (A83/A91): la del piso se queda en el unero (golaHondo del L) y la interior llega al pano */
       if (conCama(up) && cfg.style === 'Moderna' && !sinPuertas(up)) { const un = golaHondo(true), mm = up.material || cfg.materialGeneral;
@@ -5540,7 +5552,7 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
   post.forEach(f => f()); post = [];
   const xl = P(fondoSeccion());
   tituloSeccion(xl, xw, Z(H) - 38);
-  if (out.D) { dim(P(out.D), Z(0) + 30, xw, Z(0) + 30, fmt(out.D), null); if (cfg.generarCubierta && !cortaCubierta(low) && vueloEf() > .1) dim(P(out.D + vueloEf()), Z(0) + 56, xw, Z(0) + 56, fmt(out.D + vueloEf()), null); }
+  if (out.D) { dim(P(out.D), Z(0) + 30, xw, Z(0) + 30, fmt(out.D), null); if (cfg.generarCubierta && !cortaCubierta(low) && vueloEf() > .1) dim(P(out.D + 1.8 + vueloEf()), Z(0) + 56, xw, Z(0) + 56, fmt(out.D + 1.8 + vueloEf()), null); }
   if (out.Du && !soloCamp(up)) dim(P(out.Du), Z(H) - 12, xw, Z(H) - 12, fmt(out.Du), null);
   cotasSeccion(xl, xw, Z);   /* A166 */
   /* A125 (usuario, 09/10): Medir en la seccion: cadena de alturas (zoclo, bajo, cubierta, libre, hueco, alto, tapeta) */
@@ -5562,7 +5574,7 @@ function drawSeccionVista(){
 function drawSeccionCloset(xw, s, Z, xc){
   const m = moduloEn(false, xc), H0 = cfg.alturaMuro, P = d => xw - d*s, t = Math.max(1, cfg.espesorCloset*s);
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(P(fondoSeccion()) - 16, Z(0), xw + 16, Z(0)); line(P(fondoSeccion()) - 16, Z(H0), xw + 16, Z(H0));
-  ctx.fillStyle = dark ? '#3A3F44' : '#E4E6E8'; ctx.fillRect(xw, Z(H0), 7, H0*s); ctx.lineWidth = 1.5; line(xw, Z(H0), xw, Z(0)); ctx.lineWidth = 1;
+  ctx.fillStyle = (dark && !exporting) ? '#3A3F44' : '#E4E6E8'; ctx.fillRect(xw, Z(H0), 7, H0*s); ctx.lineWidth = 1.5; line(xw, Z(H0), xw, Z(0)); ctx.lineWidth = 1;
   tituloSeccion(P(fondoSeccion()), xw, Z(H0) - 38);
   if (!m) return;
   const zc = closetZoclo(), AC = closetAltoCuerpo(), H = closetBody(m), D = m.fondo, mm = m.material || cfg.materialGeneral;
@@ -5574,10 +5586,10 @@ function drawSeccionCloset(xw, s, Z, xc){
   closetItems(m).forEach(i => {
     if (i.kind === 'Barra') { ctx.beginPath(); ctx.arc(P(D/2), Z(zc + (i.z0 + i.z1)/2), Math.max(2.5, 1.25*s), 0, Math.PI*2); ctx.fillStyle = C.rod; ctx.fill(); ctx.strokeStyle = C.line; ctx.stroke(); }
     else if (i.kind === 'Repisa' || i.kind === 'Zapatera') brd(i.z0, i.z1, tc, D);
-    else { const q = { x: P(D - 2), y: Z(zc + Math.max(i.z0 + 4, i.z1 - 3)), w: (D - 4 - tc)*s, h: (Math.max(i.z0 + 4, i.z1 - 3) - i.z0)*s }; ctx.fillStyle = dark ? '#4A5058' : 'rgb(215,220,224)'; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); }
+    else { const q = { x: P(D - 2), y: Z(zc + Math.max(i.z0 + 4, i.z1 - 3)), w: (D - 4 - tc)*s, h: (Math.max(i.z0 + 4, i.z1 - 3) - i.z0)*s }; ctx.fillStyle = (dark && !exporting) ? '#4A5058' : 'rgb(215,220,224)'; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); }
   });
   closetFronts(m).filter(f => f.kind !== 'Gola' && (showDoors || f.kind === 'Cajon')).forEach(f => { const r = { x: body.x - t, y: Z(zc + f.z1), w: t, h: (f.z1 - f.z0)*s }; ctx.fillStyle = flat ? C.flat : C.closetFront; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1); });
-  if (closetSliding() && showDoors) { ctx.fillStyle = dark ? 'rgba(107,97,80,.6)' : 'rgba(205,190,160,.6)'; [0, 1].forEach(k => { const r = { x: body.x - (k + 1)*(t + 2), y: Z(AC - 8), w: t, h: (AC - 9)*s }; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1); }); }
+  if (closetSliding() && showDoors) { ctx.fillStyle = (dark && !exporting) ? 'rgba(107,97,80,.6)' : 'rgba(205,190,160,.6)'; [0, 1].forEach(k => { const r = { x: body.x - (k + 1)*(t + 2), y: Z(AC - 8), w: t, h: (AC - 9)*s }; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1); }); }
   if (zc > 0 && cfg.generarZoclos) part('plinth', true, [{ x: P(D - cfg.retiroZoclo), y: Z(zc), w: t, h: zc*s }], paintZoclo, post);
   outline(body, C.line, 1); if (selection.has(m.id)) outline(body, C.accent, 2.5);
   hits.push({ rect: body, module: m });
@@ -5683,7 +5695,7 @@ function drawClosetModule(m, x0, RX, X, Z, post){
   const swing = (q, f) => { if (!proyOn()) return; ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing; ctx.lineWidth = 1;
     if (f.kind === 'Elevable') { line(q.x, q.y + q.h, q.x + q.w/2, q.y); line(q.x + q.w, q.y + q.h, q.x + q.w/2, q.y); }
     else { const hx = f.hingeRight ? q.x + q.w : q.x, fx = f.hingeRight ? q.x : q.x + q.w; line(hx, q.y, fx, q.y + q.h/2); line(hx, q.y + q.h, fx, q.y + q.h/2); } ctx.restore(); };
-  const leaf = (f, q) => { ctx.fillStyle = dark ? 'rgba(107,97,80,.45)' : 'rgba(205,190,160,.27)'; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); swing(q, f); };
+  const leaf = (f, q) => { ctx.fillStyle = (dark && !exporting) ? 'rgba(107,97,80,.45)' : 'rgba(205,190,160,.27)'; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); swing(q, f); };
   if (m.tipo === 'Vanity') {
     const desk = BX(0, m.ancho, m.altoEscritorio - t, m.altoEscritorio); board(desk);
     items.forEach(i => { if (i.kind === 'Repisa') board(BX(t, m.ancho - t, i.z0, i.z1)); });
@@ -5734,7 +5746,7 @@ function drawSliding(X, Z, RX, s){
     const rail = RX(a, b, 0, 1.7); ctx.fillStyle = C.rod; ctx.fillRect(rail.x, rail.y, rail.w, rail.h); ctx.fillRect(X(a), topY + 8*s, sp*s, 3.2*s);
     for (const pass of [false, true]) leaves.filter(l => l.front === pass).forEach(l => {
       const q = { x: X(l.x), y: topY + (8 + 3.2 - 1)*s + (l.front ? 0 : 3), w: lw*s, h: (AC - 8 - 3.2 + 1 - 1.3 - .5)*s - (l.front ? 0 : 6) };
-      ctx.fillStyle = l.front ? (dark ? 'rgba(44,48,53,.85)' : 'rgba(255,255,255,.84)') : 'rgba(255,255,255,.2)'; ctx.fillRect(q.x, q.y, q.w, q.h);
+      ctx.fillStyle = l.front ? ((dark && !exporting) ? 'rgba(44,48,53,.85)' : 'rgba(255,255,255,.84)') : 'rgba(255,255,255,.2)'; ctx.fillRect(q.x, q.y, q.w, q.h);
       ctx.save(); ctx.beginPath(); ctx.rect(q.x, q.y, q.w, q.h); ctx.clip(); ctx.strokeStyle = 'rgba(120,120,125,.55)'; ctx.lineWidth = 1;
       for (let hx = q.x - q.h; hx < q.x + q.w; hx += 10) line(hx, q.y + q.h, hx + q.h, q.y); ctx.restore(); outline(q, C.line, 1);
       ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText(`hoja ${l.k + 1} · ${l.front ? 'delante' : 'detrás'}`, q.x + 4, q.y + 4); ctx.textBaseline = 'alphabetic';
@@ -5924,7 +5936,7 @@ function drawIslandSection(inset){   /* inset (A115): dibujada junto al alzado f
   const zFace = drag && drag.kind === 'guide' && drag.key === 'islaZ' ? islaEspEf() + drag.value : islaZocloCara();
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(XF(0) - 30, ground, XB(0) + 30, ground);
   if (mod) {   /* gabinete cortado: piso, techo, trasera, frentes, cajas y repisas */
-    const mm = flat ? null : (mod.material || cfg.materialGeneral), wood = dark ? '#5C5546' : 'rgb(232,224,207)', drawerC = dark ? '#4A5058' : 'rgb(215,220,224)';
+    const mm = flat ? null : (mod.material || cfg.materialGeneral), wood = (dark && !exporting) ? '#5C5546' : 'rgb(232,224,207)', drawerC = (dark && !exporting) ? '#4A5058' : 'rgb(215,220,224)';
     const body = { x: XF(flight), y: Y(zb + cfg.altoBajos), w: D*s, h: cfg.altoBajos*s };
     const board = (r, fb) => { fillMat(r.x, r.y, r.w, r.h, mm, fb || wood); outline(r, C.line, 1); };
     board({ x: body.x, y: body.y, w: body.w, h: t }); board({ x: body.x, y: Y(zb + 1.8), w: body.w, h: t }); board({ x: body.x + body.w - t, y: body.y, w: t, h: body.h });
@@ -5945,7 +5957,7 @@ function drawIslandSection(inset){   /* inset (A115): dibujada junto al alzado f
   if (barra) {
     const bf = barraFondo(), slab = { x: XB(bf), y: Y(topH), w: bf*s, h: be*s }, riser = { x: XB(bf), y: Y(topH - be), w: be*s, h: (topH - be - zBar)*s };
     fillMat(slab.x, slab.y, slab.w, slab.h, groupMaterial('BarraElevada'), C.cubierta); outline(slab, C.line, 1); ipart(slab, 'raisedbar');
-    fillMat(riser.x, riser.y, riser.w, riser.h, groupMaterial('BarraPeralte'), dark ? '#5A5F63' : 'rgb(165,170,172)'); outline(riser, C.line, 1); ipart(riser, 'riser');
+    fillMat(riser.x, riser.y, riser.w, riser.h, groupMaterial('BarraPeralte'), (dark && !exporting) ? '#5A5F63' : 'rgb(165,170,172)'); outline(riser, C.line, 1); ipart(riser, 'riser');
     if (barraConCascada()) outline({ x: XB(bf), y: Y(topH), w: bf*s, h: topH*s }, C.box, 1, [5, 3]);
   }
   const zp = cfg.islaZocloPosterior && cfg.generarZoclos, pz = zp ? zb : 0, pt = panelTope();
@@ -6057,7 +6069,7 @@ function drawHiddenDoors(X, Z, RX, scale, post){
     const cx = right ? X(cfg.longitud) + 13 : X(0) - 13, cy = frame.ground - 12, r = { x: cx - 10, y: cy - 10, w: 20, h: 20 }, on = hover === 'part:adddoor:' + (right ? 'R' : 'L');
     ctx.fillStyle = on ? 'rgba(30,144,255,.25)' : 'rgba(150,155,160,.27)'; ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI*2); ctx.fill();
     ctx.strokeStyle = 'rgba(120,125,130,.47)'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.strokeStyle = dark ? 'rgba(200,205,210,.85)' : 'rgba(90,95,100,.78)'; ctx.lineWidth = 2; line(cx - 5, cy, cx + 5, cy); line(cx, cy - 5, cx, cy + 5);
+    ctx.strokeStyle = (dark && !exporting) ? 'rgba(200,205,210,.85)' : 'rgba(90,95,100,.78)'; ctx.lineWidth = 2; line(cx - 5, cy, cx + 5, cy); line(cx, cy - 5, cx, cy + 5);
     partHits.push({ rect: r, key: 'adddoor:' + (right ? 'R' : 'L'), active: true });
   }
 }
@@ -6926,9 +6938,9 @@ function drawPlanCocina(){
     if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (dash) ctx.setLineDash(dash); ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); ctx.restore(); };
   const caja = p => { const q = p.map(P), xs = q.map(v => v[0]), ys = q.map(v => v[1]); return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; };
   bajos.forEach(q => { const act = q.k === cfg.cara, sel = act && selection.has(q.m.id);
-    poly(q.p, flat ? C.flat : sel ? C.selFill : act && !exporting ? C.planSel : (dark ? '#2C3036' : '#F2F3F4'), sel ? C.select : C.line, sel ? 2 : 1);   /* A169: lo exportado no lleva resalte de la cara activa */
+    poly(q.p, flat ? C.flat : sel ? C.selFill : act && !exporting ? C.planSel : ((dark && !exporting) ? '#2C3036' : '#F2F3F4'), sel ? C.select : C.line, sel ? 2 : 1);   /* A169: lo exportado no lleva resalte de la cara activa */
     const r = caja(q.p); if (act) hits.push({ rect: r, module: q.m }); else planCaraHits.push({ rect: r, k: q.k, id: q.m.id }); });
-  esq.forEach(q => poly(q.p, flat ? C.flat : dark ? '#5A5040' : '#E8D9B8', C.line));
+  esq.forEach(q => poly(q.p, flat ? C.flat : (dark && !exporting) ? '#5A5040' : '#E8D9B8', C.line));
   altos.forEach(q => poly(q.p, null, C.muted, 1, [4, 3]));
   if (altos.length && exporting && proyOn()) { const r0 = caja(altos[0].p); ctx.save(); ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('Gabinetes altos (proyección)', r0.x + 4, r0.y + r0.h - 4); ctx.restore(); }
   muros.forEach(([a, b], k) => { const f = marcos[k], act = k === cfg.cara; ctx.save(); ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = act ? C.accent : C.wallLine; ctx.lineWidth = act ? 4 : 3; ctx.stroke(); ctx.restore();
@@ -6964,7 +6976,7 @@ function drawPlan(){
     if (!cfg.generarCubierta || cortaCubierta(m)) { ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(r.x, r.y, r.w, r.h); }
     if (selection.has(m.id)) { ctx.fillStyle = C.planSel; ctx.fillRect(r.x, r.y, r.w, r.h); }
     outline(r, C.line, 1);
-    if (cfg.generarZoclos && !flat) { ctx.fillStyle = C.zocBand; ctx.fillRect(r.x, Y(m.fondo - cfg.retiroZoclo) - 2, r.w, 4); }
+    if (cfg.generarZoclos) { ctx.fillStyle = C.zocBand; ctx.fillRect(r.x, Y(m.fondo - cfg.retiroZoclo) - 2, r.w, 4); }
     if (m.id === cfg.moduloTarja && cfg.tipoTarja > 0) {
       const doble = cfg.tipoTarja === 2, bw = Math.min(m.ancho - 8, cfg.tarjaAncho*(doble ? 1.6 : 1)), bd = Math.min(cfg.tarjaFondo, m.fondo - cfg.retiroTarja - 4);
       const s = { x: X(x + (m.ancho - bw)/2), y: Y(m.fondo - cfg.retiroTarja - bd), w: bw*scale, h: bd*scale };
@@ -7035,10 +7047,10 @@ function planGeneral(){
   const x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])), y1 = Math.max(...pts.map(p => p[1]));
   const bw = 230, bh = 170, pad = 14, sc = Math.min((bw - 2*pad)/(x1 - x0 || 1), (bh - 2*pad - 12)/(y1 - y0 || 1)), bx = 16, by = 40;
   const P = ([x, y]) => [bx + pad + (x - x0)*sc, by + pad + 12 + (y - y0)*sc];
-  ctx.save(); ctx.fillStyle = dark ? 'rgba(30,33,36,.92)' : 'rgba(255,255,255,.94)'; ctx.fillRect(bx, by, bw, bh); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(bx + .5, by + .5, bw - 1, bh - 1);
+  ctx.save(); ctx.fillStyle = (dark && !exporting) ? 'rgba(30,33,36,.92)' : 'rgba(255,255,255,.94)'; ctx.fillRect(bx, by, bw, bh); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(bx + .5, by + .5, bw - 1, bh - 1);
   ctx.fillStyle = C.muted; ctx.font = "600 10px 'Inter'"; ctx.textBaseline = 'top'; ctx.fillText('PLANTA GENERAL', bx + 8, by + 6);
   const poly = (p, fill, stroke, w = 1) => { ctx.beginPath(); p.map(P).forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath(); if (fill) { ctx.fillStyle = fill; ctx.fill(); } ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); };
-  polis.forEach(q => poly(q.p, flat ? C.flat : q.esq ? (dark ? '#5A5040' : '#E8D9B8') : q.k === cfg.cara && !exporting ? C.planSel : (dark ? '#2C3036' : '#F2F3F4'), C.line));   /* A169: sin resalte de seleccion al exportar */
+  polis.forEach(q => poly(q.p, flat ? C.flat : q.esq ? ((dark && !exporting) ? '#5A5040' : '#E8D9B8') : q.k === cfg.cara && !exporting ? C.planSel : ((dark && !exporting) ? '#2C3036' : '#F2F3F4'), C.line));   /* A169: sin resalte de seleccion al exportar */
   muros.forEach(([a, b], k) => { ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = k === cfg.cara ? C.accent : C.wallLine; ctx.lineWidth = k === cfg.cara ? 3 : 2; ctx.stroke();
     const m = P([(a[0] + b[0])/2, (a[1] + b[1])/2]), f = marcos[k]; ctx.fillStyle = k === cfg.cara ? C.accent : C.muted; ctx.font = "600 10px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(letraCara(k), m[0] - f.n[0]*9, m[1] - f.n[1]*9); });
@@ -8084,7 +8096,7 @@ const ACT = {
   cerrI: v => change(c => c.cerrarZocloIzq = v), cerrD: v => change(c => c.cerrarZocloDer = v),
   genBs: v => change(c => c.backsplash = v), bsComp: v => change(c => c.backsplashCompleto = v), bsAlto: v => change(c => c.altoBacksplash = v), bsEsp: v => change(c => c.espesorBacksplash = v),
   led: v => change(c => c.led = v), ledPos: v => change(c => { c.ledCentro = v === 'centro'; if (v !== 'centro') c.ledFrente = v === 'frente'; }),
-  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0), ledLuz: v => change(c => c.ledLuz = v),
+  ledRet: v => change(c => c.ledRetiro = v), ledPano: () => change(c => c.ledRetiro = 0), ledLuz: v => change(c => c.ledLuz = v), ledFade: v => change(c => c.ledFade = Math.max(5, Math.min(100, +v || 45))),
   tapBase: v => change(c => { c.reservaIzq = c.reservaDer = v; c.repartoAdaptado = false; if ((c.topeTapeta || 0) < v) c.topeTapeta = v; }),
   tapTope: v => change(c => { c.topeTapeta = Math.max(v, c.tapetaIzq ? c.reservaIzq : 0, c.tapetaDer ? c.reservaDer : 0); }), closetLed: v => change(c => c.closetLed = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
@@ -10191,7 +10203,7 @@ const LAM = (() => {
       let p = p0;
       if (o.recorte && ci === 0 && !p.modulo && ['zoclo', 'cubierta', 'backsplash'].includes(p.rol)) {   /* A186: solo la parte de zoclo y cubierta de este conjunto */
         const a = Math.max(p.x, o.recorte[0]), b = Math.min(p.x + p.ancho, o.recorte[1]); if (b - a < .5) return;
-        if (a !== p.x || b !== p.x + p.ancho) p = Object.assign({}, p, { x: a, ancho: b - a }); }
+        if (a !== p.x || b !== p.x + p.ancho) { const dx = a - p.x, mv = h => h && Object.assign({}, h, { x: h.x - dx }); p = Object.assign({}, p, { x: a, ancho: b - a }, p0.hueco ? { hueco: mv(p0.hueco) } : {}, p0.huecos ? { huecos: p0.huecos.map(mv) } : {}); } }   /* A190: los huecos (tarja) siguen en su sitio */
       if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
       const fs = o.sinCad ? null : simCara(cara);
       if (o.filtro && !o.filtro(p, ci)) return;   /* A177: solo el conjunto pedido */
@@ -10578,9 +10590,11 @@ const LAM = (() => {
     /* A186: el conjunto muestra solo sus gabinetes y la parte de zoclo y cubierta que les corresponde (sin tapetas ni la extension del muro) */
     if (o.grupo !== 'isla') {
       const mp = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
-      if (mp.length) { const xa = Math.min(...mp.map(p => p.x)), xb = Math.max(...mp.map(p => p.x + p.ancho));
+      if (mp.length) { const tp = ps.filter(p => p.rol === 'tapeta' && !p.modulo);   /* A190: el zoclo y la cubierta llegan hasta las tapetas laterales */
+        const xa = Math.min(...mp.concat(tp).map(p => p.x)), xb = Math.max(...mp.concat(tp).map(p => p.x + p.ancho)), xm = Math.min(...mp.map(p => p.x)), xn = Math.max(...mp.map(p => p.x + p.ancho));
         ps = ps.map(p => { if (p.modulo || !['zoclo', 'cubierta', 'backsplash'].includes(p.rol)) return p;   /* las tapetas laterales se quedan, con su color */
-          const a = Math.max(p.x, xa), b = Math.min(p.x + p.ancho, xb); if (b - a < .5) return null;
+          const lo = p.rol === 'backsplash' ? xm : xa, hi = p.rol === 'backsplash' ? xn : xb;
+          const a = Math.max(p.x, lo), b = Math.min(p.x + p.ancho, hi); if (b - a < .5) return null;
           return a === p.x && b === p.x + p.ancho ? p : Object.assign({}, p, { x: a, ancho: b - a }); }).filter(Boolean); }
     }
     if (!ps.length) throw new Error(T('Este conjunto no tiene piezas en esta cara'));
@@ -10595,8 +10609,10 @@ const LAM = (() => {
       const ext = {}; cuerpos.forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || { a: 1e9, b: -1e9, id: p.modulo }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
       const mods = Object.values(ext).sort((a, b) => a.a - b.a);
       /* A188: la cota de cada gabinete y, arriba, la total de todos ellos (no «n × 58») */
-      mods.forEach(mo => J.H(X(mo.a), X(mo.b), M - 18, fmt(mo.b - mo.a)));
-      J.H(X(Math.min(...mods.map(m2 => m2.a))), X(Math.max(...mods.map(m2 => m2.b))), M - 36, medida(Math.max(...mods.map(m2 => m2.b)) - Math.min(...mods.map(m2 => m2.a))));
+      const tapL = ps.filter(p => p.rol === 'tapeta' && !p.modulo && p.ancho > 0).sort((a, b) => a.x - b.x);   /* A190: las tapetas laterales tambien llevan su cota */
+      const cadena = mods.map(mo => ({ a: mo.a, b: mo.b })).concat(tapL.map(p => ({ a: p.x, b: p.x + p.ancho })));
+      cadena.forEach(mo => J.H(X(mo.a), X(mo.b), M - 18, fmt(mo.b - mo.a)));
+      J.H(X(Math.min(...cadena.map(m2 => m2.a))), X(Math.max(...cadena.map(m2 => m2.b))), M - 36, medida(Math.max(...cadena.map(m2 => m2.b)) - Math.min(...cadena.map(m2 => m2.a))));
       const cubB = ps.find(p => p.rol === 'cubierta' && !p.modulo), zocB = ps.filter(p => p.rol === 'zoclo');
       if (o.grupo === 'bajos' && cubB) {   /* A186: piso a zoclo, zoclo a bajo cubierta y espesor de la cubierta; total, del piso al lecho superior de la cubierta */
         const niv = [...new Set([z0, zocB.length ? Math.max(...zocB.map(p => p.z + p.alto)) : z0, cubB.z, cubB.z + cubB.alto].map(v => Math.round(v * 100) / 100))].sort((a, b) => a - b);
@@ -10616,6 +10632,9 @@ const LAM = (() => {
         mods.forEach(mo => {
           const tab = ps.filter(p => p.modulo === mo.id && p.rol !== 'frente' && ['Piso', 'Techo', 'Repisa', 'Cama', 'CamaInterior'].includes(p.tipo) && p.ancho > (mo.b - mo.a) * .6).sort((a, b) => a.z - b.z);
           const luces = []; for (let t = 0; t + 1 < tab.length; t++) { const lo = tab[t].z + tab[t].alto, hi = tab[t + 1].z; if (hi - lo > 2.5) luces.push([lo, hi]); }
+          /* A190: con cajones se acota cada cajon (su caja), no el vacio que dejan; entre repisas, la luz */
+          const cj = new Map(); ps.filter(p => p.modulo === mo.id && p.rol === 'caja' && p.frente).forEach(p => { const e = cj.get(p.frente) || [1e9, -1e9]; e[0] = Math.min(e[0], p.z); e[1] = Math.max(e[1], p.z + p.alto); cj.set(p.frente, e); });
+          if (cj.size) { luces.length = 0; [...cj.values()].sort((u, v) => u[0] - v[0]).forEach(e => luces.push(e)); }
           const firma = luces.map(([lo, hi]) => `${Math.round(lo * 10)}-${Math.round(hi * 10)}`).join('|'); if (!luces.length || vistos.has(firma)) return; vistos.add(firma);
           luces.forEach(([lo, hi], t) => J.V(X(mo.a) + 14 + 12 * (t % 2), Y(hi), Y(lo), fmt(hi - lo))); });
       }
@@ -10674,7 +10693,8 @@ const LAM = (() => {
     if (isla ? !o.planIsla : !conjuntoDisponible(o.grupo, o.cara || 0)) throw new Error(T('Este conjunto no tiene piezas en esta cara'));
     const loc = vista === 'ConjLocal';
     let recorte; if (!loc && !isla) { const mp = piezasCara(planDeConj(o), o.cara || 0).filter(p => p.modulo && f(p, o.cara || 0) && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
-      if (mp.length) recorte = [Math.min(...mp.map(p => p.x)), Math.max(...mp.map(p => p.x + p.ancho))]; }
+      const tp = piezasCara(planDeConj(o), o.cara || 0).filter(p => p.rol === 'tapeta' && !p.modulo && f(p, o.cara || 0));   /* A190: hasta las tapetas laterales */
+      if (mp.length) recorte = [Math.min(...mp.concat(tp).map(p => p.x)), Math.max(...mp.concat(tp).map(p => p.x + p.ancho))]; }
     const esc = isoEscena({ abiertos: new Set(loc ? [] : o.abiertos || []), cotas: !loc && o.cotas !== false, filtro: loc || isla ? null : f, explotar: loc ? 0 : o.explotado ? 16 : 0, recorte,
       plan: !loc && isla ? o.planIsla.plan : undefined, extraCaras: loc ? o.extraCaras : undefined });
     const tinte = loc ? q => coloresConj(!!o.plano, isla ? q.extra : (!q.extra && f(q.p, q.ci))) : null;
@@ -10694,8 +10714,8 @@ const LAM = (() => {
     const tap = todasC.filter(p => p.rol === 'tapeta' && !p.modulo && f(p, cara) && p.fondo > 0 && p.alto > 0);   /* A188: las tapetas laterales (no las de piso a techo) tambien se despiezan */
     if (!fr.length && !tap.length) throw new Error(T('Este conjunto no tiene frentes'));
     const gr = new Map();
-    fr.forEach(p => { const k = `f${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = gr.get(k) || { p, w: p.ancho, h: p.alto, e: p.fondo, n: 0 }; q.n++; gr.set(k, q); });
-    tap.forEach(p => { const k = `t${Math.round(p.fondo * 10)}x${Math.round(p.alto * 10)}`; const q = gr.get(k) || { p, w: p.fondo, h: p.alto, e: p.ancho, n: 0, nom: T('Tapeta') }; q.n++; gr.set(k, q); });
+    fr.forEach(p => { const k = `f${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = gr.get(k) || { p, w: p.ancho, h: p.alto, e: p.fondo, n: 0, ps: [] }; q.n++; q.ps.push(p); gr.set(k, q); });
+    tap.forEach(p => { const k = `t${Math.round(p.fondo * 10)}x${Math.round(p.alto * 10)}`; const q = gr.get(k) || { p, w: p.fondo, h: p.alto, e: p.ancho, n: 0, nom: T('Tapeta'), ps: [] }; q.n++; q.ps.push(p); gr.set(k, q); });
     const lista = [...gr.values()].sort((a, b) => b.h - a.h || b.w - a.w), sc = (10 / o.escalaFija) / PX_MM, M = 30, G = 38, hMax = 560;
     const g = new Grabador(900, 900), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
     let x = M + 24, y = M + 22, colW = 0, altoTot = 0;
@@ -10705,8 +10725,13 @@ const LAM = (() => {
         caja2D(g, x, y, w, h, plano ? '#FFFFFF' : colorPieza(q.p), plano ? '#222222' : '#4A5057', 1, { p: q.p, sc, plano });
         J.H(x, x + w, y - 8, fmt(q.w)); J.V(x - 10, y, y + h, fmt(q.h));
         if (q.nom) { g.save(); g.fillStyle = '#1F2A33'; g.font = "500 9px 'Inter'"; g.textAlign = 'center'; g.textBaseline = 'middle'; g.translate(x + w / 2, y + h / 2); g.rotate(-Math.PI / 2); g.fillText(`${q.nom} · e ${fmt(q.e)}`, 0, 0); g.restore(); }
-        if (q.n > 1) { g.save(); g.fillStyle = '#1F2A33'; g.font = "600 11px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(`× ${q.n}`, x + w + 8, y + h / 2); g.restore(); }
-        colW = Math.max(colW, w); y += h + G; altoTot = Math.max(altoTot, y); });
+        if (q.n > 1) { g.save(); g.fillStyle = '#1F2A33'; g.font = "600 11px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(`× ${q.n}`, x + w + 8, y + h / 2 - 6); g.restore(); }
+        /* A190: ubicacion minimalista: una tira del conjunto con el lugar de estas piezas resaltado */
+        { const todos = fr.concat(tap), xa = Math.min(...todos.map(p => p.x)), xb = Math.max(...todos.map(p => p.x + p.ancho)), LW = 64, k2 = LW / Math.max(1, xb - xa), ly = y + h / 2 + (q.n > 1 ? 4 : -4), lx = x + w + 8;
+          g.save(); g.lineWidth = .5; g.strokeStyle = '#8A949C';
+          const dib = (p, on) => { const rx = lx + (p.x - xa) * k2, rw = Math.max(1.4, p.ancho * k2); g.fillStyle = on ? '#2F75B5' : '#E4E7EA'; g.fillRect(rx, ly, rw, 8); g.strokeRect(rx, ly, rw, 8); };
+          fr.forEach(p => dib(p, false)); tap.forEach(p => dib(p, false)); q.ps.forEach(p => dib(p, true)); g.restore(); }
+        colW = Math.max(colW, w + 80); y += h + G; altoTot = Math.max(altoTot, y); });
       const e = fr.length ? Math.min(...fr.map(p => p.fondo)) : Math.min(...tap.map(p => p.ancho));
       g.save(); g.fillStyle = '#444444'; g.font = "500 10px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(`${T('Espesor')}: ${medida(e)}`, M + 24, Math.min(altoTot, hMax + 40) + 8); g.restore();
     } finally { Object.assign(C, previoC); }
@@ -10755,7 +10780,9 @@ const LAM = (() => {
     if (!items.length) throw new Error(T('Este conjunto no lleva herrajes'));
     const BW = 214, BH = 218, GAP = 16, g = new Grabador(items.length * (BW + GAP) + 20, BH + 20), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
     const icono = (k, cx, cy) => { g.save(); g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.fillStyle = plano ? '#FFFFFF' : '#9AA3AB'; g.lineWidth = 1.2; g.lineJoin = 'round';
-      if (k === 'bisagra') { g.restore();
+      if (k === 'bisagra') { g.restore();   /* A190: la bisagra aprobada: sus tres partes del modelo, a la medida de la ventana */
+        let eb = null; try { eb = escenaBisagra(o); } catch (x) { eb = null; }
+        if (eb) { const w = eb.w, h = eb.h, sb = Math.min(150 / w, 96 / h); ventanaIso(g, eb, w, h, sb, cx - w * sb / 2, cy - h * sb / 2 + 4, plano); return; }
         g.drawImage(IMGS.bisagra_3d, cx - 76, cy - 46, 152, 152 * IMGS.bisagra_3d.h / IMGS.bisagra_3d.w); return; }
       if (k === 'corredera') { g.restore();   /* las tres partes del modelo en su sitio: fija, media y movil (isometrico) */
         const ids = ['cor_fija.i+', 'cor_media.i+', 'cor_movil.i+'].filter(i => HSYM[i]);
@@ -10802,7 +10829,7 @@ const LAM = (() => {
     const tt = [arm].concat(cups.length ? [cups[0].t] : []), x0 = [], y0 = [];
     tt.forEach(t => { const c = HSYM[t.id], p = esc.proy(t.O), a = c.u0 / 100, b = (c.u0 + c.w) / 100, k = t.flip ? -1 : 1;
       x0.push(p[0] + Math.min(k * a, k * b), p[0] + Math.max(k * a, k * b)); y0.push(p[1] + c.v0 / 100, p[1] + (c.v0 + c.h) / 100); });
-    return { esc, d, c: [(Math.min(...x0) + Math.max(...x0)) / 2, (Math.min(...y0) + Math.max(...y0)) / 2] };
+    return { esc, d, c: [(Math.min(...x0) + Math.max(...x0)) / 2, (Math.min(...y0) + Math.max(...y0)) / 2], w: Math.max(...x0) - Math.min(...x0) + 1.2, h: Math.max(...y0) - Math.min(...y0) + 1.2 };   /* A190: la ventana ajusta a la bisagra entera */
   }
   /* pinta la ventana (w x h cm del modelo) de la escena alrededor de c, a s px por cm, con su esquina en (ox, oy) */
   function ventanaIso(g, eb, w, h, s, ox, oy, plano){
@@ -10918,6 +10945,31 @@ const LAM = (() => {
     } finally { Object.assign(C, previoC); }
     return J.fin({ ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: kind === 'especiero' ? 'ConjEspiero' : 'ConjCajon', plano, bb: cajaTinta(g.ops) });
   }
+  /* A190: detalle de la nariz de la cubierta en corte: su vuelo respecto al pano de los frentes, la altura total y el espesor */
+  function capturarNarizConjunto(o){
+    if (o.grupo !== 'bajos' || !cfg.generarCubierta) throw new Error(T('Este conjunto no lleva cubierta'));
+    const plano = !!o.plano, sc = (10 / o.escalaFija) / PX_MM, esp = cfg.espesorCubierta, pq = paquete(), conNariz = !!cfg.narizCubierta && pq > esp + .01, vuelo = Math.max(0, vueloEf()), t = 1.8;
+    const M = 46, LARGO = 12, H0 = Math.max(pq, esp) + 10, W = (vuelo + t + LARGO) * sc, Ht = H0 * sc;
+    const g = new Grabador(W + 2 * M + 70, Ht + 2 * M + 30), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
+    const ox = M + 40, oy = M + 10, X = x => ox + (x + vuelo) * sc, Z = z => oy + (0 - z) * sc;   /* x = 0 en el pano del frente; z = 0 en el lecho superior de la cubierta */
+    const fill = (pts, col) => { g.save(); g.beginPath(); pts.forEach(([x, z], i) => i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z))); g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = plano ? '#222222' : '#4A5057'; g.lineWidth = 1.1; g.stroke(); g.restore(); };
+    try {
+      const cub = plano ? '#F2F4F6' : '#C9CDD0', mad = plano ? '#FFFFFF' : '#E8E0CF';
+      fill([[0, -esp - 1], [t, -esp - 1], [t, -esp - 12], [0, -esp - 12]], mad);                       /* el frente, bajo la cubierta */
+      fill([[t + 2, -esp], [t + LARGO, -esp], [t + LARGO, -esp - 1.8], [t + 2, -esp - 1.8]], mad);     /* el travesano superior del cuerpo */
+      const nt = conNariz ? esp : 0, xf = -vuelo;
+      const pts = conNariz ? [[xf, 0], [t + LARGO, 0], [t + LARGO, -esp], [xf + nt, -esp], [xf + nt, -pq], [xf, -pq]] : [[xf, 0], [t + LARGO, 0], [t + LARGO, -esp], [xf, -esp]];
+      fill(pts, cub);
+      if (conNariz) { g.save(); g.strokeStyle = plano ? '#222222' : '#4A5057'; g.lineWidth = .8; g.beginPath(); g.moveTo(X(xf), Z(0)); g.lineTo(X(xf + nt), Z(-esp)); g.stroke(); g.restore(); }   /* inglete */
+      g.save(); g.strokeStyle = '#6B7680'; g.lineWidth = .7; g.setLineDash([5, 3]); g.beginPath(); g.moveTo(X(0), Z(0) - 14); g.lineTo(X(0), Z(-pq) + 14); g.stroke(); g.restore();   /* pano de los frentes */
+      if (vuelo > .05) J.H(X(xf), X(0), Z(0) - 12, `${T('Vuelo')} ${fmt(vuelo)}`);
+      J.V(X(xf) - 14, Z(0), Z(-(conNariz ? pq : esp)), `${T('Altura total')} ${fmt(conNariz ? pq : esp)}`);
+      J.V(X(t + LARGO) + 12, Z(0), Z(-esp), `${T('Espesor')} ${fmt(esp)}`);
+      if (conNariz) J.H(X(xf), X(xf + nt), Z(-pq) + 14, `${T('Nariz')} ${fmt(nt)}`);
+      g.save(); g.fillStyle = '#444444'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(T('NARIZ DE LA CUBIERTA · CORTE'), M, M - 12); g.restore();
+    } finally { Object.assign(C, previoC); }
+    return J.fin({ ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjNariz', plano, bb: cajaTinta(g.ops) });
+  }
   function capturarBisagraConjunto(o){
     const eb = escenaBisagra(o), plano = !!o.plano;
     if (!eb) throw new Error(T('Este conjunto no lleva bisagras de cazoleta'));
@@ -10953,7 +11005,7 @@ const LAM = (() => {
     : vista === 'ConjGola' ? capturarGolaConjunto(o) : vista === 'ConjDespiece' ? capturarDespieceConjunto(o)
     : vista === 'ConjHerrajes' ? capturarHerrajesConjunto(o) : vista === 'ConjBisagra' ? capturarBisagraConjunto(o)
     : vista === 'ConjCorredera' ? capturarCorrederaConjunto(o) : vista === 'ConjPiston' ? capturarPistonConjunto(o)
-    : vista === 'ConjCajon' ? capturarCajaConjunto(o, 'cajon') : vista === 'ConjEspiero' ? capturarCajaConjunto(o, 'especiero') : vista === 'ConjTitulo' ? capturarTituloConjunto(o) : capturarInterfaz(vista, o);
+    : vista === 'ConjCajon' ? capturarCajaConjunto(o, 'cajon') : vista === 'ConjEspiero' ? capturarCajaConjunto(o, 'especiero') : vista === 'ConjNariz' ? capturarNarizConjunto(o) : vista === 'ConjTitulo' ? capturarTituloConjunto(o) : capturarInterfaz(vista, o);
 
   /* ---- PDF 1.4 vectorial: Helvetica, WinAnsi; unidades de la pagina en mm (cm 2.8346) ---- */
   const lat1 = s => { let r = ''; for (const ch of String(s)) { const c = ch.charCodeAt(0); r += c < 256 ? ch : ({ 0x2026: '\x85', 0x2013: '\x96', 0x2014: '\x97', 0x2022: '\x95' }[c] || '?'); } return r; };
@@ -11350,7 +11402,7 @@ const LAM = (() => {
     return filas.flatMap(f => f.its.sort((a, b) => a.x - b.x));
   }
   const tituloItem = (L, it) => it.vista === 'Corte' ? `${T(NOMBRES.Corte)} ${letraDe(L, it)}–${letraDe(L, it)}`
-    : ES_CONJUNTO(it.vista) && it.vista !== 'ConjLocal' && it.vista !== 'ConjTitulo' && !['ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero'].includes(it.vista) ? `${T(NOMBRES[it.vista])} · ${T(GRUPO_CORTO[it.grupo] || '')}` : T(NOMBRES[it.vista]);
+    : ES_CONJUNTO(it.vista) && it.vista !== 'ConjLocal' && it.vista !== 'ConjTitulo' && !['ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero', 'ConjNariz'].includes(it.vista) ? `${T(NOMBRES[it.vista])} · ${T(GRUPO_CORTO[it.grupo] || '')}` : T(NOMBRES[it.vista]);
   /* centros de los gabinetes bajos (cm desde el extremo izquierdo): sitios naturales para un corte */
   function centrosCorte(){
     try { let x = ajusteIzq(); const out = row(false).map(m => { const c = x + m.ancho / 2; x += m.ancho; return Math.round(c * 10) / 10; });
@@ -11392,7 +11444,7 @@ const LAM = (() => {
         /* A186: la escala que eligio el usuario se respeta; si no cabe, sube solo la de la vista mas grande, un paso cada vez */
         let alt = ok.map(it => ({ it, n: it.n, cap: it.cap, bbEf: it.bbEf })), hallado = false;
         for (let paso = 0; paso < 24 && !hallado; paso++) {
-          const DET = ['ConjGola', 'ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero'], prio = q => DET.includes(q.it.vista) ? 1 : q.n >= 50 ? 2 : 0;   /* primero las vistas generales hasta 1:50, luego los detalles y al final 1:100 */
+          const DET = ['ConjGola', 'ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero', 'ConjNariz'], prio = q => DET.includes(q.it.vista) ? 1 : q.n >= 50 ? 2 : 0;   /* primero las vistas generales hasta 1:50, luego los detalles y al final 1:100 */
           const orden2 = (a2, b2) => prio(a2) - prio(b2) || b2.bbEf.w * b2.bbEf.h - a2.bbEf.w * a2.bbEf.h, sube = q => !['ConjLocal', 'ConjTitulo', 'ConjHerrajes'].includes(q.it.vista) && ESCALAS.some(e => e > q.n);
           const cand = alt.filter(sube).sort(orden2)[0];   /* la vista que mas hoja ocupa, aunque sea un detalle */
           if (!cand) break;
@@ -11410,7 +11462,7 @@ const LAM = (() => {
   }
   /* desplazamiento (mm de hoja) del titulo o de la escala de una vista: { dx, dy } o nada */
   const textoMov = v => v && typeof v === 'object' && isFinite(v.dx) && isFinite(v.dy) && (v.dx || v.dy) ? { dx: Math.round(v.dx * 100) / 100, dy: Math.round(v.dy * 100) / 100 } : undefined;
-  const CAMPOS_VISTA = ['id', 'vista', 'hoja', 'on', 'n', 'x', 'y', 'plano', 'corte', 'dir', 'grupo', 'cara', 'abiertos', 'explotado', 'cotasV', 'tt', 'te', 'ley', 'leyCol'];
+  const CAMPOS_VISTA = ['id', 'vista', 'hoja', 'on', 'n', 'x', 'y', 'plano', 'corte', 'dir', 'grupo', 'cara', 'abiertos', 'explotado', 'cotasV', 'tt', 'te', 'ley', 'leyCol', 'gl'];
   const copiaVista = it => { const r = {}; CAMPOS_VISTA.forEach(k => { if (it[k] !== undefined) r[k] = it[k]; }); return r; };
   /* o: { papel, cotas, proy, notas, notasEd, rotulo, vistas: [ids], guardado: [{id, vista, on, n, x, y, plano, corte}], globos, detalle, dxf, escalaVistas, escalaIso } */
   function presNueva(o){
@@ -11426,7 +11478,7 @@ const LAM = (() => {
         const it = { id: nuevoId(g && g.id && !usados.has(g.id) ? g.id : v), vista: v, hoja: g && num(g.hoja) && g.hoja < L.hojas.length ? g.hoja : 0, on: g ? g.on !== false : true,
           n: g && ESC_DET.includes(g.n) ? g.n : v === 'Isometrico' ? (o.escalaIso || 50) : (o.escalaVistas || 25),
           x: g && num(g.x) ? g.x : NaN, y: g && num(g.y) ? g.y : NaN, plano: !!(g && g.plano), corte: g && num(g.corte) ? g.corte : NaN, dir: g && (g.dir === 1 || g.dir === -1) ? g.dir : undefined,
-          grupo: undefined, cara: 0, abiertos: [], explotado: false, cotasV: g && typeof g.cotasV === 'boolean' ? g.cotasV : undefined, tt: textoMov(g && g.tt), te: textoMov(g && g.te), ley: textoMov(g && g.ley), leyCol: g && typeof g.leyCol === 'boolean' ? g.leyCol : undefined };
+          grupo: undefined, cara: 0, abiertos: [], explotado: false, cotasV: g && typeof g.cotasV === 'boolean' ? g.cotasV : undefined, tt: textoMov(g && g.tt), te: textoMov(g && g.te), ley: textoMov(g && g.ley), leyCol: g && typeof g.leyCol === 'boolean' ? g.leyCol : undefined, gl: g && g.gl === true ? true : undefined };
         if (v === 'Corte' && !num(it.corte)) it.corte = centros[0];
         L.vistas.push(it); });
     });
@@ -11465,11 +11517,11 @@ const LAM = (() => {
     /* A189: dos laminas. La primera con lo general (vista general, alzados con y sin puertas, isometrico, interiores, despiece de frentes); la segunda repite la
        vista general para identificar el modulo y lleva los detalles (cajon tipo, especiero, gola y conteo de herrajes). Sin detalle de bisagra ni de pistones */
     const tiene = { ConjGola: ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil'), ConjHerrajes: ps.some(p => p.rol === 'herraje'),
-      ConjCajon: !!piezasDeCaja({ grupo, cara, planIsla: vi }, 'cajon'), ConjEspiero: !!piezasDeCaja({ grupo, cara, planIsla: vi }, 'especiero') };   /* sin gola o sin herrajes no se crea la vista */
+      ConjNariz: grupo === 'bajos' && !!cfg.generarCubierta, ConjCajon: !!piezasDeCaja({ grupo, cara, planIsla: vi }, 'cajon'), ConjEspiero: !!piezasDeCaja({ grupo, cara, planIsla: vi }, 'especiero') };   /* sin gola o sin herrajes no se crea la vista */
     const poner = (lista, hh, suf) => lista.filter(([v]) => tiene[v] !== false).forEach(([v, nn]) =>
       L.vistas.push({ id: `${v}~${stamp}${suf}`, vista: v, hoja: hh, on: true, n: nn, x: NaN, y: NaN, plano: false, corte: NaN, grupo, cara, abiertos: [], explotado: false }));
     poner([['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50], ['ConjAlzado', 25], ['ConjInterior', 25]], h, '');
-    const det = [['ConjCajon', 10], ['ConjEspiero', 10], ['ConjGola', 5], ['ConjHerrajes', 1]].filter(([v]) => tiene[v] !== false);
+    const det = [['ConjCajon', 10], ['ConjEspiero', 10], ['ConjGola', 5], ['ConjNariz', 5], ['ConjHerrajes', 1]].filter(([v]) => tiene[v] !== false);
     if (det.length) { L.hojas.push({ nombre: `${nom} · ${T('detalles')}`, grupo, cara }); const h2 = L.hojas.length - 1;
       poner([['ConjLocal', 100]].concat(det), h2, 'b'); }
     return h;
@@ -11521,6 +11573,14 @@ const LAM = (() => {
       if (my) { y = my.c; guias.push({ eje: 'y', v: my.ref }); }
       fijar(it, x, y); return guias;
     });
+  }
+  /* A190: esquinas de la vista elegida para escalarla arrastrando: 0 sup. izq., 1 sup. der., 2 inf. izq., 3 inf. der.; ancla la opuesta */
+  function presEsquinas(it){ return [[it.x, it.y, it.x + it.w, it.y + it.h], [it.x + it.w, it.y, it.x, it.y + it.h], [it.x, it.y + it.h, it.x + it.w, it.y], [it.x + it.w, it.y + it.h, it.x, it.y]]; }
+  function presHitEsquina(L, it, mx, my, tol){
+    if (!it || !it.on || !it.cap || it.cap.sinEscala || it.vista === 'ConjTitulo') return null;
+    const e = presEsquinas(it).findIndex(q => Math.abs(mx - q[0]) <= tol && Math.abs(my - q[1]) <= tol);
+    if (e < 0) return null;
+    const q = presEsquinas(it)[e]; return { c: e, ax: q[2], ay: q[3] };
   }
   /* A189: varias vistas seleccionadas se mueven juntas: el desplazamiento de la vista tomada, limitado para que todas queden en la hoja */
   function presMoverGrupo(L, grupo, it, x, y){
@@ -11659,6 +11719,7 @@ const LAM = (() => {
   function globosHoja(L){
     const out = [];
     ordenLectura(enHoja(L).filter(it => it.on && it.cap)).forEach(it => {
+      if (it.vista === 'AlzadoPuertas' && !it.gl) return;   /* A190: los globos del alzado se ocultan de fabrica; se encienden por vista */
       const cap = it.cap, { ix, iy } = tintaDe(it), ov = (L.globos && L.globos[it.id]) || {}, aut = [];
       (L.notasLista || []).forEach(q => { const a = anclaAuto(cap, q), p = a && aPx(cap, a[0], a[1]); if (p && isFinite(p[0]) && isFinite(p[1])) aut.push({ q, a, p }); });
       const col = colocarGlobos(aut.map(z => ({ n: z.q.n, x: z.p[0], y: z.p[1] })));   /* el reparto automatico no cuenta lo que el usuario movio */
@@ -12047,7 +12108,11 @@ const LAM = (() => {
         g.fillStyle = '#1E90FF'; g.font = `600 ${Math.max(8, h * .72)}px Inter, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⇄', x + w / 2, y + h / 2 + .5); g.restore(); }
       const mu = new Set(v.multi || []);
       its.forEach(it => { if (it !== v.sel && !mu.has(it.id) && !it.fuera) return;
-        g.save(); g.strokeStyle = it.fuera ? '#C2410C' : '#1E90FF'; g.lineWidth = 1.6; g.setLineDash(it.fuera ? [6, 4] : []); g.strokeRect(X(it.x), Y(it.y), it.w * Z, it.h * Z); g.restore(); });
+        g.save(); g.strokeStyle = it.fuera ? '#C2410C' : '#1E90FF'; g.lineWidth = 1.6; g.setLineDash(it.fuera ? [6, 4] : []); g.strokeRect(X(it.x), Y(it.y), it.w * Z, it.h * Z);
+        if (it === v.sel && !it.cap.sinEscala && it.vista !== 'ConjTitulo') {   /* A190: tiradores de las esquinas para cambiar la escala */
+          g.setLineDash([]); g.fillStyle = '#FFFFFF'; g.lineWidth = 1.4;
+          presEsquinas(it).forEach(q => { g.beginPath(); g.rect(X(q[0]) - 4, Y(q[1]) - 4, 8, 8); g.fill(); g.stroke(); }); }
+        g.restore(); });
       (v.guias || []).forEach(q => { g.save(); g.strokeStyle = '#E5338A'; g.lineWidth = 1; g.setLineDash([5, 3]); g.beginPath();
         if (q.eje === 'x') { g.moveTo(X(q.v), Y(0)); g.lineTo(X(q.v), Y(H.alto)); } else { g.moveTo(X(0), Y(q.v)); g.lineTo(X(H.ancho), Y(q.v)); }
         g.stroke(); g.restore(); });
@@ -12092,7 +12157,7 @@ const LAM = (() => {
   /* ---- ensamblado: hoja con rotulo, nota de alcance y los nombres de archivo ---- */
   const prodNombre = () => (typeof prodName === 'string' && prodName) ? prodName : 'Skitchen';
   const NOMBRES = { AlzadoPuertas: 'Alzado con puertas', AlzadoInterior: 'Alzado sin puertas', Planta: 'Planta', Corte: 'Corte', Isometrico: 'Isométrico',
-    ConjLocal: 'Vista general', ConjIso: 'Isométrico', ConjAlzado: 'Alzado, puertas y cajones', ConjInterior: 'Interiores', ConjGola: 'Detalle de gola', ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjCajon: 'Detalle de cajón tipo', ConjEspiero: 'Detalle de especiero', ConjTitulo: 'Título del conjunto' };
+    ConjLocal: 'Vista general', ConjIso: 'Isométrico', ConjAlzado: 'Alzado, puertas y cajones', ConjInterior: 'Interiores', ConjGola: 'Detalle de gola', ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjCajon: 'Detalle de cajón tipo', ConjNariz: 'Detalle de nariz', ConjEspiero: 'Detalle de especiero', ConjTitulo: 'Título del conjunto' };
   function rotulo(cap){
     const dims = (() => { try { return `${T('Longitud')} ${medida(cfg.longitud)} · ${T('Altura de muro')} ${medida(cfg.alturaMuro)}`; } catch (e) { return ''; } })();
     const hoy = new Date(), dd = hoy.toLocaleDateString(prefs.idioma === 'en' ? 'en-US' : 'es-MX');
@@ -12248,6 +12313,8 @@ const LAM = (() => {
       ok(h0 > 0 && !L0.vistas.some(v => v.vista === 'ConjBisagra' || v.vista === 'ConjCorredera' || v.vista === 'ConjPiston') && L0.vistas.filter(v => v.vista === 'ConjLocal' && v.grupo === 'bajos').length === 2 && L0.hojas.length >= 3, 'conjunto de bajos: dos laminas (general y detalles), sin detalle de bisagra, corredera ni piston');
       ['ConjBisagra'].forEach(v => { try { const c = capturar(v, { plano: false, cotas: true, proy: true, escalaFija: v === 'ConjBisagra' ? 2 : 10, grupo: 'bajos', cara: 0, cotasSueltas: true });
         ok(c.ops.length > 5 && sinNaN(JSON.stringify(c.bb)), v + ': sin trazos o con NaN (' + c.ops.length + ')'); } catch (e2) { fallas.push(v + ': ' + e2.message); } });
+      ['ConjNariz'].forEach(v => { try { const c = capturar(v, { plano: false, cotas: true, proy: true, escalaFija: 5, grupo: 'bajos', cara: 0, cotasSueltas: true });
+        ok(c.ops.length > 8 && c.dims && c.dims.length >= 2 && sinNaN(JSON.stringify(c.bb)), v + ': sin trazos, sin cotas o con NaN (' + c.ops.length + ')'); } catch (e2) { fallas.push(v + ': ' + e2.message); } });
       ['ConjCajon'].forEach(v => { try { const c = capturar(v, { plano: false, cotas: true, proy: true, escalaFija: 10, grupo: 'bajos', cara: 0, cotasSueltas: true });
         ok(c.ops.length > 20 && c.dims && c.dims.length >= 4 && sinNaN(JSON.stringify(c.bb)), v + ': sin trazos, sin cotas o con NaN (' + c.ops.length + ')'); } catch (e2) { fallas.push(v + ': ' + e2.message); } });
       const ca = capturar('ConjAlzado', { plano: false, cotas: true, proy: true, escalaFija: 25, grupo: 'bajos', cara: 0, cotasSueltas: true });
@@ -12259,7 +12326,7 @@ const LAM = (() => {
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
     abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales,
-    presNueva, presRefrescar, presReacomodar, presMover, presMoverGrupo, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
+    presNueva, presRefrescar, presReacomodar, presMover, presMoverGrupo, presHitEsquina, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
     presHitGlobo, presMoverGlobo, presRestablecer, presAgregar, presQuitar, presInstantanea, presRestaurar, presHitMarca, presMoverMarca, marcasHoja,
@@ -12407,7 +12474,7 @@ function presRehacer(){ if (!PRES.fut.length) return; PRES.hist.push(presSnap())
 function presLado(){
   const L = PRES.L, e2 = esc, nom = Object.fromEntries(LAM.VISTAS), opt = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${e2(t)}</option>`;
   const NOMS = Object.assign({ ConjLocal: 'Vista general', ConjIso: 'Isométrico del conjunto', ConjAlzado: 'Alzado del conjunto', ConjInterior: 'Interiores del conjunto', ConjGola: 'Detalle de gola',
-    ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjCajon: 'Detalle de cajón tipo', ConjEspiero: 'Detalle de especiero', ConjTitulo: 'Título' }, nom);
+    ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjCajon: 'Detalle de cajón tipo', ConjNariz: 'Detalle de nariz', ConjEspiero: 'Detalle de especiero', ConjTitulo: 'Título' }, nom);
   const filas = L.vistas.map((it, i) => [it, i]).filter(([it]) => it.hoja === L.hoja).map(([it, i]) => {
     const nombre = it.vista === 'Corte' ? `${nom.Corte} ${LAM.letraDe(L, it)}–${LAM.letraDe(L, it)}` : NOMS[it.vista], dup = L.vistas.some(q => q !== it && q.vista === it.vista && q.hoja === it.hoja);
     const fija = it.vista === 'ConjTitulo' || it.vista === 'ConjHerrajes';
@@ -12416,8 +12483,8 @@ function presLado(){
       `<span style="flex:1;min-width:0">${e2(nombre)}</span>` +
       `<label class="pres-bn" title="Esta vista en blanco y negro"><input type="checkbox" data-ppl="${i}"${it.plano ? ' checked' : ''}${it.on ? '' : ' disabled'}>B/N</label>` +
       `<label class="pres-bn" title="Cotas de esta vista"><input type="checkbox" data-pcv="${i}"${(it.cotasV !== undefined ? it.cotasV : L.cotasOn !== false) ? ' checked' : ''}${it.on ? '' : ' disabled'}>Cotas</label>` +
+      (it.vista === 'AlzadoPuertas' ? `<label class="pres-bn" title="Globos de las notas automáticas sobre el alzado"><input type="checkbox" data-pgl="${i}"${it.gl ? ' checked' : ''}${it.on ? '' : ' disabled'}>Globos</label>` : '') +
       (fija ? '<span style="width:74px"></span>' : `<select data-pesc="${i}"${it.on ? '' : ' disabled'}>${(LAM.ES_CONJUNTO(it.vista) ? LAM.ESC_DET : [10, 20, 25, 50, 100]).map(q => opt(q, '1:' + q, q === it.n)).join('')}</select>`) +
-      `<button class="btn btn-icon pres-mini" data-pesc-d="${i}" title="Más grande (escala menor)"${it.on ? '' : ' disabled'}>+</button><button class="btn btn-icon pres-mini" data-pesc-u="${i}" title="Más chica (escala mayor)"${it.on ? '' : ' disabled'}>&minus;</button>` +
       `<button class="btn btn-icon pres-mini" data-pdup="${i}" title="Duplicar esta vista">&#10697;</button>` +
       (dup ? `<button class="btn btn-icon pres-mini" data-pdel="${i}" title="Quitar esta vista">&#10005;</button>` : '') +
       (it.vista === 'Isometrico' ? `<div class="pres-corte"><button class="btn pres-mini" data-pabrir="${i}">Abrir / cerrar todos</button><span>${(it.abiertos || [...LAM.abiertos]).length} abierto(s) · doble clic en un módulo</span></div>` : '') +
@@ -12456,7 +12523,7 @@ function presLado(){
     chk('matCol', 'Muestras de materiales en columna', L.matCol) +
     '<h4>Vistas de esta lámina</h4>' + filas +
     `<label class="pf" style="margin-top:8px"><span>Agregar vista</span><select data-pagregar><option value="">Elige una vista…</option>${LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')))
-      .concat(L.hojas[L.hoja] && L.hojas[L.hoja].grupo ? [['ConjLocal', 'Vista general'], ['ConjIso', 'Isométrico del conjunto'], ['ConjAlzado', 'Alzado del conjunto'], ['ConjInterior', 'Interiores del conjunto'], ['ConjGola', 'Detalle de gola'], ['ConjDespiece', 'Despiece de frentes'], ['ConjBisagra', 'Detalle de bisagra'], ['ConjPiston', 'Detalle de pistón'], ['ConjCajon', 'Detalle de cajón tipo'], ['ConjEspiero', 'Detalle de especiero'], ['ConjHerrajes', 'Herrajes']] : [])
+      .concat(L.hojas[L.hoja] && L.hojas[L.hoja].grupo ? [['ConjLocal', 'Vista general'], ['ConjIso', 'Isométrico del conjunto'], ['ConjAlzado', 'Alzado del conjunto'], ['ConjInterior', 'Interiores del conjunto'], ['ConjGola', 'Detalle de gola'], ['ConjDespiece', 'Despiece de frentes'], ['ConjBisagra', 'Detalle de bisagra'], ['ConjPiston', 'Detalle de pistón'], ['ConjCajon', 'Detalle de cajón tipo'], ['ConjNariz', 'Detalle de nariz'], ['ConjEspiero', 'Detalle de especiero'], ['ConjHerrajes', 'Herrajes']] : [])
       .map(([v, t]) => opt(v, v === 'Corte' ? 'Otro corte' : t, false)).join('')}</select></label>` +
     `<div class="note-sm" style="margin-top:8px">${LAM.abiertos.size ? e2(`El isométrico sale con ${LAM.abiertos.size} frente(s) abierto(s), los que elegiste en la vista Isométrico.`) : 'El isométrico sale con todo cerrado; en la vista Isométrico eliges qué puertas y cajones salen abiertos.'}</div>` +
     '<h4>Notas</h4>' + (notas || '<div class="note-sm">Sin notas: el closet todavía no tiene plan de piezas.</div>') +
@@ -12522,6 +12589,8 @@ function presCargarLogo(){
     try { cv.setPointerCapture(e.pointerId); } catch (x) { /* sin captura */ }
     const L = PRES.L, p = pos(e), m = mmDe(p), tol = 6 / PRES.Z;
     if (PRES.pag < L.hojas.length) {
+      const eh = PRES.sel && LAM.presHitEsquina(L, PRES.sel, m.x, m.y, tol);   /* A190: arrastrar una esquina de la vista elegida cambia su escala */
+      if (eh) { PRES.pend = presSnap(); PRES.drag = { k: 'escala', it: PRES.sel, eh, w0: PRES.sel.w, h0: PRES.sel.h, n0: PRES.sel.n, movido: false }; return; }
       const gh = LAM.presHitGlobo(L, m.x, m.y, tol);
       if (gh) { PRES.selG = { id: gh.g.id, vista: gh.g.vista }; PRES.sel = null; PRES.selM = null; PRES.pend = presSnap(); PRES.drag = { k: 'globo', gh, movido: false }; presLado(); presDibujar(); return; }
       const cor = PRES.hoverC && L.vistas.find(q => q.id === PRES.hoverC);
@@ -12566,9 +12635,18 @@ function presCargarLogo(){
       if (hv !== PRES.hoverC) { PRES.hoverC = hv; presDibujar(true); } }
     if (!d) { const cor = PRES.hoverC && PRES.L.vistas.find(q => q.id === PRES.hoverC);
       if (cor && LAM.presHitFlecha(PRES.L, cor, m.x, m.y)) { cv.style.cursor = 'pointer'; return; }
+      if (PRES.sel && PRES.pag < PRES.L.hojas.length && LAM.presHitEsquina(PRES.L, PRES.sel, m.x, m.y, 6 / PRES.Z)) { cv.style.cursor = 'nwse-resize'; return; }
       cv.style.cursor = PRES.pag < PRES.L.hojas.length && (LAM.presHitCota(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitTexto(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitLey(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitGlobo(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitMarca(PRES.L, m.x, m.y, 6 / PRES.Z)) ? 'pointer'
       : (PRES.L.camposHoja || []).some(c => m.x >= c.x && m.x <= c.x + c.w && m.y >= c.y && m.y <= c.y + c.h) ? 'text' : PRES.pag < PRES.L.hojas.length && LAM.presHit(PRES.L, m.x, m.y) ? 'grab' : 'default'; return; }
     if (d.k === 'pan') { PRES.ox = d.ox + p.x - d.px; PRES.oy = d.oy + p.y - d.py; presDibujar(true); return; }
+    if (d.k === 'escala') {
+      const it = d.it, es = LAM.ES_CONJUNTO(it.vista) ? LAM.ESC_DET : [10, 20, 25, 50, 100];
+      const f = Math.max(.05, (Math.abs(m.x - d.eh.ax) / d.w0 + Math.abs(m.y - d.eh.ay) / d.h0) / 2), objetivo = d.n0 / f;
+      const n = es.reduce((a, b) => Math.abs(Math.log(b / objetivo)) < Math.abs(Math.log(a / objetivo)) ? b : a);
+      cv.style.cursor = 'nwse-resize';
+      if (n !== it.n) { d.movido = true; it.n = n; LAM.presRefrescar(PRES.L);
+        const x = d.eh.c % 2 === 0 ? d.eh.ax - it.w : d.eh.ax, y = d.eh.c < 2 ? d.eh.ay - it.h : d.eh.ay; LAM.presMover(PRES.L, it, x, y); }
+      presDibujar(true); return; }
     d.movido = true;
     if (d.k === 'globo') LAM.presMoverGlobo(PRES.L, d.gh, m.x, m.y);
     else if (d.k === 'isla') { cv.style.cursor = 'grabbing'; LAM.presMoverIsla(PRES.L, d.ih.it, m.x, m.y, d.ih.off); }
@@ -12633,6 +12711,7 @@ function presCargarLogo(){
     if (d.pon !== undefined) { presAntes(); const it = L.vistas[+d.pon]; it.on = t.checked; presRefrescar(it.on && !isFinite(it.x)); return; }
     if (d.ppl !== undefined) { presAntes(); L.vistas[+d.ppl].plano = t.checked; presRefrescar(false); return; }
     if (d.pcv !== undefined) { presAntes(); L.vistas[+d.pcv].cotasV = t.checked; presRefrescar(false); return; }
+    if (d.pgl !== undefined) { presAntes(); L.vistas[+d.pgl].gl = t.checked; presRefrescar(false); return; }
     if (d.pisla !== undefined) { presAntes(); L.isla = t.value ? LAM.presIslaPorDefecto(L, t.value) : null; presRefrescar(false); return; }
     if (d.pislax !== undefined) { presAntes(); L.isla.x = +t.value || 0; presRefrescar(false); return; }
     if (d.pislay !== undefined) { presAntes(); L.isla.y = Math.max(0, +t.value || 0); presRefrescar(false); return; }
