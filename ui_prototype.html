@@ -10117,6 +10117,24 @@ const LAM = (() => {
     return null;
   }
 
+  /* A185: el condimentero del usuario es un juego de canastillas de alambre (25 mil triangulos): se dibuja como alambre, ligero y
+     transparente: marco de cada canastilla, rejilla del fondo y varillas de los costados. Segmentos [a, b, grueso] en ejes del plan */
+  function alambreCondimentero(p){
+    const x0 = p.x, x1 = p.x + p.ancho, y0 = p.y, y1 = p.y + p.fondo, z0 = p.z, z1 = p.z + p.alto, S = [], H = p.alto, niveles = H > 30 ? 2 : 1, hN = H / niveles;
+    const rect = (z, g) => { S.push([[x0, y0, z], [x1, y0, z], g], [[x1, y0, z], [x1, y1, z], g], [[x1, y1, z], [x0, y1, z], g], [[x0, y1, z], [x0, y0, z], g]); };
+    const paso = Math.max(3.5, p.fondo / 11), ny = Math.max(2, Math.round(p.fondo / paso));
+    for (let k = 0; k < niveles; k++) {
+      const zb = z0 + k * hN, zt = zb + hN * .78;   /* piso de la canastilla y borde de arriba */
+      rect(zb, 1); rect(zt, 1);
+      for (let i = 0; i <= 3; i++) { const x = x0 + (x1 - x0) * i / 3; S.push([[x, y0, zb], [x, y1, zb], .45]); }   /* rejilla del fondo */
+      for (let j = 1; j < ny; j++) { const y = y0 + p.fondo * j / ny; S.push([[x0, y, zb], [x1, y, zb], .45]); }
+      for (let j = 0; j <= ny; j++) { const y = y0 + p.fondo * j / ny; S.push([[x0, y, zb], [x0, y, zt], j % 2 ? .45 : 1], [[x1, y, zb], [x1, y, zt], j % 2 ? .45 : 1]); }   /* varillas de los costados */
+      S.push([[x0, y0, (zb + zt) / 2], [x1, y0, (zb + zt) / 2], .45], [[x0, y1, (zb + zt) / 2], [x1, y1, (zb + zt) / 2], .45]);
+    }
+    [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].forEach(c => S.push([[c[0], c[1], z0], [c[0], c[1], z1], 1]));   /* montantes */
+    return S;
+  }
+
   function isoEscena(o = {}){
     const plan = o.plan || planCocina(), conPuertas = o.puertas !== false;
     const caras = [{ piezas: plan.piezas, org: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0] }]
@@ -10166,6 +10184,7 @@ const LAM = (() => {
       q.perf = !abierto ? [] : (p.perforaciones || []).map(f => { const r = f.diametro / 2, pts = [];
         for (let i = 0; i < 20; i++) { const t = i * Math.PI * 2 / 20; pts.push(P(x0 + f.x + r * Math.cos(t), y0, z0 + f.z + r * Math.sin(t))); }
         return { pts, n: vunit(vsub(P(x0, y0 - 1, z0), P(x0, y0, z0))) }; });
+      if (p.tipo === 'Condimentero' && p.rol === 'herraje') q.alambre = alambreCondimentero(p).map(([a, b, g]) => [P(a[0], a[1], a[2]), P(b[0], b[1], b[2]), g]);
       const malla = mallaForma(p);   /* A185: pistones, vastagos, perfiles de gola: su forma, no su caja */
       if (malla) q.malla = malla.map(c => { const cen = c.pl.reduce((t, v) => vadd(t, v), [0, 0, 0]).map(t => t / c.pl.length), w0 = P(cen[0], cen[1], cen[2]), w1 = P(cen[0] + c.n[0], cen[1] + c.n[1], cen[2] + c.n[2]);
         return { pts: c.pl.map(v => P(v[0], v[1], v[2])), n: vunit(vsub(w1, w0)) }; });
@@ -10220,6 +10239,8 @@ const LAM = (() => {
       const trasPuerta = () => { if (q.p.rol === 'frente' && q.p.frente && ultimaDe[q.p.frente] === q)
         cazF.forEach((c, i) => { if (c.frente === q.p.frente) { simTri(q, c); cazHechas.add(i); } }); };   /* la cazoleta va en la cara de su puerta */
       if (q.sim) { simTri(q, q.sim); trasPuerta(); return; }
+      if (q.alambre) { const segs = q.alambre.map(([a, b, g]) => [proy(a), proy(b), g]); segs.forEach(sg => cuenta([sg[0], sg[1]]));
+        tri.push({ t: 'alambre', segs, q }); trasPuerta(); return; }
       if (q.malla) { q.malla.forEach(c => { if (vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);
           tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null }); });
         trasPuerta(); return; }
@@ -10289,6 +10310,9 @@ const LAM = (() => {
     g.save(); g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = 1;
     esc.tri.forEach(t => {
       if (t.t === 'sim') { const pr0 = esc.proy(t.O); dibujarSim(g, t.id, t.flip, X(pr0[0]), Y(pr0[1]), s, plano); return; }
+      if (t.t === 'alambre') { g.save(); g.lineCap = 'round'; g.strokeStyle = plano ? '#333333' : '#4F5962';
+        [.45, 1].forEach(gr => { g.lineWidth = gr === 1 ? 1.1 : .65; g.beginPath(); t.segs.forEach(sg => { if (sg[2] !== gr) return; g.moveTo(X(sg[0][0]), Y(sg[0][1])); g.lineTo(X(sg[1][0]), Y(sg[1][1])); }); g.stroke(); });
+        g.restore(); return; }
       const pr = t.pr.map(p => [X(p[0]), Y(p[1])]);
       g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
       if (t.holes && t.holes.length) {
