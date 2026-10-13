@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A204. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Laminas de conjunto guardadas se ponen al dia (un detalle por tipo de cajon y especiero; herrajes en la primera lamina); «Agregar vista» solo ofrece lo de la lamina (la de detalles: detalles y la vista general); sin torres no hay opcion de torres; las laminas se suben y bajan en la lista; detalle de cajon mas compacto y con las cotas generales afuera y las particulares junto al dibujo.
    A203. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Cotas: dos filas o columnas ya no se pegan (separacion minima al imantarse) y Mayus + arrastrar mueve solo esa cota; la marca de color de los despieces se conserva en B/N; correderas del detalle de cajon de lado, anidadas, delante de la caja y la fija de su altura; el conteo de herrajes siempre en la primera lamina del conjunto.
    A202. [Master hecho 13/10; Ruby y Revit pendientes: leer modelo.giro] Las bisagras de la puerta elevable usan el modelo real de la bisagra (brazo cerrado, brazo abierto y cazoleta, como en las de lateral) girado 90 grados: su eje corre a lo ancho y su lateral queda contra la cara inferior del techo (modelo.giro = 90; x = ox + (Z - refZ), y = oy - (Y - refY), z = oz + (X - refX)); la puerta lleva su perforacion de cazoleta. El master las dibuja en el alzado (simbolo transpuesto); en el isometrico y el corte salen como caja.
    A201. [Master hecho 13/10; sin pasos en Revit ni SketchUp] Reparto minimo con prioridad: alzados, despieces, isometricos y cajones conservan su escala; si no caben bajan primero el cuadro de herrajes (100/80/67 %, textos legibles; selector en la fila), luego nariz y gola (1:5 a 1:10) y solo despues un detalle pasa a la lamina de detalles. Gabinetes superiores unidos con pistones: pareja de pistones en cada division de la puerta unica y bisagras reales (modelo girado, contra el techo) en su canto superior, dos entre cada par de pistones.
@@ -11100,7 +11101,7 @@ const LAM = (() => {
   }
   function capturarCajaConjunto(o, kind){
     const d = piezasDeCaja(o, kind); if (!d) throw new Error(T(kind === 'especiero' ? 'Este conjunto no lleva especiero extraible' : 'Este conjunto no lleva cajones'));
-    const plano = !!o.plano, sc = (10 / o.escalaFija) / PX_MM, M = 34, GAP = 46;
+    const plano = !!o.plano, sc = (10 / o.escalaFija) / PX_MM, M = 30, GAP = 36;   /* A204: mas compacto */
     const P = d.piezas, bx0 = Math.min(...P.map(p => p.x)), bx1 = Math.max(...P.map(p => p.x + p.ancho)), by0 = Math.min(...P.map(p => p.y)), by1 = Math.max(...P.map(p => p.y + p.fondo)),
       bz0 = Math.min(...P.map(p => p.z)), bz1 = Math.max(...P.map(p => p.z + p.alto));   /* la caja: de ella salen las cotas */
     const FR = d.fr ? [d.fr] : [], x0 = Math.min(bx0, ...FR.map(p => p.x)), x1 = Math.max(bx1, ...FR.map(p => p.x + p.ancho)), y0 = Math.min(by0, ...FR.map(p => p.y)), y1 = Math.max(by1, ...FR.map(p => p.y + p.fondo)),
@@ -11123,7 +11124,8 @@ const LAM = (() => {
       if (d.fr) frente2D(Xa(d.fr.x), Ya(d.fr.z + d.fr.alto), d.fr.ancho * sc, d.fr.alto * sc);
       P.slice().sort((a, b) => b.y - a.y).forEach(p => caja2D(g, Xa(p.x), Ya(p.z + p.alto), p.ancho * sc, p.alto * sc, col(p), tinta, .8, { p, sc, plano }));
       J.H(Xa(bx0), Xa(bx1), Ya(z1) - 10, fmt(bx1 - bx0)); J.V(Xa(bx0) - 12, Ya(bz1), Ya(bz0), fmt(bz1 - bz0));
-      if (d.fr) { J.H(Xa(d.fr.x), Xa(d.fr.x + d.fr.ancho), Ya(z0) + 12, fmt(d.fr.ancho)); J.V(Xa(d.fr.x + d.fr.ancho) + 12, Ya(d.fr.z + d.fr.alto), Ya(d.fr.z), fmt(d.fr.alto)); }
+      /* A204: las cotas particulares (la caja) junto al dibujo; las generales (el frente) mas afuera: arriba y a la izquierda */
+      if (d.fr) { J.H(Xa(d.fr.x), Xa(d.fr.x + d.fr.ancho), Ya(z1) - 24, fmt(d.fr.ancho)); J.V(Math.min(Xa(d.fr.x), Xa(bx0)) - 26, Ya(d.fr.z + d.fr.alto), Ya(d.fr.z), fmt(d.fr.alto)); }
       /* perfil: el frente a la izquierda, el fondo a la derecha */
       const xp = M + anchoV + GAP; vTit('PERFIL', xp); const Xp = y => xp + (y1 - y) * sc, Yp = z => ya + (z1 - z) * sc;
       const tonoCor = { Corredera: '#7F8A93', CorrederaMedia: '#A9B1B8', CorrederaMovil: '#C9CED3' };
@@ -11147,8 +11149,8 @@ const LAM = (() => {
       g.save(); g.fillStyle = '#222222'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
       g.fillText(`${T('PIEZA')}`, M, yy); g.fillText(`${T('MEDIDAS (cm)')}`, M + 190, yy); g.fillText(T('CANT.'), M + 360, yy);
       g.font = "400 10px 'Inter'"; yy += 6;
-      filas.forEach(q => { yy += 15; g.fillText(T(NOM_PIEZA[q.tipo] || q.tipo), M, yy); g.fillText(q.dim.map(v => fmt(v)).join(' × '), M + 190, yy); g.fillText(`${q.n} ${T('pzas')}`, M + 360, yy); });
-      if (d.cor.length) { yy += 15; g.fillText(T('Correderas de extracción total'), M, yy); g.fillText(`${fmt(d.cor[0].fondo)} · ${T('juego')}`, M + 190, yy); g.fillText(`1 ${T('juego')}`, M + 360, yy); }
+      filas.forEach(q => { yy += 13; g.fillText(T(NOM_PIEZA[q.tipo] || q.tipo), M, yy); g.fillText(q.dim.map(v => fmt(v)).join(' × '), M + 190, yy); g.fillText(`${q.n} ${T('pzas')}`, M + 360, yy); });
+      if (d.cor.length) { yy += 13; g.fillText(T('Correderas de extracción total'), M, yy); g.fillText(`${fmt(d.cor[0].fondo)} · ${T('juego')}`, M + 190, yy); g.fillText(`1 ${T('juego')}`, M + 360, yy); }
       g.restore();
     } finally { Object.assign(C, previoC); }
     const mTipo = (modulosPorId()[P[0].modulo] || {}).tipo, sub = { Hornos: 'bajo torre de hornos', Alacena: 'bajo alacena', Refri: 'del refrigerador', EspecieroTorre: 'de la torre de especiero' }[mTipo] || '';   /* A193 */
@@ -11650,6 +11652,7 @@ const LAM = (() => {
       return out.length ? out : [Math.round(cfg.longitud / 2 * 10) / 10]; } catch (e) { return [50]; }
   }
   function presRefrescar(L){
+    try { sincronizarConjuntos(L); } catch (e) { /* sin cambios */ }
     conHoja(L.papel, () => {
       L.notasLista = L.notas ? notasFinales(L.notasEd || {}) : []; L.datos = null; L.detalles = null;
       L.vistas.forEach(it => { it.error = null; it.cap = null; it.fuera = false;
@@ -11706,6 +11709,48 @@ const LAM = (() => {
       its.forEach(q => { q.it.x = q.celda.x; q.it.y = q.celda.y; });
     });
     return res;
+  }
+  /* A204: disponibilidad de un detalle en un conjunto (para el menu «Agregar vista» y para sincronizar laminas guardadas) */
+  function disponibleConj(vista, grupo, cara){
+    try {
+      const base = { grupo, cara: cara || 0 };
+      if (vista === 'ConjCajon') return !!piezasDeCaja(base, 'cajon');
+      if (vista === 'ConjEspiero') return !!piezasDeCaja(base, 'especiero');
+      const f = filtroConjunto(grupo, cara || 0), ps = piezasCara(planCocina(), cara || 0).filter(p => f(p, cara || 0));
+      if (vista === 'ConjGola') return ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil');
+      if (vista === 'ConjNariz') return grupo === 'bajos' && !!cfg.generarCubierta;
+      if (vista === 'ConjHerrajes') return ps.some(p => p.rol === 'herraje');
+    } catch (e) { return false; }
+    return true;
+  }
+  /* A204: una lamina guardada antes de que hubiera un tipo de cajon, o con los herrajes en la de detalles, se pone al dia */
+  function sincronizarConjuntos(L){
+    const primera = new Map();
+    const GENERALES = ['ConjTitulo', 'ConjIso', 'ConjAlzado', 'ConjInterior', 'ConjDespiece'];   /* la lamina principal es la que lleva lo general, aunque se haya reordenado */
+    L.hojas.forEach((q, h) => { if (q.grupo) { const k = q.grupo + ':' + (q.cara || 0), esPrincipal = L.vistas.some(v => v.hoja === h && GENERALES.includes(v.vista));
+      if (!primera.has(k) || (esPrincipal && !primera.principal?.has(k))) { primera.set(k, h); if (esPrincipal) (primera.principal = primera.principal || new Set()).add(k); } } });
+    L.vistas.filter(v => v.vista === 'ConjHerrajes').forEach(v => { const q = L.hojas[v.hoja]; if (!q || !q.grupo) return; const f = primera.get(q.grupo + ':' + (q.cara || 0));
+      if (f !== undefined && f !== v.hoja) { v.hoja = f; v.x = NaN; v.y = NaN; } });
+    primera.forEach((hp, k) => {
+      const [grupo, cs] = k.split(':'), cara = +cs; if (grupo === 'isla') return;
+      [['ConjCajon', 'cajon'], ['ConjEspiero', 'especiero']].forEach(([vista, kind]) => {
+        let nv = 0; try { nv = (piezasDeCaja({ grupo, cara }, kind) || {}).variantes || 0; } catch (e) { nv = 0; }
+        const mias = L.vistas.filter(v => v.vista === vista && v.grupo === grupo && (v.cara || 0) === cara);
+        if (!mias.length && nv === 0) return;
+        mias.filter(v => (v.variante || 0) >= nv).forEach(v => { L.vistas.splice(L.vistas.indexOf(v), 1); });
+        const hoja = mias.length ? mias[0].hoja : (L.hojas.findIndex((q, i) => i > hp && q.grupo === grupo && (q.cara || 0) === cara) > 0 ? L.hojas.findIndex((q, i) => i > hp && q.grupo === grupo && (q.cara || 0) === cara) : hp);
+        for (let j = 0; j < nv; j++) if (!L.vistas.some(v => v.vista === vista && v.grupo === grupo && (v.cara || 0) === cara && (v.variante || 0) === j))
+          L.vistas.push({ id: `${vista}~s${Date.now().toString(36)}-${j}`, vista, hoja, on: true, n: 10, x: NaN, y: NaN, plano: false, corte: NaN, grupo, cara, abiertos: [], explotado: false, variante: j || undefined });
+      });
+    });
+  }
+  /* A204: sube o baja una lamina en la lista (la general no se mueve) */
+  function presMoverHoja(L, i, d){
+    const j = i + d; if (i < 1 || j < 1 || j >= L.hojas.length) return false;
+    [L.hojas[i], L.hojas[j]] = [L.hojas[j], L.hojas[i]];
+    L.vistas.forEach(v => { if (v.hoja === i) v.hoja = j; else if (v.hoja === j) v.hoja = i; });
+    if (L.hoja === i) L.hoja = j; else if (L.hoja === j) L.hoja = i;
+    L.reac = {}; return true;
   }
   /* A200: reparto minimo: todo en una lamina a sus escalas de fabrica; mientras no quepa, el detalle mas grande pasa a la lamina de detalles
      (que repite la vista general para identificar el conjunto). Solo entonces se sube de escala como antes */
@@ -12669,7 +12714,7 @@ const LAM = (() => {
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
     abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales,
-    presNueva, presRefrescar, presReacomodar, presAcomodarConjunto, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
+    presNueva, presRefrescar, presReacomodar, presAcomodarConjunto, presMoverHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
     presHitGlobo, presMoverGlobo, presRestablecer, presAgregar, presQuitar, presInstantanea, presRestaurar, presHitMarca, presMoverMarca, marcasHoja, presAlternarEntre,
@@ -12792,8 +12837,9 @@ function presLado(){
       `<input type="text" data-pnt="${a.id}" value="${e2(ed.texto || a.texto)}" style="flex:1;min-width:0"></label>`; }).join('');
   const chk = (id, t, on) => `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-popt="${id}"${on ? ' checked' : ''}><span>${e2(t)}</span></label>`;
   const hojasHtml = L.hojas.map((h, i) => `<div class="pres-fila${i === L.hoja ? ' sel' : ''}" data-hoja="${i}"><span style="flex:1;min-width:0">${i + 1}. ${e2(h.nombre)}</span>` +
+    (i > 0 ? `<button class="btn btn-icon pres-mini" data-phup="${i}" title="Subir"${i < 2 ? ' disabled' : ''}>&#9650;</button><button class="btn btn-icon pres-mini" data-phdn="${i}" title="Bajar"${i >= L.hojas.length - 1 ? ' disabled' : ''}>&#9660;</button>` : '') +
     (i > 0 ? `<button class="btn btn-icon pres-mini" data-phdel="${i}" title="Quitar esta lámina">&#10005;</button>` : '') + '</div>').join('');
-  const grupos = ['bajos', 'altos', 'torres'].concat(L.isla && L.isla.on && LAM.islaGeom(L) ? ['isla'] : []).map(gk => opt(gk, LAM.GRUPOS[gk], false)).join('');
+  const grupos = ['bajos', 'altos', 'torres'].filter(gk => LAM.conjuntoDisponible(gk, 0)).concat(L.isla && L.isla.on && LAM.islaGeom(L) ? ['isla'] : []).map(gk => opt(gk, LAM.GRUPOS[gk], false)).join('');   /* A204: sin torres, no hay opcion de torres */
   let caras = ''; try { if (multiCara()) caras = `<label class="pf"><span>Cara</span><select data-pcara>${cfg.caras.map((_, k) => opt(k, letraCara(k), k === 0)).join('')}</select></label>`; } catch (e) { caras = ''; }
   const guardadas = cfg.isla || cfg.closet ? [] : LAM.islasGuardadas(), is = L.isla;
   const geoI = is && is.on ? LAM.islaGeom(L) : null, gapI = geoI ? is.y - LAM.frenteCocina() : 0;
@@ -12810,9 +12856,16 @@ function presLado(){
   const crear = cfg.closet ? '' : '<h4>Láminas</h4>' + hojasHtml +
     `<div class="pres-linea" style="margin-top:8px"><label class="pf"><span>Conjunto</span><select data-pgrupo>${grupos}</select></label>${caras}</div>` +
     '<button class="btn" id="presCrearConjunto" style="margin-top:6px;width:100%" title="Cada lámina trae la vista general con el volumen en color, el despiece de frentes, el isométrico del conjunto, el alzado con puertas y cajones, los interiores y, en otra lámina, los detalles y los herrajes">Crear lámina del conjunto</button>';
-  const agregar = `<label class="pf" style="margin-top:8px"><span>Agregar vista</span><select data-pagregar><option value="">Elige una vista…</option>${LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')))
-      .concat(L.hojas[L.hoja] && L.hojas[L.hoja].grupo ? [['ConjLocal', 'Vista general'], ['ConjIso', 'Isométrico del conjunto'], ['ConjAlzado', 'Alzado del conjunto'], ['ConjInterior', 'Interiores del conjunto'], ['ConjGola', 'Detalle de gola'], ['ConjDespiece', 'Despiece de frentes'], ['ConjCajon', 'Detalle de cajón tipo'], ['ConjNariz', 'Detalle de nariz'], ['ConjEspiero', 'Detalle de especiero'], ['ConjHerrajes', 'Herrajes']] : [])
-      .map(([v, t]) => opt(v, v === 'Corte' ? 'Otro corte' : t, false)).join('')}</select></label>`;
+  /* A204: las vistas que se pueden agregar dependen de la lamina: la general, las generales; la de un conjunto, las de ese conjunto;
+     la de detalles, solo detalles (y la vista general, que identifica por color) */
+  const hj = L.hojas[L.hoja] || {}, esConj = !!hj.grupo, enLamina = L.vistas.filter(v => v.hoja === L.hoja).map(v => v.vista);
+  const esDetalles = esConj && (hj.detalles || !enLamina.some(v => ['ConjIso', 'ConjAlzado', 'ConjInterior', 'ConjDespiece', 'ConjTitulo'].includes(v)));
+  const NOM_CONJ = { ConjLocal: 'Vista general', ConjIso: 'Isométrico del conjunto', ConjAlzado: 'Alzado del conjunto', ConjInterior: 'Interiores del conjunto', ConjDespiece: 'Despiece de frentes', ConjCajon: 'Detalle de cajón tipo',
+    ConjEspiero: 'Detalle de especiero', ConjGola: 'Detalle de gola', ConjNariz: 'Detalle de nariz', ConjHerrajes: 'Herrajes' };
+  const claves = !esConj ? [] : esDetalles ? ['ConjLocal', 'ConjCajon', 'ConjEspiero', 'ConjGola', 'ConjNariz', 'ConjHerrajes'] : Object.keys(NOM_CONJ);
+  const generales = LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')));
+  const agregar = `<label class="pf" style="margin-top:8px"><span>Agregar vista</span><select data-pagregar><option value="">Elige una vista…</option>` +
+    (esConj ? claves.filter(v => LAM.disponibleConj(v, hj.grupo, hj.cara || 0)).map(v => opt(v, NOM_CONJ[v], false)) : generales.map(([v, t]) => opt(v, v === 'Corte' ? 'Otro corte' : t, false))).join('') + '</select></label>';
   const opciones = `<label class="pf"><span>Papel</span><select data-ppapel>${Object.keys(LAM.PAPELES).map(k => opt(k, LAM.PAPEL_TXT[k], k === L.papel)).join('')}</select></label>` +
     chk('cotasOn', 'Cotas', L.cotasOn !== false) + chk('proy', 'Líneas de proyección', L.proy) + chk('marcos', 'Marcos de las vistas', L.marcos !== false) + chk('notas', 'Notas numeradas', L.notas);
   const notasHtml = (notas || '<div class="note-sm">Sin notas todavía.</div>') +
@@ -12999,6 +13052,8 @@ function presCargarLogo(){
         presAntes(); const h = LAM.presAgregarConjunto(L, grupo, cara);
         if (h < 0) { PRES.hist.pop(); showDialog('Presentar', `No hay ${LAM.GRUPOS[grupo].toLowerCase()} en esta cara.`); return; }
         L.hoja = h; PRES.pag = h; PRES.sel = PRES.selG = PRES.selM = null; setStatus('Preparando la lámina…'); LAM.presRefrescar(L); LAM.presAcomodarConjunto(L, h); presGuardar(); presLado(); presAjustar(); setStatus(''); return; }
+      if (t.dataset.phup !== undefined || t.dataset.phdn !== undefined) { const i0 = +(t.dataset.phup !== undefined ? t.dataset.phup : t.dataset.phdn);
+        presAntes(); if (LAM.presMoverHoja(L, i0, t.dataset.phup !== undefined ? -1 : 1)) { PRES.pag = L.hoja; } else PRES.hist.pop(); presRefrescar(false); return; }
       if (t.dataset.phdel !== undefined) { presAntes(); LAM.presQuitarHoja(L, +t.dataset.phdel); PRES.pag = Math.min(PRES.pag, L.hojas.length - 1); PRES.sel = null; presRefrescar(false); return; }
       if (t.dataset.pabrir !== undefined) { presAntes(); LAM.presAlternarFrente(L.vistas[+t.dataset.pabrir], null, true); presRefrescar(false); return; }
       if (t.id === 'presLogoQuitar') { prefs.lamLogo = ''; prefs.lamLogoW = 0; prefs.lamLogoH = 0; savePrefs(); LAM.fijarLogo(''); L.datos = null; presLado(); presDibujar(); return; }
