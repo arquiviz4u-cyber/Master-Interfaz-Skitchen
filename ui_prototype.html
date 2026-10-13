@@ -10752,23 +10752,79 @@ const LAM = (() => {
     const esc = Object.assign({}, eb.esc, { bb: { x0: eb.c[0] - w / 2, y0: eb.c[1] - h / 2, x1: eb.c[0] + w / 2, y1: eb.c[1] + h / 2 } });
     g.save(); g.beginPath(); g.rect(ox, oy, w * s, h * s); g.clip(); isoPintar(g, esc, s, ox, oy, { plano, cotas: false }); g.restore();
   }
+  /* el lateral del gabinete que queda del lado del observador: en los detalles se quita para ver lo que cuelga del otro */
+  function lateralCercano(todas, modulo, o, cara){
+    const ls = todas.filter(p => p.modulo === modulo && p.rol === 'panel' && p.tipo === 'Lateral' && p.alto > 15); if (!ls.length) return new Set();
+    let SX = 1; try { SX = isoEscena({ cotas: false, plan: o.grupo === 'isla' && o.planIsla ? o.planIsla.plan : undefined, filtro: (p, ci) => ci === cara && p.id === ls[0].id }).SX; } catch (e) { SX = 1; }
+    const ref = SX > 0 ? Math.max(...ls.map(p => p.x)) : Math.min(...ls.map(p => p.x));
+    return new Set(ls.filter(p => Math.abs(p.x - ref) < .5).map(p => p.id));
+  }
+  /* escena de un cajon abierto con sus correderas: la fija en el lateral, la media y la movil con el cajon */
+  function escenaCorredera(o){
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), todas = piezasCara(plan, cara);
+    const mv = todas.find(p => p.tipo === 'CorrederaMovil' && p.frente && f(p, cara)); if (!mv) return null;
+    const fid = mv.frente, quita = lateralCercano(todas, mv.modulo, o, cara);
+    const esc = isoEscena({ abiertos: new Set([fid]), cotas: false, plan: o.grupo === 'isla' && o.planIsla ? o.planIsla.plan : undefined,
+      filtro: (p, ci) => ci === cara && p.modulo === mv.modulo && (p.frente === fid || (p.tipo === 'Corredera' && String(p.id).startsWith(fid + ':')) || (p.rol === 'panel' && p.tipo === 'Lateral' && !quita.has(p.id))) });
+    const ts = esc.tri.filter(t => t.t === 'sim' && /^cor_/.test(t.id)); if (!ts.length) return null;
+    const x = [], y = [];
+    ts.forEach(t => { const c = HSYM[t.id], p = esc.proy(t.O), a = c.u0 / 100, b = (c.u0 + c.w) / 100, k = t.flip ? -1 : 1;
+      x.push(p[0] + Math.min(k * a, k * b), p[0] + Math.max(k * a, k * b)); y.push(p[1] + c.v0 / 100, p[1] + (c.v0 + c.h) / 100); });
+    const x0 = Math.min(...x), x1 = Math.max(...x), y0 = Math.min(...y), y1 = Math.max(...y);
+    return { esc, mv, c: [(x0 + x1) / 2, (y0 + y1) / 2], w: x1 - x0 + 10, h: y1 - y0 + 10 };
+  }
+  function escenaPiston(o){
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), todas = piezasCara(plan, cara);
+    const pa = todas.filter(p => p.tipo === 'Piston' && p.estado === 'abierto' && f(p, cara)); if (!pa.length) return null;
+    const p0 = pa.slice().sort((a, b) => a.x - b.x)[0], fid = p0.frente, quita = lateralCercano(todas, p0.modulo, o, cara);
+    const esc = isoEscena({ abiertos: new Set([fid]), cotas: false, plan: o.grupo === 'isla' && o.planIsla ? o.planIsla.plan : undefined,
+      filtro: (p, ci) => ci === cara && p.modulo === p0.modulo && !quita.has(p.id) && ((p.frente === fid && p.rol !== 'frente') || p.rol === 'panel' || p.rol === 'repisa') });
+    const c = esc.proy([p0.x + p0.ancho / 2, -(p0.y + p0.fondo / 2), p0.z + p0.alto / 2]);
+    return { esc, p0, c, w: 30, h: 22, cant: pa.filter(p => p.frente === fid).length / 2 };
+  }
+  function capturaDetalle3D(o, eb, vista, titulo, lineas){
+    const plano = !!o.plano, s = (10 / o.escalaFija) / PX_MM, M = 30, Wc = eb.w, Hc = eb.h;
+    const g = new Grabador(M * 2 + Math.max(Wc * s, 300), M * 2 + 22 + Hc * s + 24 + lineas.length * 15), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
+    try {
+      const y0 = M + 18;
+      g.save(); g.fillStyle = '#444444'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(T(titulo), M, y0 - 8); g.restore();
+      ventanaIso(g, eb, Wc, Hc, s, M, y0, plano);
+      g.save(); g.strokeStyle = '#9AA3AB'; g.lineWidth = .6; g.setLineDash([4, 3]); g.strokeRect(M, y0, Wc * s, Hc * s); g.restore();
+      g.save(); g.fillStyle = '#333333'; g.font = "500 10px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+      lineas.forEach((t, i) => g.fillText(t, M, y0 + Hc * s + 22 + i * 15)); g.restore();
+    } finally { Object.assign(C, previoC); }
+    return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista, plano,
+      bb: { x0: 0, y0: 0, x1: g.canvas.width, y1: g.canvas.height, w: g.canvas.width, h: g.canvas.height } };
+  }
+  function capturarCorrederaConjunto(o){
+    const eb = escenaCorredera(o); if (!eb) throw new Error(T('Este conjunto no lleva correderas'));
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), fijas = piezasCara(plan, cara).filter(p => p.tipo === 'Corredera' && f(p, cara));
+    const largo = fijas.length ? fijas[0].fondo : eb.mv.fondo;
+    return capturaDetalle3D(o, eb, 'ConjCorredera', 'CORREDERA DE EXTRACCIÓN TOTAL · VISTA 3D',
+      [`${T('Largo')}: ${medida(largo)} · ${T('juegos')}: ${Math.round(fijas.length / 2)}`, `${T('Fija en el lateral, media y móvil con el cajón')}`]);
+  }
+  function capturarPistonConjunto(o){
+    const eb = escenaPiston(o); if (!eb) throw new Error(T('Este conjunto no lleva pistones'));
+    const P9 = typeof PLAN_PISTON === 'object' ? PLAN_PISTON : { cuerpo: 1.8, vastago: .8 };
+    return capturaDetalle3D(o, eb, 'ConjPiston', 'PISTÓN DE GAS · VISTA 3D',
+      [`${T('Cuerpo')} Ø ${Math.round(P9.cuerpo * 100) / 10} mm · ${T('vástago')} Ø ${Math.round(P9.vastago * 100) / 10} mm`, `${Math.max(2, Math.round(eb.cant))} ${T('por puerta elevable')}`]);
+  }
   function capturarBisagraConjunto(o){
     const eb = escenaBisagra(o), plano = !!o.plano;
     if (!eb) throw new Error(T('Este conjunto no lleva bisagras de cazoleta'));
     const d = eb.d, B = typeof PLAN_BISAGRA === 'object' ? PLAN_BISAGRA : { cazoleta: 3.5, hondo: 1.2, canto: 2.25 };
     const dia = d.perforaciones[0].diametro || B.cazoleta, hondo = B.hondo, canto = B.canto, e = d.fondo, tb = canto - dia / 2;
-    const s = (10 / o.escalaFija) / PX_MM, M = 30, mm = v => `${Math.round(v * 100) / 10}`, Wc = 24, Hc = 17;
-    const g = new Grabador(M * 2 + Wc * s, M * 2 + 22 + Hc * s + 56), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
+    const s = (10 / o.escalaFija) / PX_MM, M = 30, mm = v => `${Math.round(v * 100) / 10}`, Wc = 14, Hc = 10, ancho = Math.max(Wc * s, 300);
+    const lineas = [`${T('Taladro en el frente')}: Ø ${mm(dia)} mm × ${mm(hondo)} mm ${T('de profundidad')}`, `${T('Centro a')} ${mm(canto)} mm ${T('del canto')} (TB ${mm(tb)} mm; ${T('Blum pide')} 3–7 mm)`,
+      `${T('Frente de')} ${mm(e)} mm: ${T('quedan')} ${mm(e - hondo)} mm ${T('sobre el fondo del taladro')}`];
+    const g = new Grabador(M * 2 + ancho, M * 2 + 22 + Hc * s + 14 + lineas.length * 15), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
     try {
       const y0 = M + 18;
       g.save(); g.fillStyle = '#444444'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillText(T('BISAGRA DE CAZOLETA · VISTA 3D'), M, y0 - 8); g.restore();
       ventanaIso(g, eb, Wc, Hc, s, M, y0, plano);
       g.save(); g.strokeStyle = '#9AA3AB'; g.lineWidth = .6; g.setLineDash([4, 3]); g.strokeRect(M, y0, Wc * s, Hc * s); g.restore();
       g.save(); g.fillStyle = '#333333'; g.font = "500 10px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
-      const yT = y0 + Hc * s + 22;
-      g.fillText(`${T('Taladro en el frente')}: Ø ${mm(dia)} mm × ${mm(hondo)} mm ${T('de profundidad')} · ${T('centro a')} ${mm(canto)} mm ${T('del canto')} (TB ${mm(tb)} mm; ${T('Blum pide')} 3–7 mm)`, M, yT);
-      g.fillText(`${T('Frente de')} ${mm(e)} mm: ${T('quedan')} ${mm(e - hondo)} mm ${T('sobre el fondo del taladro')}`, M, yT + 15);
-      g.restore();
+      lineas.forEach((t, i) => g.fillText(t, M, y0 + Hc * s + 22 + i * 15)); g.restore();
     } finally { Object.assign(C, previoC); }
     return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjBisagra', plano,
       bb: { x0: 0, y0: 0, x1: g.canvas.width, y1: g.canvas.height, w: g.canvas.width, h: g.canvas.height } };   /* la ventana recorta: lo de fuera no cuenta */
@@ -10786,7 +10842,8 @@ const LAM = (() => {
     : vista === 'ConjLocal' || vista === 'ConjIso' ? capturarConjuntoIso(vista, o)
     : vista === 'ConjAlzado' || vista === 'ConjInterior' ? capturarAlzadoConjunto(vista, o)
     : vista === 'ConjGola' ? capturarGolaConjunto(o) : vista === 'ConjDespiece' ? capturarDespieceConjunto(o)
-    : vista === 'ConjHerrajes' ? capturarHerrajesConjunto(o) : vista === 'ConjBisagra' ? capturarBisagraConjunto(o) : vista === 'ConjTitulo' ? capturarTituloConjunto(o) : capturarInterfaz(vista, o);
+    : vista === 'ConjHerrajes' ? capturarHerrajesConjunto(o) : vista === 'ConjBisagra' ? capturarBisagraConjunto(o)
+    : vista === 'ConjCorredera' ? capturarCorrederaConjunto(o) : vista === 'ConjPiston' ? capturarPistonConjunto(o) : vista === 'ConjTitulo' ? capturarTituloConjunto(o) : capturarInterfaz(vista, o);
 
   /* ---- PDF 1.4 vectorial: Helvetica, WinAnsi; unidades de la pagina en mm (cm 2.8346) ---- */
   const lat1 = s => { let r = ''; for (const ch of String(s)) { const c = ch.charCodeAt(0); r += c < 256 ? ch : ({ 0x2026: '\x85', 0x2013: '\x96', 0x2014: '\x97', 0x2022: '\x95' }[c] || '?'); } return r; };
@@ -11206,7 +11263,9 @@ const LAM = (() => {
         /* A186: la escala que eligio el usuario se respeta; si no cabe, sube solo la de la vista mas grande, un paso cada vez */
         let alt = ok.map(it => ({ it, n: it.n, cap: it.cap, bbEf: it.bbEf })), hallado = false;
         for (let paso = 0; paso < 24 && !hallado; paso++) {
-          const cand = alt.filter(q => !(ES_CONJUNTO(q.it.vista) && q.it.n <= 10 || q.it.vista === 'ConjLocal') && ESCALAS.some(e => e > q.n)).sort((p, q) => q.bbEf.w * q.bbEf.h - p.bbEf.w * p.bbEf.h)[0];
+          const DET = ['ConjGola', 'ConjBisagra', 'ConjCorredera', 'ConjPiston'], prio = q => DET.includes(q.it.vista) ? 1 : q.n >= 50 ? 2 : 0;   /* primero las vistas generales hasta 1:50, luego los detalles y al final 1:100 */
+          const orden2 = (a2, b2) => prio(a2) - prio(b2) || b2.bbEf.w * b2.bbEf.h - a2.bbEf.w * a2.bbEf.h, sube = q => !['ConjLocal', 'ConjTitulo', 'ConjHerrajes'].includes(q.it.vista) && ESCALAS.some(e => e > q.n);
+          const cand = alt.filter(sube).sort(orden2)[0];   /* la vista que mas hoja ocupa, aunque sea un detalle */
           if (!cand) break;
           const nn = ESCALAS.find(e => e > cand.n);
           try { const cp = capturar(cand.it.vista, Object.assign(opcCap(L, cand.it), { escalaFija: nn })); cand.n = nn; cand.cap = cp; cand.bbEf = bbDe(L, { vista: cand.it.vista, cap: cp }); } catch (e) { break; }
@@ -11274,8 +11333,8 @@ const LAM = (() => {
     L.hojas.push({ nombre: nom, grupo, cara }); const h = L.hojas.length - 1, stamp = Date.now().toString(36);
     const fc = filtroConjunto(grupo, cara), ps = piezasCara(isla ? vi.plan : planCocina(), cara).filter(p => fc(p, cara));
     const tiene = { ConjGola: ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil'), ConjHerrajes: ps.some(p => p.rol === 'herraje'),
-      ConjBisagra: ps.some(p => p.rol === 'frente' && (p.perforaciones || []).length) };   /* sin gola o sin herrajes no se crea la vista */
-    [['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50], ['ConjAlzado', 25], ['ConjInterior', 25], ['ConjGola', 5], ['ConjBisagra', 2], ['ConjHerrajes', 1]].filter(([v]) => tiene[v] !== false).forEach(([v, nn]) =>
+      ConjBisagra: ps.some(p => p.rol === 'frente' && (p.perforaciones || []).length), ConjCorredera: ps.some(p => p.tipo === 'CorrederaMovil'), ConjPiston: ps.some(p => p.tipo === 'Piston') };   /* sin gola o sin herrajes no se crea la vista */
+    [['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50], ['ConjAlzado', 25], ['ConjInterior', 25], ['ConjGola', 5], ['ConjBisagra', 2], ['ConjCorredera', 10], ['ConjPiston', 5], ['ConjHerrajes', 1]].filter(([v]) => tiene[v] !== false).forEach(([v, nn]) =>
       L.vistas.push({ id: `${v}~${stamp}`, vista: v, hoja: h, on: true, n: nn, x: NaN, y: NaN, plano: false, corte: NaN, grupo, cara, abiertos: [], explotado: false }));
     return h;
   }
@@ -11861,7 +11920,7 @@ const LAM = (() => {
   /* ---- ensamblado: hoja con rotulo, nota de alcance y los nombres de archivo ---- */
   const prodNombre = () => (typeof prodName === 'string' && prodName) ? prodName : 'Skitchen';
   const NOMBRES = { AlzadoPuertas: 'Alzado con puertas', AlzadoInterior: 'Alzado sin puertas', Planta: 'Planta', Corte: 'Corte', Isometrico: 'Isométrico',
-    ConjLocal: 'Vista general', ConjIso: 'Isométrico', ConjAlzado: 'Alzado, puertas y cajones', ConjInterior: 'Interiores', ConjGola: 'Detalle de gola', ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjTitulo: 'Título del conjunto' };
+    ConjLocal: 'Vista general', ConjIso: 'Isométrico', ConjAlzado: 'Alzado, puertas y cajones', ConjInterior: 'Interiores', ConjGola: 'Detalle de gola', ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjTitulo: 'Título del conjunto' };
   function rotulo(cap){
     const dims = (() => { try { return `${T('Longitud')} ${medida(cfg.longitud)} · ${T('Altura de muro')} ${medida(cfg.alturaMuro)}`; } catch (e) { return ''; } })();
     const hoy = new Date(), dd = hoy.toLocaleDateString(prefs.idioma === 'en' ? 'en-US' : 'es-MX');
@@ -12011,7 +12070,7 @@ const LAM = (() => {
     abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales,
     presNueva, presRefrescar, presReacomodar, presMover, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
-    presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto,
+    presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista,
     presHitGlobo, presMoverGlobo, presRestablecer, presAgregar, presQuitar, presInstantanea, presRestaurar, presHitMarca, presMoverMarca, marcasHoja,
     herrajesSobre, Grabador, presAgregarConjunto, presQuitarHoja, frenteBajo, presAlternarFrente, conjuntoDisponible, GRUPOS, GRUPO_CORTO, ESC_DET, ES_CONJUNTO, enHoja,
     detallesDe, fijarLogo, tituloItem, letraDe, centrosCorte, api: LAM_API };
@@ -12102,7 +12161,7 @@ function presGuardar(){
   const L = PRES.L; if (!L) return;
   const r = v => isFinite(v) ? Math.round(v * 10) / 10 : null;
   prefs.lamLayoutJson = JSON.stringify({ v: 2, papel: L.papel, detalle: L.detalle, dxf: L.dxf, matCol: !!L.matCol,
-    hojas: L.hojas, vistas: L.vistas.map(it => Object.assign(copiaVista(it), { x: r(it.x), y: r(it.y), corte: r(it.corte) })),
+    hojas: L.hojas, vistas: L.vistas.map(it => Object.assign(LAM.copiaVista(it), { x: r(it.x), y: r(it.y), corte: r(it.corte) })),
     isla: L.isla, cotas: L.cotas || {}, globos: L.globos || {} });
   prefs.lamPapel = L.papel; prefs.lamCotas = L.cotasOn !== false; prefs.lamProy = L.proy; prefs.lamNotas = L.notas; prefs.lamNotasJson = JSON.stringify(L.notasEd || {});
   PRES_CAMPOS.forEach(k => { prefs[presPref(k)] = L.rotulo[k] || ''; });
@@ -12157,7 +12216,7 @@ function presRehacer(){ if (!PRES.fut.length) return; PRES.hist.push(presSnap())
 function presLado(){
   const L = PRES.L, e2 = esc, nom = Object.fromEntries(LAM.VISTAS), opt = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${e2(t)}</option>`;
   const NOMS = Object.assign({ ConjLocal: 'Vista general', ConjIso: 'Isométrico del conjunto', ConjAlzado: 'Alzado del conjunto', ConjInterior: 'Interiores del conjunto', ConjGola: 'Detalle de gola',
-    ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjTitulo: 'Título' }, nom);
+    ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjTitulo: 'Título' }, nom);
   const filas = L.vistas.map((it, i) => [it, i]).filter(([it]) => it.hoja === L.hoja).map(([it, i]) => {
     const nombre = it.vista === 'Corte' ? `${nom.Corte} ${LAM.letraDe(L, it)}–${LAM.letraDe(L, it)}` : NOMS[it.vista], dup = L.vistas.some(q => q !== it && q.vista === it.vista && q.hoja === it.hoja);
     const fija = it.vista === 'ConjTitulo' || it.vista === 'ConjHerrajes';
@@ -12205,7 +12264,7 @@ function presLado(){
     chk('matCol', 'Muestras de materiales en columna', L.matCol) +
     '<h4>Vistas de esta lámina</h4>' + filas +
     `<label class="pf" style="margin-top:8px"><span>Agregar vista</span><select data-pagregar><option value="">Elige una vista…</option>${LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')))
-      .concat(L.hojas[L.hoja] && L.hojas[L.hoja].grupo ? [['ConjLocal', 'Vista general'], ['ConjIso', 'Isométrico del conjunto'], ['ConjAlzado', 'Alzado del conjunto'], ['ConjInterior', 'Interiores del conjunto'], ['ConjGola', 'Detalle de gola'], ['ConjDespiece', 'Despiece de frentes'], ['ConjBisagra', 'Detalle de bisagra'], ['ConjHerrajes', 'Herrajes']] : [])
+      .concat(L.hojas[L.hoja] && L.hojas[L.hoja].grupo ? [['ConjLocal', 'Vista general'], ['ConjIso', 'Isométrico del conjunto'], ['ConjAlzado', 'Alzado del conjunto'], ['ConjInterior', 'Interiores del conjunto'], ['ConjGola', 'Detalle de gola'], ['ConjDespiece', 'Despiece de frentes'], ['ConjBisagra', 'Detalle de bisagra'], ['ConjCorredera', 'Detalle de corredera'], ['ConjPiston', 'Detalle de pistón'], ['ConjHerrajes', 'Herrajes']] : [])
       .map(([v, t]) => opt(v, v === 'Corte' ? 'Otro corte' : t, false)).join('')}</select></label>` +
     `<div class="note-sm" style="margin-top:8px">${LAM.abiertos.size ? e2(`El isométrico sale con ${LAM.abiertos.size} frente(s) abierto(s), los que elegiste en la vista Isométrico.`) : 'El isométrico sale con todo cerrado; en la vista Isométrico eliges qué puertas y cajones salen abiertos.'}</div>` +
     '<h4>Notas</h4>' + (notas || '<div class="note-sm">Sin notas: el closet todavía no tiene plan de piezas.</div>') +
