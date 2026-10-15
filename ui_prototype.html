@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A209. [Master hecho 15/10; Ruby y Revit: leer la forma perfil de la Moldura] Tres perfiles de corona (investigados: media cana, ogee y escalonada) en cfg.tapetaSuperiorPerfil, con vista previa en el panel y dibujados en el corte de la cocina.
    A208. [Master hecho 15/10; Ruby y Revit: leer tipo 'Moldura' y forma perfil] Tapeta superior en tres posiciones (cfg.tapetaSuperiorModo): a ras de las puertas, detras de su cara posterior (un grueso mas al fondo) o moldura corona a 45 grados (solo estilo Clasica; pieza tipo Moldura con perfil triangular de hasta 7 cm).
    A207. [Master hecho 13/10; Drawdrobe] Lo de Presentar llevado al closet: el pie y el PDF dicen Drawdrobe; notas automaticas del closet (carcasa, puertas, barras, cajones, zapatera, LED); lamina por modulo (alzado con frentes y alzado sin puertas recortados a su columna, 1:10, con las luces entre repisas, barras y cajones); el panel lleva la lista de laminas con arrastre como el de Skitchen. Sin plan de piezas del closet no hay despiece ni detalles de cajon todavia.
    A206. [Master hecho 13/10] Las laminas de la lista se reordenan arrastrando su nombre (asa y linea de destino), sin flechas.
@@ -2346,7 +2347,7 @@ function swatchURL(m, w = 86, h = 54, patronId){
 function defaultConfig(length){
   const c = { longitud: length, alturaMuro: 240, desfasePiso: 0, separacionPosterior: 0,
     baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, vuelo: 0,
-    tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5, tapetaSuperiorModo: 'ras',
+    tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5, tapetaSuperiorModo: 'ras', tapetaSuperiorPerfil: 'ogee',
     generarCubierta: true, generarZoclos: true, tipoZoclo: 'madera', retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
     backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 1, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true, ledFade: 45, ledTemp: 3000,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
@@ -3335,6 +3336,18 @@ const puntoModelo = ([X, Y, Z], { ox, refX = 0, espejo = false, oy, refY = 0, sy
 const cajaModelo = ([mn, mx], { ox, refX = 0, espejo = false, oy, refY = 0, sy = 1, oz, refZ = 0, sz = 1 }) => ({
   x: espejo ? ox - (mx[0] - refX) : ox + (mn[0] - refX), ancho: mx[0] - mn[0],
   y: oy - (mx[1] - refY)*sy, fondo: (mx[1] - mn[1])*sy, z: oz + (mn[2] - refZ)*sz, alto: (mx[2] - mn[2])*sz });
+/* A209: perfiles de corona mas usados en gabinetes (investigacion: media cana, gola reversa u ogee y escalonada o tradicional); (y, z) en cm desde la
+   esquina inferior de la espalda: y hacia el cuarto, z hacia arriba; c = proyeccion, b = altura. El borde superior toca el techo y la espalda, el plano de las puertas */
+const CROWN_PERFILES = [['cove', 'Media caña'], ['ogee', 'Ogee (gola reversa)'], ['escalonado', 'Escalonada']];
+const perfilCrown = (tipo, c, b) => {
+  const pts = [[0, 0]], arco = (cx, cz, rx, rz, a0, a1, k = 10) => { for (let i = 1; i <= k; i++) { const a = a0 + (a1 - a0) * i / k; pts.push([cx + rx * Math.cos(a), cz + rz * Math.sin(a)]); } };
+  if (tipo === 'cove') arco(c, 0, c, b, Math.PI, Math.PI / 2);                                  /* concavo: un cuarto de elipse */
+  else if (tipo === 'escalonado') { const f = Math.min(1.2, c * .18), a1 = b * .36, a2 = b * .46, x2 = f + c * .2;   /* faja, escalon y media cana */
+    pts.push([f, 0], [f, a1], [x2, a1], [x2, a2]); arco(c, a2, c - x2, b - a2, Math.PI, Math.PI / 2); }
+  else { arco(0, b / 2, c / 2, b / 2, -Math.PI / 2, 0); arco(c, b / 2, c / 2, b / 2, Math.PI, Math.PI / 2); }   /* ogee: ovolo abajo y cana arriba */
+  pts.push([0, b]);
+  return pts.map(([y, z]) => [Math.round(y * 100) / 100, Math.round(z * 100) / 100]);
+};
 /* A202: el modelo de la bisagra girado para la puerta elevable: su eje (Z del archivo) corre a lo ancho (x del plan) y su lateral (X del
    archivo) queda arriba, contra la cara inferior del techo: x = ox + (Z - refZ), y = oy - (Y - refY), z = oz + (X - refX) */
 const puntoModeloG = ([X, Y, Z], { ox, refZ = 0, oy, refY = 0, oz, refX = 0 }) => [ox + (Z - refZ), oy - (Y - refY), oz + (X - refX)].map(v => Math.round(v*1000)/1000);
@@ -4078,7 +4091,7 @@ function planDePiezas(c = cfg){
         if (modoTs === 'moldura') {   /* corona a 45 grados: su espalda vertical sobre el plano de las puertas y su canto superior saliendo al cuarto hasta el techo */
           const c9 = Math.min(altoTs, 7);
           add({ id: 'tapeta:superior:moldura' + sf, rol: 'tapeta', tipo: 'Moldura', x: a, y: fo, z: zTop, ancho: b - a, fondo: r2(c9), alto: altoTs, material: matTs, etiqueta: 'tapetas',
-            forma: { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [r2(c9), r2(altoTs)], [0, r2(altoTs)]] } });
+            forma: { tipo: 'perfil', eje: 'x', puntos: perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', r2(c9), r2(altoTs)) } });
           return; }
         add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: a, y: fo - t - dTs, z: zTop, ancho: b - a, fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01) return;
@@ -5580,6 +5593,12 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     if (!soloCamp(up)) {
       const hs = isDoble(up) ? up.altoSuperior : 0;
       const ub = caja(up, z0, zTop - hs, up.fondo, !camp);
+      if (cfg.tapetaSuperior && cfg.alturaMuro - zTop > .1) {   /* A209: la tapeta superior (a ras, detras o moldura) en corte */
+        const t1 = 1.8, d0 = up.fondo + t1, hTs = cfg.alturaMuro - zTop, modo = cfg.tapetaSuperiorModo === 'moldura' && cfg.style === 'Clasica' ? 'moldura' : cfg.tapetaSuperiorModo === 'atras' ? 'atras' : 'ras';
+        post.push(() => { ctx.save(); ctx.fillStyle = C.tapeta || C.front; ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath();
+          if (modo === 'moldura') { perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', Math.min(hTs, 7), hTs).forEach(([y, z], i) => { const X = P(d0 + y), Y = Z(zTop + z); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
+          else { const dd = modo === 'atras' ? up.fondo - t1 : up.fondo; ctx.rect(P(dd), Z(cfg.alturaMuro), t1*s, hTs*s); }
+          ctx.fill(); ctx.stroke(); ctx.restore(); }); }
       if (cfg.led && conCama(up)) {   /* A188: el nicho de la tira LED en la cama, con el color de su temperatura */
         const L0 = PLAN_LED, sep0 = cfg.separacionPosterior || 0, yc0 = sep0 + (!cfg.isla && fijacionAltos() === 'frances' ? PLAN_FIJACION.frances.grueso : 0);
         const un0 = cfg.style === 'Moderna' && !sinPuertas(up) ? golaHondo(true) : 0, r00 = (() => { const y1n = sep0 + up.fondo - un0, hueco = y1n - yc0 - L0.ancho, ret = Math.max(0, Math.min(hueco, cfg.ledRetiro ?? L0.retiro));
@@ -7576,6 +7595,9 @@ const FI = (() => {
 const FI_CORTO = { 'Abierto / repisas': 'Abierto', 'Módulo inferior + módulo superior': 'Inferior + superior' };
 const tiles = (act, opts, cur) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span></button>`).join('')}</div>`;
 const toggles = list => `<div class="ftiles otiles">${list.map(([act, on, t, icon]) => `<button type="button" class="ftile${on ? ' on' : ''}" data-act="${act}" aria-pressed="${on ? 'true' : 'false'}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${icon}</svg><span>${esc(t)}</span></button>`).join('')}</div>`;
+/* dibujo del perfil de corona para el panel (7 x 7 cm) */
+const crownSvg = tipo => { const pts = perfilCrown(tipo, 7, 7), d = pts.map(([y, z], i) => `${i ? 'L' : 'M'}${(y + .5).toFixed(2)} ${(7.5 - z).toFixed(2)}`).join('') + 'Z';
+  return `<svg viewBox="0 0 8 8" width="34" height="34" style="vertical-align:middle;margin-right:6px"><path d="${d}" fill="#D9C7A3" stroke="#4A5057" stroke-width=".35" stroke-linejoin="round"/><path d="M.5 .5V7.5" stroke="#9AA3AB" stroke-width=".25" stroke-dasharray=".6 .5"/></svg>`; };
 const radios = (act, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${v === cur ? ' on' : ''}"><input type="radio" name="${act}" data-act="${act}" value="${v}" ${v === cur ? 'checked' : ''}><div><div class="t">${t}</div></div></label>`).join('')}</div>`;
 const section = (label, html, cls = '') => `<div class="p-section${cls ? ' ' + cls : ''}">${label ? `<div class="p-label">${label}</div>` : ''}${html}</div>`;
 const head = (titleText, chip) => `<div class="p-section"><div class="m-head"><div class="m-title">${titleText}</div>${chip ? `<span class="chip">${chip}</span>` : ''}</div></div>`;
@@ -7966,7 +7988,8 @@ function partPanel(key){
       + '<div class="note-sm">Gabinetes iguales en cm enteros; lo que sobra va a las tapetas (hasta su máximo) o, si no cabe, a algunos gabinetes, 1 cm más.</div>');
   } else if (key === 'fillerTop') {
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`
-      + (cfg.tapetaSuperior ? radios('tapSM', [['ras', 'A ras de las puertas'], ['atras', 'Detrás de las puertas']].concat(cfg.style === 'Clasica' ? [['moldura', 'Moldura (corona)']] : []), cfg.tapetaSuperiorModo === 'moldura' && cfg.style !== 'Clasica' ? 'ras' : cfg.tapetaSuperiorModo || 'ras') : ''));
+      + (cfg.tapetaSuperior ? radios('tapSM', [['ras', 'A ras de las puertas'], ['atras', 'Detrás de las puertas']].concat(cfg.style === 'Clasica' ? [['moldura', 'Moldura (corona)']] : []), cfg.tapetaSuperiorModo === 'moldura' && cfg.style !== 'Clasica' ? 'ras' : cfg.tapetaSuperiorModo || 'ras') : '')
+      + (cfg.tapetaSuperior && cfg.tapetaSuperiorModo === 'moldura' && cfg.style === 'Clasica' ? `<div class="p-label" style="margin-top:10px">Perfil de la moldura</div>` + radios('tapSP', CROWN_PERFILES.map(([v, t]) => [v, crownSvg(v) + `<span>${t}</span>`]), cfg.tapetaSuperiorPerfil || 'ogee') : ''));
   } else if (key === 'gola') {
     html += section('Perfil de aluminio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Perfil de aluminio visible en 3D.</div>` + radios('perfil', [['L', 'Perfil L'], ['C', 'Perfil C']], cfg.perfil) + `<div class="note-sm">Suelta un material en una franja: va a toda la gola.</div>`);
   }
@@ -8160,7 +8183,7 @@ const ACT = {
   tapTope: v => change(c => { c.topeTapeta = Math.max(v, c.tapetaIzq ? c.reservaIzq : 0, c.tapetaDer ? c.reservaDer : 0); }), closetLed: v => change(c => c.closetLed = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
-  tapSM: v => change(c => c.tapetaSuperiorModo = v),
+  tapSM: v => change(c => c.tapetaSuperiorModo = v), tapSP: v => change(c => c.tapetaSuperiorPerfil = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
   perfil: v => change(c => c.perfil = v),
   addBajo: () => addModule(false), addAlto: () => addModule(true), delSel: () => deleteSelected(),
