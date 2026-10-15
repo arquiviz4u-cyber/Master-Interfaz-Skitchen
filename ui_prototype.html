@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A213. [Master hecho 15/10; Ruby y Revit: leer la forma perfil] Perfiles de corona con medidas comerciales: media caña 3 in (tapeta 5.4 cm), ogee 3-1/4 in (5.8 cm), escalonada 4-1/4 in (7.6 cm), a 45 grados (proyeccion = caida); faja de apoyo de 3/4 in de ancho por 1/2 in de alto; al elegir perfil la altura de la tapeta toma su caida.
    A211. [Master hecho 15/10; Ruby y Revit: tapeta superior siempre al ras de las caras posteriores] Se quita la opcion de posicion (a ras de caras frontales): la tapeta superior y la moldura arrancan en la cara posterior de las puertas.
    A210. [Master hecho 15/10; Ruby y Revit: leer cfg.tapetaSuperiorMoldura] La moldura es una opcion aparte de la posicion (a ras de las caras frontales / detras en las posteriores); en Presentar, detalle de moldura en corte (ConjMoldura, lamina de altos) con perfil, proyeccion y altura; el corte ya la dibuja.
    A209. [Master hecho 15/10; Ruby y Revit: leer la forma perfil de la Moldura] Tres perfiles de corona (investigados: media cana, ogee y escalonada) en cfg.tapetaSuperiorPerfil, con vista previa en el panel y dibujados en el corte de la cocina.
@@ -3343,11 +3344,14 @@ const cajaModelo = ([mn, mx], { ox, refX = 0, espejo = false, oy, refY = 0, sy =
 /* A210 (usuario): la moldura es una opcion aparte de la posicion; el modo 'moldura' guardado antes cuenta como a ras + moldura */
 const tsModo = () => 'atras';   /* A211 (usuario): la tapeta superior queda al ras de las caras posteriores de las puertas; sin otra posicion */
 const molduraTs = () => !!cfg.tapetaSuperior && cfg.style === 'Clasica' && (!!cfg.tapetaSuperiorMoldura || cfg.tapetaSuperiorModo === 'moldura');
+/* A213 (usuario): alturas comunes de corona para gabinetes (investigado: 3, 3-1/4 y 4-1/4 pulgadas nominales, a 45 grados de resalto); la tapeta mide la caida
+   vertical = nominal x cos 45 (2.1, 2.3 y 3.0 pulgadas = 5.4, 5.8 y 7.6 cm); la proyeccion al frente es igual a la caida */
 const CROWN_PERFILES = [['cove', 'Media caña'], ['ogee', 'Ogee (gola reversa)'], ['escalonado', 'Escalonada']];
+const CROWN_ALTO = { cove: [5.4, '3 in'], ogee: [5.8, '3-1/4 in'], escalonado: [7.6, '4-1/4 in'] };
 const perfilCrown = (tipo, c, b) => {
   const pts = [[0, 0]], arco = (cx, cz, rx, rz, a0, a1, k = 10) => { for (let i = 1; i <= k; i++) { const a = a0 + (a1 - a0) * i / k; pts.push([cx + rx * Math.cos(a), cz + rz * Math.sin(a)]); } };
-  /* A212 (usuario): todos los perfiles llevan una faja de apoyo abajo, que descansa sobre el gabinete (como la escalonada) */
-  const f = Math.min(1.2, c * .18), r = Math.min(1.2, b * .18);
+  /* A212 (usuario): todos los perfiles llevan una faja de apoyo abajo, que descansa sobre el gabinete (como la escalonada); A213: medidas de la tabla comercial */
+  const f = Math.min(1.9, c * .3), r = Math.min(1.3, b * .2);   /* faja de apoyo: 3/4 in de ancho (grueso de tabla comercial, igual al del liston 1x2) y 1/2 in de alto */
   if (tipo === 'escalonado') { const a1 = b * .36, a2 = b * .46, x2 = f + c * .2;   /* faja, escalon y media cana */
     pts.push([f, 0], [f, a1], [x2, a1], [x2, a2]); arco(c, a2, c - x2, b - a2, Math.PI, Math.PI / 2); }
   else if (tipo === 'cove') { pts.push([f, 0], [f, r]); arco(c, r, c - f, b - r, Math.PI, Math.PI / 2); }   /* concavo: un cuarto de elipse sobre la faja */
@@ -4097,7 +4101,7 @@ function planDePiezas(c = cfg){
       const modoTs = tsModo(), conMolduraTs = molduraTs(), dTs = modoTs === 'atras' ? t : 0;
       unidos.forEach(([a, b, fo], k) => { const sf = unidos.length > 1 ? ':' + k : '';
         if (conMolduraTs) {   /* corona a 45 grados: su espalda vertical sobre el plano de las puertas y su canto superior saliendo al cuarto hasta el techo */
-          const c9 = Math.min(altoTs, 7);
+          const c9 = altoTs;
           add({ id: 'tapeta:superior:moldura' + sf, rol: 'tapeta', tipo: 'Moldura', x: a, y: fo - dTs, z: zTop, ancho: b - a, fondo: r2(c9), alto: altoTs, material: matTs, etiqueta: 'tapetas',
             forma: { tipo: 'perfil', eje: 'x', puntos: perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', r2(c9), r2(altoTs)) } });
           return; }
@@ -5604,7 +5608,7 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
       if (cfg.tapetaSuperior && cfg.alturaMuro - zTop > .1) {   /* A209: la tapeta superior (a ras, detras o moldura) en corte */
         const t1 = 1.8, d0 = up.fondo + (tsModo() === 'atras' ? 0 : t1), hTs = cfg.alturaMuro - zTop, modo = tsModo(), conMol = molduraTs();
         post.push(() => { ctx.save(); ctx.fillStyle = flat ? C.flat : C.front; ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath();
-          if (conMol) { perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', Math.min(hTs, 7), hTs).forEach(([y, z], i) => { const X = P(d0 + y), Y = Z(zTop + z); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
+          if (conMol) { perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', hTs, hTs).forEach(([y, z], i) => { const X = P(d0 + y), Y = Z(zTop + z); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
           else { const dd = modo === 'atras' ? up.fondo - t1 : up.fondo;   /* profundidad hacia el frente: a ras = caras frontales de las puertas (up.fondo..+t1); detras = su cara posterior */ ctx.rect(P(dd + t1), Z(cfg.alturaMuro), t1*s, hTs*s); }
           ctx.fill(); ctx.stroke(); ctx.restore(); }); }
       if (cfg.led && conCama(up)) {   /* A188: el nicho de la tira LED en la cama, con el color de su temperatura */
@@ -7997,7 +8001,7 @@ function partPanel(key){
   } else if (key === 'fillerTop') {
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`
       + (cfg.tapetaSuperior && cfg.style === 'Clasica' ? chk('tapSMol', molduraTs(), 'Moldura (corona)') : '')
-      + (molduraTs() ? `<div class="p-label" style="margin-top:10px">Perfil de la moldura</div>` + radios('tapSP', CROWN_PERFILES.map(([v, t]) => [v, crownSvg(v) + `<span>${t}</span>`]), cfg.tapetaSuperiorPerfil || 'ogee') : ''));
+      + (molduraTs() ? `<div class="p-label" style="margin-top:10px">Perfil de la moldura</div>` + radios('tapSP', CROWN_PERFILES.map(([v, t]) => [v, crownSvg(v) + `<span>${t} · ${CROWN_ALTO[v][1]}</span>`]), cfg.tapetaSuperiorPerfil || 'ogee') + `<div style="font-size:11px;color:var(--muted,#6B7680);margin-top:6px">La altura de la tapeta toma la caída del perfil elegido (medidas comerciales de corona para gabinete, 45° de resalto); puedes ajustarla arriba.</div>` : ''));
   } else if (key === 'gola') {
     html += section('Perfil de aluminio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Perfil de aluminio visible en 3D.</div>` + radios('perfil', [['L', 'Perfil L'], ['C', 'Perfil C']], cfg.perfil) + `<div class="note-sm">Suelta un material en una franja: va a toda la gola.</div>`);
   }
@@ -8191,7 +8195,7 @@ const ACT = {
   tapTope: v => change(c => { c.topeTapeta = Math.max(v, c.tapetaIzq ? c.reservaIzq : 0, c.tapetaDer ? c.reservaDer : 0); }), closetLed: v => change(c => c.closetLed = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
-  tapSMol: v => change(c => { c.tapetaSuperiorMoldura = v; if (c.tapetaSuperiorModo === 'moldura') c.tapetaSuperiorModo = 'ras'; }), tapSP: v => change(c => c.tapetaSuperiorPerfil = v),
+  tapSMol: v => change(c => { c.tapetaSuperiorMoldura = v; if (c.tapetaSuperiorModo === 'moldura') c.tapetaSuperiorModo = 'ras'; if (v) c.alturaTapetaSuperior = CROWN_ALTO[c.tapetaSuperiorPerfil || 'ogee'][0]; }, 'Revisar altura'), tapSP: v => change(c => { c.tapetaSuperiorPerfil = v; c.alturaTapetaSuperior = CROWN_ALTO[v][0]; }, 'Revisar altura'),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
   perfil: v => change(c => c.perfil = v),
   addBajo: () => addModule(false), addAlto: () => addModule(true), delSel: () => deleteSelected(),
@@ -11240,7 +11244,7 @@ const LAM = (() => {
   function capturarMolduraConjunto(o){
     if (o.grupo !== 'altos' || !molduraTs()) throw new Error(T('Este conjunto no lleva moldura'));
     const plano = !!o.plano, sc = (10 / o.escalaFija) / PX_MM, t = 1.8, atras = tsModo() === 'atras';
-    const hTs = cfg.alturaTapetaSuperior, c = Math.min(hTs, 7), LARGO = 12, M = 46, W = (c + t + LARGO) * sc, Ht = (hTs + 12) * sc;
+    const hTs = cfg.alturaTapetaSuperior, c = hTs, LARGO = 12, M = 46, W = (c + t + LARGO) * sc, Ht = (hTs + 12) * sc;
     const g = new Grabador(W + 2 * M + 70, Ht + 2 * M + 30), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
     const ox = M + 40, oy = M + 10, X = x => ox + (x + c) * sc, Z = z => oy + (hTs - z) * sc;   /* x = 0 en la cara frontal de las puertas; z = 0 en el filo inferior de la tapeta */
     const fill = (pts, col) => { g.save(); g.beginPath(); pts.forEach(([x, z], i) => i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z))); g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = plano ? '#222222' : '#4A5057'; g.lineWidth = 1.1; g.stroke(); g.restore(); };
