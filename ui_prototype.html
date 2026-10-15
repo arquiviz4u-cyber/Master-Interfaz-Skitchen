@@ -3346,10 +3346,13 @@ const molduraTs = () => !!cfg.tapetaSuperior && cfg.style === 'Clasica' && (!!cf
 const CROWN_PERFILES = [['cove', 'Media caña'], ['ogee', 'Ogee (gola reversa)'], ['escalonado', 'Escalonada']];
 const perfilCrown = (tipo, c, b) => {
   const pts = [[0, 0]], arco = (cx, cz, rx, rz, a0, a1, k = 10) => { for (let i = 1; i <= k; i++) { const a = a0 + (a1 - a0) * i / k; pts.push([cx + rx * Math.cos(a), cz + rz * Math.sin(a)]); } };
-  if (tipo === 'cove') arco(c, 0, c, b, Math.PI, Math.PI / 2);                                  /* concavo: un cuarto de elipse */
-  else if (tipo === 'escalonado') { const f = Math.min(1.2, c * .18), a1 = b * .36, a2 = b * .46, x2 = f + c * .2;   /* faja, escalon y media cana */
+  /* A212 (usuario): todos los perfiles llevan una faja de apoyo abajo, que descansa sobre el gabinete (como la escalonada) */
+  const f = Math.min(1.2, c * .18), r = Math.min(1.2, b * .18);
+  if (tipo === 'escalonado') { const a1 = b * .36, a2 = b * .46, x2 = f + c * .2;   /* faja, escalon y media cana */
     pts.push([f, 0], [f, a1], [x2, a1], [x2, a2]); arco(c, a2, c - x2, b - a2, Math.PI, Math.PI / 2); }
-  else { arco(0, b / 2, c / 2, b / 2, -Math.PI / 2, 0); arco(c, b / 2, c / 2, b / 2, Math.PI, Math.PI / 2); }   /* ogee: ovolo abajo y cana arriba */
+  else if (tipo === 'cove') { pts.push([f, 0], [f, r]); arco(c, r, c - f, b - r, Math.PI, Math.PI / 2); }   /* concavo: un cuarto de elipse sobre la faja */
+  else { const hz = r + (b - r) / 2, rx = (c - f) / 2, rz = (b - r) / 2; pts.push([f, 0], [f, r]);
+    arco(f, hz, rx, rz, -Math.PI / 2, 0); arco(c, hz, rx, rz, Math.PI, Math.PI / 2); }   /* ogee: ovolo abajo y cana arriba */
   pts.push([0, b]);
   return pts.map(([y, z]) => [Math.round(y * 100) / 100, Math.round(z * 100) / 100]);
 };
