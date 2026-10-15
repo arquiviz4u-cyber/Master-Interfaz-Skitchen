@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A220. [Master hecho 15/10; Ruby y Revit: piezas potfiller:base0..11 y cuelloAnclaje] El aro del potfiller es su base de anclaje: placa en aro pegada al muro (12 segmentos) unida a la columna por un cuello; el remate sube de la base.
    A219. [Master hecho 15/10; Ruby y Revit: leer cfg.potFillerPos] Potfiller apagado por defecto (ya lo estaba) y con posicion izquierda / centro / derecha dentro de la columna de la estufa (a 3 cm del borde en los lados).
    A218. [Master hecho 15/10; Ruby y Revit: PotFiller son ~30 cilindros potfiller:* con las medidas de la ficha Eco Brass] Potfiller con la precision de la ficha del fabricante (14-1/4 x 8-7/8 in, brazos a 5-1/4 y 3-1/4 in, buje a 12-1/2 in, pico a 4 in): escudo, valvula con manija, cuello, bulbo, aro, remate, dos brazos, buje con remates, codo, pico, boquilla y perilla. cfg.potFillerAlto ahora es el eje de la valvula (30 cm; el pico queda a 32 cm sobre la cubierta).
    A217. [Master hecho 15/10; Ruby y Revit: PotFiller son 10 cilindros (potfiller:escudo, cuerpo, manija, columna, brazoA, articulacion, brazoB, pico, boquilla, palanca)] El potfiller se dibuja plegado como los comerciales (usuario): los dos brazos corren paralelos al muro, se ve igual en alzado e isometrico.
@@ -3369,9 +3370,12 @@ const potFillerCils = (cx, y0, z0) => {
   c.push(['escudo', [X(0), y0, Z(1.375)], [X(0), y0 + 1.2, Z(1.375)], 2.1 * I, 16], ['vastago', [X(0), y0 + 1.2, Z(1.375)], [X(0), yc, Z(1.375)], .9 * I, 10]);
   c.push(['manijaEnlace', [X(0), yc, Z(1.375)], [X(0), yc + 1.5, Z(1.6)], .5 * I, 6], ['manija', [X(0), yc + 1.5, Z(1.6)], [X(0), yc + 1.5, Z(3.5)], .5 * I, 6]);
   cil('cuello', 0, 1.375, 0, 3.9, .9); cil('bulbo', 0, 3.9, 0, 5.9, 1.6, 12); cil('collarin', 0, 5.9, 0, 6.25, 1.2, 12);
-  for (let k = 0; k < 8; k++) { const a0 = -Math.PI / 2 + k * Math.PI / 4, a1 = a0 + Math.PI / 4;   /* aro decorativo de 2-1/4 de ancho */
-    cil('aro' + k, Math.cos(a0), 7.2 + Math.sin(a0), Math.cos(a1), 7.2 + Math.sin(a1), .3, 6); }
-  cil('remate', 0, 8.2, 0, 8.875, .7);
+  /* A220 (usuario): el aro es la base de anclaje del potfiller: una placa en forma de aro de 2-1/4 de ancho, pegada al muro, que se une a la columna por un cuello */
+  const yB = y0 + .6;
+  c.push(['cuelloAnclaje', [X(0), y0, Z(6.2)], [X(0), yc, Z(6.2)], 1.1 * I, 10]);
+  for (let k = 0; k < 12; k++) { const a0 = -Math.PI / 2 + k * Math.PI / 6, a1 = a0 + Math.PI / 6;
+    cil('base' + k, Math.cos(a0), 7.2 + Math.sin(a0), Math.cos(a1), 7.2 + Math.sin(a1), .45, 6, yB); }
+  cil('remate', 0, 8.2, 0, 8.875, .7, 10, yB);
   cil('brazoSup', 0, 5.23, 12.5, 5.23, .95, 10);
   cil('buje', 12.5, 2.1, 12.5, 6.4, 1.2, 12); cil('bujeInf', 12.5, 1.75, 12.5, 2.1, .8); cil('bujeSup', 12.5, 6.4, 12.5, 6.75, .8);
   cil('brazoInf', 12.5, 3.28, 4.8, 3.28, .85, 10); cil('codo', 4.8, 3.28, 4.0, 3.28, 1.0, 10);
