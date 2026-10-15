@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A219. [Master hecho 15/10; Ruby y Revit: leer cfg.potFillerPos] Potfiller apagado por defecto (ya lo estaba) y con posicion izquierda / centro / derecha dentro de la columna de la estufa (a 3 cm del borde en los lados).
    A218. [Master hecho 15/10; Ruby y Revit: PotFiller son ~30 cilindros potfiller:* con las medidas de la ficha Eco Brass] Potfiller con la precision de la ficha del fabricante (14-1/4 x 8-7/8 in, brazos a 5-1/4 y 3-1/4 in, buje a 12-1/2 in, pico a 4 in): escudo, valvula con manija, cuello, bulbo, aro, remate, dos brazos, buje con remates, codo, pico, boquilla y perilla. cfg.potFillerAlto ahora es el eje de la valvula (30 cm; el pico queda a 32 cm sobre la cubierta).
    A217. [Master hecho 15/10; Ruby y Revit: PotFiller son 10 cilindros (potfiller:escudo, cuerpo, manija, columna, brazoA, articulacion, brazoB, pico, boquilla, palanca)] El potfiller se dibuja plegado como los comerciales (usuario): los dos brazos corren paralelos al muro, se ve igual en alzado e isometrico.
    A216. [Master hecho 15/10; Ruby y Revit: leer tipo PotFiller (potfiller:placa, brazo y pico), y la moldura sobre el canto de la caja] 1) la faja de apoyo de la corona descansa sobre el canto de la caja del gabinete, no sobre las puertas; 2) potfiller como accesorio sobre el backsplash en la columna de la estufa (cfg.potFiller, altura sobre la cubierta 46 cm = 18 in; escudo, brazo de 25 cm y pico); 3) el liston de fijacion solo se ofrece (y existe) con moldura.
@@ -2355,7 +2356,7 @@ function swatchURL(m, w = 86, h = 54, patronId){
 function defaultConfig(length){
   const c = { longitud: length, alturaMuro: 240, desfasePiso: 0, separacionPosterior: 0,
     baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, vuelo: 0,
-    tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5, tapetaSuperiorModo: 'atras', tapetaSuperiorMoldura: false, listonTapeta: false, potFiller: false, potFillerAlto: 30, cerrarMolduraIzq: false, cerrarMolduraDer: false, tapetaSuperiorPerfil: 'ogee',
+    tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5, tapetaSuperiorModo: 'atras', tapetaSuperiorMoldura: false, listonTapeta: false, potFiller: false, potFillerAlto: 30, potFillerPos: 'centro', cerrarMolduraIzq: false, cerrarMolduraDer: false, tapetaSuperiorPerfil: 'ogee',
     generarCubierta: true, generarZoclos: true, tipoZoclo: 'madera', retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
     backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 1, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true, ledFade: 45, ledTemp: 3000,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
@@ -3356,6 +3357,8 @@ const PLAN_LISTON = { grueso: 1.9, alto: 3.8 };
 const listonTs = () => !!cfg.listonTapeta && molduraTs();
 const crownFaja = c => Math.min(1.9, c * .3);
 /* A216 (usuario): potfiller (llenador de ollas) sobre el backsplash, en la columna de la estufa */
+/* A219 (usuario): posicion del potfiller en la columna de la estufa: izquierda, centro o derecha (centro del conjunto de 14-1/4 in, a 3 cm del borde) */
+const potFillerCx = rE => { const w = 14.25 * 2.54, pos = cfg.potFillerPos; return pos === 'izq' ? rE[0] + 3 + w / 2 : pos === 'der' ? rE[1] - 3 - w / 2 : (rE[0] + rE[1]) / 2; };
 const estufaRango = () => { let x = ajusteIzq(), r = null; row(false).forEach(m => { if (!r && !m.reserved && m.tipo === 'Estufa') r = [x, x + m.ancho]; x += m.ancho; }); return r; };
 /* A218 (usuario): potfiller con las medidas de la ficha del fabricante (Eco Brass, plegado, en pulgadas): ancho total 14-1/4, alto 8-7/8 desde el eje de la valvula,
    columna de 2-1/4 con su centro a 1-1/8 del borde, brazo superior a 5-1/4 y brazo inferior a 3-1/4 sobre la valvula, buje de 1-3/4 a 6-3/4 a 12-1/2 de la columna,
@@ -4049,7 +4052,7 @@ function planDePiezas(c = cfg){
           add(pieza); }); }
       /* A216 (usuario): potfiller sobre el backsplash, centrado en la columna de la estufa: escudo contra el muro, brazo extendido hacia el frente y pico hacia abajo */
       const rE = cfg.potFiller ? estufaRango() : null;
-      if (rE) { const cx = (rE[0] + rE[1]) / 2, y0 = cfg.backsplash ? Math.max(.5, cfg.espesorBacksplash || 1) : 0, zc = zBar + Math.max(15, cfg.potFillerAlto || 30);
+      if (rE) { const cx = potFillerCx(rE), y0 = cfg.backsplash ? Math.max(.5, cfg.espesorBacksplash || 1) : 0, zc = zBar + Math.max(15, cfg.potFillerAlto || 30);
         potFillerCils(cx, y0, zc).forEach(([sid, de, a2, d, lados]) => { const r = d / 2, lo = [0, 1, 2].map(i => Math.min(de[i], a2[i]) - r), hi = [0, 1, 2].map(i => Math.max(de[i], a2[i]) + r);
           const q = { id: 'potfiller:' + sid, rol: 'herraje', tipo: 'PotFiller', x: r2(lo[0]), y: r2(lo[1]), z: r2(lo[2]), ancho: r2(hi[0] - lo[0]), fondo: r2(hi[1] - lo[1]), alto: r2(hi[2] - lo[2]), material: null, etiqueta: 'herrajes' };
           add(q); const loc = v => [r2(Math.min(Math.max(v[0] - q.x, 0), q.ancho)), r2(Math.min(Math.max(v[1] - q.y, 0), q.fondo)), r2(Math.min(Math.max(v[2] - q.z, 0), q.alto))];
@@ -5368,7 +5371,7 @@ function drawElevation(){
     ctx.restore(); };
   if (highs.length) part('fillerTop', cfg.tapetaSuperior, [RX(run0, run1, cfg.tapetaSuperior ? zTop : cfg.alturaMuro - 3, cfg.alturaMuro)], tapetaTopPaint, post);
   { const rE = cfg.potFiller ? estufaRango() : null;   /* A216: potfiller en la columna de la estufa (escudo, brazo y pico) */
-    if (rE) { const cx0 = (rE[0] + rE[1]) / 2, zc = altoBarra() + Math.max(15, cfg.potFillerAlto || 30), cils = potFillerCils(cx0, 0, zc);
+    if (rE) { const cx0 = potFillerCx(rE), zc = altoBarra() + Math.max(15, cfg.potFillerAlto || 30), cils = potFillerCils(cx0, 0, zc);
       post.push(() => { ctx.save(); ctx.lineCap = 'round';
         cils.forEach(([, de, a2, d]) => { const x1 = X(de[0]), y1 = Z(de[2]), x2 = X(a2[0]), y2 = Z(a2[2]), dd = Math.max(1.5, d*scale);
           if (Math.abs(x1 - x2) < .01 && Math.abs(y1 - y2) < .01) { ctx.beginPath(); ctx.arc(x1, y1, dd/2, 0, 6.2832); ctx.fillStyle = '#B9C0C7'; ctx.fill(); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke(); return; }
@@ -8058,7 +8061,7 @@ function partPanel(key){
   } else if (key === 'backsplash') {
     html += section('Backsplash', chk('genBs', cfg.backsplash, 'Generar backsplash') + chk('bsComp', cfg.backsplashCompleto, 'Completo hasta los gabinetes altos')
       + `<div class="grid-2" style="margin-top:10px">${cfg.backsplashCompleto ? '' : num('bsAlto', 'Altura', cfg.altoBacksplash, 'cm', 5, 100)}${num('bsEsp', 'Espesor', cfg.espesorBacksplash, 'cm', .5, 5)}</div>`
-      + chk('potF', cfg.potFiller, 'Potfiller sobre la estufa') + (cfg.potFiller ? `<div class="grid-2" style="margin-top:10px">${num('potFAlto', 'Eje de la válvula sobre la cubierta', cfg.potFillerAlto, 'cm', 15, 60)}</div>` : ''));
+      + chk('potF', cfg.potFiller, 'Potfiller sobre la estufa') + (cfg.potFiller ? `<div class="grid-2" style="margin-top:10px">${num('potFAlto', 'Eje de la válvula sobre la cubierta', cfg.potFillerAlto, 'cm', 15, 60)}</div>` + radios('potFPos', [['izq', 'Izquierda'], ['centro', 'Centro'], ['der', 'Derecha']], cfg.potFillerPos || 'centro') : ''));
     html += section('Iluminación', chk('led', cfg.led, 'Iluminación LED bajo gabinetes altos') + (cfg.led ? posicionLedHTML('gabinete') + tonoLuzHTML() : ''));
   } else if (key === 'fillerI' || key === 'fillerD') {
     const L = key === 'fillerI', on = L ? cfg.tapetaIzq : cfg.tapetaDer, w = L ? ajusteIzq() : ajusteDer();
@@ -8269,7 +8272,7 @@ const ACT = {
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
   tapSMol: v => change(c => { c.tapetaSuperiorMoldura = v; if (c.tapetaSuperiorModo === 'moldura') c.tapetaSuperiorModo = 'ras'; if (v) c.alturaTapetaSuperior = CROWN_ALTO[c.tapetaSuperiorPerfil || 'ogee'][0]; }, 'Revisar altura'), tapSP: v => change(c => { c.tapetaSuperiorPerfil = v; c.alturaTapetaSuperior = CROWN_ALTO[v][0]; }, 'Revisar altura'),
-  tapSLis: v => change(c => c.listonTapeta = v), potF: v => change(c => c.potFiller = v), potFAlto: v => change(c => c.potFillerAlto = v),
+  tapSLis: v => change(c => c.listonTapeta = v), potF: v => change(c => c.potFiller = v), potFAlto: v => change(c => c.potFillerAlto = v), potFPos: v => change(c => c.potFillerPos = v),
   tapSCI: v => change(c => c.cerrarMolduraIzq = v), tapSCD: v => change(c => c.cerrarMolduraDer = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
   perfil: v => change(c => c.perfil = v),
