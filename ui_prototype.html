@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A217. [Master hecho 15/10; Ruby y Revit: PotFiller son 10 cilindros (potfiller:escudo, cuerpo, manija, columna, brazoA, articulacion, brazoB, pico, boquilla, palanca)] El potfiller se dibuja como los comerciales: escudo, cuerpo con palanca, columna, dos brazos plegables con articulacion y pico con palanca (alzado con las barras en proyeccion).
    A216. [Master hecho 15/10; Ruby y Revit: leer tipo PotFiller (potfiller:placa, brazo y pico), y la moldura sobre el canto de la caja] 1) la faja de apoyo de la corona descansa sobre el canto de la caja del gabinete, no sobre las puertas; 2) potfiller como accesorio sobre el backsplash en la columna de la estufa (cfg.potFiller, altura sobre la cubierta 46 cm = 18 in; escudo, brazo de 25 cm y pico); 3) el liston de fijacion solo se ofrece (y existe) con moldura.
    A215. [Master hecho 15/10; Ruby y Revit: leer cfg.listonTapeta] El liston de fijacion 1x2 ya no va por defecto: casilla opcional «Liston de fijacion 1x2» en la tapeta superior.
    A214. [Master hecho 15/10; Ruby y Revit: pieza tipo Liston, cierres de moldura (forma perfil eje y) y cfg.cerrarMolduraIzq/Der] Moldura: liston de fijacion 1x2 (3/4 x 1-1/2 in) sobre el techo de los altos, atras de la tapeta; faja superior contra el techo (el perfil no termina concavo, misma altura nominal); la moldura se ve en el alzado (lineas de sus planos) y en el corte; opcion de cerrar extremos laterales como en los zoclos.
@@ -3355,7 +3356,12 @@ const listonTs = () => !!cfg.listonTapeta && molduraTs();
 const crownFaja = c => Math.min(1.9, c * .3);
 /* A216 (usuario): potfiller (llenador de ollas) sobre el backsplash, en la columna de la estufa */
 const estufaRango = () => { let x = ajusteIzq(), r = null; row(false).forEach(m => { if (!r && !m.reserved && m.tipo === 'Estufa') r = [x, x + m.ancho]; x += m.ancho; }); return r; };
-const PLAN_POTFILLER = { placa: 6, alcance: 25, brazo: 2.5 };   /* escudo de 6 cm; brazo extendido de 25 cm; sin norma de altura: se elige sobre la olla mas alta (18 a 24 in sobre la estufa) */   /* 1x2 comercial: 3/4 x 1-1/2 in */
+const potFillerCils = (cx, y0, zc) => {   /* llenador de ollas plegable de pared (como los comerciales): escudo, cuerpo con palanca, columna, dos brazos con articulacion y pico con palanca; zc = eje del brazo superior */
+  const yR = y0 + 8, yA = yR + 12, yB = yA + 12, zV = zc - 12, zA = zc - 7;   /* cuerpo de la valvula, riser, articulacion, pico */
+  return [['escudo', [cx, y0, zV], [cx, y0 + 1.2, zV], 9.5, 16], ['cuerpo', [cx, y0 + 1.2, zV], [cx, yR, zV], 3.4, 10], ['manija', [cx - 1, y0 + 5, zV], [cx - 7, y0 + 5, zV - 8], 1.2, 6],
+    ['columna', [cx, yR, zV], [cx, yR, zA + 1.5], 3.2, 10], ['brazoA', [cx, yR, zA], [cx, yA, zA], 1.7, 8], ['articulacion', [cx, yA, zA - 3], [cx, yA, zc + 3], 3.2, 10],
+    ['brazoB', [cx, yA, zc], [cx, yB, zc], 1.7, 8], ['pico', [cx, yB, zc + 3.5], [cx, yB, zc - 6], 3.2, 10], ['boquilla', [cx, yB, zc - 6], [cx, yB, zc - 8], 2.4, 10], ['palanca', [cx, yB, zc + 4.5], [cx + 7, yB, zc + 4.5], 1.1, 6]];
+};
 const CROWN_PERFILES = [['cove', 'Media caña'], ['ogee', 'Ogee (gola reversa)'], ['escalonado', 'Escalonada']];
 /* alturas (sobre el filo inferior de la tapeta) donde el perfil cambia de plano: las lineas que se ven en el alzado */
 const crownLineas = (tipo, b) => { const r = Math.min(1.3, b * .2), bt = b - Math.min(1.3, b * .2);
@@ -4029,10 +4035,11 @@ function planDePiezas(c = cfg){
           add(pieza); }); }
       /* A216 (usuario): potfiller sobre el backsplash, centrado en la columna de la estufa: escudo contra el muro, brazo extendido hacia el frente y pico hacia abajo */
       const rE = cfg.potFiller ? estufaRango() : null;
-      if (rE) { const PF = PLAN_POTFILLER, cx = (rE[0] + rE[1]) / 2, y0 = cfg.backsplash ? Math.max(.5, cfg.espesorBacksplash || 1) : 0, zc = zBar + Math.max(20, cfg.potFillerAlto || 46);
-        add({ id: 'potfiller:placa', rol: 'herraje', tipo: 'PotFiller', x: r2(cx - PF.placa / 2), y: y0, z: r2(zc - PF.placa / 2), ancho: PF.placa, fondo: 1.5, alto: PF.placa, material: null, etiqueta: 'herrajes' });
-        add({ id: 'potfiller:brazo', rol: 'herraje', tipo: 'PotFiller', x: r2(cx - PF.brazo / 2), y: r2(y0 + 1.5), z: r2(zc - PF.brazo / 2), ancho: PF.brazo, fondo: PF.alcance, alto: PF.brazo, material: null, etiqueta: 'herrajes' });
-        add({ id: 'potfiller:pico', rol: 'herraje', tipo: 'PotFiller', x: r2(cx - PF.brazo / 2), y: r2(y0 + 1.5 + PF.alcance - PF.brazo), z: r2(zc - PF.brazo / 2 - 5), ancho: PF.brazo, fondo: PF.brazo, alto: 5, material: null, etiqueta: 'herrajes' }); }
+      if (rE) { const cx = (rE[0] + rE[1]) / 2, y0 = cfg.backsplash ? Math.max(.5, cfg.espesorBacksplash || 1) : 0, zc = zBar + Math.max(25, cfg.potFillerAlto || 46);
+        potFillerCils(cx, y0, zc).forEach(([sid, de, a2, d, lados]) => { const r = d / 2, lo = [0, 1, 2].map(i => Math.min(de[i], a2[i]) - r), hi = [0, 1, 2].map(i => Math.max(de[i], a2[i]) + r);
+          const q = { id: 'potfiller:' + sid, rol: 'herraje', tipo: 'PotFiller', x: r2(lo[0]), y: r2(lo[1]), z: r2(lo[2]), ancho: r2(hi[0] - lo[0]), fondo: r2(hi[1] - lo[1]), alto: r2(hi[2] - lo[2]), material: null, etiqueta: 'herrajes' };
+          add(q); const loc = v => [r2(Math.min(Math.max(v[0] - q.x, 0), q.ancho)), r2(Math.min(Math.max(v[1] - q.y, 0), q.fondo)), r2(Math.min(Math.max(v[2] - q.z, 0), q.alto))];
+          q.forma = { tipo: 'cilindro', de: loc(de), a: loc(a2), diametro: d, lados }; }); }
     }
     /* ISLA (B16; drawIslandFront / Plan / Back / Section): costados o cascadas en los extremos, zoclo frontal con cierres hasta el
        zoclo posterior (o los paneles), paneles posteriores con su reparto (islandPanels) mirando a los bancos, zoclo posterior con
@@ -5347,10 +5354,13 @@ function drawElevation(){
     ctx.restore(); };
   if (highs.length) part('fillerTop', cfg.tapetaSuperior, [RX(run0, run1, cfg.tapetaSuperior ? zTop : cfg.alturaMuro - 3, cfg.alturaMuro)], tapetaTopPaint, post);
   { const rE = cfg.potFiller ? estufaRango() : null;   /* A216: potfiller en la columna de la estufa (escudo, brazo y pico) */
-    if (rE) { const PF = PLAN_POTFILLER, cx = X((rE[0] + rE[1]) / 2), zc = altoBarra() + Math.max(20, cfg.potFillerAlto || 46);
-      post.push(() => { ctx.save(); ctx.fillStyle = C.line; ctx.strokeStyle = C.line; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.rect(cx - PF.placa*scale/2, Z(zc + PF.placa/2), PF.placa*scale, PF.placa*scale); ctx.stroke();
-        ctx.fillRect(cx - PF.brazo*scale/2, Z(zc + PF.brazo/2), PF.brazo*scale, (PF.brazo + 5)*scale); ctx.restore(); }); } }
+    if (rE) { const cx0 = (rE[0] + rE[1]) / 2, zc = altoBarra() + Math.max(25, cfg.potFillerAlto || 46), cils = potFillerCils(cx0, 0, zc);
+      post.push(() => { ctx.save(); ctx.lineCap = 'round';
+        cils.forEach(([, de, a2, d]) => { const x1 = X(de[0]), y1 = Z(de[2]), x2 = X(a2[0]), y2 = Z(a2[2]), dd = Math.max(1.5, d*scale);
+          if (Math.abs(x1 - x2) < .01 && Math.abs(y1 - y2) < .01) { ctx.beginPath(); ctx.arc(x1, y1, dd/2, 0, 6.2832); ctx.fillStyle = '#B9C0C7'; ctx.fill(); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.stroke(); return; }
+          ctx.strokeStyle = C.line; ctx.lineWidth = dd + 1.2; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+          ctx.strokeStyle = '#B9C0C7'; ctx.lineWidth = dd; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); });
+        ctx.restore(); }); } }
 
   /* modulos */
   for (const upper of [false, true]) { let x = ajusteIzq(); row(upper).forEach(m => { edgeOwner = m.id; drawModule(m, x, RX, X, Z, post); edgeOwner = null; x += m.ancho; }); }
