@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A211. [Master hecho 15/10; Ruby y Revit: tapeta superior siempre al ras de las caras posteriores] Se quita la opcion de posicion (a ras de caras frontales): la tapeta superior y la moldura arrancan en la cara posterior de las puertas.
    A210. [Master hecho 15/10; Ruby y Revit: leer cfg.tapetaSuperiorMoldura] La moldura es una opcion aparte de la posicion (a ras de las caras frontales / detras en las posteriores); en Presentar, detalle de moldura en corte (ConjMoldura, lamina de altos) con perfil, proyeccion y altura; el corte ya la dibuja.
    A209. [Master hecho 15/10; Ruby y Revit: leer la forma perfil de la Moldura] Tres perfiles de corona (investigados: media cana, ogee y escalonada) en cfg.tapetaSuperiorPerfil, con vista previa en el panel y dibujados en el corte de la cocina.
    A208. [Master hecho 15/10; Ruby y Revit: leer tipo 'Moldura' y forma perfil] Tapeta superior en tres posiciones (cfg.tapetaSuperiorModo): a ras de las puertas, detras de su cara posterior (un grueso mas al fondo) o moldura corona a 45 grados (solo estilo Clasica; pieza tipo Moldura con perfil triangular de hasta 7 cm).
@@ -2348,7 +2349,7 @@ function swatchURL(m, w = 86, h = 54, patronId){
 function defaultConfig(length){
   const c = { longitud: length, alturaMuro: 240, desfasePiso: 0, separacionPosterior: 0,
     baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, vuelo: 0,
-    tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5, tapetaSuperiorModo: 'ras', tapetaSuperiorMoldura: false, tapetaSuperiorPerfil: 'ogee',
+    tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5, tapetaSuperiorModo: 'atras', tapetaSuperiorMoldura: false, tapetaSuperiorPerfil: 'ogee',
     generarCubierta: true, generarZoclos: true, tipoZoclo: 'madera', retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
     backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 1, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true, ledFade: 45, ledTemp: 3000,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
@@ -3340,7 +3341,7 @@ const cajaModelo = ([mn, mx], { ox, refX = 0, espejo = false, oy, refY = 0, sy =
 /* A209: perfiles de corona mas usados en gabinetes (investigacion: media cana, gola reversa u ogee y escalonada o tradicional); (y, z) en cm desde la
    esquina inferior de la espalda: y hacia el cuarto, z hacia arriba; c = proyeccion, b = altura. El borde superior toca el techo y la espalda, el plano de las puertas */
 /* A210 (usuario): la moldura es una opcion aparte de la posicion; el modo 'moldura' guardado antes cuenta como a ras + moldura */
-const tsModo = () => cfg.tapetaSuperiorModo === 'atras' ? 'atras' : 'ras';
+const tsModo = () => 'atras';   /* A211 (usuario): la tapeta superior queda al ras de las caras posteriores de las puertas; sin otra posicion */
 const molduraTs = () => !!cfg.tapetaSuperior && cfg.style === 'Clasica' && (!!cfg.tapetaSuperiorMoldura || cfg.tapetaSuperiorModo === 'moldura');
 const CROWN_PERFILES = [['cove', 'Media caña'], ['ogee', 'Ogee (gola reversa)'], ['escalonado', 'Escalonada']];
 const perfilCrown = (tipo, c, b) => {
@@ -7992,7 +7993,6 @@ function partPanel(key){
       + '<div class="note-sm">Gabinetes iguales en cm enteros; lo que sobra va a las tapetas (hasta su máximo) o, si no cabe, a algunos gabinetes, 1 cm más.</div>');
   } else if (key === 'fillerTop') {
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`
-      + (cfg.tapetaSuperior ? radios('tapSM', [['ras', 'A ras de las caras frontales de las puertas'], ['atras', 'Detrás, en las caras posteriores']], tsModo()) : '')
       + (cfg.tapetaSuperior && cfg.style === 'Clasica' ? chk('tapSMol', molduraTs(), 'Moldura (corona)') : '')
       + (molduraTs() ? `<div class="p-label" style="margin-top:10px">Perfil de la moldura</div>` + radios('tapSP', CROWN_PERFILES.map(([v, t]) => [v, crownSvg(v) + `<span>${t}</span>`]), cfg.tapetaSuperiorPerfil || 'ogee') : ''));
   } else if (key === 'gola') {
@@ -8188,7 +8188,7 @@ const ACT = {
   tapTope: v => change(c => { c.topeTapeta = Math.max(v, c.tapetaIzq ? c.reservaIzq : 0, c.tapetaDer ? c.reservaDer : 0); }), closetLed: v => change(c => c.closetLed = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
-  tapSM: v => change(c => c.tapetaSuperiorModo = v), tapSMol: v => change(c => { c.tapetaSuperiorMoldura = v; if (c.tapetaSuperiorModo === 'moldura') c.tapetaSuperiorModo = 'ras'; }), tapSP: v => change(c => c.tapetaSuperiorPerfil = v),
+  tapSMol: v => change(c => { c.tapetaSuperiorMoldura = v; if (c.tapetaSuperiorModo === 'moldura') c.tapetaSuperiorModo = 'ras'; }), tapSP: v => change(c => c.tapetaSuperiorPerfil = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
   perfil: v => change(c => c.perfil = v),
   addBajo: () => addModule(false), addAlto: () => addModule(true), delSel: () => deleteSelected(),
