@@ -303,6 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A210. [Master hecho 15/10; Ruby y Revit: leer cfg.tapetaSuperiorMoldura] La moldura es una opcion aparte de la posicion (a ras de las caras frontales / detras en las posteriores); en Presentar, detalle de moldura en corte (ConjMoldura, lamina de altos) con perfil, proyeccion y altura; el corte ya la dibuja.
    A209. [Master hecho 15/10; Ruby y Revit: leer la forma perfil de la Moldura] Tres perfiles de corona (investigados: media cana, ogee y escalonada) en cfg.tapetaSuperiorPerfil, con vista previa en el panel y dibujados en el corte de la cocina.
    A208. [Master hecho 15/10; Ruby y Revit: leer tipo 'Moldura' y forma perfil] Tapeta superior en tres posiciones (cfg.tapetaSuperiorModo): a ras de las puertas, detras de su cara posterior (un grueso mas al fondo) o moldura corona a 45 grados (solo estilo Clasica; pieza tipo Moldura con perfil triangular de hasta 7 cm).
    A207. [Master hecho 13/10; Drawdrobe] Lo de Presentar llevado al closet: el pie y el PDF dicen Drawdrobe; notas automaticas del closet (carcasa, puertas, barras, cajones, zapatera, LED); lamina por modulo (alzado con frentes y alzado sin puertas recortados a su columna, 1:10, con las luces entre repisas, barras y cajones); el panel lleva la lista de laminas con arrastre como el de Skitchen. Sin plan de piezas del closet no hay despiece ni detalles de cajon todavia.
@@ -2347,7 +2348,7 @@ function swatchURL(m, w = 86, h = 54, patronId){
 function defaultConfig(length){
   const c = { longitud: length, alturaMuro: 240, desfasePiso: 0, separacionPosterior: 0,
     baseBajos: 10, altoBajos: 72, espesorCubierta: 3, separacionAltos: 60, vuelo: 0,
-    tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5, tapetaSuperiorModo: 'ras', tapetaSuperiorPerfil: 'ogee',
+    tapetaIzq: true, tapetaDer: true, reservaIzq: 7, reservaDer: 7, corridaIzq: false, corridaDer: false, tapetaSuperior: false, alturaTapetaSuperior: 5, tapetaSuperiorModo: 'ras', tapetaSuperiorMoldura: false, tapetaSuperiorPerfil: 'ogee',
     generarCubierta: true, generarZoclos: true, tipoZoclo: 'madera', retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
     backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 1, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true, ledFade: 45, ledTemp: 3000,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
@@ -3338,6 +3339,9 @@ const cajaModelo = ([mn, mx], { ox, refX = 0, espejo = false, oy, refY = 0, sy =
   y: oy - (mx[1] - refY)*sy, fondo: (mx[1] - mn[1])*sy, z: oz + (mn[2] - refZ)*sz, alto: (mx[2] - mn[2])*sz });
 /* A209: perfiles de corona mas usados en gabinetes (investigacion: media cana, gola reversa u ogee y escalonada o tradicional); (y, z) en cm desde la
    esquina inferior de la espalda: y hacia el cuarto, z hacia arriba; c = proyeccion, b = altura. El borde superior toca el techo y la espalda, el plano de las puertas */
+/* A210 (usuario): la moldura es una opcion aparte de la posicion; el modo 'moldura' guardado antes cuenta como a ras + moldura */
+const tsModo = () => cfg.tapetaSuperiorModo === 'atras' ? 'atras' : 'ras';
+const molduraTs = () => !!cfg.tapetaSuperior && cfg.style === 'Clasica' && (!!cfg.tapetaSuperiorMoldura || cfg.tapetaSuperiorModo === 'moldura');
 const CROWN_PERFILES = [['cove', 'Media caña'], ['ogee', 'Ogee (gola reversa)'], ['escalonado', 'Escalonada']];
 const perfilCrown = (tipo, c, b) => {
   const pts = [[0, 0]], arco = (cx, cz, rx, rz, a0, a1, k = 10) => { for (let i = 1; i <= k; i++) { const a = a0 + (a1 - a0) * i / k; pts.push([cx + rx * Math.cos(a), cz + rz * Math.sin(a)]); } };
@@ -4086,11 +4090,11 @@ function planDePiezas(c = cfg){
          cambia el saque, un regreso del frente menos saliente al mas saliente */
       const altoTs = cfg.alturaMuro - zTop, matTs = groupMaterial('Tapetas');
       /* A208 (usuario): la tapeta superior puede ir a ras de las puertas, detras de su cara posterior o ser una moldura (corona), solo en Clasica */
-      const modoTs = cfg.tapetaSuperiorModo === 'atras' ? 'atras' : cfg.tapetaSuperiorModo === 'moldura' && cfg.style === 'Clasica' ? 'moldura' : 'ras', dTs = modoTs === 'atras' ? t : 0;
+      const modoTs = tsModo(), conMolduraTs = molduraTs(), dTs = modoTs === 'atras' ? t : 0;
       unidos.forEach(([a, b, fo], k) => { const sf = unidos.length > 1 ? ':' + k : '';
-        if (modoTs === 'moldura') {   /* corona a 45 grados: su espalda vertical sobre el plano de las puertas y su canto superior saliendo al cuarto hasta el techo */
+        if (conMolduraTs) {   /* corona a 45 grados: su espalda vertical sobre el plano de las puertas y su canto superior saliendo al cuarto hasta el techo */
           const c9 = Math.min(altoTs, 7);
-          add({ id: 'tapeta:superior:moldura' + sf, rol: 'tapeta', tipo: 'Moldura', x: a, y: fo, z: zTop, ancho: b - a, fondo: r2(c9), alto: altoTs, material: matTs, etiqueta: 'tapetas',
+          add({ id: 'tapeta:superior:moldura' + sf, rol: 'tapeta', tipo: 'Moldura', x: a, y: fo - dTs, z: zTop, ancho: b - a, fondo: r2(c9), alto: altoTs, material: matTs, etiqueta: 'tapetas',
             forma: { tipo: 'perfil', eje: 'x', puntos: perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', r2(c9), r2(altoTs)) } });
           return; }
         add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: a, y: fo - t - dTs, z: zTop, ancho: b - a, fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
@@ -5594,9 +5598,9 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
       const hs = isDoble(up) ? up.altoSuperior : 0;
       const ub = caja(up, z0, zTop - hs, up.fondo, !camp);
       if (cfg.tapetaSuperior && cfg.alturaMuro - zTop > .1) {   /* A209: la tapeta superior (a ras, detras o moldura) en corte */
-        const t1 = 1.8, d0 = up.fondo + t1, hTs = cfg.alturaMuro - zTop, modo = cfg.tapetaSuperiorModo === 'moldura' && cfg.style === 'Clasica' ? 'moldura' : cfg.tapetaSuperiorModo === 'atras' ? 'atras' : 'ras';
-        post.push(() => { ctx.save(); ctx.fillStyle = C.tapeta || C.front; ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath();
-          if (modo === 'moldura') { perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', Math.min(hTs, 7), hTs).forEach(([y, z], i) => { const X = P(d0 + y), Y = Z(zTop + z); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
+        const t1 = 1.8, d0 = up.fondo + (tsModo() === 'atras' ? 0 : t1), hTs = cfg.alturaMuro - zTop, modo = tsModo(), conMol = molduraTs();
+        post.push(() => { ctx.save(); ctx.fillStyle = flat ? C.flat : C.front; ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath();
+          if (conMol) { perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', Math.min(hTs, 7), hTs).forEach(([y, z], i) => { const X = P(d0 + y), Y = Z(zTop + z); i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); }
           else { const dd = modo === 'atras' ? up.fondo - t1 : up.fondo;   /* profundidad hacia el frente: a ras = caras frontales de las puertas (up.fondo..+t1); detras = su cara posterior */ ctx.rect(P(dd + t1), Z(cfg.alturaMuro), t1*s, hTs*s); }
           ctx.fill(); ctx.stroke(); ctx.restore(); }); }
       if (cfg.led && conCama(up)) {   /* A188: el nicho de la tira LED en la cama, con el color de su temperatura */
@@ -7988,8 +7992,9 @@ function partPanel(key){
       + '<div class="note-sm">Gabinetes iguales en cm enteros; lo que sobra va a las tapetas (hasta su máximo) o, si no cabe, a algunos gabinetes, 1 cm más.</div>');
   } else if (key === 'fillerTop') {
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`
-      + (cfg.tapetaSuperior ? radios('tapSM', [['ras', 'A ras de las puertas'], ['atras', 'Detrás de las puertas']].concat(cfg.style === 'Clasica' ? [['moldura', 'Moldura (corona)']] : []), cfg.tapetaSuperiorModo === 'moldura' && cfg.style !== 'Clasica' ? 'ras' : cfg.tapetaSuperiorModo || 'ras') : '')
-      + (cfg.tapetaSuperior && cfg.tapetaSuperiorModo === 'moldura' && cfg.style === 'Clasica' ? `<div class="p-label" style="margin-top:10px">Perfil de la moldura</div>` + radios('tapSP', CROWN_PERFILES.map(([v, t]) => [v, crownSvg(v) + `<span>${t}</span>`]), cfg.tapetaSuperiorPerfil || 'ogee') : ''));
+      + (cfg.tapetaSuperior ? radios('tapSM', [['ras', 'A ras de las caras frontales de las puertas'], ['atras', 'Detrás, en las caras posteriores']], tsModo()) : '')
+      + (cfg.tapetaSuperior && cfg.style === 'Clasica' ? chk('tapSMol', molduraTs(), 'Moldura (corona)') : '')
+      + (molduraTs() ? `<div class="p-label" style="margin-top:10px">Perfil de la moldura</div>` + radios('tapSP', CROWN_PERFILES.map(([v, t]) => [v, crownSvg(v) + `<span>${t}</span>`]), cfg.tapetaSuperiorPerfil || 'ogee') : ''));
   } else if (key === 'gola') {
     html += section('Perfil de aluminio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Perfil de aluminio visible en 3D.</div>` + radios('perfil', [['L', 'Perfil L'], ['C', 'Perfil C']], cfg.perfil) + `<div class="note-sm">Suelta un material en una franja: va a toda la gola.</div>`);
   }
@@ -8183,7 +8188,7 @@ const ACT = {
   tapTope: v => change(c => { c.topeTapeta = Math.max(v, c.tapetaIzq ? c.reservaIzq : 0, c.tapetaDer ? c.reservaDer : 0); }), closetLed: v => change(c => c.closetLed = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
   tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
-  tapSM: v => change(c => c.tapetaSuperiorModo = v), tapSP: v => change(c => c.tapetaSuperiorPerfil = v),
+  tapSM: v => change(c => c.tapetaSuperiorModo = v), tapSMol: v => change(c => { c.tapetaSuperiorMoldura = v; if (c.tapetaSuperiorModo === 'moldura') c.tapetaSuperiorModo = 'ras'; }), tapSP: v => change(c => c.tapetaSuperiorPerfil = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
   perfil: v => change(c => c.perfil = v),
   addBajo: () => addModule(false), addAlto: () => addModule(true), delSel: () => deleteSelected(),
@@ -11228,6 +11233,32 @@ const LAM = (() => {
     const bN = capN.bb, xN = Math.max(bN.x1, M + 5.4 * T('NARIZ DE LA CUBIERTA · CORTE').length), yN = Math.min(bN.y0, M - 22);   /* A192: el titulo cuenta en la caja de la vista */
     capN.bb = { x0: bN.x0, y0: yN, x1: xN, y1: bN.y1, w: xN - bN.x0, h: bN.y1 - yN }; return capN;
   }
+  /* A210 (usuario): detalle de la moldura (corona) en corte: su perfil, su proyeccion y su altura respecto a la puerta y al techo */
+  function capturarMolduraConjunto(o){
+    if (o.grupo !== 'altos' || !molduraTs()) throw new Error(T('Este conjunto no lleva moldura'));
+    const plano = !!o.plano, sc = (10 / o.escalaFija) / PX_MM, t = 1.8, atras = tsModo() === 'atras';
+    const hTs = cfg.alturaTapetaSuperior, c = Math.min(hTs, 7), LARGO = 12, M = 46, W = (c + t + LARGO) * sc, Ht = (hTs + 12) * sc;
+    const g = new Grabador(W + 2 * M + 70, Ht + 2 * M + 30), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
+    const ox = M + 40, oy = M + 10, X = x => ox + (x + c) * sc, Z = z => oy + (hTs - z) * sc;   /* x = 0 en la cara frontal de las puertas; z = 0 en el filo inferior de la tapeta */
+    const fill = (pts, col) => { g.save(); g.beginPath(); pts.forEach(([x, z], i) => i ? g.lineTo(X(x), Z(z)) : g.moveTo(X(x), Z(z))); g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = plano ? '#222222' : '#4A5057'; g.lineWidth = 1.1; g.stroke(); g.restore(); };
+    const nombrePerfil = (CROWN_PERFILES.find(q => q[0] === (cfg.tapetaSuperiorPerfil || 'ogee')) || ['', ''])[1];
+    try {
+      const mad = plano ? '#FFFFFF' : '#E8E0CF', cor = plano ? '#F2F4F6' : '#D9C7A3';
+      fill([[0, 0], [t, 0], [t, -12], [0, -12]], mad);                                   /* la puerta alta */
+      fill([[t + 2, 0], [t + LARGO, 0], [t + LARGO, -1.8], [t + 2, -1.8]], mad);         /* el techo del gabinete */
+      const xb = atras ? t : 0;                                                          /* plano de arranque: cara frontal o posterior de la puerta */
+      fill(perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', c, hTs).map(([y, z]) => [xb - y, z]), cor);
+      g.save(); g.strokeStyle = '#6B7680'; g.lineWidth = 1; g.beginPath(); g.moveTo(X(-c - 4), Z(hTs)); g.lineTo(X(t + LARGO), Z(hTs)); g.stroke();   /* el techo del cuarto */
+      g.setLineDash([5, 3]); g.lineWidth = .7; g.beginPath(); g.moveTo(X(xb), Z(0) + 10); g.lineTo(X(xb), Z(hTs) - 12); g.stroke(); g.restore();
+      J.H(X(xb - c), X(xb), Z(hTs) - 12, fmt(c));
+      J.V(X(-c) - 14, Z(hTs), Z(0), fmt(hTs));
+      g.save(); g.fillStyle = '#444444'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+      g.fillText(T('MOLDURA · CORTE') + ' · ' + T(nombrePerfil).toUpperCase(), M, M - 12); g.restore();
+    } finally { Object.assign(C, previoC); }
+    const capM = J.fin({ ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista: 'ConjMoldura', plano, bb: cajaTinta(g.ops) });
+    const bM = capM.bb, xM = Math.max(bM.x1, M + 190), yM = Math.min(bM.y0, M - 22);
+    capM.bb = { x0: bM.x0, y0: yM, x1: xM, y1: bM.y1, w: xM - bM.x0, h: bM.y1 - yM }; return capM;
+  }
   function capturarBisagraConjunto(o){
     const eb = escenaBisagra(o), plano = !!o.plano;
     if (!eb) throw new Error(T('Este conjunto no lleva bisagras de cazoleta'));
@@ -11264,7 +11295,7 @@ const LAM = (() => {
     : vista === 'ConjGola' ? capturarGolaConjunto(o) : vista === 'ConjDespiece' ? capturarDespieceConjunto(o)
     : vista === 'ConjHerrajes' ? capturarHerrajesConjunto(o) : vista === 'ConjBisagra' ? capturarBisagraConjunto(o)
     : vista === 'ConjCorredera' ? capturarCorrederaConjunto(o) : vista === 'ConjPiston' ? capturarPistonConjunto(o)
-    : vista === 'ConjCajon' ? capturarCajaConjunto(o, 'cajon') : vista === 'ConjEspiero' ? capturarCajaConjunto(o, 'especiero') : vista === 'ConjNariz' ? capturarNarizConjunto(o) : vista === 'ConjTitulo' ? capturarTituloConjunto(o) : capturarInterfaz(vista, o);
+    : vista === 'ConjCajon' ? capturarCajaConjunto(o, 'cajon') : vista === 'ConjEspiero' ? capturarCajaConjunto(o, 'especiero') : vista === 'ConjNariz' ? capturarNarizConjunto(o) : vista === 'ConjMoldura' ? capturarMolduraConjunto(o) : vista === 'ConjTitulo' ? capturarTituloConjunto(o) : capturarInterfaz(vista, o);
 
   /* ---- PDF 1.4 vectorial: Helvetica, WinAnsi; unidades de la pagina en mm (cm 2.8346) ---- */
   const lat1 = s => { let r = ''; for (const ch of String(s)) { const c = ch.charCodeAt(0); r += c < 256 ? ch : ({ 0x2026: '\x85', 0x2013: '\x96', 0x2014: '\x97', 0x2022: '\x95' }[c] || '?'); } return r; };
@@ -11697,7 +11728,7 @@ const LAM = (() => {
   }
   const tituloItem = (L, it) => it.vista === 'Corte' ? `${T(NOMBRES.Corte)} ${letraDe(L, it)}–${letraDe(L, it)}`
     : (it.vista === 'ConjCajon' || it.vista === 'ConjEspiero') && it.cap && (it.cap.sub || it.cap.nVar > 1) ? `${T(NOMBRES[it.vista])}${it.cap.nVar > 1 ? ' ' + (it.cap.variante + 1) : ''}${it.cap.sub ? ' · ' + T(it.cap.sub) : ''}`
-    : ES_CONJUNTO(it.vista) && it.vista !== 'ConjLocal' && it.vista !== 'ConjTitulo' && !['ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero', 'ConjNariz'].includes(it.vista) ? `${T(NOMBRES[it.vista])} · ${T(GRUPO_CORTO[it.grupo] || '')}` : T(NOMBRES[it.vista]);
+    : ES_CONJUNTO(it.vista) && it.vista !== 'ConjLocal' && it.vista !== 'ConjTitulo' && !['ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero', 'ConjNariz', 'ConjMoldura'].includes(it.vista) ? `${T(NOMBRES[it.vista])} · ${T(GRUPO_CORTO[it.grupo] || '')}` : T(NOMBRES[it.vista]);
   /* centros de los gabinetes bajos (cm desde el extremo izquierdo): sitios naturales para un corte */
   function centrosCorte(){
     try { let x = ajusteIzq(); const out = row(false).map(m => { const c = x + m.ancho / 2; x += m.ancho; return Math.round(c * 10) / 10; });
@@ -11743,7 +11774,7 @@ const LAM = (() => {
         /* A186: la escala que eligio el usuario se respeta; si no cabe, sube solo la de la vista mas grande, un paso cada vez */
         let alt = ok.map(it => ({ it, n: it.n, cap: it.cap, bbEf: it.bbEf })), hallado = false;
         for (let paso = 0; paso < 24 && !hallado; paso++) {
-          const DET = ['ConjGola', 'ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero', 'ConjNariz'], prio = q => ALZ.includes(q.it.vista) ? 3 : LIBRE.includes(q.it.vista) || DET.includes(q.it.vista) ? 1 : q.n >= 50 ? 2 : 0;   /* A192: primero el isometrico (a gusto), los alzados se quedan en 1:25 hasta el final */   /* primero las vistas generales hasta 1:50, luego los detalles y al final 1:100 */
+          const DET = ['ConjGola', 'ConjBisagra', 'ConjCorredera', 'ConjPiston', 'ConjCajon', 'ConjEspiero', 'ConjNariz', 'ConjMoldura'], prio = q => ALZ.includes(q.it.vista) ? 3 : LIBRE.includes(q.it.vista) || DET.includes(q.it.vista) ? 1 : q.n >= 50 ? 2 : 0;   /* A192: primero el isometrico (a gusto), los alzados se quedan en 1:25 hasta el final */   /* primero las vistas generales hasta 1:50, luego los detalles y al final 1:100 */
           const orden2 = (a2, b2) => prio(a2) - prio(b2) || b2.bbEf.w * b2.bbEf.h - a2.bbEf.w * a2.bbEf.h, sube = q => !['ConjLocal', 'ConjTitulo', 'ConjHerrajes'].includes(q.it.vista) && (LIBRE.includes(q.it.vista) ? q.n < 100 : q.it.vista === 'ConjDespiece' ? q.n < 50 : ESCALAS.some(e => e > q.n));   /* A194: el isometrico y el despiece no se vuelven ilegibles: antes suben los alzados */
           const cand = alt.filter(sube).sort(orden2)[0];   /* la vista que mas hoja ocupa, aunque sea un detalle */
           if (!cand) break;
@@ -11771,6 +11802,7 @@ const LAM = (() => {
       const f = filtroConjunto(grupo, cara || 0), ps = piezasCara(planCocina(), cara || 0).filter(p => f(p, cara || 0));
       if (vista === 'ConjGola') return ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil');
       if (vista === 'ConjNariz') return grupo === 'bajos' && !!cfg.generarCubierta;
+      if (vista === 'ConjMoldura') return grupo === 'altos' && molduraTs();
       if (vista === 'ConjHerrajes') return ps.some(p => p.rol === 'herraje');
     } catch (e) { return false; }
     return true;
@@ -11836,12 +11868,12 @@ const LAM = (() => {
     return conHoja(L.papel, () => { const its = enHoja(L, h).filter(it => it.on && it.cap).map(it => ({ it, cap: it.cap })); return !its.length || !!empacarMejor(its); });
   }
   function presAcomodarConjunto(L, h){
-    const DET = ['ConjCajon', 'ConjEspiero', 'ConjNariz', 'ConjGola'], propia = L.hojas[h];   /* A203: el conteo de herrajes siempre se queda en la primera lamina */
+    const DET = ['ConjCajon', 'ConjEspiero', 'ConjNariz', 'ConjMoldura', 'ConjGola'], propia = L.hojas[h];   /* A203: el conteo de herrajes siempre se queda en la primera lamina */
     const area = v => { const b = v.bbEf || v.cap.bb; return b.w * b.h; };
     const movidas = [];
     /* prioridad: alzados, despieces, isometricos y cajones conservan su escala; si no caben, bajan primero los herrajes (hasta 67 %), luego
        la nariz y la gola (hasta 1:10); solo despues un detalle pasa a la lamina de detalles */
-    const PASOS = [['ConjHerrajes', [1, 1.25, 1.5]], ['ConjNariz', [5, 10]], ['ConjGola', [5, 10]]];
+    const PASOS = [['ConjHerrajes', [1, 1.25, 1.5]], ['ConjNariz', [5, 10]], ['ConjMoldura', [5, 10]], ['ConjGola', [5, 10]]];
     const bajar = () => { for (const [vista, esc] of PASOS) { const v = L.vistas.find(q => q.hoja === h && q.on && q.cap && q.vista === vista); if (!v) continue;
         const k = esc.indexOf(v.n); if (k < 0 || k >= esc.length - 1) continue;
         v.n = esc[k + 1]; try { conHoja(L.papel, () => medirItem(v, capPres(L, v), L)); } catch (e) { v.n = esc[k]; continue; } return true; } return false; };
@@ -11916,11 +11948,11 @@ const LAM = (() => {
     const fc = filtroConjunto(grupo, cara), ps = piezasCara(isla ? vi.plan : planCocina(), cara).filter(p => fc(p, cara));
     /* A200: todas las vistas nacen en la misma lamina; presAcomodarConjunto manda a una segunda solo las que no caben (minimo reparto) */
     const base = { planIsla: vi, grupo, cara }, nCaj = (piezasDeCaja(base, 'cajon') || {}).variantes || 0, nEsp = (piezasDeCaja(base, 'especiero') || {}).variantes || 0;
-    const tiene = { ConjGola: ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil'), ConjHerrajes: ps.some(p => p.rol === 'herraje'), ConjNariz: grupo === 'bajos' && !!cfg.generarCubierta };
+    const tiene = { ConjGola: ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil'), ConjHerrajes: ps.some(p => p.rol === 'herraje'), ConjNariz: grupo === 'bajos' && !!cfg.generarCubierta, ConjMoldura: grupo === 'altos' && molduraTs() };
     const lista = [['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50], ['ConjAlzado', 25], ['ConjInterior', 25]];
     for (let k = 0; k < nCaj; k++) lista.push(['ConjCajon', 10, k]);
     for (let k = 0; k < nEsp; k++) lista.push(['ConjEspiero', 10, k]);
-    lista.push(['ConjGola', 5], ['ConjNariz', 5], ['ConjHerrajes', 1]);
+    lista.push(['ConjGola', 5], ['ConjNariz', 5], ['ConjMoldura', 5], ['ConjHerrajes', 1]);
     lista.filter(([v]) => tiene[v] !== false).forEach(([v, nn, k]) =>
       L.vistas.push({ id: `${v}~${stamp}${k ? '-' + k : ''}`, vista: v, hoja: h, on: true, n: nn, x: NaN, y: NaN, plano: !['ConjLocal', 'ConjIso', 'ConjDespiece', 'ConjCajon', 'ConjEspiero'].includes(v), corte: NaN, grupo, cara, abiertos: [], explotado: false, variante: k || undefined }));   /* con su marca de color */
     return h;
@@ -12622,7 +12654,7 @@ const LAM = (() => {
   /* ---- ensamblado: hoja con rotulo, nota de alcance y los nombres de archivo ---- */
   const prodNombre = () => cfg && cfg.closet ? 'Drawdrobe' : 'Skitchen';   /* A207: el pie y el PDF llevan el producto del modo */
   const NOMBRES = { AlzadoPuertas: 'Alzado con frentes', AlzadoInterior: 'Alzado sin puertas', Planta: 'Planta', Corte: 'Corte', Isometrico: 'Isométrico',
-    ConjLocal: 'Vista general', ConjIso: 'Isométrico', ConjAlzado: 'Alzado, puertas y cajones', ConjInterior: 'Interiores', ConjGola: 'Detalle de gola', ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjCajon: 'Detalle de cajón tipo', ConjNariz: 'Detalle de nariz', ConjEspiero: 'Detalle de especiero', ConjTitulo: 'Título del conjunto' };
+    ConjLocal: 'Vista general', ConjIso: 'Isométrico', ConjAlzado: 'Alzado, puertas y cajones', ConjInterior: 'Interiores', ConjGola: 'Detalle de gola', ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjCajon: 'Detalle de cajón tipo', ConjNariz: 'Detalle de nariz', ConjMoldura: 'Detalle de moldura', ConjEspiero: 'Detalle de especiero', ConjTitulo: 'Título del conjunto' };
   function rotulo(cap){
     const dims = (() => { try { return `${T('Longitud')} ${medida(cfg.longitud)} · ${T('Altura de muro')} ${medida(cfg.alturaMuro)}`; } catch (e) { return ''; } })();
     const hoy = new Date(), dd = hoy.toLocaleDateString(prefs.idioma === 'en' ? 'en-US' : 'es-MX');
@@ -12894,7 +12926,7 @@ function presRecordarDet(e){ const d = e.target; if (d && d.tagName === 'DETAILS
 function presLado(){
   const L = PRES.L, e2 = esc, nom = Object.fromEntries(LAM.VISTAS), opt = (v, t, on) => `<option value="${v}"${on ? ' selected' : ''}>${e2(t)}</option>`;
   const NOMS = Object.assign({ ConjLocal: 'Vista general', ConjIso: 'Isométrico del conjunto', ConjAlzado: 'Alzado del conjunto', ConjInterior: 'Interiores del conjunto', ConjGola: 'Detalle de gola',
-    ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjCajon: 'Detalle de cajón tipo', ConjNariz: 'Detalle de nariz', ConjEspiero: 'Detalle de especiero', ConjTitulo: 'Título' }, nom);
+    ConjDespiece: 'Despiece de frentes', ConjHerrajes: 'Herrajes', ConjBisagra: 'Detalle de bisagra', ConjCorredera: 'Detalle de corredera', ConjPiston: 'Detalle de pistón', ConjCajon: 'Detalle de cajón tipo', ConjNariz: 'Detalle de nariz', ConjMoldura: 'Detalle de moldura', ConjEspiero: 'Detalle de especiero', ConjTitulo: 'Título' }, nom);
   const filas = L.vistas.map((it, i) => [it, i]).filter(([it]) => it.hoja === L.hoja).map(([it, i]) => {
     const nombre = it.vista === 'Corte' ? `${nom.Corte} ${LAM.letraDe(L, it)}–${LAM.letraDe(L, it)}` : NOMS[it.vista], dup = L.vistas.some(q => q !== it && q.vista === it.vista && q.hoja === it.hoja);
     const fija = it.vista === 'ConjTitulo';
@@ -12944,8 +12976,8 @@ function presLado(){
   const hj = L.hojas[L.hoja] || {}, esConj = !!hj.grupo, enLamina = L.vistas.filter(v => v.hoja === L.hoja).map(v => v.vista);
   const esDetalles = esConj && (hj.detalles || !enLamina.some(v => ['ConjIso', 'ConjAlzado', 'ConjInterior', 'ConjDespiece', 'ConjTitulo'].includes(v)));
   const NOM_CONJ = { ConjLocal: 'Vista general', ConjIso: 'Isométrico del conjunto', ConjAlzado: 'Alzado del conjunto', ConjInterior: 'Interiores del conjunto', ConjDespiece: 'Despiece de frentes', ConjCajon: 'Detalle de cajón tipo',
-    ConjEspiero: 'Detalle de especiero', ConjGola: 'Detalle de gola', ConjNariz: 'Detalle de nariz', ConjHerrajes: 'Herrajes' };
-  const claves = !esConj ? [] : esDetalles ? ['ConjLocal', 'ConjCajon', 'ConjEspiero', 'ConjGola', 'ConjNariz', 'ConjHerrajes'] : Object.keys(NOM_CONJ);
+    ConjEspiero: 'Detalle de especiero', ConjGola: 'Detalle de gola', ConjNariz: 'Detalle de nariz', ConjMoldura: 'Detalle de moldura', ConjHerrajes: 'Herrajes' };
+  const claves = !esConj ? [] : esDetalles ? ['ConjLocal', 'ConjCajon', 'ConjEspiero', 'ConjGola', 'ConjNariz', 'ConjMoldura', 'ConjHerrajes'] : Object.keys(NOM_CONJ);
   const generales = LAM.VISTAS.filter(([v]) => !(cfg.closet && (v === 'Planta' || v === 'Isometrico')));
   const agregar = `<label class="pf" style="margin-top:8px"><span>Agregar vista</span><select data-pagregar><option value="">Elige una vista…</option>` +
     (esConj ? claves.filter(v => LAM.disponibleConj(v, hj.grupo, hj.cara || 0)).map(v => opt(v, NOM_CONJ[v], false)) : generales.map(([v, t]) => opt(v, v === 'Corte' ? 'Otro corte' : t, false))).join('') + '</select></label>';
