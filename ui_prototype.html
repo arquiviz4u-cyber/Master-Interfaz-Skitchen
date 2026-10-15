@@ -303,7 +303,7 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
-   A217. [Master hecho 15/10; Ruby y Revit: PotFiller son 10 cilindros (potfiller:escudo, cuerpo, manija, columna, brazoA, articulacion, brazoB, pico, boquilla, palanca)] El potfiller se dibuja como los comerciales: escudo, cuerpo con palanca, columna, dos brazos plegables con articulacion y pico con palanca (alzado con las barras en proyeccion).
+   A217. [Master hecho 15/10; Ruby y Revit: PotFiller son 10 cilindros (potfiller:escudo, cuerpo, manija, columna, brazoA, articulacion, brazoB, pico, boquilla, palanca)] El potfiller se dibuja plegado como los comerciales (usuario): los dos brazos corren paralelos al muro, se ve igual en alzado e isometrico.
    A216. [Master hecho 15/10; Ruby y Revit: leer tipo PotFiller (potfiller:placa, brazo y pico), y la moldura sobre el canto de la caja] 1) la faja de apoyo de la corona descansa sobre el canto de la caja del gabinete, no sobre las puertas; 2) potfiller como accesorio sobre el backsplash en la columna de la estufa (cfg.potFiller, altura sobre la cubierta 46 cm = 18 in; escudo, brazo de 25 cm y pico); 3) el liston de fijacion solo se ofrece (y existe) con moldura.
    A215. [Master hecho 15/10; Ruby y Revit: leer cfg.listonTapeta] El liston de fijacion 1x2 ya no va por defecto: casilla opcional «Liston de fijacion 1x2» en la tapeta superior.
    A214. [Master hecho 15/10; Ruby y Revit: pieza tipo Liston, cierres de moldura (forma perfil eje y) y cfg.cerrarMolduraIzq/Der] Moldura: liston de fijacion 1x2 (3/4 x 1-1/2 in) sobre el techo de los altos, atras de la tapeta; faja superior contra el techo (el perfil no termina concavo, misma altura nominal); la moldura se ve en el alzado (lineas de sus planos) y en el corte; opcion de cerrar extremos laterales como en los zoclos.
@@ -3356,11 +3356,11 @@ const listonTs = () => !!cfg.listonTapeta && molduraTs();
 const crownFaja = c => Math.min(1.9, c * .3);
 /* A216 (usuario): potfiller (llenador de ollas) sobre el backsplash, en la columna de la estufa */
 const estufaRango = () => { let x = ajusteIzq(), r = null; row(false).forEach(m => { if (!r && !m.reserved && m.tipo === 'Estufa') r = [x, x + m.ancho]; x += m.ancho; }); return r; };
-const potFillerCils = (cx, y0, zc) => {   /* llenador de ollas plegable de pared (como los comerciales): escudo, cuerpo con palanca, columna, dos brazos con articulacion y pico con palanca; zc = eje del brazo superior */
-  const yR = y0 + 8, yA = yR + 12, yB = yA + 12, zV = zc - 12, zA = zc - 7;   /* cuerpo de la valvula, riser, articulacion, pico */
-  return [['escudo', [cx, y0, zV], [cx, y0 + 1.2, zV], 9.5, 16], ['cuerpo', [cx, y0 + 1.2, zV], [cx, yR, zV], 3.4, 10], ['manija', [cx - 1, y0 + 5, zV], [cx - 7, y0 + 5, zV - 8], 1.2, 6],
-    ['columna', [cx, yR, zV], [cx, yR, zA + 1.5], 3.2, 10], ['brazoA', [cx, yR, zA], [cx, yA, zA], 1.7, 8], ['articulacion', [cx, yA, zA - 3], [cx, yA, zc + 3], 3.2, 10],
-    ['brazoB', [cx, yA, zc], [cx, yB, zc], 1.7, 8], ['pico', [cx, yB, zc + 3.5], [cx, yB, zc - 6], 3.2, 10], ['boquilla', [cx, yB, zc - 6], [cx, yB, zc - 8], 2.4, 10], ['palanca', [cx, yB, zc + 4.5], [cx + 7, yB, zc + 4.5], 1.1, 6]];
+const potFillerCils = (cx, y0, zc) => {   /* llenador de ollas plegable de pared, plegado como en las fotos comerciales: escudo, cuerpo con palanca, columna, brazo inferior, articulacion, brazo superior que regresa y pico con palanca; los brazos corren paralelos al muro; zc = eje del brazo superior */
+  const xf = cx - 7, yR = y0 + 7, zV = zc - 14, zA = zc - 5, xA = xf + 14, xS = xf - 1;   /* columna, riser, valvula, brazo inferior, articulacion, pico */
+  return [['escudo', [xf, y0, zV], [xf, y0 + 1.2, zV], 9.5, 16], ['cuerpo', [xf, y0 + 1.2, zV], [xf, yR, zV], 3.4, 10], ['manija', [xf + 3.4, yR - 1, zV - .5], [xf + 3.4, yR - 1, zV + 6], 1, 6],
+    ['columna', [xf, yR, zV], [xf, yR, zA + 1.8], 3.2, 10], ['brazoA', [xf, yR, zA], [xA, yR, zA], 1.8, 8], ['articulacion', [xA, yR, zA - 3], [xA, yR, zc + 3.5], 3.2, 10],
+    ['brazoB', [xA, yR, zc], [xS + 1.5, yR, zc], 1.8, 8], ['pico', [xS - 3.5, yR, zc], [xS + 2, yR, zc], 3.4, 10], ['boquilla', [xS, yR, zc - 1.7], [xS, yR, zc - 6.5], 2.4, 10], ['palanca', [xS - 2.5, yR, zc + 1.7], [xS - 2.5, yR, zc + 6.5], .9, 6]];
 };
 const CROWN_PERFILES = [['cove', 'Media caña'], ['ogee', 'Ogee (gola reversa)'], ['escalonado', 'Escalonada']];
 /* alturas (sobre el filo inferior de la tapeta) donde el perfil cambia de plano: las lineas que se ven en el alzado */
