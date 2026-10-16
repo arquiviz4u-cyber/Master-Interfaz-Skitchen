@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A222. [Master hecho 16/10; Revit pendiente] Tras probar A221 (16/10, usuario): 1) jerarquia de anchos: lo que falta o sobra en
+       una fila sin anchos automaticos (al escribir un ancho, al cambiar el del esquinero, al quitar el especiero del
+       refrigerador, al apagar una tapeta) se reparte: tapetas hasta su minimo o su tope; despues las columnas sin mueble especial
+       (puertas, abierto, cajones, altos), parejo aunque tengan candado; despues cesto, especiero bajo, columna de tarja (sin bajar
+       de su tina) y torres, alacena y refrigerador; nunca estufa, lavavajillas, frigobar ni la esquina (sustituye a la vecina de
+       A221); 2) sin el esquinero ciego (bajo y alto): lo guardado pasa a carrusel en L y el alto ciego a «sigue al bajo»; el
+       carrusel es el de fabrica; 3) refrigerador con tapetas laterales: los laterales quedan tras las puertas y la puerta del
+       gabinete de arriba y la del especiero anexado van sobrepuestas, al pano de los demas frentes (ya no entre laterales).
    A221. [Master hecho 16/10; Revit P12.312] Anchos (16/10, usuario, tras probar P12.311 en la cara A de su cocina en L): 1) al
        escribir un ancho cuando todas las demas columnas de la fila son fijas, lo que la tapeta no absorbe (hasta su minimo) lo
        da la columna vecina (al achicar, la tapeta se queda el sobrante, como antes): la de la derecha; si es la ultima, la de la izquierda (nunca la esquina); si la vecina
@@ -2751,7 +2759,7 @@ const cortaBack = m => isSpecial(m) || esquinaAlta(m);
    esquina es un modulo 'Esquina' (m.esquina = { k, lado }) en la columna del extremo, bajo y alto, con el ancho de su huella */
 const POR_CARA = ['longitud', 'modulos', 'tapetaIzq', 'tapetaDer', 'reservaIzq', 'reservaDer', 'corridaIzq', 'corridaDer', 'cerrarZocloIzq', 'cerrarZocloDer', 'cerrarMolduraIzq', 'cerrarMolduraDer',
   'puertasOcultas', 'moduloTarja', 'tipoTarja', 'compensacion', 'compReparto', 'topeTapeta'];
-const ESQ_TIPOS = [['ciego', 'Ciego'], ['carrusel', 'Carrusel en L'], ['diagonal', 'Diagonal'], ['alacena', 'Alacena esquinera']];
+const ESQ_TIPOS = [['carrusel', 'Carrusel en L'], ['diagonal', 'Diagonal'], ['alacena', 'Alacena esquinera']];   /* A222: sin el ciego */
 const multiCara = (c = cfg) => !c.isla && !c.closet && (c.forma === 'L' || c.forma === 'U') && Array.isArray(c.caras) && c.caras.length > 1;
 const datosCara = (c = cfg) => JSON.parse(JSON.stringify(Object.fromEntries(POR_CARA.filter(k => k in c).map(k => [k, c[k]]))));
 function guardarCara(c = cfg){ if (Array.isArray(c.caras) && c.caras[c.cara]) c.caras[c.cara] = datosCara(c); }
@@ -2762,7 +2770,7 @@ const letraCara = k => 'ABC'[k] || String(k + 1);
 /* A137: todos los modulos de la cocina (la cara activa y las demas) */
 const todosModulos = (c = cfg) => c.modulos.concat(multiCara(c) ? c.caras.filter((q, k) => k !== c.cara).flatMap(q => q.modulos || []) : []);
 const fondoCara = (q, upper) => Math.max(0, ...q.modulos.filter(m => m.upper === upper && !m.esquina && !m.reserved).map(m => m.fondo)) || (upper ? prefs.inicio.fondoAltos : prefs.inicio.fondoBajos);
-const nuevaEsquina = () => ({ tipo: 'ciego', alacena: 'oculta', alto: 'auto', duena: 0, herraje: false, relleno: 'puerta', union: 'L', repisasDiag: 0 });   /* A142: repisas tras la puerta diagonal */   /* relleno: la parte del alto junto a la esquina (usuario 10/10); union: 'L' un solo gabinete o 'tapeta' dos gabinetes con tapeta (usuario 11/10) */
+const nuevaEsquina = () => ({ tipo: 'carrusel', alacena: 'oculta', alto: 'auto', duena: 0, herraje: false, relleno: 'puerta', union: 'L', repisasDiag: 0 });   /* A142: repisas tras la puerta diagonal */   /* relleno: la parte del alto junto a la esquina (usuario 10/10); union: 'L' un solo gabinete o 'tapeta' dos gabinetes con tapeta (usuario 11/10) */
 /* alto de la esquina: «sigue al bajo» (decision del usuario 10/10); la alacena llega al tope de los altos y no lleva alto */
 const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !== 'auto' ? e.alto : { ciego: 'ciego', carrusel: 'L', diagonal: 'diagonal' }[e.tipo] || 'L';
 /* huella de la esquina k en la cara k y en la k + 1 (en bajos; los altos van en la misma columna). Ciego: el gabinete de la duena se
@@ -2827,6 +2835,7 @@ function plantaEsquina(k){
 function aplicarEsquinas(){
   if (!multiCara()) { cfg.modulos = cfg.modulos.filter(m => !m.esquina); return; }
   cfg.esquinas.forEach(e => { if (e.tipo === 'alacena' && e.alacena !== 'diagonal') e.alacena = 'oculta'; });   /* A150: sin la de puerta plegable */
+  cfg.esquinas.forEach(e => { if (e.tipo === 'ciego') { e.tipo = 'carrusel'; e.anchoA = e.anchoB = null; } if (e.alto === 'ciego') e.alto = 'auto'; });   /* A222: sin el ciego */
   cfg.modulos.forEach(m => { if (!m.esquina) return; const h = huellaEsquina(m.esquina.k); m.tipo = 'Esquina'; m.ancho = m.esquina.lado === 'der' ? h[0] : h[1]; m.fijo = true; m.dosPuertas = false; m.parrilla = false;
     if (m.esquina.lado === 'der') { cfg.tapetaDer = false; cfg.corridaDer = false; cfg.cerrarZocloDer = false; cfg.cerrarMolduraDer = false; } else { cfg.tapetaIzq = false; cfg.corridaIzq = false; cfg.cerrarZocloIzq = false; cfg.cerrarMolduraIzq = false; } });
 }
@@ -2979,7 +2988,7 @@ const r2a = v => Math.round(v*100)/100;
 function frentesConAnexo(m){
   const A = m.anexo, w = A.ancho, izq = A.lado === 'Izquierda', tw = m.ancho - w, offT = izq ? w : 0, offE = izq ? 0 : tw, tm = parteTorre(m), hol = holF();
   const r = fronts(tm).map(f => Object.assign({}, f, { x0: f.x0 + offT, x1: f.x1 + offT }));
-  const zs = baseSuperiorTorre(tm), top = altoEsp(tm), entre = isTower(m) || isRefri(m) && m.lateralesRefri, e = m.espesorLaterales;
+  const zs = baseSuperiorTorre(tm), top = altoEsp(tm), entre = isTower(m), e = m.espesorLaterales;   /* A222: en el refrigerador, sobrepuesto */
   const z0 = (A.alPiso ? 0 : cfg.baseBajos) + hol, z1 = (zs !== null ? zs : top) - hol;
   const x0 = offE + (izq && entre ? e : 0) + hol, x1 = offE + w - (!izq && entre ? e : 0) - hol;
   r.push(A.extraible ? { kind: 'Cajon', x0, x1, z0, z1, especiero: true, herraje: A.herraje, arriba: true, anexo: true, zona: 'especiero' } : { kind: 'Puerta', x0, x1, z0, z1, hingeRight: !izq, anexo: true, zona: 'especiero' });
@@ -3122,7 +3131,7 @@ function fronts(m){
     if (m.anexo) return frentesConAnexo(m);   /* A154 */
     if (hasDrawers(m)) drawers();
     const top = altoEsp(m), W1 = m.ancho - hol;
-    if (isRefri(m)) { const e = m.lateralesRefri ? m.espesorLaterales : 0;
+    if (isRefri(m)) { const e = 0;   /* A222: puertas sobrepuestas a los laterales */
       if (m.superiorRefri && m.pistonRefri) r.push({ kind: 'Elevable', x0: e + hol, x1: m.ancho - e - hol, z0: m.huecoRefri + hol, z1: top - hol });   /* A160 */
       else if (m.superiorRefri) door(e + hol, m.ancho - e - hol, m.huecoRefri + hol, top - hol, m.dosPuertas, m.invertir); }
     else if (isTower(m)) {
@@ -3716,8 +3725,8 @@ function planDePiezas(c = cfg){
       if (m.anexo) { especialConAnexo(m, x); return; }   /* A154 */
       const refri = isRefri(m), top = altoEsp(m), e = m.espesorLaterales, ef = cuerpoFondo(), lat = !refri || m.lateralesRefri;
       /* A140: con frentes sobrepuestos (alacena) la carcasa termina 3 mm antes; la torre y el refrigerador los llevan entre laterales */
-      const yF = y1; if (!isTower(m) && !refri) y1 -= PLAN_HOLGURA_PUERTA;
-      const xi0 = lat ? x + e : x, xi1 = lat ? x1 - e : x1, yl = y1 + (isTower(m) || refri ? t : 0), zonas = [];
+      const yF = y1; if (!isTower(m)) y1 -= PLAN_HOLGURA_PUERTA;   /* A222: el refrigerador, tras sus puertas */
+      const xi0 = lat ? x + e : x, xi1 = lat ? x1 - e : x1, yl = y1 + (isTower(m) ? t : 0), zonas = [];   /* A222 */
       const tab = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: m.id + ':' + k, rol: 'panel', modulo: m.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       const piso = (k, z) => tab(k, 'Piso', xi0, xi1, y0 + ef, y1, z, z + e);
       const zona = (lo, hi) => { const h = { x0: xi0, x1: xi1, y0: y0 + ef, y1, yF, z0: lo, z1: hi }; if (hi - lo > 2) zonas.push(h); return h; };
@@ -3808,7 +3817,7 @@ function planDePiezas(c = cfg){
        repisas o su extraible (madera o condimentero), y los frentes y cajas de todo el mueble */
     const especialConAnexo = (m, x) => {
       const A = m.anexo, w = A.ancho, izq = A.lado === 'Izquierda', tw = m.ancho - w, tm = parteTorre(m), zonasT = especial(tm, x + (izq ? w : 0)) || [];
-      const refri = isRefri(m), entre = isTower(m) || refri && m.lateralesRefri, e = m.espesorLaterales, ef = cuerpoFondo(), zb = cfg.baseBajos;
+      const refri = isRefri(m), entre = isTower(m), e = m.espesorLaterales, ef = cuerpoFondo(), zb = cfg.baseBajos;   /* A222 */
       const xe0 = x + (izq ? 0 : tw), xe1 = xe0 + w, y0 = sep, yF = sep + m.fondo, y1 = entre ? yF : yF - PLAN_HOLGURA_PUERTA, yl = entre ? yF + t : y1;
       const zs = baseSuperiorTorre(tm), top = altoEsp(tm), zt = zs !== null ? zs : top, mat = matDe(m);
       const tab = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: m.id + ':especiero:' + k, rol: 'panel', modulo: m.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
@@ -4483,8 +4492,7 @@ function pruebasPlanMX(){
     ['cocina en L con carrusel (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; } finally { cfg = prev; } return c; }],
     ['cocina en L con carrusel y alto con tapeta (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; c.esquinas[0].union = 'tapeta'; } finally { cfg = prev; } return c; }],
     ['cocina en U con ciego y alacena oculta (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'U'); c.esquinas[1].tipo = 'alacena'; c.esquinas[1].alacena = 'oculta'; c.esquinas[0].herraje = true; } finally { cfg = prev; } return c; }],
-    ['cocina en L con ciego ensanchado (A221)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'ciego'; c.esquinas[0].anchoA = 200; } finally { cfg = prev; } return c; }],
-    ['cocina en L con diagonal y ciego en la otra cara (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].alto = 'ciego'; c.esquinas[0].duena = 1; } finally { cfg = prev; } return c; }],
+    ['cocina en L con diagonal y ciego en la otra cara (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].alto = 'L'; c.esquinas[0].duena = 1; } finally { cfg = prev; } return c; }],
     ['puerta oculta con 6 juntas horizontales y 3 verticales (A78)', c => { const d = newDoor(false); c.puertasOcultas = [d]; const prev = cfg; cfg = c;
       d.juntasHorizontales = hdDefaultJoints(6, d); d.juntasVerticales = 3; cfg = prev; return c; }],
     ['especiero con condimentero y cajones, moderna (A139: el condimentero a su alto)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Moderna';
@@ -4854,7 +4862,9 @@ function recalcularCara(){
     const r = row(upper); if (!r.length) continue;
     const flex = r.filter(m => !m.fijo);
     const available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0);
-    if (!flex.length) { if (Math.abs(available) > .011) throw new Error('No queda ningún ancho automático en la fila. Libera uno para repartir el espacio.'); continue; }
+    if (!flex.length) { if (Math.abs(available) > .011) {   /* A222: sin anchos automaticos, primero las tapetas y despues la jerarquia */
+        const d = -absorbInFillers(-available), r2 = row(upper); if (Math.abs(d) > .011) repartirJerarquia(r2, d, null); }
+      continue; }
     const n = Math.floor(available/u + 1e-6), sobra = Math.round((available - n*u)*1e4)/1e4;   /* sobra: solo en la fila que no es la base */
     let alloc;
     if (cfg.repartoAdaptado) alloc = widthFit(flex.map(m => m.peso > 0 ? m.peso : m.ancho), flex.map(minWidth), n, u);
@@ -5008,25 +5018,35 @@ function applyWidth(id, value){
     value = anchoEscrito(value); const resto = cfg.isla ? 0 : absorbInFillers(value - m.ancho);   /* en isla no se absorbe en las tapetas */
     /* A221 (usuario): con todas las demas columnas fijas, lo que la tapeta no absorbe lo da la columna vecina (la de la
        derecha; si es la ultima, la de la izquierda; nunca la esquina ni un alto reservado) */
-    if (!cfg.isla && resto > 1e-6) cederVecina(m, resto);
+    if (!cfg.isla && Math.abs(resto) > 1e-6 && r.every(q => q === m || q.fijo || q.reserved || q.esquina)) repartirJerarquia(r, -resto, m);   /* A222 */
     m.ancho = value; m.fijo = true; if (o.length) { o[i].ancho = value; o[i].fijo = true; }
 }
 function setWidth(id, value){ change(() => applyWidth(id, value), 'Revisar ancho'); }
-/* A221: con todas las demas columnas de la fila fijas, lo que la tapeta no absorbe al ensanchar m lo da la columna vecina */
-function cederVecina(m, resto){
-  const r = row(m.upper), o = row(!m.upper), i = r.indexOf(m);
-  if (!r.every(q => q === m || q.fijo || q.reserved || q.esquina)) return;
-  const j = [i + 1, i - 1].find(j => r[j] && !r[j].esquina && !r[j].reserved); if (j === undefined) return;
-  const v = r[j], nv = Math.round((v.ancho - resto)*1000)/1000, mn = minWidth(v);
-  if (nv < mn - 1e-6) throw new Error(`No cabe: la columna vecina quedaría de ${medida(nv)} y su mínimo es ${medida(mn)}.`);
-  v.ancho = nv; v.fijo = true; if (o.length === r.length) { o[j].ancho = nv; o[j].fijo = true; }
+/* A222 (usuario 16/10): jerarquia de anchos. d > 0: las columnas de la fila r crecen d en total; d < 0: se achican. Despues de las
+   tapetas (absorbInFillers): 1) columnas sin mueble especial, parejo aunque tengan candado; 2) cesto; 3) especiero bajo; 4) columna de
+   tarja (sin bajar de su tina); 5) torres, alacena y refrigerador. Nunca estufa, lavavajillas, frigobar, la esquina ni excl */
+function nivelAncho(m){ if (m.esquina || m.reserved || ['Estufa', 'Lavavajillas', 'Frigobar'].includes(m.tipo)) return 0;
+  if (isSpecial(m)) return 5; if (!m.upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0) return 4; if (m.tipo === 'Especiero') return 3; if (m.tipo === 'Basura') return 2; return 1; }
+function repartirJerarquia(r, d, excl){
+  const o = row(!r[0].upper), par = o.length === r.length, q = cfg.region === 'US' ? DIECISEISAVO : 1, base = r[0].upper && par ? o : r;
+  const minDe = m => { let mn = minWidth(m); if (!m.upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0) mn = Math.max(mn, cfg.tarjaAncho*(cfg.tipoTarja === 2 ? 1.6 : 1) + 8); return mn; };
+  const maxDe = m => reg().ancho.max + (m.anexo ? m.anexo.ancho : 0);
+  const pon = (m, w) => { const i = r.indexOf(m); m.ancho = Math.round(w*1e4)/1e4; m.fijo = true; if (par) { o[i].ancho = m.ancho; o[i].fijo = true; } };
+  for (let nv = 1; nv <= 5 && Math.abs(d) >= q - 1e-9; nv++) {
+    const cand = r.filter((m, i) => m !== excl && nivelAncho(base[i] || m) === nv && nivelAncho(m) !== 0);
+    for (let g = 0; g < 4000 && Math.abs(d) >= q - 1e-9; g++) {
+      const s = Math.sign(d), libre = m => s > 0 ? maxDe(m) - m.ancho : m.ancho - minDe(m);
+      const m = cand.filter(c => libre(c) >= q - 1e-9).sort((a, b) => libre(b) - libre(a))[0]; if (!m) break;
+      pon(m, m.ancho + s*q); d -= s*q; } }
+  if (Math.abs(d) >= q - 1e-9) throw new Error(d < 0 ? `No cabe: faltan ${medida(-d)} y ninguna columna puede ceder más sin bajar de su mínimo.` : `Sobran ${medida(d)} y ninguna columna puede tomarlos sin pasar de su máximo.`);
 }
 /* A221: el ancho del esquinero en una cara (a: la cara k, su lado derecho) tambien gasta la tapeta y despues la columna vecina */
 function anchoEsquina(k, a, v){
   const e = cfg.esquinas[k], m = cfg.modulos.find(q => q.esquina && q.esquina.k === k && !q.upper && (q.esquina.lado === 'der') === a), antes = m ? m.ancho : 0;
   if (a) e.anchoA = v; else e.anchoB = v;
   if (!m || cfg.isla) return;
-  const resto = absorbInFillers(huellaEsquina(k)[a ? 0 : 1] - antes); if (resto > 1e-6) cederVecina(m, resto);
+  const resto = absorbInFillers(huellaEsquina(k)[a ? 0 : 1] - antes), r = row(false);
+  if (Math.abs(resto) > 1e-6 && r.every(q => q === m || q.fijo || q.reserved || q.esquina)) repartirJerarquia(r, -resto, m);   /* A222 */
 }
 /* tarja doble: la columna toma 85 cm al elegirla (A35) */
 const anchoTarjaDoble = () => cfg.tarjaBajoCubierta ? reg().tarjaDobleBajo : reg().tarjaDoble;   /* E3: MX 85 cm; US 36". A132 (usuario, 10/10): bajo cubierta, MX 90 cm (la tina cuelga dentro del gabinete); US sigue en 36" */
@@ -7808,7 +7828,7 @@ function esquinaPanel(m){
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   if (e.tipo === 'ciego') html += section('Herraje', chk('esqHerraje', !!e.herraje, 'Herraje extraíble (LeMans / Magic Corner)')
     + `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()} y tapeta de esquina de ${fmt(R.tapeta)}${uS()}; se separa del muro lo que pide el fondo de la otra cara.</div>`);
-  if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Sigue al bajo'], ['ciego', 'Ciego'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
+  if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Sigue al bajo'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
   if (!alacena && altoEsquina(e) !== 'ninguno') html += section('Armado del alto', radios('esqUnion', [['L', 'Unido en L, un solo gabinete'], ['tapeta', 'Dos gabinetes con tapeta']], e.union === 'tapeta' ? 'tapeta' : 'L'));
   if (!alacena && altoEsquina(e) !== 'ninguno' && e.union !== 'tapeta') html += section('Junto a la esquina', radios('esqRelleno', [['puerta', 'Gabinete con puerta'], ['repisas', 'Repisas abiertas']], e.relleno === 'repisas' ? 'repisas' : 'puerta')
     + `<div class="note">El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.</div>`);
@@ -8177,7 +8197,7 @@ const ACT = {
   /* A144: anexar, mover de lado o quitar el especiero de la torre (inserta o quita su columna: el bajo y su alto reservado) */
   /* A154: el especiero anexado es parte del mueble: su ancho se suma al de la torre (y se resta al quitarlo) */
   anexo: (v, m) => change(() => { const t = byId(m.id), a = t.anexo;
-    if (v !== 'Izquierda' && v !== 'Derecha') { if (a) { t.ancho = r2a(t.ancho - a.ancho); t.anexo = null; } return; }
+    if (v !== 'Izquierda' && v !== 'Derecha') { if (a) { t.ancho = r2a(t.ancho - a.ancho); t.anexo = null; const lr = row(false), hr = row(true), i = lr.indexOf(t); if (lr.length === hr.length && i >= 0) hr[i].ancho = t.ancho; } return; }   /* A222: el alto de su columna sigue al bajo (antes: anchos fijos que no coinciden) */
     if (a) a.lado = v; else { const w = reg().especieroTorre; t.anexo = { lado: v, ancho: w, extraible: true, herraje: 'Madera', alPiso: false }; t.ancho = r2a(t.ancho + w); t.fijo = true; } }),
   anexoAncho: (v, m) => change(() => { const t = byId(m.id); if (t.anexo) { t.ancho = r2a(t.ancho - t.anexo.ancho + v); t.anexo.ancho = v; t.fijo = true; } }),
   anexoExtr: (v, m) => change(() => { const t = byId(m.id); if (t.anexo) t.anexo.extraible = v; }),
