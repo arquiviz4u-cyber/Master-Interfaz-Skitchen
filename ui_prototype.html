@@ -303,9 +303,9 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
-   A221. [Master hecho 16/10; Revit pendiente] Anchos (16/10, usuario, tras probar P12.311 en la cara A de su cocina en L): 1) al
+   A221. [Master hecho 16/10; Revit P12.312] Anchos (16/10, usuario, tras probar P12.311 en la cara A de su cocina en L): 1) al
        escribir un ancho cuando todas las demas columnas de la fila son fijas, lo que la tapeta no absorbe (hasta su minimo) lo
-       da o lo toma la columna vecina: la de la derecha; si es la ultima, la de la izquierda (nunca la esquina); si la vecina
+       da la columna vecina (al achicar, la tapeta se queda el sobrante, como antes): la de la derecha; si es la ultima, la de la izquierda (nunca la esquina); si la vecina
        quedaria bajo su minimo, aviso (antes la tapeta se quedaba con el sobrante y ya no se podia ensanchar); 2) el esquinero
        ciego se ensancha en su cara duena de 100 a 120 cm (US 36" a 42", reg().esquina.ciegoMax): crecen la caja y su puerta;
        la parte ciega y la tapeta de ajuste quedan igual (e.anchoA / e.anchoB de la cara duena; campo «Ancho del ciego»).
@@ -5006,16 +5006,28 @@ function applyWidth(id, value){
     const m = byId(id), r = row(m.upper), o = row(!m.upper), i = r.indexOf(m);
     if (o.length > 0 && o.length !== r.length) throw new Error('Para vincular anchos, ambas filas necesitan el mismo número de módulos. Añade o elimina módulos para emparejarlas.');
     value = anchoEscrito(value); const resto = cfg.isla ? 0 : absorbInFillers(value - m.ancho);   /* en isla no se absorbe en las tapetas */
-    /* A221 (usuario): con todas las demas columnas fijas, lo que la tapeta no absorbe lo da o lo toma la columna vecina (la de la
+    /* A221 (usuario): con todas las demas columnas fijas, lo que la tapeta no absorbe lo da la columna vecina (la de la
        derecha; si es la ultima, la de la izquierda; nunca la esquina ni un alto reservado) */
-    if (!cfg.isla && Math.abs(resto) > 1e-6 && r.every(q => q === m || q.fijo || q.reserved || q.esquina)) {
-      const j = [i + 1, i - 1].find(j => r[j] && !r[j].esquina && !r[j].reserved);
-      if (j !== undefined) { const v = r[j], nv = Math.round((v.ancho - resto)*1000)/1000, mn = minWidth(v);
-        if (nv < mn - 1e-6) throw new Error(`No cabe: la columna vecina quedaría de ${medida(nv)} y su mínimo es ${medida(mn)}.`);
-        v.ancho = nv; v.fijo = true; if (o.length) { o[j].ancho = nv; o[j].fijo = true; } } }
+    if (!cfg.isla && resto > 1e-6) cederVecina(m, resto);
     m.ancho = value; m.fijo = true; if (o.length) { o[i].ancho = value; o[i].fijo = true; }
 }
 function setWidth(id, value){ change(() => applyWidth(id, value), 'Revisar ancho'); }
+/* A221: con todas las demas columnas de la fila fijas, lo que la tapeta no absorbe al ensanchar m lo da la columna vecina */
+function cederVecina(m, resto){
+  const r = row(m.upper), o = row(!m.upper), i = r.indexOf(m);
+  if (!r.every(q => q === m || q.fijo || q.reserved || q.esquina)) return;
+  const j = [i + 1, i - 1].find(j => r[j] && !r[j].esquina && !r[j].reserved); if (j === undefined) return;
+  const v = r[j], nv = Math.round((v.ancho - resto)*1000)/1000, mn = minWidth(v);
+  if (nv < mn - 1e-6) throw new Error(`No cabe: la columna vecina quedaría de ${medida(nv)} y su mínimo es ${medida(mn)}.`);
+  v.ancho = nv; v.fijo = true; if (o.length === r.length) { o[j].ancho = nv; o[j].fijo = true; }
+}
+/* A221: el ancho del esquinero en una cara (a: la cara k, su lado derecho) tambien gasta la tapeta y despues la columna vecina */
+function anchoEsquina(k, a, v){
+  const e = cfg.esquinas[k], m = cfg.modulos.find(q => q.esquina && q.esquina.k === k && !q.upper && (q.esquina.lado === 'der') === a), antes = m ? m.ancho : 0;
+  if (a) e.anchoA = v; else e.anchoB = v;
+  if (!m || cfg.isla) return;
+  const resto = absorbInFillers(huellaEsquina(k)[a ? 0 : 1] - antes); if (resto > 1e-6) cederVecina(m, resto);
+}
 /* tarja doble: la columna toma 85 cm al elegirla (A35) */
 const anchoTarjaDoble = () => cfg.tarjaBajoCubierta ? reg().tarjaDobleBajo : reg().tarjaDoble;   /* E3: MX 85 cm; US 36". A132 (usuario, 10/10): bajo cubierta, MX 90 cm (la tina cuelga dentro del gabinete); US sigue en 36" */
 /* quita la tarja si esta en ese modulo (A36) */
@@ -7511,7 +7523,7 @@ window.addEventListener('mouseup', () => {
   if (!drag) return;
   const d = drag; drag = null; canvas.style.cursor = 'default';
   if (d.kind === 'module') { if (d.over) { swap(d.id, d.over); setStatus('Módulos intercambiados.'); } else drawCanvas(); return; }
-  if (d.kind === 'esqAncho') { change(c => { const ee = c.esquinas[d.k]; if (d.der) ee.anchoA = rd(d.w); else ee.anchoB = rd(d.w); }); return; }   /* A143 */
+  if (d.kind === 'esqAncho') { change(() => anchoEsquina(d.k, d.der, rd(d.w))); return; }   /* A143 */
   if (d.kind === 'guide') {
     if (d.key === 'corte') { sectionCut = d.value; render(); return; }
     if (d.key === 'corteA') { corteAlzado = d.value; render(); return; }
@@ -7614,7 +7626,7 @@ function commitDimension(){
   let v = parseLen(dimEdit.value); if (isNaN(v) || Math.abs(v - spec.v) < .001) return;
   v = Math.max(spec.min, Math.min(spec.max, v)); if (cfg.region === 'US') v = rd(v);   /* E5 */
   const [k, id, i] = key.split(':');
-  if (k === 'width' && byId(id) && byId(id).esquina) { const me = byId(id); change(c => { const ee = c.esquinas[me.esquina.k]; if (me.esquina.lado === 'der') ee.anchoA = v; else ee.anchoB = v; }); return; }   /* A143 */
+  if (k === 'width' && byId(id) && byId(id).esquina) { const me = byId(id); change(() => anchoEsquina(me.esquina.k, me.esquina.lado === 'der', v)); return; }   /* A143; A221 */
   if (k === 'width') { setWidth(id, v); return; }
   if (k === 'halfw') { setWidth(id, anchoEscrito(2*v)); return; }
   /* A107: ancho de la caja unida (o del modulo superior unido): se reparte entre sus columnas en proporcion a su ancho actual,
@@ -8289,7 +8301,7 @@ const ACT = {
   forma: v => { change(c => setForma(c, v)); selection.clear(); render(); },   /* A134 */
   cara: v => { const k = +v; if (!multiCara() || k === cfg.cara) return; guardarCara(); cargarCara(cfg, k); selection.clear(); selectedPart = null; cleanSelection(); render(); },
   esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; }),
-  esqAnchoA: (v, m) => change(() => { esquinaDe(byId(m.id)).anchoA = v; }), esqAnchoB: (v, m) => change(() => { esquinaDe(byId(m.id)).anchoB = v; }),
+  esqAnchoA: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, true, v)), esqAnchoB: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, false, v)),   /* A221 */
   esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }), esqInterior: (v, m) => change(() => { esquinaDe(byId(m.id)).interior = v; }),
   esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }), esqHerraje: (v, m) => change(() => { esquinaDe(byId(m.id)).herraje = v; }), esqRepAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasAlacena = Math.round(+v); }), esqRepBarra: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasBarra = Math.round(+v); }), esqBarraFn: (v, m) => change(() => { esquinaDe(byId(m.id)).barraFuncion = v; }), esqBarraCaj: (v, m) => change(() => { esquinaDe(byId(m.id)).barraCajones = Math.round(+v); }),   /* A166 */ esqRepPuerta: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasPuerta = Math.round(+v); }), esqFondoRep: (v, m) => change(() => { esquinaDe(byId(m.id)).fondoRepisas = +v; }), esqRepisas: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasDiag = +v; }),
   esqAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).alto = v; }), esqRelleno: (v, m) => change(() => { esquinaDe(byId(m.id)).relleno = v === 'repisas' ? 'repisas' : 'puerta'; }),
