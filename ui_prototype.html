@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A225. [Master hecho 16/10; Revit pendiente] Las tapetas son de las dos filas (16/10, usuario, tras probar P12.319: «en la cara B
+       no me deja borrar columnas (la de 30cm) solo la de 49»): al borrar el bajo de 30 la fila de bajos (esquina y 49 con candado)
+       daba los 30 a la tapeta (3) y a la de 49; la fila de altos, con su 30 todavia, regresaba esos 3 de la tapeta y la de bajos
+       quedaba corta («La fila no completa la longitud disponible»). Ahora la primera fila que mueve las tapetas en el reparto se
+       queda con ellas y la otra reparte lo suyo con la jerarquia de sus columnas (A222).
    A224. [Master hecho 16/10; Revit P12.319] Gabinete superior unido con puerta de piston corrida (16/10, usuario, tras probar
        P12.318: «no puedo agregar puertas si un gabinete alto superior se une con otro»): la puerta elevable corre por todas las
        columnas unidas hasta 2.10 m (US 84", reg().ancho.piston; antes sin limite en el master y 120 cm en Revit); al unir, si con
@@ -4897,17 +4902,19 @@ function recalcularCara(){
     const lados = [cfg.tapetaIzq && ajusteIzq(), cfg.tapetaDer && ajusteDer()].filter(w => w !== false);
     const cabe = Math.max(0, Math.min(...lados.map(w => (cfg.topeTapeta || Infinity) - w)))*lados.length;
     cfg.compReparto = Math.min(resto, Math.floor(cabe/u + 1e-6))*u; }
+  /* A225: las tapetas son de las dos filas: la primera que las mueve se queda con ellas; la otra reparte en sus columnas */
+  let tapetasMovidas = false; const absorbeFila = v => { if (tapetasMovidas) return v; const resto = absorbInFillers(v); if (Math.abs(resto - v) > 1e-9) tapetasMovidas = true; return resto; };
   for (const upper of [false, true]) {
     const r = row(upper); if (!r.length) continue;
     const flex = r.filter(m => !m.fijo);
     let available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0);
     if (!flex.length) { if (Math.abs(available) > .011) {   /* A222: sin anchos automaticos, primero las tapetas y despues la jerarquia */
-        const d = -absorbInFillers(-available), r2 = row(upper); if (Math.abs(d) > .011) repartirJerarquia(r2, d, null); }
+        const d = -absorbeFila(-available), r2 = row(upper); if (Math.abs(d) > .011) repartirJerarquia(r2, d, null); }
       continue; }
     /* A222: si los automaticos no caben entre su minimo y su maximo, lo que falta o sobra va a las tapetas y despues a la jerarquia de los fijos */
     { const mnF = flex.reduce((s, m) => s + minWidth(m), 0), mxF = flex.reduce((s, m) => s + reg().ancho.max + (m.anexo ? m.anexo.ancho : 0), 0),
         dX = available < mnF - 1e-6 ? available - mnF : available > mxF + 1e-6 ? available - mxF : 0;
-      if (Math.abs(dX) > 1e-6) { const d = -absorbInFillers(-dX); if (Math.abs(d) > .011) repartirJerarquia(r, d, null, new Set(flex));
+      if (Math.abs(dX) > 1e-6) { const d = -absorbeFila(-dX); if (Math.abs(d) > .011) repartirJerarquia(r, d, null, new Set(flex));
         available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0); } }
     const n = Math.floor(available/u + 1e-6), sobra = Math.round((available - n*u)*1e4)/1e4;   /* sobra: solo en la fila que no es la base */
     let alloc;
