@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A224. [Master hecho 16/10; Revit pendiente] Gabinete superior unido con puerta de piston corrida (16/10, usuario, tras probar
+       P12.318: «no puedo agregar puertas si un gabinete alto superior se une con otro»): la puerta elevable corre por todas las
+       columnas unidas hasta 2.10 m (US 84", reg().ancho.piston; antes sin limite en el master y 120 cm en Revit); al unir, si con
+       puertas pasa de 120 cm el grupo pasa a piston (y a caja de repisas solo si pasa del maximo del piston); las bisagras de la
+       puerta elevable (corrida o no) se reparten a lo ancho como las de una puerta a lo alto (2 hasta 90 cm, 3 hasta 160, 4 hasta
+       200 y 5 arriba; a 10 cm de los extremos), apartadas 6 cm de las divisiones con piston (antes dos entre cada par de pistones).
    A223. [Master hecho 16/10; Revit P12.318] Esquineros bajos con subcategorias (16/10, usuario): Diagonal (diamante): carrusel
        (charolas redondas completas y poste), cajones (caja en V que sigue el diamante, 3 de fabrica, de 2 a 4, frentes a 45) o
        tarja (la tarja de la cocina va a la cubierta diamante, centrada en la diagonal y con su hueco; frente fijo arriba y puerta a
@@ -2154,11 +2160,11 @@
  * ======================================================================= */
 const PULG = 2.54, DIECISEISAVO = PULG/16, inch = v => Math.round(v*PULG*1e6)/1e6;
 const REGIONES = {
-  MX: { ancho: { min: 30, max: 120, objetivo: 60 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 3, tapetaMin: 2, tapetaMax: 5, especialMin: 45,
+  MX: { ancho: { min: 30, max: 120, objetivo: 60, piston: 210 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 3, tapetaMin: 2, tapetaMax: 5, especialMin: 45,
     closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90, labio: 2, esquina: 5 }, fajas: { ancho: 10, tarja: 3 }, esquina: { ciego: 100, ciegoMax: 120, ciegoPuerta: 45, tapeta: 5, lado: 90, ladoAlto: 60, ocultaPuerta: 60 },
     tarjaDoble: 85, tarjaDobleBajo: 90, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20,
     lava: 60, lavaCompacto: 45, campana: { protegida: 60, combustible: 75 }, dosPuertasDesde: 0 },
-  US: { ancho: { min: inch(12), max: inch(48), objetivo: inch(30) }, pasos: { modular: inch(3), pulgada: inch(1), medida: DIECISEISAVO }, pasoDef: 'modular',
+  US: { ancho: { min: inch(12), max: inch(48), objetivo: inch(30), piston: inch(84) }, pasos: { modular: inch(3), pulgada: inch(1), medida: DIECISEISAVO }, pasoDef: 'modular',
     tapetaCorta: inch(1), tapetaMin: inch(.5), tapetaMax: inch(3), especialMin: inch(18),
     closet: { min: inch(18), max: inch(48), objetivo: inch(36), reserva: inch(2) }, estufa: { cuatro: inch(30), seis: inch(36), min: inch(20), max: inch(48) },
     parrilla: { min: inch(12), max: inch(48), labio: inch(.75), esquina: inch(2) }, fajas: { ancho: inch(4), tarja: inch(1.25) }, esquina: { ciego: inch(36), ciegoMax: inch(42), ciegoPuerta: inch(15), tapeta: inch(3), lado: inch(36), ladoAlto: inch(24), ocultaPuerta: inch(24) }, tarjaDoble: inch(36), tarjaDobleBajo: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
@@ -4392,7 +4398,9 @@ function planDePiezas(c = cfg){
       const posiciones = [x0 + inset].concat(divs, [x1 - inset]);
       if (cfg.bisagras) { let k = 0;   /* dos bisagras entre cada par de pistones (a un cuarto y a tres cuartos), con el modelo real girado: su lateral contra el techo */
         const MB = MODELO.bisagra, zt = z1 - 1.8 - (MB.brazoCerrado[1][0] - MB.lateral);   /* el techo acaba en z1 - 1.8: el lomo de la bisagra toca su cara inferior */
-        for (let q = 0; q + 1 < posiciones.length; q++) [.25, .75].forEach(f => { const bx = posiciones[q] + (posiciones[q + 1] - posiciones[q]) * f, j = k++;
+        /* A224: a lo ancho como las de una puerta a lo alto (2 hasta 90 cm, 3 hasta 160, 4 hasta 200, 5 arriba; a 10 cm de los extremos), apartadas 6 cm de las divisiones con piston */
+        const wB = x1 - x0, nB = wB <= 90 ? 2 : wB <= 160 ? 3 : wB <= 200 ? 4 : 5, bordeB = Math.min(10, wB*.25), libreB = v => { const dv = divs.find(dd => Math.abs(dd - v) < 6); return dv === undefined ? v : v < dv ? dv - 6 : dv + 6; };
+        Array.from({ length: nB }, (_, i) => libreB(x0 + bordeB + (wB - 2*bordeB)*i/(nB - 1))).forEach(bx => { const j = k++;
           const marco = { ox: bx, refZ: MB.centroZ, oy: yF, refY: MB.trasCara, oz: zt, refX: MB.lateral }, D = MB.desfaseAbierta;
           const base = { rol: 'herraje', modulo: pr.modulo, frente: d, material: null, etiqueta: 'herrajes' };
           const dueno = piezas.find(r => r.frente === d && r.rol === 'frente' && r.z + r.alto >= z1 - .5 && bx >= r.x + 2 && bx <= r.x + r.ancho - 2 && r.alto >= 9);   /* la perforacion de la cazoleta en la cara posterior de la puerta elevable */
@@ -4987,8 +4995,9 @@ function validate(){
     if (isDoble(m) && (m.altoSuperior < DOBLE_MIN || altoAltos() - m.altoSuperior < DOBLE_MIN || m.altoSuperior > DOBLE_MAX))
       throw new Error(`Módulo inferior + superior: no caben (cada uno necesita al menos ${fmt(DOBLE_MIN)}${uS()} y el superior mide hasta ${fmt(DOBLE_MAX)}${uS()}).`);
   }
-  for (const g of capGroups()) if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : g.lead.tipoSuperior !== 'Piston' && g.members.length > 1 && g.width > reg().ancho.max + .01)   /* A205: la puerta elevable (pistones en cada division) no tiene ese limite de ancho */
-    throw new Error(g.lead.tipoSuperior === 'Repisas' ? 'Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.' : `Módulo superior unido: con puertas no puede pasar de ${medida(reg().ancho.max)}; separa columnas o usa caja de repisas.`);
+  for (const g of capGroups()) { const pist = g.lead.tipoSuperior === 'Piston';   /* A205; A224: el piston corrido llega a reg().ancho.piston */
+    if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : pist ? g.width > reg().ancho.piston + .01 : g.members.length > 1 && g.width > reg().ancho.max + .01)
+      throw new Error(g.lead.tipoSuperior === 'Repisas' ? 'Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.' : pist ? `Puerta de pistón corrida: hasta ${medida(reg().ancho.piston)}; separa columnas.` : `Módulo superior unido: con puertas no puede pasar de ${medida(reg().ancho.max)}; separa columnas o usa caja de repisas.`); }
   /* (A39) la caja de repisas corrida ya no tiene limite de columnas: Unir con la columna derecha sigue mientras haya columnas normales */
   if (cfg.altoBajos < 50) throw new Error(`Los gabinetes bajos quedarían de menos de ${medida(50)}.`);
   if (row(true).length && altoAltos() < 30) throw new Error(`Los gabinetes altos quedarían de ${fmt(altoAltos())}${uS()}. Baja la cubierta o el libre sobre cubierta, o sube la altura del muro.`);
@@ -8072,7 +8081,7 @@ function capPanel(id){
   html += section('Tipo', sel('capTipo', [['Piston','Puerta elevable (pistón)'],['Puerta','Una puerta'],['Puertas','Dos puertas'],['Repisas','Caja de repisas abierta']], m.tipoSuperior)
     + (m.tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('capBisDer', !!m.bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : ''));
   html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}${num('capFondo', 'Fondo', m.fondoSuperior > 0 ? m.fondoSuperior : m.fondo, 'cm', 25, 70)}</div><div class="note-sm">Su fondo no depende del alto de abajo.</div>` + avisoDoble(m)
-    + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; con pistón, sin límite; la caja abierta, a 3 columnas.</div>`
+    + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; con pistón, a ${medida(reg().ancho.piston)}; la caja abierta, a 3 columnas.</div>`
     + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
     + (m.tipoSuperior === 'Piston' ? chk('capMostrar', m.mostrarPuertaSuperior, 'Mostrar puerta elevable') : ''));
   const cols = (next && !next.reserved ? `<button class="btn btn-block" data-act="capExt">Extender a la columna derecha</button>` : '') + (g.members.length > 1 ? `<button class="btn btn-block" data-act="capSep">Separar la última columna</button>` : '');
@@ -8321,7 +8330,8 @@ const ACT = {
     if (!next || next.reserved) return;
     last.unirSuperior = true; ponerDoble(next); next.altoSuperior = last.altoSuperior;
     /* con puertas no se pasa de 120 cm: al superarlos el grupo se convierte en caja de repisas; la puerta elevable (pistones) no tiene limite */
-    const ng = capGroupOf(next); if (ng && ng.lead.tipoSuperior !== 'Repisas' && ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Repisas';
+    const ng = capGroupOf(next);   /* A224: con puertas pasa a piston; a caja de repisas solo si pasa del maximo del piston */
+    if (ng && ng.lead.tipoSuperior !== 'Repisas') { if (ng.width > reg().ancho.piston + .01) { if (ng.members.length <= 3) ng.lead.tipoSuperior = 'Repisas'; } else if (ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Piston'; }
   }),
   capSep: () => change(() => { const g = capGroupOf(partMod()); if (g && g.members.length > 1) g.members[g.members.length - 2].unirSuperior = false; }),
   capQuitar: () => deletePart(selectedPart),
@@ -8708,7 +8718,7 @@ const EN = {
   "Los paneles posteriores de ancho fijo no dejan al menos 10 cm para los demás.": "Fixed-width back panels do not leave at least 10 cm for the others.",
   "Microondas de sobreponer: de 30 a 70 cm de ancho y de 20 a 60 cm de alto.": "Countertop microwave: 30 to 70 cm wide and 20 to 60 cm high.",
   "Módulo inferior + superior: cada módulo necesita al menos 25 cm (15 si es caja de repisas abierta); el superior, 60 cm como máximo.": "Stacked wall cabinet: each cabinet needs at least 25 cm (15 for open shelves); the top one, 60 cm at most.",
-  "Módulo superior unido: con puertas no puede pasar de 120 cm; separa columnas o usa caja de repisas.": "Joined stacker: with doors it cannot exceed 120 cm; split columns or use open shelves.",
+  "Módulo superior unido: con puertas no puede pasar de 120 cm; separa columnas o usa caja de repisas.": "Joined stacker: with doors it cannot exceed 120 cm; split columns or use open shelves.", "Puerta de pistón corrida: hasta 210 cm; separa columnas.": "Running lift-up door: up to 210 cm; split columns.",
   "No hay espacio para centrar este módulo con los anchos mínimos de sus vecinos.": "There is no room to center this cabinet with its neighbors’ minimum widths.",
   "No queda ningún ancho automático en la fila. Libera uno para repartir el espacio.": "No automatic width is left in the row. Release one to share the space.",
   "No se pudo adaptar el ancho.": "The width could not be adapted.",
