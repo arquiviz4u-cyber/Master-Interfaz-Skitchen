@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A227. [Master hecho 16/10; Revit pendiente] Correccion de A226 (16/10, usuario, tras probar P12.321): 1) el alto ciego es siempre el
+       gabinete recto de su cara, hasta el muro de la otra cara: ya no se arma en L aunque «Armado del alto» diga «Unido en L» (unionAlto;
+       el panel no muestra el armado para el ciego); 2) en el ciego, el repisero de la cara no duena empieza donde empieza la tapeta del
+       bajo ciego (inicioTapetaBajo: fondo del bajo de la cara duena mas su frente) y sale hacia esa cara con su ancho (repiseroAncho, de
+       fabrica 20 cm, de 15 a 40; US 8", 6" a 16"): la columna del alto crece y el alto vecino cede ese ancho (cedeVecino ya admite
+       ceder de menos); la tapa se recorre del frente de la cara duena al repisero. Solo en el lado ciego (el otro lleva la puerta).
+       En el alzado: tapa, repisero con sus repisas y agarre de su ancho.
    A226. [Master hecho 16/10; Revit P12.321] Alto de esquina armado con tapeta (16/10, usuario, tras probar P12.319, con el ciego en la
        cara B): 1) en la cara con tapeta (la no duena del ciego; las dos del L y del diagonal) el alto de la esquina tiene su ancho
        propio (altoA, altoB), de lo que pide su cuerpo hasta el del bajo: la tapeta se recorre y el alto vecino toma lo que cede
@@ -2823,7 +2830,13 @@ const ciegoDueno = k => { const e = cfg.esquinas[k], R = reg().esquina, duenaA =
   return { w0, w: v > 0 ? Math.max(w0, Math.min(w0 + (R.ciegoMax - R.ciego), v)) : w0 }; };
 const ciegoExtra = k => { const e = cfg.esquinas[k]; if (!e || e.tipo !== 'ciego') return 0; const c = ciegoDueno(k); return Math.round((c.w - c.w0)*1000)/1000; };
 /* A226: alto de la esquina armado con tapeta. Lado s (0: cara k, 1: cara k + 1) con tapeta: el no dueno del ciego; los dos del L y del diagonal */
-const ladoTapetaAlto = (e, s) => e.union === 'tapeta' && altoEsquina(e) !== 'ninguno' && (altoEsquina(e) !== 'ciego' || s !== (e.duena === 1 ? 1 : 0));
+/* A227: el alto ciego es siempre recto (armado con tapeta) */
+const unionAlto = e => altoEsquina(e) === 'ciego' || e.union === 'tapeta' ? 'tapeta' : 'L';
+/* A227: en el ciego el repisero empieza donde empieza la tapeta del bajo y lleva su ancho */
+const inicioTapetaBajo = (k, s) => fondoCara(caraDe(s ? k : k + 1), false) + espFrente();
+const repiseroAncho = e => { const U = cfg.region === 'US', mn = U ? inch(6) : 15, mx = U ? inch(16) : 40; return e.repiseroAncho > 0 ? Math.max(mn, Math.min(mx, e.repiseroAncho)) : U ? inch(8) : 20; };
+const repiseroCiego = (e, s) => altoEsquina(e) === 'ciego' && repiseroEsq(e, s);
+const ladoTapetaAlto = (e, s) => unionAlto(e) === 'tapeta' && altoEsquina(e) !== 'ninguno' && (altoEsquina(e) !== 'ciego' || s !== (e.duena === 1 ? 1 : 0));
 const repiseroMin = () => cfg.region === 'US' ? inch(6) : 15, puertaMaxEsq = () => cfg.region === 'US' ? inch(24) : 60;
 const repiseroEsq = (e, s) => !!(s ? e.repiseroB : e.repiseroA) && ladoTapetaAlto(e, s);
 /* lo que ocupa el cuerpo del alto en el lado s: en el ciego, el fondo del alto de la cara duena (y su frente); en L y diagonal, su ala */
@@ -2834,12 +2847,13 @@ function vecinoAltoOk(k, s){ const q = caraDe(s ? k + 1 : k); if (!q) return fal
   const c = ups.findIndex(m => m.esquina && m.esquina.k === k && m.esquina.lado === (s ? 'izq' : 'der')); if (c < 0) return false; const v = ups[s ? c + 1 : c - 1];
   return !!v && !v.esquina && !(lows.length === ups.length && isSpecial(lows[ups.indexOf(v)])); }
 function huellaAlto(k){ const e = cfg.esquinas[k], h = huellaEsquina(k);
-  return h.map((lw, s) => { const v = s ? e.altoB : e.altoA; if (!(v > 0) || !ladoTapetaAlto(e, s) || !vecinoAltoOk(k, s)) return lw; return Math.max(cuerpoAlto(k, s), Math.min(lw, v)); }); }
+  return h.map((lw, s) => { if (repiseroCiego(e, s) && vecinoAltoOk(k, s)) return inicioTapetaBajo(k, s) + repiseroAncho(e);   /* A227 */
+    const v = s ? e.altoB : e.altoA; if (!(v > 0) || !ladoTapetaAlto(e, s) || !vecinoAltoOk(k, s)) return lw; return Math.max(cuerpoAlto(k, s), Math.min(lw, v)); }); }
 const huecoEsqAlto = (k, s) => huellaAlto(k)[s] - finCuerpoAlto(k, s);
 /* lo que cede la esquina al alto vecino v de la cara activa */
 function cedeVecino(v){ if (!v || !v.upper || !multiCara()) return 0; const r = row(true), i = r.indexOf(v), a = r[i - 1], b = r[i + 1];
   const c = a && a.esquina && a.esquina.lado === 'izq' ? a : b && b.esquina && b.esquina.lado === 'der' ? b : null; if (!c) return 0;
-  return Math.max(0, huellaEsquina(c.esquina.k)[c.esquina.lado === 'der' ? 0 : 1] - c.ancho); }
+  return huellaEsquina(c.esquina.k)[c.esquina.lado === 'der' ? 0 : 1] - c.ancho; }   /* A227: negativo si la esquina crece (repisero) */
 /* cierre del alto ciego en su cara duena (pieza junto a la puerta): de fabrica lo que deja la puerta del ciego; hasta 5 cm (US 2") */
 const cierreDef = k => { const e = cfg.esquinas[k], own = e.duena === 1 ? 1 : 0; return Math.max(0, huellaEsquina(k)[own] - reg().esquina.ciegoPuerta - ciegoExtra(k) - fondoCara(caraDe(own ? k : k + 1), true) - espFrente()); };
 const cierreAlto = k => { const v = cfg.esquinas[k].cierreAlto, d = cierreDef(k); return v > 0 ? Math.max(Math.min(tapetaCiego(), d), Math.min(d, v)) : d; };
@@ -4941,7 +4955,7 @@ function recalcularCara(){
     const r = row(upper); if (!r.length) continue;
     const flex = r.filter(m => !m.fijo);
     /* A226: el alto vecino automatico de una esquina que cede: se reparte sin eso y despues lo toma */
-    const cedidos = upper ? r.filter(m => !m.fijo && cedeVecino(m) > 1e-6).map(m => [m, cedeVecino(m)]) : [], cedido = cedidos.reduce((s, q) => s + q[1], 0);
+    const cedidos = upper ? r.filter(m => !m.fijo && Math.abs(cedeVecino(m)) > 1e-6).map(m => [m, cedeVecino(m)]) : [], cedido = cedidos.reduce((s, q) => s + q[1], 0);
     let available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0) - cedido;
     if (!flex.length) { if (Math.abs(available) > .011) {   /* A222: sin anchos automaticos, primero las tapetas y despues la jerarquia */
         const d = -absorbeFila(-available), r2 = row(upper); if (Math.abs(d) > .011) repartirJerarquia(r2, d, null); }
@@ -6685,12 +6699,16 @@ function esquinerosPlan(add, r2, sep, tf){
      repisas abiertas (e.relleno), separada por una division */
   const z0u = baseAltos(), z1u = baseAltos() + bodyH(mu), fAu = fondoCara(cfg, true), fBu = fondoCara(qb, true), pre = id + ':alto';
   /* usuario 11/10: tambien se puede armar como antes, con el alto de esquina de 60 x 60 (o el ciego) y tapetas hasta la columna */
-  if (e.union === 'tapeta') {
+  if (unionAlto(e) === 'tapeta') {   /* A227: el ciego, siempre */
     /* A226: la columna del alto en cada lado con tapeta tiene su ancho (huellaAlto); de h0 (fin del cuerpo) a w1 (fin de la columna) va
        la tapa (desde t0) o un repisero abierto en el hueco: lateral (en el ciego), trasero, piso, techo y 2 repisas */
     const [wAu, wBu] = huellaAlto(k), fAh = fAu - PLAN_HOLGURA_PUERTA, fBh = fBu - PLAN_HOLGURA_PUERTA;
-    const ladoTap = (s, h0, t0, w1, conLateral) => {
-      if (!(repiseroEsq(e, s) && w1 - h0 >= repiseroMin() - 1e-6)) { if (w1 - t0 > .01) { if (s === 0) caja(pre + ':tapeta:a', 'tapeta', 'Compensacion', modU, LA - w1, LA - t0, fAu, fAu + tf, z0u, z1u, gm('Tapetas'), 'tapetas');
+    const tapaL = (s, t0, w1) => { if (w1 - t0 > .01) { if (s === 0) caja(pre + ':tapeta:a', 'tapeta', 'Compensacion', modU, LA - w1, LA - t0, fAu, fAu + tf, z0u, z1u, gm('Tapetas'), 'tapetas');
+      else caja(pre + ':tapeta:b', 'tapeta', 'Compensacion', modU, LA - fBu - tf, LA - fBu, t0, w1, z0u, z1u, gm('Tapetas'), 'tapetas'); } };
+    /* A227: con r0 (ciego) la tapa va de t0 a r0 y el repisero de r0 a w1, con su lateral junto a la tapa */
+    const ladoTap = (s, h0, t0, w1, conLateral, r0 = null) => {
+      if (r0 !== null) { tapaL(s, t0, r0); h0 = r0; }
+      else if (!(repiseroEsq(e, s) && w1 - h0 >= repiseroMin() - 1e-6)) { if (w1 - t0 > .01) { if (s === 0) caja(pre + ':tapeta:a', 'tapeta', 'Compensacion', modU, LA - w1, LA - t0, fAu, fAu + tf, z0u, z1u, gm('Tapetas'), 'tapetas');
         else caja(pre + ':tapeta:b', 'tapeta', 'Compensacion', modU, LA - fBu - tf, LA - fBu, t0, w1, z0u, z1u, gm('Tapetas'), 'tapetas'); } return; }
       const pz = (n, rol, tipo, u0, u1, v0, v1, a0, a1, mt) => s === 0 ? caja(pre + ':repisero:a:' + n, rol, tipo, modU, LA - u1, LA - u0, v0, v1, a0, a1, mt, 'gabinetes') : caja(pre + ':repisero:b:' + n, rol, tipo, modU, LA - v1, LA - v0, u0, u1, a0, a1, mt, 'gabinetes');
       const fh = s === 0 ? fAh : fBh, i0 = h0 + (conLateral ? e1 : 0);
@@ -6700,7 +6718,7 @@ function esquinerosPlan(add, r2, sep, tf){
     if (ta === 'ciego') { const duenaA = e.duena !== 1, w = duenaA ? wA : wB, fOwn = duenaA ? fAu : fBu, fOtra = duenaA ? fBu : fAu;
       ciego(pre, duenaA, w, fOwn, fOtra, z0u, z1u, modU, false, false, false, { cierre: cierreAlto(k), unero: cfg.style === 'Moderna' ? golaHondo(true) : 0 });
       const s = duenaA ? 1 : 0, fo = duenaA ? fAu : fBu;   /* la otra cara cierra su columna con la tapa o el repisero */
-      ladoTap(s, fo, fo + tf, s ? wBu : wAu, true);
+      ladoTap(s, fo, fo + tf, s ? wBu : wAu, true, repiseroCiego(e, s) ? inicioTapetaBajo(k, s) : null);   /* A227 */
       return; }
     const a = Math.min(wA, R.ladoAlto), b = Math.min(wB, R.ladoAlto), dt = ta === 'diagonal';
     esquinaL(pre, a, b, fAu, fBu, z0u, z1u, modU, dt, 1, true, 0, cfg.style === 'Moderna' ? golaHondo(true) : 0);   /* A139: doble cama */
@@ -6798,11 +6816,12 @@ function drawEsquina(m, x0, RX, X, Z, post){
   } else {   /* usuario 10/10: un solo gabinete en L a toda la columna; junto a la esquina, puerta o repisas abiertas */
     const c = Math.min(w, R.ladoAlto), abierto = (u0, u1) => { if (u1 - u0 < .01) return; const r = caja(u0, u1); fillMat(r.x, r.y, r.w, r.h, flat ? null : mat, C.box); outline(r, C.line, 1);
       post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; [1, 2].forEach(i => { const y = r.y + r.h*i/3; line(r.x + 2, y, r.x + r.w - 2, y); }); }); };
-    const kq = m.esquina.k, sq = der ? 0 : 1, tapU = e.union === 'tapeta', lw = huellaEsquina(kq)[sq];   /* A226: con tapeta, la columna del alto tiene su ancho; tapa o repisero */
+    const kq = m.esquina.k, sq = der ? 0 : 1, tapU = unionAlto(e) === 'tapeta', lw = huellaEsquina(kq)[sq];   /* A226: con tapeta, la columna del alto tiene su ancho; tapa o repisero */
     const ext = (u0, u1) => !tapU ? (e.relleno === 'repisas' ? abierto(u0, u1) : puerta(u0, u1, '')) : repiseroEsq(e, sq) && u1 - u0 >= repiseroMin() - 1e-6 ? abierto(u0, u1) : tapeta(u0, u1);   /* usuario 11/10: o con tapeta */
     if (tAlto === 'ciego') { perfil(0, fOtra);
       if (duena && tapU) { const D = puertaCiegoAlto(kq), u = w - D; tapeta(fOtra, u); if (D > puertaMaxEsq() + 1e-6) { puerta(u, u + D/2, 'Ciego'); puerta(u + D/2, w, ''); } else puerta(u, w, 'Ciego'); gripAlto(u, 'cierre'); }
       else if (duena) { const Pa = R.ciegoPuerta + ciegoExtra(kq); ext(fOtra, w - Pa); puerta(w - Pa, w, 'Ciego'); }   /* A221 */
+      else if (tapU && repiseroCiego(e, sq)) { const r0 = inicioTapetaBajo(kq, sq); tapeta(fOtra, r0); abierto(r0, w); gripAlto(w, 'rep'); }   /* A227 */
       else { ext(fOtra, w); if (tapU) gripAlto(w, 'alto'); } }
     else { perfil(0, fOtra); const c2 = tapU ? Math.min(lw, R.ladoAlto) : c; if (!sinFrenteEsquina(tapU ? lw : w, fOtra)) { puerta(fOtra, c2, tAlto === 'diagonal' ? 'Diagonal' : 'Plegable', tAlto === 'diagonal'); ext(c2, w); if (tapU) gripAlto(w, 'alto'); } }
   }
@@ -7580,7 +7599,9 @@ canvas.addEventListener('mousedown', e => {
   const tb = tabHits.find(q => inside(p, q.rect)); if (tb) { e.preventDefault(); ACT.cara(String(tb.k)); return; }   /* A135 */
   const eg = esqGripHits.find(q => inside(p, q.rect));   /* A143: ancho del esquinero con guia e iman */
   if (eg && eg.tipo) { e.preventDefault(); const m = eg.m, der = m.esquina.lado === 'der', k = m.esquina.k, s = der ? 0 : 1, outer = der ? eg.xi + eg.u : eg.xi - eg.u;   /* A226 */
-    drag = eg.tipo === 'alto' ? { kind: 'esqAlto', id: m.id, k, s, der, outer, w: m.ancho, mn: cuerpoAlto(k, s), mx: huellaEsquina(k)[s] }
+    const r0 = eg.tipo === 'rep' ? inicioTapetaBajo(k, s) : 0, U = cfg.region === 'US';   /* A227: ancho del repisero del ciego */
+    drag = eg.tipo === 'rep' ? { kind: 'esqAlto', rep: true, r0, id: m.id, k, s, der, outer, w: m.ancho, mn: r0 + (U ? inch(6) : 15), mx: r0 + (U ? inch(16) : 40) }
+      : eg.tipo === 'alto' ? { kind: 'esqAlto', id: m.id, k, s, der, outer, w: m.ancho, mn: cuerpoAlto(k, s), mx: huellaEsquina(k)[s] }
       : { kind: 'esqCierre', id: m.id, k, der, outer, base: eg.u - cierreAlto(k), v: cierreAlto(k), mn: Math.min(tapetaCiego(), cierreDef(k)), mx: cierreDef(k) }; return; }
   if (eg) { e.preventDefault(); const m = eg.m, ee = esquinaDe(m), der = m.esquina.lado === 'der', k = m.esquina.k, fO = fondoCara(caraDe(der ? k + 1 : k), false), mn = fO + (esquinaDiag(ee) ? 20 : espFrente());
     const cg = ee.tipo === 'ciego';   /* A151: en el ciego el iman va a la tapeta de 5 cm y se puede bajar hasta 0 */
@@ -7680,7 +7701,7 @@ canvas.addEventListener('mousemove', e => {
     if (drag.kind === 'esqAlto') drag.w = Math.max(drag.mn, Math.min(drag.mx, u)); else drag.v = Math.max(drag.mn, Math.min(drag.mx, u - drag.base));
     const uu = drag.kind === 'esqAlto' ? drag.w : drag.base + drag.v; canvas.style.cursor = 'ew-resize'; drawCanvas();
     const gx = frame.X(drag.der ? drag.outer - uu : drag.outer + uu); ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5; line(gx, frame.Z(cfg.alturaMuro), gx, frame.Z(0)); ctx.restore();
-    label(drag.kind === 'esqAlto' ? 'Alto de la esquina ' + fmt(drag.w) + uS() : 'Cierre ' + fmt(drag.v) + uS(), gx + 10, p.y - 16, C.ink); return; }
+    label(drag.kind === 'esqAlto' ? (drag.rep ? 'Repisero ' + fmt(drag.w - drag.r0) + uS() : 'Alto de la esquina ' + fmt(drag.w) + uS()) : 'Cierre ' + fmt(drag.v) + uS(), gx + 10, p.y - 16, C.ink); return; }
   if (drag && drag.kind === 'box') { drag.x1 = p.x; drag.y1 = p.y; drawCanvas(); return; }
   if (drag && drag.kind === 'guide') {   /* ContextMouseMove de las guias de la isla */
     const k = drag.key, A = cfg.islaAncho, xf = (p.x - frame.X(0))/frame.scale, dist = A - xf;
@@ -7702,7 +7723,7 @@ window.addEventListener('mouseup', () => {
   const d = drag; drag = null; canvas.style.cursor = 'default';
   if (d.kind === 'module') { if (d.over) { swap(d.id, d.over); setStatus('Módulos intercambiados.'); } else drawCanvas(); return; }
   if (d.kind === 'esqAncho') { change(() => anchoEsquina(d.k, d.der, rd(d.w))); return; }   /* A143 */
-  if (d.kind === 'esqAlto') { change(() => altoEsquinaAncho(d.k, d.s, rd(d.w))); return; }   /* A226 */
+  if (d.kind === 'esqAlto') { change(() => { if (d.rep) cfg.esquinas[d.k].repiseroAncho = rd(d.w - d.r0); else altoEsquinaAncho(d.k, d.s, rd(d.w)); }); return; }   /* A226 */
   if (d.kind === 'esqCierre') { change(() => { const e = cfg.esquinas[d.k]; e.cierreAlto = Math.abs(d.v - cierreDef(d.k)) < .01 ? null : rd(d.v); }); return; }
   if (d.kind === 'guide') {
     if (d.key === 'corte') { sectionCut = d.value; render(); return; }
@@ -7991,14 +8012,15 @@ function esquinaPanel(m){
       + `<div class="note-sm">De ${medida(cd.w0)} a ${medida(cd.w0 + R9.ciegoMax - R9.ciego)}: crecen la caja y su puerta; la parte ciega queda igual.</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Sigue al bajo'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
-  if (!alacena && altoEsquina(e) !== 'ninguno') html += section('Armado del alto', radios('esqUnion', [['L', 'Unido en L, un solo gabinete'], ['tapeta', 'Dos gabinetes con tapeta']], e.union === 'tapeta' ? 'tapeta' : 'L'));
-  if (!alacena && altoEsquina(e) !== 'ninguno' && e.union !== 'tapeta') html += section('Junto a la esquina', radios('esqRelleno', [['puerta', 'Gabinete con puerta'], ['repisas', 'Repisas abiertas']], e.relleno === 'repisas' ? 'repisas' : 'puerta')
+  if (!alacena && altoEsquina(e) !== 'ninguno' && altoEsquina(e) !== 'ciego') html += section('Armado del alto', radios('esqUnion', [['L', 'Unido en L, un solo gabinete'], ['tapeta', 'Dos gabinetes con tapeta']], e.union === 'tapeta' ? 'tapeta' : 'L'));
+  if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) !== 'tapeta') html += section('Junto a la esquina', radios('esqRelleno', [['puerta', 'Gabinete con puerta'], ['repisas', 'Repisas abiertas']], e.relleno === 'repisas' ? 'repisas' : 'puerta')
     + `<div class="note">El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.</div>`);
-  if (!alacena && altoEsquina(e) !== 'ninguno' && e.union === 'tapeta') { let h2 = '';   /* A226 */
+  if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) === 'tapeta') { let h2 = '';   /* A226 */
     [0, 1].filter(s => ladoTapetaAlto(e, s)).forEach(s => { const hu = huellaAlto(k)[s], hq = huecoEsqAlto(k, s);
-      h2 += `<div class="grid-2" style="margin-top:6px">${num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
+      h2 += `<div class="grid-2" style="margin-top:6px">${repiseroCiego(e, s) ? num('esqRepAncho', 'Ancho del repisero', repiseroAncho(e), 'cm', cfg.region === 'US' ? inch(6) : 15, cfg.region === 'US' ? inch(16) : 40) : num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
         + radios(s ? 'esqRepB' : 'esqRepA', [['tapa', 'Tapa ciega'], ['repisero', 'Repisero abierto']], repiseroEsq(e, s) ? 'repisero' : 'tapa')
-        + (repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : ''); });
+        + (!repiseroCiego(e, s) && repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : ''); });
+    if (altoEsquina(e) === 'ciego') h2 = `<div class="note-sm">El alto ciego es un gabinete recto en su cara, hasta el muro; la otra cara cierra con tapa o con repisero (desde la tapeta del bajo).</div>` + h2;   /* A227 */
     if (altoEsquina(e) === 'ciego') { const s = e.duena === 1 ? 1 : 0, d = cierreDef(k);
       h2 += `<div class="grid-2" style="margin-top:10px">${num('esqCierre', `Cierre en cara ${letraCara(k + s)}`, cierreAlto(k), 'cm', Math.min(tapetaCiego(), d), d)}</div><div class="note-sm">Al acortar el cierre crece la puerta; si pasa de ${medida(puertaMaxEsq())}, lleva dos puertas.</div>`; }
     html += section('Alto con tapeta', h2 + `<div class="note-sm">El alto vecino toma lo que cede la esquina. También se arrastra en el alzado.</div>`
@@ -8498,7 +8520,8 @@ const ACT = {
   esqAltoA: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 0, v)), esqAltoB: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 1, v)),   /* A226 */
   esqRepA: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroA = v === 'repisero'; }), esqRepB: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroB = v === 'repisero'; }),
   esqCierre: (v, m) => change(() => { const k = byId(m.id).esquina.k; cfg.esquinas[k].cierreAlto = Math.abs(v - cierreDef(k)) < .01 ? null : v; }),
-  esqAltoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.altoA = e.altoB = e.cierreAlto = null; }), esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }), esqInterior: (v, m) => change(() => { esquinaDe(byId(m.id)).interior = v; }),
+  esqAltoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.altoA = e.altoB = e.cierreAlto = e.repiseroAncho = null; }),
+  esqRepAncho: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroAncho = v; }),   /* A227 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }), esqInterior: (v, m) => change(() => { esquinaDe(byId(m.id)).interior = v; }),
   esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }),
   esqSub: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); if (e.tipo === 'ciego') { e.herraje = v === 'magic'; return; } e.sub = v;   /* A223 */
     if (e.tipo === 'diagonal' && v === 'tarja') { if (cfg.tipoTarja > 0) e.tarjaTipo = cfg.tipoTarja; cfg.moduloTarja = null; cfg.tipoTarja = 0; } }),
