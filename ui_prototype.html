@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A221. [Master hecho 16/10; Revit pendiente] Anchos (16/10, usuario, tras probar P12.311 en la cara A de su cocina en L): 1) al
+       escribir un ancho cuando todas las demas columnas de la fila son fijas, lo que la tapeta no absorbe (hasta su minimo) lo
+       da o lo toma la columna vecina: la de la derecha; si es la ultima, la de la izquierda (nunca la esquina); si la vecina
+       quedaria bajo su minimo, aviso (antes la tapeta se quedaba con el sobrante y ya no se podia ensanchar); 2) el esquinero
+       ciego se ensancha en su cara duena de 100 a 120 cm (US 36" a 42", reg().esquina.ciegoMax): crecen la caja y su puerta;
+       la parte ciega y la tapeta de ajuste quedan igual (e.anchoA / e.anchoB de la cara duena; campo «Ancho del ciego»).
    A220. [Master hecho 15/10; Ruby y Revit: piezas potfiller:base0..11 y cuelloAnclaje; Revit P12.306] El aro del potfiller es su base de anclaje: placa en aro pegada al muro (12 segmentos) unida a la columna por un cuello; el remate sube de la base.
    A219. [Master hecho 15/10; Ruby y Revit: leer cfg.potFillerPos; Revit P12.306] Potfiller apagado por defecto (ya lo estaba) y con posicion izquierda / centro / derecha dentro de la columna de la estufa (a 3 cm del borde en los lados).
    A218. [Master hecho 15/10; Ruby y Revit: PotFiller son ~30 cilindros potfiller:* con las medidas de la ficha Eco Brass; Revit P12.306] Potfiller con la precision de la ficha del fabricante (14-1/4 x 8-7/8 in, brazos a 5-1/4 y 3-1/4 in, buje a 12-1/2 in, pico a 4 in): escudo, valvula con manija, cuello, bulbo, aro, remate, dos brazos, buje con remates, codo, pico, boquilla y perilla. cfg.potFillerAlto ahora es el eje de la valvula (30 cm; el pico queda a 32 cm sobre la cubierta).
@@ -2134,13 +2140,13 @@
 const PULG = 2.54, DIECISEISAVO = PULG/16, inch = v => Math.round(v*PULG*1e6)/1e6;
 const REGIONES = {
   MX: { ancho: { min: 30, max: 120, objetivo: 60 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 3, tapetaMin: 2, tapetaMax: 5, especialMin: 45,
-    closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90, labio: 2, esquina: 5 }, fajas: { ancho: 10, tarja: 3 }, esquina: { ciego: 100, ciegoPuerta: 45, tapeta: 5, lado: 90, ladoAlto: 60, ocultaPuerta: 60 },
+    closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90, labio: 2, esquina: 5 }, fajas: { ancho: 10, tarja: 3 }, esquina: { ciego: 100, ciegoMax: 120, ciegoPuerta: 45, tapeta: 5, lado: 90, ladoAlto: 60, ocultaPuerta: 60 },
     tarjaDoble: 85, tarjaDobleBajo: 90, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20,
     lava: 60, lavaCompacto: 45, campana: { protegida: 60, combustible: 75 }, dosPuertasDesde: 0 },
   US: { ancho: { min: inch(12), max: inch(48), objetivo: inch(30) }, pasos: { modular: inch(3), pulgada: inch(1), medida: DIECISEISAVO }, pasoDef: 'modular',
     tapetaCorta: inch(1), tapetaMin: inch(.5), tapetaMax: inch(3), especialMin: inch(18),
     closet: { min: inch(18), max: inch(48), objetivo: inch(36), reserva: inch(2) }, estufa: { cuatro: inch(30), seis: inch(36), min: inch(20), max: inch(48) },
-    parrilla: { min: inch(12), max: inch(48), labio: inch(.75), esquina: inch(2) }, fajas: { ancho: inch(4), tarja: inch(1.25) }, esquina: { ciego: inch(36), ciegoPuerta: inch(15), tapeta: inch(3), lado: inch(36), ladoAlto: inch(24), ocultaPuerta: inch(24) }, tarjaDoble: inch(36), tarjaDobleBajo: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
+    parrilla: { min: inch(12), max: inch(48), labio: inch(.75), esquina: inch(2) }, fajas: { ancho: inch(4), tarja: inch(1.25) }, esquina: { ciego: inch(36), ciegoMax: inch(42), ciegoPuerta: inch(15), tapeta: inch(3), lado: inch(36), ladoAlto: inch(24), ocultaPuerta: inch(24) }, tarjaDoble: inch(36), tarjaDobleBajo: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
     especieroTorre: inch(12), especiero: inch(9), lava: inch(24), lavaCompacto: inch(18), campana: { protegida: inch(24), combustible: inch(30) }, dosPuertasDesde: inch(24) } };
 /* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
 const INICIO_REGION = {
@@ -2762,11 +2768,17 @@ const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !==
 /* huella de la esquina k en la cara k y en la k + 1 (en bajos; los altos van en la misma columna). Ciego: el gabinete de la duena se
    separa del muro lo que pida la otra cara (su fondo + la tapeta - la parte ciega): 100/45 con 60 de fondo ocupa 110 y la otra
    cara empieza a su fondo (60). Carrusel, diagonal y alacena: 90 x 90 (US 36 x 36); la alacena oculta, 120 en la cara de su puerta */
+/* A221 (usuario 16/10): ancho del ciego en su cara duena: de fabrica w0 (el ciego mas lo que pide la otra cara); se ensancha hasta
+   ciegoMax - ciego cm mas (crecen la caja y su puerta); ciegoExtra es lo que se ensancho */
+const ciegoDueno = k => { const e = cfg.esquinas[k], R = reg().esquina, duenaA = e.duena !== 1, fOtra = fondoCara(caraDe(duenaA ? k + 1 : k), false),
+  w0 = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)), v = duenaA ? e.anchoA : e.anchoB;
+  return { w0, w: v > 0 ? Math.max(w0, Math.min(w0 + (R.ciegoMax - R.ciego), v)) : w0 }; };
+const ciegoExtra = k => { const e = cfg.esquinas[k]; if (!e || e.tipo !== 'ciego') return 0; const c = ciegoDueno(k); return Math.round((c.w - c.w0)*1000)/1000; };
 function huellaEsquina(k){
   const e = cfg.esquinas[k], R = reg().esquina, fA = fondoCara(caraDe(k), false), fB = fondoCara(caraDe(k + 1), false), duenaA = e.duena !== 1;
   /* A151 (usuario 11/10): en la cara no duena del ciego la columna es el fondo del ciego (con su frente) mas una tapeta de ajuste: de
      fabrica 5 cm (US 2"), minimo sugerido; se puede escribir otra (hasta 0) o arrastrar en el alzado */
-  if (e.tipo === 'ciego') { const fOtra = duenaA ? fB : fA, w = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)), fOwn = (duenaA ? fA : fB) + espFrente(),
+  if (e.tipo === 'ciego') { const fOtra = duenaA ? fB : fA, w = ciegoDueno(k).w, fOwn = (duenaA ? fA : fB) + espFrente(),
       v = duenaA ? e.anchoB : e.anchoA, otro = v > 0 ? Math.max(fOwn, Math.min(fOwn + 60, v)) : fOwn + tapetaCiego();
     return duenaA ? [w, otro] : [otro, w]; }
   /* A140 (usuario 11/10): la alacena de esquina admite su ancho en cada cara (anchoA, anchoB); sin el, el de fabrica. A143 (usuario 11/10):
@@ -2805,8 +2817,9 @@ const enMarco = (f, x, y) => [f.O[0] + f.d[0]*x + f.n[0]*y, f.O[1] + f.d[1]*x + 
    Ciego: caja separada del muro de la otra cara; carrusel y alacena en L: L; diagonal: pentagono con el frente a 45 grados */
 function plantaEsquina(k){
   const e = cfg.esquinas[k], R = reg().esquina, LA = caraDe(k).longitud, fA = fondoCara(caraDe(k), false), fB = fondoCara(caraDe(k + 1), false), [wA, wB] = huellaEsquina(k);
-  if (e.tipo === 'ciego') return e.duena !== 1 ? [[LA - wA, 0], [LA - wA + R.ciego, 0], [LA - wA + R.ciego, fA], [LA - wA, fA]]
-    : [[LA - fB, wB - R.ciego], [LA, wB - R.ciego], [LA, wB], [LA - fB, wB]];
+  if (e.tipo === 'ciego') { const C = R.ciego + ciegoExtra(k);   /* A221 */
+    return e.duena !== 1 ? [[LA - wA, 0], [LA - wA + C, 0], [LA - wA + C, fA], [LA - wA, fA]]
+    : [[LA - fB, wB - C], [LA, wB - C], [LA, wB], [LA - fB, wB]]; }
   if (e.tipo === 'diagonal' || e.tipo === 'alacena' && e.alacena === 'diagonal') return [[LA - wA, 0], [LA, 0], [LA, wB], [LA - fB, wB], [LA - wA, fA]];
   return [[LA - wA, 0], [LA, 0], [LA, wB], [LA - fB, wB], [LA - fB, fA], [LA - wA, fA]];
 }
@@ -4470,6 +4483,7 @@ function pruebasPlanMX(){
     ['cocina en L con carrusel (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; } finally { cfg = prev; } return c; }],
     ['cocina en L con carrusel y alto con tapeta (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; c.esquinas[0].union = 'tapeta'; } finally { cfg = prev; } return c; }],
     ['cocina en U con ciego y alacena oculta (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'U'); c.esquinas[1].tipo = 'alacena'; c.esquinas[1].alacena = 'oculta'; c.esquinas[0].herraje = true; } finally { cfg = prev; } return c; }],
+    ['cocina en L con ciego ensanchado (A221)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'ciego'; c.esquinas[0].anchoA = 200; } finally { cfg = prev; } return c; }],
     ['cocina en L con diagonal y ciego en la otra cara (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].alto = 'ciego'; c.esquinas[0].duena = 1; } finally { cfg = prev; } return c; }],
     ['puerta oculta con 6 juntas horizontales y 3 verticales (A78)', c => { const d = newDoor(false); c.puertasOcultas = [d]; const prev = cfg; cfg = c;
       d.juntasHorizontales = hdDefaultJoints(6, d); d.juntasVerticales = 3; cfg = prev; return c; }],
@@ -4648,6 +4662,9 @@ function pruebasPlanMX(){
         ok(p.piezas.some(q => q.modulo === m.id && q.tipo === tipoFx), nombre + ': el alto ' + m.id + ' sin su fijacion ' + fx); }); }
     /* A149: el modulo superior del alto doble no lleva fijacion (lo carga el inferior); el lateral de un alto no se parte en dos */
     ok(!p.piezas.some(q => /:superior:(riel|taquete)/.test(q.id)), nombre + ': el modulo superior lleva fijacion propia');
+    (c.esquinas || []).forEach((e, k) => { const q = e.tipo === 'ciego' && p.piezas.find(r => r.id === 'esq' + k + ':puerta'); if (!q) return;   /* A221 */
+      const prev = cfg; cfg = c; let ex; try { ex = reg().esquina.ciegoPuerta + ciegoExtra(k); } finally { cfg = prev; }
+      ok(Math.abs((e.duena !== 1 ? q.ancho : q.fondo) - ex) < .01, nombre + ': la puerta del ciego no sigue su ancho (A221)'); });
     ok(!p.piezas.some(q => /:lateral:(izq|der):muesca$/.test(q.id)), nombre + ': lateral partido en dos');
     /* A154: el mueble con especiero anexado es uno: el especiero llega a la base del cuerpo de arriba (o al tope), su lateral exterior
        es de una pieza del zoclo al tope, el cuerpo de arriba lo cubre, su frente abre por su cuenta y no hay division en el cuerpo de arriba */
@@ -4867,7 +4884,7 @@ function validate(){
     if (isSpecial(m)) { if (m.ancho < minWidth(m) - .01 || m.espesorLaterales < 1 || m.espesorLaterales > 5) throw new Error(`Especial: ancho mínimo ${medida(reg().especialMin)}, fondo ${medida(50)}–${medida(80)} y laterales ${medida(1)}–${medida(5)}.`); }
     else if (m.ancho < minWidth(m) - .01) throw new Error(`${what} quedaría de ${fmt(m.ancho)}${uS()} y el mínimo es ${medida(minWidth(m))}. Quita un módulo, libera un ancho fijo o alarga el tramo.`);
     const anA = m.anexo ? m.anexo.ancho : 0;   /* A160 (usuario): con especiero anexado el maximo es de la parte de la torre o del refrigerador */
-    if (m.ancho - anA > reg().ancho.max + .01) throw new Error(`${what} quedaría de ${fmt(m.ancho - anA)}${uS()} y el máximo es ${medida(reg().ancho.max)}. Añade un módulo o fija otros anchos.`);
+    if (!m.esquina && m.ancho - anA > reg().ancho.max + .01) throw new Error(`${what} quedaría de ${fmt(m.ancho - anA)}${uS()} y el máximo es ${medida(reg().ancho.max)}. Añade un módulo o fija otros anchos.`);
     if (hasDrawers(m)) {
       const h = heights(m).slice(0, count(m)); if (m.tipo === 'C') h.push(split(m, 1) - agarreEntre() - .2);
       if (h.some(v => v < 8)) throw new Error(`La división deja un frente menor de ${medida(8)}.`);
@@ -4964,6 +4981,7 @@ function absorbInFillers(delta){
     if (rl >= rr) cfg.reservaIzq = rd(cfg.reservaIzq - s*q); else cfg.reservaDer = rd(cfg.reservaDer - s*q);
     delta -= s*q;
   }
+  return delta;   /* A221: lo que las tapetas no absorbieron */
 }
 /* SetFillerWidth: con las dos tapetas activas, la otra compensa y los modulos no cambian */
 function setFillerWidth(left, value){
@@ -4987,7 +5005,14 @@ const anchoRefri = m => { const v = anchoLibreRefri(m) - holguraRefri(); return 
 function applyWidth(id, value){
     const m = byId(id), r = row(m.upper), o = row(!m.upper), i = r.indexOf(m);
     if (o.length > 0 && o.length !== r.length) throw new Error('Para vincular anchos, ambas filas necesitan el mismo número de módulos. Añade o elimina módulos para emparejarlas.');
-    value = anchoEscrito(value); if (!cfg.isla) absorbInFillers(value - m.ancho);   /* en isla no se absorbe en las tapetas */
+    value = anchoEscrito(value); const resto = cfg.isla ? 0 : absorbInFillers(value - m.ancho);   /* en isla no se absorbe en las tapetas */
+    /* A221 (usuario): con todas las demas columnas fijas, lo que la tapeta no absorbe lo da o lo toma la columna vecina (la de la
+       derecha; si es la ultima, la de la izquierda; nunca la esquina ni un alto reservado) */
+    if (!cfg.isla && Math.abs(resto) > 1e-6 && r.every(q => q === m || q.fijo || q.reserved || q.esquina)) {
+      const j = [i + 1, i - 1].find(j => r[j] && !r[j].esquina && !r[j].reserved);
+      if (j !== undefined) { const v = r[j], nv = Math.round((v.ancho - resto)*1000)/1000, mn = minWidth(v);
+        if (nv < mn - 1e-6) throw new Error(`No cabe: la columna vecina quedaría de ${medida(nv)} y su mínimo es ${medida(mn)}.`);
+        v.ancho = nv; v.fijo = true; if (o.length) { o[j].ancho = nv; o[j].fijo = true; } } }
     m.ancho = value; m.fijo = true; if (o.length) { o[i].ancho = value; o[i].fijo = true; }
 }
 function setWidth(id, value){ change(() => applyWidth(id, value), 'Revisar ancho'); }
@@ -6373,7 +6398,7 @@ function esquinerosPlan(add, r2, sep, tf){
        como en los bajos y torres; fF es el plano de los frentes */
     const fF = fOwn; fOwn = fOwn - PLAN_HOLGURA_PUERTA;   /* A143: gola en el bajo */
     const bx = (n, rol, tipo, u0, u1, v0, v1, a, b, m2, et) => duenaA ? caja(pre + n, rol, tipo, modulo, LA - u1, LA - u0, v0, v1, a, b, m2, et) : caja(pre + n, rol, tipo, modulo, LA - v1, LA - v0, u0, u1, a, b, m2, et);
-    const P = R.ciegoPuerta, u0 = Math.max(0, w - R.ciego), et = 'gabinetes';
+    const xC = ciegoExtra(k), P = R.ciegoPuerta + xC, u0 = Math.max(0, w - R.ciego - xC), et = 'gabinetes';   /* A221: crecen la caja y su puerta */
     bx(':lateral:esquina', 'panel', 'Lateral', u0, u0 + e1, 0, fOwn, z0, z1, mat, et); if (gola) { const hG = golaHondo(true), zgL = z1 - agarre() - traslapeL(); bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn - hG, z0, z1, mat, et); bx(':lateral:bajo', 'panel', 'Lateral', w - e1, w, fOwn - hG, fOwn, z0, zgL, mat, et); }   /* A163: rebaje de la gola */
     else bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0, z1, mat, et);
     bx(':trasero', 'panel', 'Trasero', u0 + e1, w - e1, 0, ef, z0, z1, gm('Interior'), et); bx(':piso', 'panel', 'Piso', u0 + e1, w - e1, ef, fOwn, z0, z0 + e1, mat, et);
@@ -6512,7 +6537,7 @@ function esquinerosPlan(add, r2, sep, tf){
     caja(pre + ':tapeta:a', 'tapeta', 'Compensacion', modU, LA - wA, LA - a, fAu, fAu + tf, z0u, z1u, gm('Tapetas'), 'tapetas');
     caja(pre + ':tapeta:b', 'tapeta', 'Compensacion', modU, LA - fBu - tf, LA - fBu, b, wB, z0u, z1u, gm('Tapetas'), 'tapetas');
     return; }
-  const abierto = e.relleno === 'repisas', dg = ta === 'diagonal', c = Math.min(R.ladoAlto, wA, wB), P = R.ciegoPuerta;
+  const abierto = e.relleno === 'repisas', dg = ta === 'diagonal', c = Math.min(R.ladoAlto, wA, wB), P = R.ciegoPuerta + ciegoExtra(k);   /* A221 */
   const puertaA = (n, x0, x1) => { if (!abierto) caja(pre + ':' + n, 'frente', 'Puerta', modU, x0, x1, fAu, fAu + tf, z0u, z1u, frente, 'frentes'); };
   const puertaB = (n, y0, y1) => { if (!abierto) caja(pre + ':' + n, 'frente', 'Puerta', modU, LA - fBu - tf, LA - fBu, y0, y1, z0u, z1u, frente, 'frentes'); };
   const divA = x => caja(pre + ':division:a', 'division', 'Division', modU, x, x + e1, ef, fAu, z0u + e1, z1u - e1, gm('Interior'), 'gabinetes');
@@ -6577,7 +6602,7 @@ function drawEsquina(m, x0, RX, X, Z, post){
     partHits.push({ rect: r, key: 'gola', active: true }); if (selectedPart === 'gola') post.push(() => outline(r, C.select, 2)); };
   if (!m.upper) {
     const gE = golaEsquina(e);
-    if (e.tipo === 'ciego') { if (duena) { perfil(0, fOtra); tapeta(fOtra, w - R.ciegoPuerta); puerta(w - R.ciegoPuerta, w, e.herraje ? 'Ciego · herraje' : 'Ciego'); if (gE) golaZ(fOtra, w); } else { perfil(0, fOtra); tapeta(fOtra + espFrente(), w); } }   /* A151: tapeta de ajuste */
+    if (e.tipo === 'ciego') { const Pc = R.ciegoPuerta + ciegoExtra(m.esquina.k);   /* A221 */ if (duena) { perfil(0, fOtra); tapeta(fOtra, w - Pc); puerta(w - Pc, w, e.herraje ? 'Ciego · herraje' : 'Ciego'); if (gE) golaZ(fOtra, w); } else { perfil(0, fOtra); tapeta(fOtra + espFrente(), w); } }   /* A151: tapeta de ajuste */
     else if (oculta) { if (duena) { perfil(0, fOtra); puerta(fOtra, w, 'Alacena oculta'); } else { perfil(0, fOtra); tapeta(fOtra, w); } }
     else { const diag = esquinaDiag(e); perfil(0, fOtra);
       /* A143: si el ancho llega al borde de la barra perpendicular, esta cara no lleva puerta (solo se ve el canto de la otra) */
@@ -6597,7 +6622,7 @@ function drawEsquina(m, x0, RX, X, Z, post){
     const c = Math.min(w, R.ladoAlto), abierto = (u0, u1) => { if (u1 - u0 < .01) return; const r = caja(u0, u1); fillMat(r.x, r.y, r.w, r.h, flat ? null : mat, C.box); outline(r, C.line, 1);
       post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; [1, 2].forEach(i => { const y = r.y + r.h*i/3; line(r.x + 2, y, r.x + r.w - 2, y); }); }); };
     const ext = (u0, u1) => e.union === 'tapeta' ? tapeta(u0, u1) : e.relleno === 'repisas' ? abierto(u0, u1) : puerta(u0, u1, '');   /* usuario 11/10: o con tapeta */
-    if (tAlto === 'ciego') { perfil(0, fOtra); if (duena) { ext(fOtra, w - R.ciegoPuerta); puerta(w - R.ciegoPuerta, w, 'Ciego'); } else ext(fOtra, w); }
+    if (tAlto === 'ciego') { const Pa = R.ciegoPuerta + ciegoExtra(m.esquina.k); perfil(0, fOtra); if (duena) { ext(fOtra, w - Pa); puerta(w - Pa, w, 'Ciego'); } else ext(fOtra, w); }   /* A221 */
     else { perfil(0, fOtra); if (!sinFrenteEsquina(w, fOtra)) { puerta(fOtra, c, tAlto === 'diagonal' ? 'Diagonal' : 'Plegable', tAlto === 'diagonal'); ext(c, w); } }
   }
   const full = caja(0, w); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel);
@@ -7765,6 +7790,10 @@ function esquinaPanel(m){
   if (e.tipo === 'ciego' || alacena && e.alacena === 'oculta') html += section(e.tipo === 'ciego' ? 'Gabinete ciego en' : 'Puerta en', radios('esqDuena', [['0', `Cara ${letraCara(k)}`], ['1', `Cara ${letraCara(k + 1)}`]], String(e.duena === 1 ? 1 : 0)));
   if (e.tipo === 'diagonal') html += section('Repisas detrás de la puerta', `<div class="grid-2">${num('esqRepisas', 'Repisas', e.repisasDiag || 0, '', 0, 4, 1)}${(e.repisasDiag || 0) > 0 ? num('esqFondoRep', 'Fondo de repisas', fondoRepisasEsq(e), 'cm', 10, 60) : ''}</div>`
     + `<div class="note-sm">En L a lo largo de los dos muros; de fábrica 20 cm de fondo; el triángulo tras la puerta queda libre.</div>`);   /* A142; A153 */   /* A142 */
+  if (e.tipo === 'ciego') { const cd = ciegoDueno(k), dA = e.duena !== 1, R9 = reg().esquina;   /* A221: ancho del ciego en su cara duena */
+    html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.w0, cd.w0 + R9.ciegoMax - R9.ciego)}</div>`
+      + `<div class="note-sm">De ${medida(cd.w0)} a ${medida(cd.w0 + R9.ciegoMax - R9.ciego)}: crecen la caja y su puerta; la parte ciega queda igual.</div>`
+      + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   if (e.tipo === 'ciego') html += section('Herraje', chk('esqHerraje', !!e.herraje, 'Herraje extraíble (LeMans / Magic Corner)')
     + `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()} y tapeta de esquina de ${fmt(R.tapeta)}${uS()}; se separa del muro lo que pide el fondo de la otra cara.</div>`);
   if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Sigue al bajo'], ['ciego', 'Ciego'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
@@ -8438,7 +8467,7 @@ const EN = {
   "El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.": "The corner wall cabinet is one cabinet across the whole column; the part next to the corner has a door or open shelves.",
   "Recta": "Straight", "En L": "L-shaped", "En U": "U-shaped", "Esquinero": "Corner cabinet", "Ciego": "Blind corner", "Carrusel en L": "L-shaped lazy Susan", "Diagonal": "Diagonal",
   "Alacena esquinera": "Corner pantry", "Alacena": "Pantry", "En L, puerta plegable": "L-shaped, bi-fold door", "Diagonal, una puerta": "Diagonal, single door",
-  "Oculta, puerta de piso a techo": "Hidden, floor-to-ceiling door", "Herraje": "Hardware", "Herraje extraíble (LeMans / Magic Corner)": "Pull-out fitting (LeMans / Magic Corner)",
+  "Oculta, puerta de piso a techo": "Hidden, floor-to-ceiling door", "Herraje": "Hardware", "Herraje extraíble (LeMans / Magic Corner)": "Pull-out fitting (LeMans / Magic Corner)", "Ancho del ciego": "Blind corner width",
   "Alto de la esquina": "Corner wall cabinet", "Sigue al bajo": "Matches the base", "Sin alto": "No wall cabinet", "Gabinete ciego en": "Blind cabinet on", "Puerta en": "Door on",
   "Del zoclo al tope de los altos; no lleva alto encima.": "From the toe kick to the top of the wall cabinets; no wall cabinet above.",
   "Por dentro: bajo de cajones con cubierta, repisas con LED y repisero lateral.": "Inside: drawer base with countertop, LED-lit shelves and a side shelving unit.",
@@ -9445,6 +9474,8 @@ const EN_T = [
   ["Especial: ancho mínimo {0}, fondo {1}–{2} y laterales {3}–{4}.", "Tall unit: minimum width {0}, depth {1}–{2}, and sides {3}–{4}."],
   ["{0} quedaría de {1} y el mínimo es {2}. Quita un módulo, libera un ancho fijo o alarga el tramo.", "{0} would be {1} wide; the minimum is {2}. Remove a cabinet, unlock a fixed width, or lengthen the run."],
   ["{0} quedaría de {1} y el máximo es {2}. Añade un módulo o fija otros anchos.", "{0} would be {1} wide; the maximum is {2}. Add a cabinet or lock other widths."],
+  ["No cabe: la columna vecina quedaría de {0} y su mínimo es {1}.", "It does not fit: the next column would be {0}; its minimum is {1}."],
+  ["De {0} a {1}: crecen la caja y su puerta; la parte ciega queda igual.", "From {0} to {1}: the cabinet and its door grow; the blind part stays the same."],
   ["La estufa mide de {0} a {1} de ancho ({2} con 4 quemadores, {3} con 6).", "The range is {0} to {1} wide ({2} with 4 burners, {3} with 6)."],
   ["La parrilla mide de {0} a {1} de ancho.", "The cooktop is {0} to {1} wide."],
   ["La parrilla de {0} no cabe junto a la esquina: chocaría con ella o su hueco saldría del gabinete.", "The {0} cooktop does not fit next to the corner: it would hit it or its cutout would leave the cabinet."],
