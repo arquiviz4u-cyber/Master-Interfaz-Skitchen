@@ -305,7 +305,7 @@
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
    A222. [Master hecho 16/10; Revit P12.315] Tras probar A221 (16/10, usuario): 1) jerarquia de anchos: lo que falta o sobra en
        una fila sin anchos automaticos (al escribir un ancho, al cambiar el del esquinero, al quitar el especiero del
-       refrigerador, al apagar una tapeta) se reparte: tapetas hasta su minimo o su tope; despues las columnas sin mueble especial
+       refrigerador, al apagar una tapeta, o si los automaticos no caben entre su minimo y su maximo) se reparte: tapetas hasta su minimo o su tope; despues las columnas sin mueble especial
        (puertas, abierto, cajones, altos), parejo aunque tengan candado; despues cesto, especiero bajo, columna de tarja (sin bajar
        de su tina) y torres, alacena y refrigerador; nunca estufa, lavavajillas, frigobar ni la esquina (sustituye a la vecina de
        A221); 2) sin el esquinero ciego (bajo y alto): lo guardado pasa a carrusel en L y el alto ciego a «sigue al bajo»; el
@@ -4861,10 +4861,15 @@ function recalcularCara(){
   for (const upper of [false, true]) {
     const r = row(upper); if (!r.length) continue;
     const flex = r.filter(m => !m.fijo);
-    const available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0);
+    let available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0);
     if (!flex.length) { if (Math.abs(available) > .011) {   /* A222: sin anchos automaticos, primero las tapetas y despues la jerarquia */
         const d = -absorbInFillers(-available), r2 = row(upper); if (Math.abs(d) > .011) repartirJerarquia(r2, d, null); }
       continue; }
+    /* A222: si los automaticos no caben entre su minimo y su maximo, lo que falta o sobra va a las tapetas y despues a la jerarquia de los fijos */
+    { const mnF = flex.reduce((s, m) => s + minWidth(m), 0), mxF = flex.reduce((s, m) => s + reg().ancho.max + (m.anexo ? m.anexo.ancho : 0), 0),
+        dX = available < mnF - 1e-6 ? available - mnF : available > mxF + 1e-6 ? available - mxF : 0;
+      if (Math.abs(dX) > 1e-6) { const d = -absorbInFillers(-dX); if (Math.abs(d) > .011) repartirJerarquia(r, d, null, new Set(flex));
+        available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0); } }
     const n = Math.floor(available/u + 1e-6), sobra = Math.round((available - n*u)*1e4)/1e4;   /* sobra: solo en la fila que no es la base */
     let alloc;
     if (cfg.repartoAdaptado) alloc = widthFit(flex.map(m => m.peso > 0 ? m.peso : m.ancho), flex.map(minWidth), n, u);
@@ -5027,13 +5032,13 @@ function setWidth(id, value){ change(() => applyWidth(id, value), 'Revisar ancho
    tarja (sin bajar de su tina); 5) torres, alacena y refrigerador. Nunca estufa, lavavajillas, frigobar, la esquina ni excl */
 function nivelAncho(m){ if (m.esquina || m.reserved || ['Estufa', 'Lavavajillas', 'Frigobar'].includes(m.tipo)) return 0;
   if (isSpecial(m)) return 5; if (!m.upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0) return 4; if (m.tipo === 'Especiero') return 3; if (m.tipo === 'Basura') return 2; return 1; }
-function repartirJerarquia(r, d, excl){
+function repartirJerarquia(r, d, excl, fuera = null){
   const o = row(!r[0].upper), par = o.length === r.length, q = cfg.region === 'US' ? DIECISEISAVO : 1, base = r[0].upper && par ? o : r;
   const minDe = m => { let mn = minWidth(m); if (!m.upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0) mn = Math.max(mn, cfg.tarjaAncho*(cfg.tipoTarja === 2 ? 1.6 : 1) + 8); return mn; };
   const maxDe = m => reg().ancho.max + (m.anexo ? m.anexo.ancho : 0);
   const pon = (m, w) => { const i = r.indexOf(m); m.ancho = Math.round(w*1e4)/1e4; m.fijo = true; if (par) { o[i].ancho = m.ancho; o[i].fijo = true; } };
   for (let nv = 1; nv <= 5 && Math.abs(d) >= q - 1e-9; nv++) {
-    const cand = r.filter((m, i) => m !== excl && nivelAncho(base[i] || m) === nv && nivelAncho(m) !== 0);
+    const cand = r.filter((m, i) => m !== excl && !(fuera && fuera.has(m)) && nivelAncho(base[i] || m) === nv && nivelAncho(m) !== 0);
     for (let g = 0; g < 4000 && Math.abs(d) >= q - 1e-9; g++) {
       const s = Math.sign(d), libre = m => s > 0 ? maxDe(m) - m.ancho : m.ancho - minDe(m);
       const m = cand.filter(c => libre(c) >= q - 1e-9).sort((a, b) => libre(b) - libre(a))[0]; if (!m) break;
