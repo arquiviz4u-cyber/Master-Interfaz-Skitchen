@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A242. [Master hecho 17/10; SketchUp sin cambios (gira con abre.y y abre.z); Revit pendiente] Bisagras de la puerta elevable (usuario
+       17/10, captura: abierta, la cazoleta y su brazo se veian separados): con bisagras la elevable gira 90 grados sobre el eje que lleva el
+       nudillo de cerrado a abierto (ejeBisagra, como la puerta de lateral) traspuesto al techo, en vez de sobre el canto superior de su cara
+       vista; la punta abierta de cada piston es la cerrada girada sobre ese eje. Autoprueba: el nudillo de la cazoleta abierta llega al del
+       brazo abierto (menos de 1.5 cm).
    A241. [Master hecho 17/10; Revit P12.337] Perfil de la corona mas grafico al elegirlo (17/10, usuario): en el panel de la tapeta
        superior, una tarjeta por perfil a todo el ancho (antes tres radios apretados con un icono de 34 px que se cortaban): el corte en
        contexto a la misma escala para los tres (techo, tapeta, gabinete y la moldura a 45 grados con su cota de caida), nombre, medida
@@ -4554,6 +4559,7 @@ function planDePiezas(c = cfg){
       piezas.filter(r => (r.rol === 'division' || r.rol === 'panel' && r.tipo === 'Lateral') && r.z < z1 && r.z + r.alto > z0 + 1 && r.x > x0 + inset + 8 && r.x + r.ancho < x1 - inset - 8 && r.y < yF && r.y + r.fondo >= yF - PLAN_HOLGURA_PUERTA - .01)
         .sort((a, b) => a.x - b.x).forEach(r => { const sx = r.x - r8 - .1; if (!divs.some(v => Math.abs(v - sx) < 3)) divs.push(sx); });
       const posiciones = [x0 + inset].concat(divs, [x1 - inset]);
+      let giroB = null;   /* A242: eje de la elevable con bisagras (por el nudillo, como la puerta de lateral) */
       if (cfg.bisagras) { let k = 0;   /* dos bisagras entre cada par de pistones (a un cuarto y a tres cuartos), con el modelo real girado: su lateral contra el techo */
         const MB = MODELO.bisagra, zt = z1 - 1.8 - (MB.brazoCerrado[1][0] - MB.lateral);   /* el techo acaba en z1 - 1.8: el lomo de la bisagra toca su cara inferior */
         /* A224: a lo ancho como las de una puerta a lo alto (2 hasta 90 cm, 3 hasta 160, 4 hasta 200, 5 arriba; a 10 cm de los extremos), apartadas 6 cm de las divisiones con piston */
@@ -4566,14 +4572,21 @@ function planDePiezas(c = cfg){
           (dueno.perforaciones = dueno.perforaciones || []).push({ x: r2(bx - dueno.x), z: r2(z1 - 3.77 - dueno.z), diametro: PLAN_BISAGRA.cazoleta, hondo: PLAN_BISAGRA.hondo });
           add(Object.assign({ id: d + ':bisagra:s' + j, tipo: 'Bisagra', estado: 'cerrado', modelo: { archivo: 'bisagra_brazo_cerrada', espejo: false, giro: 90, origen: puntoModeloG([0, 0, 0], marco) } }, base, cajaModeloG(MB.brazoCerrado, marco)));
           add(Object.assign({ id: d + ':bisagraAbierta:s' + j, tipo: 'Bisagra', estado: 'abierto', modelo: { archivo: 'bisagra_brazo_abierta', espejo: false, giro: 90, origen: puntoModeloG(D, marco) } }, base, cajaModeloG(MB.brazoAbierto, marco)));
-          add(Object.assign({ id: d + ':cazoleta:s' + j, tipo: 'Cazoleta', modelo: { archivo: 'bisagra_cazoleta', espejo: false, giro: 90, origen: puntoModeloG([0, 0, 0], marco) } }, base, cajaModeloG(MB.cazoletaCaja, marco))); }); }
+          add(Object.assign({ id: d + ':cazoleta:s' + j, tipo: 'Cazoleta', modelo: { archivo: 'bisagra_cazoleta', espejo: false, giro: 90, origen: puntoModeloG([0, 0, 0], marco) } }, base, cajaModeloG(MB.cazoletaCaja, marco))); });
+        /* A242 (usuario 17/10: al abrir, la cazoleta se separaba de su brazo): con bisagras la elevable gira 90 grados sobre el eje que lleva el
+           nudillo de cerrado a abierto (ejeBisagra, como la puerta de lateral) traspuesto al techo: canto = lo que la puerta sube sobre el
+           plano de la placa, holgura = la de la caja. Antes giraba sobre el canto superior de su cara vista */
+        if (k > 0) { const eje = ejeBisagra(z1 - zt, Math.max(...fr.map(r => r.fondo)), PLAN_HOLGURA_PUERTA);
+          pr.abre.z = r2(zt + eje[0] - MB.lateral); pr.abre.y = r2(yF + MB.trasCara - eje[1]); giroB = [pr.abre.y, pr.abre.z]; } }
       posiciones.forEach((sx, i) => {
         /* una repisa entre el ancla y la punta: el ancla sube sobre ella (en obra el piston se monta arriba de la repisa) */
         const r9 = P9.cuerpo/2, sobre = piezas.filter(r => r.modulo === pr.modulo && r.rol === 'repisa' && r.x < sx + r9 && r.x + r.ancho > sx - r9 && r.y < yF && r.z + r.alto > z1 - fijo - r9 && r.z < cerrada[1]);
         const ancla = [yF - dentro, Math.max(z1 - fijo, ...sobre.map(r => r.z + r.alto + r9 + .2))];
         if (ancla[1] > cerrada[1] - 2) return;
         const cuerpo = P9.largoCuerpo*Math.hypot(cerrada[0] - ancla[0], cerrada[1] - ancla[1]);
-        [['cerrado', cerrada], ['abierto', [yF + caida, z1 - t9]]].forEach(([estado, punta]) => {
+        /* A242: abierta, la punta va con la puerta: la cerrada girada sobre el eje de la elevable (y' = yc - (z - zc), z' = zc + (y - yc)) */
+        const abiertaP = giroB ? [giroB[0] - (cerrada[1] - giroB[1]), giroB[1] + (cerrada[0] - giroB[0])] : [yF + caida, z1 - t9];
+        [['cerrado', cerrada], ['abierto', abiertaP]].forEach(([estado, punta]) => {
         const dy = punta[0] - ancla[0], dz = punta[1] - ancla[1], k = Math.min(1, cuerpo/Math.hypot(dy, dz)), medio = [sx, ancla[0] + dy*k, ancla[1] + dz*k];
         const id = d + ':piston:' + i + ':' + estado, dato = { rol: 'herraje', modulo: pr.modulo, material: null, etiqueta: 'herrajes', frente: d, estado };
         barra(Object.assign({ id: id + ':cuerpo', tipo: 'Piston' }, dato), [sx, ancla[0], ancla[1]], medio, P9.cuerpo, 10);
@@ -4923,7 +4936,11 @@ function pruebasPlanMX(){
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
       ok(a && a.estado === 'abierto' && q.estado === 'cerrado' && a.frente === q.frente && cz && cz.frente === q.frente && !cz.estado, nombre + ': bisagra sin su brazo abierto o su cazoleta ' + q.id);   /* A146 */
       ok(q.modelo.origen && a && a.modelo.origen && cz && cz.modelo.origen, nombre + ': bisagra sin origen de su modelo ' + q.id);
-      ok(q.modelo.giro ? !!pr : pr && pr.abre.x >= q.x - 1 && pr.abre.x <= q.x + q.ancho + 1, nombre + ': la puerta no gira en su bisagra ' + q.id);   /* A202: la elevable gira sobre su canto superior */
+      ok(q.modelo.giro ? !!pr : pr && pr.abre.x >= q.x - 1 && pr.abre.x <= q.x + q.ancho + 1, nombre + ': la puerta no gira en su bisagra ' + q.id);
+      /* A242: elevable abierta, el nudillo de la cazoleta (que va con la puerta) llega al del brazo abierto */
+      if (q.modelo.giro && pr && cz) { const o = cz.modelo.origen, MB = MODELO.bisagra, K = [o[1] - MB.nudilloCerrado[1], o[2] + MB.nudilloCerrado[0]], T = [o[1] - MB.nudilloAbierto[1], o[2] + MB.nudilloAbierto[0]];
+        const Kg = [pr.abre.y - (K[1] - pr.abre.z), pr.abre.z + (K[0] - pr.abre.y)];
+        ok(Math.hypot(Kg[0] - T[0], Kg[1] - T[1]) < 1.5, nombre + ': la cazoleta de la elevable se separa de su brazo en ' + q.id + ' (' + r2c(Math.hypot(Kg[0] - T[0], Kg[1] - T[1])) + ')'); }   /* A202: la elevable gira sobre su canto superior */
       /* A139: abierta, la puerta (girada sobre su eje) no entra en el lateral de su bisagra */
       if (pr && pr.abre.grados) { const fr = p.piezas.filter(r => r.frente === q.frente && r.rol === 'frente'), a = pr.abre.grados*Math.PI/180*(pr.abre.lado === 'derecha' ? 1 : -1);
         const gira = ([x, y]) => { const dx = x - pr.abre.x, dy = -(y - pr.abre.y); return [pr.abre.x + dx*Math.cos(a) - dy*Math.sin(a), pr.abre.y - (dx*Math.sin(a) + dy*Math.cos(a))]; };
