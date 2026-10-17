@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A240. [Master hecho 17/10; Revit pendiente] Fondos y especiero (17/10, usuario): 1) ningun gabinete lleva la tira posterior (faja
+       de anclaje): ni altos (A145), ni especiales, ni bajos (antes una arriba en cada bajo); 2) vista interior de la torre con especiero
+       anexado: las repisas de la caja ensanchada llegan al lateral del especiero (antes se recortaban dos veces su grueso y quedaba una
+       franja), el especiero no dibuja su lateral exterior al doble, la linea de su lateral no atraviesa el cuerpo de arriba y el extraible
+       muestra sus niveles cada 20 cm (no 5 repisas). Revit: la caja de madera del extraible anexado y el cuerpo de arriba sin encimarse
+       con el lateral del especiero (en su version). Pendiente: especieros con herraje (condimentero).
    A239. [Master hecho 17/10; Revit P12.334] Materiales (17/10, usuario): 1) soltar un material en el vacio pinta todo (general
        y quita los materiales propios de modulos, piezas, puertas ocultas y paneles de isla) menos cubierta (y barra), backsplash,
        jaladeras y gola de aluminio, que conservan el suyo; esas ya no heredan el material general (groupMaterial, sinGeneral); con gola
@@ -4012,7 +4018,7 @@ function planDePiezas(c = cfg){
           const led = conCama(m);   /* sobre la cama (LED o gola, A83); el alto con campana no la lleva: su lecho es el hueco de la campana */
           /* A86: el bajo con cubierta lleva fajas en lugar del techo (detras del canal superior de la gola); todos, de anclaje */
           const gs = upper ? [] : golaStrips(m), receso = gs.length && gs[0][0] + gs[0][1] >= z1 - PLAN_CUERPO.lateral - .01 ? golaHondo(true) : 0;
-          const fj = { ancho: upper || !cfg.generarCubierta ? 0 : tarja ? reg().fajas.tarja : reg().fajas.ancho, receso, anclaje: upper ? 0 : 1, fijacion: upper ? fijacionAltos() : null };   /* A145 */
+          const fj = { ancho: upper || !cfg.generarCubierta ? 0 : tarja ? reg().fajas.tarja : reg().fajas.ancho, receso, anclaje: 0, fijacion: upper ? fijacionAltos() : null };   /* A240: ningun gabinete lleva la tira posterior */   /* A145 */
           const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo', !tarja || fj.ancho > 0, led, fj, sinPuertas(lead) ? 0 : PLAN_HOLGURA_PUERTA);
           if (upper && led && cfg.style === 'Moderna' && !sinPuertas(m)) {   /* A83: cama interior sobre la del piso, de 1.8 cm tras el frente al trasero. A93: la caja de repisas (sin puertas) no la lleva */
             const e = PLAN_CUERPO.lateral; add({ id: lead.id + ':cuerpo:camaInterior', rol: 'panel', modulo: lead.id, tipo: 'CamaInterior', x: h.x0, y: h.y0, z: h.z0, ancho: h.x1 - h.x0, fondo: h.y1 - h.y0,   /* A91: llega al pano (con o sin LED) */ alto: e, material: matDe(lead), etiqueta: 'gabinetes' });
@@ -7080,9 +7086,9 @@ function drawSpecialConAnexo(m, x0, RX, Z, post){
   if (A.alPiso && zb > 0) { const qp = RX(xe0, xe0 + w, 0, zb); fillMat(qp.x, qp.y, qp.w, qp.h, (m.materialesPaneles || {}).especiero || mat, sel ? C.selFill : C.front); materialHits.push({ rect: qp, key: 'panel:' + m.id + ':especiero' }); }   /* A239: frente hasta el piso */
   if (focusPanel === 'panel:' + m.id + ':especiero' && !exporting) {   /* A156: doble clic en el especiero */
     const fe = showDoors ? fronts(m).find(f => f.anexo) : null, qf = fe ? RX(x0 + fe.x0, x0 + fe.x1, fe.z0, fe.z1) : q; post.push(() => outline(qf, C.focus, 3)); }
-  ctx.strokeStyle = C.line; ctx.lineWidth = 1; const xl = izq ? q.x + tt : q.x + q.w - tt; line(xl, todo.y, xl, q.y + q.h);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1; const xl = izq ? q.x + tt : q.x + q.w - tt; line(xl, q.y, xl, q.y + q.h);   /* A240: no atraviesa el cuerpo de arriba */
   line(q.x, q.y + q.h, q.x + q.w, q.y + q.h); line(izq ? q.x : q.x + q.w, todo.y, izq ? q.x : q.x + q.w, q.y + q.h);
-  if (!showDoors) drawShelves({ x: izq ? q.x + tt : q.x, y: q.y, w: q.w - tt, h: q.h }, 5, m, 'especiero', false, sel);
+  if (!showDoors) drawShelves({ x: izq ? q.x : q.x - tt, y: q.y, w: q.w + tt, h: q.h }, A.extraible ? Math.max(1, Math.floor((zt - zb)/(MODELO.especiero.nivel || 20)) - 1) : 5, m, 'especiero', false, sel);   /* A240: un solo grueso de lateral; el extraible, sus niveles */
   else fronts(m).filter(f => f.anexo).forEach(f => drawFront(f, x0, Z, scale, m));
   hits.push({ rect: todo, module: m });
 }
@@ -7096,7 +7102,7 @@ function drawSpecial(m, x0, RX, Z, post){
   const ext = zs !== null ? RX(izqA ? x0 - an.ancho : x0 + m.ancho, izqA ? x0 : x0 + m.ancho + an.ancho, zs, top) : null;
   /* A152: una zona del cuerpo de arriba se dibuja de una pieza con lo que cubre del especiero (sus repisas corridas) */
   const ttA = (lat ? m.espesorLaterales : PLAN_CUERPO.lateral)*scale;
-  const unir = q0 => !ext || !q0 || q0.y + q0.h < ext.y - 1 ? q0 : izqA ? { x: ext.x + ttA, y: q0.y, w: q0.x + q0.w - ext.x - ttA, h: q0.h } : { x: q0.x, y: q0.y, w: ext.x + ext.w - ttA - q0.x, h: q0.h };
+  const unir = q0 => !ext || !q0 || q0.y + q0.h < ext.y - 1 ? q0 : izqA ? { x: ext.x, y: q0.y, w: q0.x + q0.w - ext.x, h: q0.h } : { x: q0.x, y: q0.y, w: ext.x + ext.w - q0.x, h: q0.h };   /* A240: hasta el borde: drawShelves ya resta el grueso del lateral */
   if (!m._parte) moduleChrome(m, r, post, sel);   /* antes que los cuerpos: el marco naranja del foco queda encima del contorno de seleccion. A154: el mueble entero lo pone */
   if (ext) { fillMat(ext.x, ext.y, ext.w, ext.h, mat, sel ? C.selFill : C.front); if (sel && mat && !flat) { ctx.fillStyle = C.selOverlay; ctx.fillRect(ext.x, ext.y, ext.w, ext.h); } }
   if (refri) {   /* el hueco del refri queda blanco; el material solo en el gabinete superior */
