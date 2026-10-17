@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A235. [Master hecho 16/10; Revit pendiente] Moldura corona a 45 grados en las vueltas (16/10, usuario: «el crownmolding no sigue las
+       configuraciones de esquina, ademas los cierres en cada vuelta deben estar a 45 grados en todas las molduras»): 1) en una cocina
+       en L/U, con alto de esquina en L o ciego, la corona de cada cara sigue hasta el cruce con la de la otra cara y se corta a inglete
+       (plano por el cruce de sus espaldas y el de sus frentes; antes se encimaban en el master y en Revit quedaba hueco sobre el
+       esquinero); 2) los cierres de los extremos (cerrarMolduraIzq/Der) son a inglete con el tramo (antes a tope). Forma: perfil con
+       extremos a inglete, forma.ini / forma.fin = [a, b]: el extremo se recorre a + b*u a lo largo del eje (u: primera coordenada del
+       perfil); para SketchUp, el mismo dato. Pendiente: diagonal (tramo a 45 grados con cortes de 22.5), alacena de esquina (escalon con
+       regresos) y los regresos donde cambia el fondo entre tramos.
    A234. [Master hecho 16/10; Revit P12.329] Puerta de la alacena oculta de esquina con jaladera y moldura (16/10, usuario): bisagras
        del lado del vecino y jaladera junto a la esquina (a 95 cm, regla de las altas; barra o boton de Ajustes), en estilo clasico y
        simple; en moderno sin agarre (se abre empujando); en clasico, marco shaker como las demas puertas (cuatro piezas Marco de
@@ -4297,19 +4305,24 @@ function planDePiezas(c = cfg){
       /* A208 (usuario): la tapeta superior puede ir a ras de las puertas, detras de su cara posterior o ser una moldura (corona), solo en Clasica */
       const modoTs = tsModo(), conMolduraTs = molduraTs(), dTs = modoTs === 'atras' ? t : 0;
       const LIST = PLAN_LISTON;   /* A214: listón de fijación 1x2 (3/4 x 1-1/2 in) sobre el techo de los altos, atras de la tapeta */
+      /* A235: en una cocina en L/U con alto de esquina en L o ciego, la corona sigue hasta el cruce con la de la otra cara y se corta a inglete */
+      const esqDe = lado => multiCara() ? cfg.modulos.find(m => m.esquina && m.upper && m.esquina.lado === lado) : null;
+      const ingleteEsq = lado => { const m = esqDe(lado); if (!m) return false; const ta = altoEsquina(cfg.esquinas[m.esquina.k]); return ta === 'L' || ta === 'ciego'; };
+      const yMOtra = (lado, c9) => { const m = esqDe(lado); return sep + fondoCara(caraDe(lado === 'der' ? m.esquina.k + 1 : m.esquina.k), true) - PLAN_HOLGURA_PUERTA - crownFaja(c9); };
       unidos.forEach(([a, b, fo], k) => { const sf = unidos.length > 1 ? ':' + k : '';
         if (listonTs()) { const yb = r2(fo - t - PLAN_HOLGURA_PUERTA - crownFaja(altoTs)), hL = Math.min(LIST.alto, altoTs);   /* detras de la faja de apoyo, sobre el techo del gabinete */
           add({ id: 'tapeta:liston' + sf, rol: 'tapeta', tipo: 'Liston', x: a, y: r2(yb - LIST.grueso), z: zTop, ancho: b - a, fondo: LIST.grueso, alto: r2(hL), material: matTs, etiqueta: 'tapetas' }); }
         if (conMolduraTs) {   /* corona a 45 grados: su espalda vertical sobre el plano de las puertas y su canto superior saliendo al cuarto hasta el techo */
           const c9 = r2(altoTs), yM = r2(fo - t - PLAN_HOLGURA_PUERTA - crownFaja(c9)), pf = cfg.tapetaSuperiorPerfil || 'ogee', ci = k === 0 && cfg.cerrarMolduraIzq, cd = k === unidos.length - 1 && cfg.cerrarMolduraDer;
-          const pts = perfilCrown(pf, c9, c9);
-          add({ id: 'tapeta:superior:moldura' + sf, rol: 'tapeta', tipo: 'Moldura', x: r2(a + (ci ? c9 : 0)), y: yM, z: zTop, ancho: r2(b - a - (ci ? c9 : 0) - (cd ? c9 : 0)), fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
-            forma: { tipo: 'perfil', eje: 'x', puntos: pts } });
+          const pts = perfilCrown(pf, c9, c9), ingD = k === unidos.length - 1 && ingleteEsq('der'), ingI = k === 0 && ingleteEsq('izq');   /* A235 */
+          const xa = ingI ? r2(yMOtra('izq', c9)) : a, xb = ingD ? r2(cfg.longitud - yMOtra('der', c9)) : b, ini = ingI ? [0, 1] : ci ? [c9, -1] : null, fin = ingD ? [0, 1] : cd ? [c9, -1] : null;
+          add({ id: 'tapeta:superior:moldura' + sf, rol: 'tapeta', tipo: 'Moldura', x: xa, y: yM, z: zTop, ancho: r2(xb - xa), fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
+            forma: Object.assign({ tipo: 'perfil', eje: 'x', puntos: pts }, ini ? { ini } : {}, fin ? { fin } : {}) });
           /* A214 (usuario): cierre del extremo como en los zoclos: el perfil regresa hacia el gabinete (vista de lado, extruido a lo ancho de su proyeccion) */
           if (ci) add({ id: 'tapeta:superior:moldura:cierre:izq' + sf, rol: 'tapeta', tipo: 'Moldura', x: a, y: yM, z: zTop, ancho: c9, fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
-            forma: { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [r2(c9 - y), z]) } });
+            forma: { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [r2(c9 - y), z]), fin: [0, 1] } });   /* A235: a inglete con el tramo */
           if (cd) add({ id: 'tapeta:superior:moldura:cierre:der' + sf, rol: 'tapeta', tipo: 'Moldura', x: r2(b - c9), y: yM, z: zTop, ancho: c9, fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
-            forma: { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [y, z]) } });
+            forma: { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [y, z]), fin: [c9, -1] } });   /* A235 */
           return; }
         add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: a, y: fo - t - dTs, z: zTop, ancho: b - a, fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01) return;
@@ -10671,10 +10684,12 @@ const LAM = (() => {
       const ei = { x: 0, y: 1, z: 2 }[f.eje], L = [p.ancho, p.fondo, p.alto][ei], ejes = [0, 1, 2].filter(i => i !== ei);
       const pt = (q, t) => { const r = [O[0], O[1], O[2]]; r[ejes[0]] += q[0]; r[ejes[1]] += q[1]; r[ei] += t; return r; };
       const pts = f.puntos, ar = pts.reduce((t, q, i) => { const r2 = pts[(i + 1) % pts.length]; return t + q[0] * r2[1] - r2[0] * q[1]; }, 0), sg = ar >= 0 ? 1 : -1;
+      /* A235: extremos a inglete: el inicio se recorre ini[0] + ini[1]*u y el final fin[0] + fin[1]*u (u: primera coordenada del perfil) */
+      const t0 = q => f.ini ? f.ini[0] + f.ini[1]*q[0] : 0, t1 = q => L - (f.fin ? f.fin[0] + f.fin[1]*q[0] : 0);
       pts.forEach((q, i) => { const r2 = pts[(i + 1) % pts.length], da = r2[0] - q[0], db = r2[1] - q[1], nn = [0, 0, 0];
-        nn[ejes[0]] = sg * db; nn[ejes[1]] = -sg * da; caras.push({ pl: [pt(q, 0), pt(r2, 0), pt(r2, L), pt(q, L)], n: vunit(nn) }); });
-      const a0 = [0, 0, 0], a1 = [0, 0, 0]; a0[ei] = -1; a1[ei] = 1;
-      caras.push({ pl: pts.map(q => pt(q, 0)), n: a0 }); caras.push({ pl: pts.map(q => pt(q, L)), n: a1 });
+        nn[ejes[0]] = sg * db; nn[ejes[1]] = -sg * da; caras.push({ pl: [pt(q, t0(q)), pt(r2, t0(r2)), pt(r2, t1(r2)), pt(q, t1(q))], n: vunit(nn) }); });
+      const a0 = [0, 0, 0], a1 = [0, 0, 0]; a0[ei] = -1; a1[ei] = 1; if (f.ini) a0[ejes[0]] = f.ini[1]; if (f.fin) a1[ejes[0]] = f.fin[1];
+      caras.push({ pl: pts.map(q => pt(q, t0(q))), n: vunit(a0) }); caras.push({ pl: pts.map(q => pt(q, t1(q))), n: vunit(a1) });
       return caras;
     }
     return null;
