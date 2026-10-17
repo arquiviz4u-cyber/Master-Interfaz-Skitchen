@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A250. [Master hecho 17/10; SketchUp sin cambios (modelo.ejes); Revit pendiente] Soporte del piston en la puerta (usuario 17/10, captura):
+       con la puerta cerrada la placa quedaba inclinada 10 grados y despegada de la puerta. En piston.skp la placa del soporte viene inclinada
+       10 grados (normal (sen 10, 0, cos 10) en XZ) y su cara esta a 1.978 de la rotula: MODELO_PISTON.placa = 10 y puerta = 1.978; el
+       soporte cerrado gira (placa - 90) en lugar de -90 y la placa asienta en la cara interior de la puerta (autoprueba).
    A249. [Master hecho 17/10; SketchUp: nombre de instancia de cada bisagra con su especificacion; Revit pendiente] Especificacion de las bisagras
        (usuario 17/10: la misma bisagra, pero al especificar y cuantificar debe salir el angulo de apertura): cada bisagra cerrada (y el brazo
        de la puerta oculta) lleva bisagra = { uso, apertura }: traslape o embutida (90), elevable (98.75), puerta oculta, esquinero, esquinero diagonal,
@@ -3681,7 +3685,9 @@ const PLAN_PISTON = { cuerpo: 1.8, vastago: .8, largoCuerpo: .6 };
    lateral): rotula del cuerpo (pivote en el soporte del lateral) en A0 y la del vastago (en el soporte de la puerta) en P0; la placa del soporte
    de la puerta toca la puerta a «puerta» cm de P0 por su +Z. Largo entre rotulas: extendido |P0 - A0| (en XZ), cerrado ese menos la carrera
    (el vastago visible es de 8.8: cerrado le quedan 0.8). Cajas de cada parte en los ejes del archivo */
-const MODELO_PISTON = { A0: [1.99, -1.55, 2.0], P0: [11.373, -1.71, 23.796], puerta: 2.335, carrera: 8, cuerpo: 13.5,
+/* A250 (usuario 17/10, captura: con la puerta cerrada el soporte no asentaba en ella): la placa del soporte de la puerta viene en el archivo
+   inclinada «placa» grados (su normal es (sen, 0, cos) en XZ) y su cara que toca la puerta esta a «puerta» cm de P0 por esa normal */
+const MODELO_PISTON = { A0: [1.99, -1.55, 2.0], P0: [11.373, -1.71, 23.796], puerta: 1.978, placa: 10, carrera: 8, cuerpo: 13.5,
   cajas: { piston_cuerpo: [[.862, -2.388, .715], [8.098, -.637, 14.879]], piston_vastago: [[7.087, -2.479, 14.447], [12.517, -.936, 25.188]],
            piston_soporte: [[.486, -1.128, .488], [3.48, -.005, 3.482]], piston_soporte_puerta: [[9.508, -1.669, 23.623], [14.45, -.169, 26.131]] } };
 const largoPiston = () => { const M = MODELO_PISTON; return Math.hypot(M.P0[0] - M.A0[0], M.P0[2] - M.A0[2]); };
@@ -4760,7 +4766,7 @@ function planDePiezas(c = cfg){
       montajes.forEach(([cara, sg], i) => {
         const S = resolver(cara, sg);
         if (S) {
-          const id0 = d + ':piston:' + i, sop = coloca(MP.A0, S.A, cara, sg, 0), spu = coloca(MP.P0, S.Pc, cara, sg, -Math.PI/2);
+          const id0 = d + ':piston:' + i, sop = coloca(MP.A0, S.A, cara, sg, 0), spu = coloca(MP.P0, S.Pc, cara, sg, (MP.placa - 90)*Math.PI/180);   /* A250: la placa al paño de la puerta */
           add(Object.assign({ id: id0 + ':soporte', tipo: 'PistonSoporte', modelo: { archivo: 'piston_soporte', origen: sop.o, ejes: sop.e } }, dato, cajaEjes(MP.cajas.piston_soporte, sop.o, sop.e)));
           add(Object.assign({ id: id0 + ':soporte:puerta', tipo: 'PistonSoportePuerta', frente: d, modelo: { archivo: 'piston_soporte_puerta', origen: spu.o, ejes: spu.e } }, dato, cajaEjes(MP.cajas.piston_soporte_puerta, spu.o, spu.e)));
           [['cerrado', S.Pc], ['abierto', S.Po]].forEach(([estado, P]) => {
@@ -5049,7 +5055,11 @@ function pruebasPlanMX(){
         const A = puntoEjes(MP.A0, q.modelo.origen, q.modelo.ejes), P = v && puntoEjes(MP.P0, v.modelo.origen, v.modelo.ejes), L = P && Math.hypot(P[1] - A[1], P[2] - A[2]);
         ok(P && Math.abs(L - (q.estado === 'cerrado' ? Lc : Le)) < .05, nombre + ': el piston no mide su largo en ' + q.id + ' (' + r2c(L || 0) + ')');
         const sp = p.piezas.find(r => r.id === q.id.replace(/:(cerrado|abierto):cuerpo$/, ':soporte:puerta'));
-        if (q.estado === 'cerrado' && sp) { const Pp = puntoEjes(MP.P0, sp.modelo.origen, sp.modelo.ejes); ok(Math.hypot(Pp[1] - P[1], Pp[2] - P[2]) < .03, nombre + ': el vastago no llega al soporte de la puerta en ' + q.id); } });
+        if (q.estado === 'cerrado' && sp) { const Pp = puntoEjes(MP.P0, sp.modelo.origen, sp.modelo.ejes); ok(Math.hypot(Pp[1] - P[1], Pp[2] - P[2]) < .03, nombre + ': el vastago no llega al soporte de la puerta en ' + q.id);
+          /* A250: la placa del soporte asienta en la cara interior de la puerta cerrada (normal hacia la puerta y su cara en ella) */
+          const b = MP.placa*Math.PI/180, n = [Math.sin(b), 0, Math.cos(b)], Pf = puntoEjes(MP.P0.map((v, i) => v + MP.puerta*n[i]), sp.modelo.origen, sp.modelo.ejes);
+          const ny = n[0]*sp.modelo.ejes[0][1] + n[2]*sp.modelo.ejes[2][1], f = p.piezas.find(r => r.id === sp.frente && r.rol === 'frente');
+          ok(ny > .9995 && (!f || Math.abs(Pf[1] - f.y) < .03), nombre + ': la placa del soporte no asienta en la puerta ' + sp.id); } });
       p.piezas.filter(q => q.tipo === 'PistonSoporte').forEach(q => { const caras = p.piezas.filter(r => r.modulo === q.modulo && (r.rol === 'division' || r.tipo === 'Lateral')).flatMap(r => [r.x, r.x + r.ancho]);
         ok(caras.some(x => Math.abs(x - q.modelo.origen[0]) < .02), nombre + ': soporte del piston fuera de su cara ' + q.id); }); }
     p.piezas.filter(q => /^esq\d/.test(q.id) && q.tipo === 'Cazoleta' && q.modelo && q.modelo.ejes).forEach(q => { const f = p.piezas.find(r => r.id === q.frente), MB = MODELO.bisagra;
