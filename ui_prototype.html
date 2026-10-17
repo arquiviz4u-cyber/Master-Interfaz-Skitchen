@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A239. [Master hecho 17/10; Revit pendiente] Materiales (17/10, usuario): 1) soltar un material en el vacio pinta todo (general
+       y quita los materiales propios de modulos, piezas, puertas ocultas y paneles de isla) menos cubierta (y barra), backsplash,
+       jaladeras y gola de aluminio, que conservan el suyo; esas ya no heredan el material general (groupMaterial, sinGeneral); con gola
+       de melamina la gola si se pinta; 2) el especiero toma su material (materialesPaneles.especiero) tambien en 3D (antes solo en el
+       alzado) y con «frente hasta el piso» se pinta la parte bajo el zoclo; 3) regla: ninguna pieza sin material sale negra (master: color
+       por etiqueta; Revit: material de fabrica con color si la pieza no tiene uno asignado; equipos, tarja y herrajes conservan el suyo).
    A238. [Master hecho 17/10; Revit P12.333] Reglas rapidas (17/10, usuario): 1) los taquetes no se modelan (decision del usuario: la
        fijacion por el fondo sigue igual, fondo de 1.8 al muro; solo dejan de ser piezas); 2) tarja doble: si la columna ya mide el minimo
        de la doble o mas, conserva su ancho (antes se forzaba a 85/90 y fallaba al no caber lo que sobraba en las tapetas); si mide menos,
@@ -2813,8 +2819,10 @@ function parseLen(str){
   return ((+m[1] || 0)*12 + (+m[2] || 0) + (m[3] ? m[3]/m[4] : 0))*2.54;
 }
 /* GroupMaterial (MaterialTab.cs): la pieza sin material propio toma el material general del mueble; la gola, antes el del zoclo */
+/* A239: cubierta (y barra), backsplash, jaladeras y gola de aluminio no heredan el material general */
+const sinGeneral = key => ['Cubierta', 'BarraElevada', 'BarraPeralte', 'Backsplash', 'Jaladeras'].includes(key) || (key === 'Gola' || key === 'Perfil') && cfg.gola !== 'Melamina';
 const groupMaterial = key => cfg.materiales[key] || (key === 'Gola' && (cfg.materiales.Perfil || cfg.materiales.Zoclo))   /* A54: Perfil antiguo -> Gola */
-  || ((key === 'BarraPeralte') && cfg.materiales.BarraElevada) || ((key === 'BarraElevada' || key === 'BarraPeralte') && cfg.materiales.Cubierta) || cfg.materialGeneral;
+  || ((key === 'BarraPeralte') && cfg.materiales.BarraElevada) || ((key === 'BarraElevada' || key === 'BarraPeralte') && cfg.materiales.Cubierta) || (sinGeneral(key) ? null : cfg.materialGeneral);
 const tarjaDe = m => m.id === cfg.moduloTarja && cfg.tipoTarja > 0 ? (cfg.tipoTarja === 1 ? 'Tarja sencilla' : 'Tarja doble') : 'Sin tarja';
 /* Cajones: N cajones (1 a 6), el de arriba pequeño y los demas grandes, o todos iguales. 'C' = cajon y puerta */
 const drawerType = m => !m.upper && (m.tipo === 'Cajones' || m.tipo === 'C');
@@ -3969,7 +3977,7 @@ function planDePiezas(c = cfg){
       const A = m.anexo, w = A.ancho, izq = A.lado === 'Izquierda', tw = m.ancho - w, tm = parteTorre(m), zonasT = especial(tm, x + (izq ? w : 0)) || [];
       const refri = isRefri(m), entre = isTower(m), e = m.espesorLaterales, ef = cuerpoFondo(), zb = cfg.baseBajos;   /* A222 */
       const xe0 = x + (izq ? 0 : tw), xe1 = xe0 + w, y0 = sep, yF = sep + m.fondo, y1 = entre ? yF : yF - PLAN_HOLGURA_PUERTA, yl = entre ? yF + t : y1;
-      const zs = baseSuperiorTorre(tm), top = altoEsp(tm), zt = zs !== null ? zs : top, mat = matDe(m);
+      const zs = baseSuperiorTorre(tm), top = altoEsp(tm), zt = zs !== null ? zs : top, mat = (m.materialesPaneles || {}).especiero || matDe(m);   /* A239: el especiero con su material */
       const tab = (k, tipo, a, b, c0, c1, d0, d1, material = mat) => add({ id: m.id + ':especiero:' + k, rol: 'panel', modulo: m.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material, etiqueta: 'gabinetes' });
       const ia = izq ? xe0 + e : xe0, ib = izq ? xe1 : xe1 - e;
       tab('lateral', 'Lateral', izq ? xe0 : xe1 - e, izq ? xe0 + e : xe1, y0, yl, zb, top);
@@ -7069,6 +7077,7 @@ function drawSpecialConAnexo(m, x0, RX, Z, post){
   fillMat(q.x, q.y, q.w, q.h, (m.materialesPaneles || {}).especiero || mat, sel ? C.selFill : C.front);
   if (sel && mat && !flat) { ctx.fillStyle = C.selOverlay; ctx.fillRect(q.x, q.y, q.w, q.h); }
   materialHits.push({ rect: q, key: 'panel:' + m.id + ':especiero' });
+  if (A.alPiso && zb > 0) { const qp = RX(xe0, xe0 + w, 0, zb); fillMat(qp.x, qp.y, qp.w, qp.h, (m.materialesPaneles || {}).especiero || mat, sel ? C.selFill : C.front); materialHits.push({ rect: qp, key: 'panel:' + m.id + ':especiero' }); }   /* A239: frente hasta el piso */
   if (focusPanel === 'panel:' + m.id + ':especiero' && !exporting) {   /* A156: doble clic en el especiero */
     const fe = showDoors ? fronts(m).find(f => f.anexo) : null, qf = fe ? RX(x0 + fe.x0, x0 + fe.x1, fe.z0, fe.z1) : q; post.push(() => outline(qf, C.focus, 3)); }
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; const xl = izq ? q.x + tt : q.x + q.w - tt; line(xl, todo.y, xl, q.y + q.h);
@@ -7602,7 +7611,12 @@ function applyMaterial(id, key){
   const value = id === '__original__' ? null : id;
   change(c => {
     /* A137: el fondo, la cubierta, el zoclo... son de toda la cocina; «Original» limpia tambien las demas caras */
-    if (key === null) { c.materialGeneral = value; if (!value) { c.materiales = {}; todosModulos(c).forEach(m => { m.material = null; m.materialSuperior = null; m.materialesPaneles = {}; m.materialPuertas = m.materialCajones = null; });
+    if (key === null && value) { c.materialGeneral = value;   /* A239: pinta todo menos cubierta, backsplash, jaladeras y gola de aluminio */
+      const deja = ['Cubierta', 'BarraElevada', 'BarraPeralte', 'Backsplash', 'Jaladeras'].concat(c.gola !== 'Melamina' ? ['Gola', 'Perfil'] : []);
+      Object.keys(c.materiales || {}).forEach(g => { if (!deja.includes(g)) delete c.materiales[g]; });
+      todosModulos(c).forEach(m => { m.material = null; m.materialSuperior = null; m.materialesPaneles = {}; m.materialPuertas = m.materialCajones = null; });
+      doors().concat(multiCara(c) ? c.caras.filter((q, k) => k !== c.cara).flatMap(q => q.puertasOcultas || []) : []).forEach(d => { d.material = null; }); (c.islaPaneles || []).forEach(q => q.material = null); }
+    else if (key === null) { c.materialGeneral = value; if (!value) { c.materiales = {}; todosModulos(c).forEach(m => { m.material = null; m.materialSuperior = null; m.materialesPaneles = {}; m.materialPuertas = m.materialCajones = null; });
       doors().concat(multiCara(c) ? c.caras.filter((q, k) => k !== c.cara).flatMap(q => q.puertasOcultas || []) : []).forEach(d => { d.material = d.materialJuntas = d.materialPiston = null; }); (c.islaPaneles || []).forEach(q => q.material = null); } }
     else if (key.startsWith('frentes:')) { const cl = key.slice(8);   /* A137: Ctrl + soltar: todas las puertas de bajos, de altos o todos los cajones */
       todosModulos(c).forEach(m => { if (cl === 'cajones') m.materialCajones = value; else if ((cl === 'altos') === !!m.upper) m.materialPuertas = value; }); }
