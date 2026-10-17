@@ -4439,30 +4439,32 @@ function planDePiezas(c = cfg){
         const sA = lin([wA, 0], [0, 1]), sB = lin([0, wB], [-1, 0]);   /* laterales de la alacena: los regresos de los altos vecinos */
         return { k, alac, diag: true, lD, sA, sB, antes: [{ l: lD, own: false }, { l: sB, own: true, id: ':regreso:esquina' }], despues: [{ l: sA, own: true, id: null }, { l: lD, own: true, id: ':diagonal' }, { l: sB, own: false }],
           corte: der ? L0 - wA : wB }; };
+      const cIs = esquinaTs('izq'), cDs = esquinaTs('der'), holT = PLAN_HOLGURA_PUERTA, tB = l => despl(l, dTs - holT), tF = l => despl(l, dTs - holT - t);   /* A247: espalda y frente de la tapeta lisa */
+      const losaTs = (id, P) => { const xs = P.map(q => q[0]), ys = P.map(q => q[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);   /* A247: tablero a 45 */
+        add({ id, rol: 'tapeta', x: r2(x0), y: r2(y0), z: zTop, ancho: r2(Math.max(...xs) - x0), fondo: r2(Math.max(...ys) - y0), alto: altoTs, material: matTs, etiqueta: 'tapetas', forma: { tipo: 'perfil', eje: 'z', puntos: P.map(q => [r2(q[0] - x0), r2(q[1] - y0)]) } }); };
       unidos.forEach(([a, b, fo], k) => { const sf = unidos.length > 1 ? ':' + k : '';
+        /* A247: en la alacena diagonal su columna no lleva tramo: la cubren el regreso sobre su lateral y el tablero o la corona a 45 */
+        if (cDs && cDs.corte !== null) { if (a >= cDs.corte - .01) return; b = Math.min(b, cDs.corte); } if (cIs && cIs.corte !== null) { if (b <= cIs.corte + .01) return; a = Math.max(a, cIs.corte); }
         if (listonTs()) { const yb = r2(fo - t - PLAN_HOLGURA_PUERTA - crownFaja(altoTs)), hL = Math.min(LIST.alto, altoTs);   /* detras de la faja de apoyo, sobre el techo del gabinete */
           add({ id: 'tapeta:liston' + sf, rol: 'tapeta', tipo: 'Liston', x: a, y: r2(yb - LIST.grueso), z: zTop, ancho: b - a, fondo: LIST.grueso, alto: r2(hL), material: matTs, etiqueta: 'tapetas' }); }
-        if (conMolduraTs && !window.__coronaVieja) return;   /* A247: la corona se arma despues, como recorrido */
-        if (conMolduraTs) {   /* corona a 45 grados: su espalda vertical sobre el plano de las puertas y su canto superior saliendo al cuarto hasta el techo */
-          const c9 = r2(altoTs), yM = r2(fo - t - PLAN_HOLGURA_PUERTA - crownFaja(c9)), pf = cfg.tapetaSuperiorPerfil || 'ogee', ci = k === 0 && cfg.cerrarMolduraIzq, cd = k === unidos.length - 1 && cfg.cerrarMolduraDer;
-          const pts = perfilCrown(pf, c9, c9), ingD = k === unidos.length - 1 && ingleteEsq('der'), ingI = k === 0 && ingleteEsq('izq');   /* A235 */
-          /* A237: escalon donde cambia el fondo: el tramo profundo voltea a 45 grados y el menos profundo se corta contra el regreso */
-          const fsC = crownFaja(c9), prv = k > 0 ? unidos[k - 1] : null, nxt = k < unidos.length - 1 ? unidos[k + 1] : null, stI = prv && Math.abs(prv[2] - fo) > .5, stD = nxt && Math.abs(nxt[2] - fo) > .5;
-          const xa = ingI ? r2(yMOtra('izq', c9)) : stI ? r2(prv[2] > fo ? a - fsC : a + fsC - c9) : a, xb = ingD ? r2(cfg.longitud - yMOtra('der', c9)) : stD ? r2(nxt[2] > fo ? b + fsC : b - fsC + c9) : b;
-          const ini = ingI ? [0, 1] : ci ? [c9, -1] : stI ? (prv[2] > fo ? [0, 1] : [c9, -1]) : null, fin = ingD ? [0, 1] : cd ? [c9, -1] : stD ? (nxt[2] > fo ? [0, 1] : [c9, -1]) : null;
-          if (stD) { const yN = r2(nxt[2] - t - PLAN_HOLGURA_PUERTA - fsC), ys = Math.min(yM, yN), yd = Math.max(yM, yN), hondo = nxt[2] > fo;   /* regreso entre los dos fondos */
-            add({ id: 'tapeta:superior:moldura:regreso' + sf, rol: 'tapeta', tipo: 'Moldura', x: r2(hondo ? b + fsC - c9 : b - fsC), y: ys, z: zTop, ancho: c9, fondo: r2(yd + c9 - ys), alto: altoTs, material: matTs, etiqueta: 'tapetas',
-              forma: hondo ? { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [r2(c9 - y), z]), ini: [c9, -1], fin: [0, 1] } : { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [y, z]), ini: [0, 1], fin: [c9, -1] } }); }
-          add({ id: 'tapeta:superior:moldura' + sf, rol: 'tapeta', tipo: 'Moldura', x: xa, y: yM, z: zTop, ancho: r2(xb - xa), fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
-            forma: Object.assign({ tipo: 'perfil', eje: 'x', puntos: pts }, ini ? { ini } : {}, fin ? { fin } : {}) });
-          /* A214 (usuario): cierre del extremo como en los zoclos: el perfil regresa hacia el gabinete (vista de lado, extruido a lo ancho de su proyeccion) */
-          if (ci) add({ id: 'tapeta:superior:moldura:cierre:izq' + sf, rol: 'tapeta', tipo: 'Moldura', x: a, y: yM, z: zTop, ancho: c9, fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
-            forma: { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [r2(c9 - y), z]), fin: [0, 1] } });   /* A235: a inglete con el tramo */
-          if (cd) add({ id: 'tapeta:superior:moldura:cierre:der' + sf, rol: 'tapeta', tipo: 'Moldura', x: r2(b - c9), y: yM, z: zTop, ancho: c9, fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
-            forma: { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [y, z]), fin: [c9, -1] } });   /* A235 */
-          return; }
-        /* A237: en la columna de esquina (L y ciego) llega a la cara de atras de la tapeta de la otra cara, o arranca en el frente de la de la otra */
-        const tsA = k === 0 && ingleteEsq('izq') ? r2(sep + fondoCara(caraDe(esqDe('izq').esquina.k), true) + t - dTs) : a, tsB = k === unidos.length - 1 && ingleteEsq('der') ? r2(cfg.longitud - (sep + fondoCara(caraDe(esqDe('der').esquina.k + 1), true) - dTs)) : b;
+        if (conMolduraTs) return;   /* A247: la corona se arma despues, como recorrido */
+        /* A237; A247: en la esquina la tapeta de la cara k llega a la cara de atras de la de la otra y la de la k + 1 arranca en el frente de la
+           de la otra (L, ciego y alacena oculta, esta al fondo de los bajos); en el diagonal llegan al cruce con el tablero a 45; en la
+           alacena diagonal, regreso sobre su lateral hasta la espalda del tablero */
+        const tl = ln([a, fo - t - holT], [1, 0]), primero = cIs && cIs.corte !== null ? Math.abs(a - cIs.corte) < .02 : k === 0, ultimo = cDs && cDs.corte !== null ? Math.abs(b - cDs.corte) < .02 : k === unidos.length - 1;
+        let tsA = a, tsB = b;
+        if (primero && cIs) { const lp = cIs.antes[0].l;
+          if (!cIs.diag) tsA = r2(corta(tB(tl), tF(lp))[0]); else if (!cIs.alac) tsA = r2(Math.min(corta(tB(tl), tB(lp))[0], corta(tF(tl), tF(lp))[0]));
+          else { const xr = cIs.corte - t, y0 = fo - t - dTs, yE = corta(ln([xr, 0], [0, 1]), tB(cIs.lD))[1];
+            if (yE - y0 > .05) add({ id: 'tapeta:superior:regreso:esquina', rol: 'tapeta', x: r2(xr), y: r2(y0), z: zTop, ancho: t, fondo: r2(yE - y0), alto: altoTs, material: matTs, etiqueta: 'tapetas' }); } }
+        if (ultimo && cDs) { const lB = cDs.despues[cDs.despues.length - 1].l;
+          if (!cDs.diag) tsB = r2(corta(tB(tl), tB(lB))[0]);
+          else if (!cDs.alac) { tsB = r2(Math.max(corta(tB(tl), tB(cDs.lD))[0], corta(tF(tl), tF(cDs.lD))[0]));
+            losaTs('tapeta:superior:diagonal', [corta(tB(cDs.lD), tB(tl)), corta(tB(cDs.lD), tB(lB)), corta(tF(cDs.lD), tF(lB)), corta(tF(cDs.lD), tF(tl))]); }
+          else { const lx = ln([b, 0], [0, 1]), y0 = fo - t - dTs, yE = corta(ln([b + t, 0], [0, 1]), tB(cDs.lD))[1];
+            add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: a, y: y0, z: zTop, ancho: r2(b - a), fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
+            if (yE - y0 > .05) add({ id: 'tapeta:superior:regreso' + sf, rol: 'tapeta', x: r2(b), y: r2(y0), z: zTop, ancho: t, fondo: r2(yE - y0), alto: altoTs, material: matTs, etiqueta: 'tapetas' });
+            losaTs('tapeta:superior:diagonal', [corta(tB(cDs.lD), lx), corta(tB(cDs.lD), cDs.sB), corta(tF(cDs.lD), cDs.sB), corta(tF(cDs.lD), lx)]); return; } }
         add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: tsA, y: fo - t - dTs, z: zTop, ancho: r2(tsB - tsA), fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01) return;
         /* A161 (usuario): el regreso no sobresale del canto de la columna mas saliente: va dentro de ella, del canto del frente menos
@@ -4471,7 +4473,7 @@ function planDePiezas(c = cfg){
         add({ id: 'tapeta:superior:regreso' + sf, rol: 'tapeta', x: sig[2] > fo ? b : b - t, y: f0 - t - dTs, z: zTop, ancho: t, fondo: f1 - f0, alto: altoTs, material: matTs, etiqueta: 'tapetas' }); });
       /* A247: la corona como recorrido por las caras de las cajas: cada recta su pieza, cortada en el cruce de su espalda y de su frente con
          los de la vecina (sin vecina, a escuadra); la diagonal, pieza girada (forma.giro, largo y origen) */
-      if (conMolduraTs && !window.__coronaVieja && unidos.length) {
+      if (conMolduraTs && unidos.length) {
         const c9 = r2(altoTs), fsC = crownFaja(c9), pts = perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', c9, c9), hol = PLAN_HOLGURA_PUERTA, sfk = k => unidos.length > 1 ? ':' + k : '', k4 = v => Math.round(v*10000)/10000;
         const cI = esquinaTs('izq'), cD = esquinaTs('der'), ci = !cI && cfg.cerrarMolduraIzq, cd = !cD && cfg.cerrarMolduraDer;
         let tr = unidos.map(([a, b, fo], k) => ({ a, b, yb: fo - t - hol, k }));   /* yb: cara de la caja */
@@ -5170,6 +5172,26 @@ function pruebasPlanMX(){
     ok(c.style === 'Moderna' ? conJaladera === 0 : conJaladera > 0, nombre + ': jaladeras que no corresponden al estilo');
     ok(c.style === 'Moderna' ? p.piezas.some(q => q.tipo === 'Gola') : !p.piezas.some(q => q.tipo === 'Gola'), nombre + ': gola que no corresponde al estilo');
   }
+  /* A247: corona y tapeta superior en el esquinero diagonal y en la alacena de esquina; la L sigue a 45 */
+  { const arma = (tipo, ex, mold, k = 0) => { const c = JSON.parse(JSON.stringify(base)), previo = cfg; cfg = c;
+      try { setForma(c, 'L'); Object.assign(c.esquinas[0], { tipo }, ex); c.style = 'Clasica'; c.tapetaSuperior = true; c.tapetaSuperiorMoldura = mold; recalculate(); if (k) { cargarCara(c, k); recalculate(); } } finally { cfg = previo; }
+      return planDePiezas(c).piezas; }, t22 = Math.tan(Math.PI/8), id = (ps, s) => ps.find(q => q.id === s), dentro = q => q.forma.puntos.every(([u, v]) => u >= -.001 && v >= -.001 && u <= q.fondo + .001 && v <= q.alto + .001);
+    try {
+      const mL = id(arma('carrusel', {}, true), 'tapeta:superior:moldura'); ok(mL && mL.forma.fin && Math.abs(mL.forma.fin[1] - 1) < .001, 'A247: la corona de la L ya no corta a 45 con la otra cara');
+      const D0 = arma('diagonal', {}, true), dg = id(D0, 'tapeta:superior:moldura:diagonal'), m0 = id(D0, 'tapeta:superior:moldura');
+      ok(dg && Math.abs(dg.forma.giro - 45) < .01 && Math.abs(dg.forma.ini[1] - t22) < .001 && Math.abs(dg.forma.fin[1] - t22) < .001 && dentro(dg), 'A247: el diagonal sin su corona a 45 cortada a 22.5');
+      ok(dg && m0 && Math.abs(m0.x + m0.ancho - dg.x - dg.forma.origen[0]) < .02 && Math.abs(m0.y - dg.y - dg.forma.origen[1]) < .02 && Math.abs(m0.forma.fin[1] - t22) < .001, 'A247: la corona de la cara no llega al arranque de la del diagonal');
+      const D1 = arma('diagonal', {}, true, 1), m1 = id(D1, 'tapeta:superior:moldura');
+      ok(m1 && m1.forma.ini && Math.abs(m1.forma.ini[1] - t22) < .001 && !D1.some(q => /diagonal/.test(q.id)), 'A247: la otra cara del diagonal sin su corte a 22.5');
+      const O0 = arma('alacena', { alacena: 'oculta' }, true), mx = O0.filter(q => q.tipo === 'Moldura' && q.forma.eje === 'x'), yMin = Math.min(...mx.map(q => q.y));
+      ok(mx.some(q => q.y > yMin + 10) && O0.some(q => /moldura:regreso/.test(q.id)), 'A247: la alacena oculta sin su corona al frente de los bajos y su regreso');
+      const A0 = arma('alacena', { alacena: 'diagonal' }, true), A1 = arma('alacena', { alacena: 'diagonal' }, true, 1);
+      ok(id(A0, 'tapeta:superior:moldura:diagonal') && A0.some(q => /moldura:regreso/.test(q.id)) && id(A1, 'tapeta:superior:moldura:regreso:esquina'), 'A247: la alacena diagonal sin su corona a 45 y sus regresos');
+      const F0 = arma('diagonal', {}, false), td = id(F0, 'tapeta:superior:diagonal'), t0 = id(F0, 'tapeta:superior');
+      ok(td && td.forma.eje === 'z' && t0 && t0.x + t0.ancho < 299, 'A247: el diagonal sin su tapeta a 45');
+      const G0 = arma('alacena', { alacena: 'diagonal' }, false), G1 = arma('alacena', { alacena: 'diagonal' }, false, 1);
+      ok(id(G0, 'tapeta:superior:diagonal') && G0.some(q => /^tapeta:superior:regreso/.test(q.id)) && id(G1, 'tapeta:superior:regreso:esquina'), 'A247: la alacena diagonal sin su tapeta a 45 y sus regresos');
+    } catch (e) { fallas.push('A247: error ' + e.message); } }
   return fallas;
 }
 function capGroups(){
