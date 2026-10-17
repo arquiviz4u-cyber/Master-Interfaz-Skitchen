@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A234. [Master hecho 16/10; Revit pendiente] Puerta de la alacena oculta de esquina con jaladera y moldura (16/10, usuario): bisagras
+       del lado del vecino y jaladera junto a la esquina (a 95 cm, regla de las altas; barra o boton de Ajustes), en estilo clasico y
+       simple; en moderno sin agarre (se abre empujando); en clasico, marco shaker como las demas puertas (cuatro piezas Marco de
+       marcoShaker, sobresalen PLAN_SHAKER_REHUNDIDO). En el alzado, el marco y la jaladera.
    A233. [Master hecho 16/10; Revit P12.328] Alto ciego y alacena oculta (16/10, usuario, tras validar P12.327): 1) el cierre del alto
        ciego en su cara duena corre desde el muro de la otra cara hasta la puerta y cierra la caja al frente en todo su alto; la doble
        cama de la parte ciega vuelve al pano de la caja (detras de esa pieza, que la cubre) y la tapa de la otra cara arranca despues de
@@ -6678,6 +6682,13 @@ function esquinerosPlan(add, r2, sep, tf){
     /* A233: la puerta empieza al pano de los frentes de la otra cara; el panel de esa cara cubre la esquina */
     if (duenaA) { caja(id + ':puerta', 'frente', 'Puerta', modB, LA - wA, LA - fB - tf, fA, fA + tf, 0, tope, frente, 'frentes'); caja(id + ':panel', 'tapeta', 'Compensacion', modB, LA - fB - tf, LA - fB, fA, wB, 0, tope, frente, 'tapetas'); }
     else { caja(id + ':puerta', 'frente', 'Puerta', modB, LA - fB - tf, LA - fB, fA + tf, wB, 0, tope, frente, 'frentes'); caja(id + ':panel', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB, fA, fA + tf, 0, tope, frente, 'tapetas'); }
+    { const u0d = duenaA ? fB + tf : fA + tf, u1d = duenaA ? wA : wB, wd = u1d - u0d;   /* A234: marco shaker en clasico y jaladera junto a la esquina (bisagras del lado del vecino); en moderno, sin agarre */
+      const fr = (n, rol, tipo, a0, a1, z0f, z1f, s0, s1, mt, et) => duenaA ? caja(id + n, rol, tipo, modB, LA - a1, LA - a0, fA + tf + s0, fA + tf + s1, z0f, z1f, mt, et) : caja(id + n, rol, tipo, modB, LA - fB - tf - s1, LA - fB - tf - s0, a0, a1, z0f, z1f, mt, et);
+      const cl = cfg.style === 'Clasica', s = cl ? PLAN_SHAKER_REHUNDIDO : 0;
+      if (cl) { const fw = marcoShaker(wd, tope); fr(':marco:0', 'frente', 'Marco', u0d, u0d + fw, 0, tope, 0, s, frente, 'frentes'); fr(':marco:1', 'frente', 'Marco', u1d - fw, u1d, 0, tope, 0, s, frente, 'frentes');
+        fr(':marco:2', 'frente', 'Marco', u0d + fw, u1d - fw, 0, fw, 0, s, frente, 'frentes'); fr(':marco:3', 'frente', 'Marco', u0d + fw, u1d - fw, tope - fw, tope, 0, s, frente, 'frentes'); }
+      if (cfg.style !== 'Moderna') { const J = PLAN_JALADERA, boton = cfg.jaladera === 'Boton', ax = u0d + cantoJaladera(wd, tope), [hw, hh] = boton ? [J.boton, J.boton] : [J.grueso, cfg.largoJaladera];
+        fr(':jaladera', 'herraje', boton ? 'Boton' : 'Jaladera', ax - hw/2, ax + hw/2, 95 - hh/2, 95 + hh/2, s, s + (boton ? J.boton : J.salida), groupMaterial('Jaladeras') || null, 'herrajes'); } }
     if (!repC) barraAlacena(tope, true);   /* A150: con barra de un lado */
     /* A162: repisas en la puerta: angostas, entre dos laterales, en la cara interior de la puerta */
     const nP = Math.max(0, Math.min(8, e.repisasPuerta || 0)), dP = cfg.region === 'US' ? inch(4) : 10;
@@ -6855,7 +6866,11 @@ function drawEsquina(m, x0, RX, X, Z, post){
   if (!m.upper) {
     const gE = golaEsquina(e);
     if (e.tipo === 'ciego') { const Pc = R.ciegoPuerta + ciegoExtra(m.esquina.k);   /* A221 */ if (duena) { perfil(0, fOtra); tapeta(fOtra, w - Pc); puerta(w - Pc, w, e.herraje ? 'Ciego · Magic corner' : 'Ciego'); if (gE) golaZ(fOtra, w); } else { perfil(0, fOtra); tapeta(fOtra + espFrente(), w); } }   /* A151: tapeta de ajuste */
-    else if (oculta) { if (duena) { perfil(0, fOtra); puerta(fOtra, w, 'Alacena oculta'); } else { perfil(0, fOtra); tapeta(fOtra, w); } }
+    else if (oculta) { if (duena) { perfil(0, fOtra); puerta(fOtra, w, 'Alacena oculta');
+      if (showDoors) { const ua = fOtra + espFrente(), wd = w - ua;   /* A234: marco y jaladera */
+        if (cfg.style === 'Clasica') { const fw = marcoShaker(wd, z1 - z0), ri = cajaZ(ua + fw, w - fw, z0 + fw, z1 - fw); post.push(() => outline(ri, C.line, 1)); }
+        if (cfg.style !== 'Moderna') { const ax = ua + cantoJaladera(wd, z1 - z0), hh = cfg.jaladera === 'Boton' ? 2.5 : cfg.largoJaladera, rh = cajaZ(ax - .6, ax + .6, 95 - hh/2, 95 + hh/2); post.push(() => { ctx.fillStyle = C.line; ctx.fillRect(rh.x, rh.y, Math.max(2, rh.w), rh.h); }); } } }
+      else { perfil(0, fOtra); tapeta(fOtra, w); } }
     else { const diag = esquinaDiag(e); perfil(0, fOtra);
       /* A143: si el ancho llega al borde de la barra perpendicular, esta cara no lleva puerta (solo se ve el canto de la otra) */
       if (!sinFrenteEsquina(w, fOtra)) { const sE = subEsquina(e); puerta(fOtra, w, alacena ? (diag ? 'Alacena diagonal' : 'Alacena en L') : diag ? 'Diagonal · ' + (sE === 'cajones' ? 'cajones' : sE === 'tarja' ? 'tarja' : 'carrusel') : 'L · ' + (sE === 'repisas' ? 'repisas' : 'carrusel') + (puertasL(e) === 'abatible' ? ' · 165°' : ''), diag); if (gE) golaZ(fOtra, w);
