@@ -303,7 +303,17 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
-   A246. [Master hecho 17/10; SketchUp: Interactuar en las caras 2 y 3 y cajon con direccion; Revit pendiente] Interactuar del esquinero (usuario
+   A247. [Master hecho 17/10; Revit pendiente; SketchUp: leer forma.giro/largo/origen e ini/fin] Corona y tapeta superior en el
+       esquinero diagonal y en la alacena de esquina (17/10, usuario: «continua con lo faltante de las crownmolding»; pendiente de A235 y
+       A237): 1) la corona de cada cara es un recorrido por las caras de las cajas (tramos, regresos donde cambia el fondo, cierres y la
+       esquina): cada recta lleva su pieza y sus extremos se cortan en el cruce de su espalda y de su frente con los de la recta vecina
+       (en la L, 45; en el diagonal, 22.5); los casos de A235/A237 salen iguales; 2) alto diagonal: la corona sigue el frente a 45 con
+       una pieza girada (forma perfil con giro en grados, largo y origen dentro de su caja), cortada a 22.5 con las de las dos caras;
+       3) alacena de esquina: su columna lleva la tapeta y la corona al fondo de los bajos (su frente), con regresos a los altos vecinos
+       y, en la oculta, inglete a 45 entre las dos caras; en la diagonal, el regreso sobre su lateral llega a la corona a 45; 4) tapeta
+       superior lisa: en el diagonal, un tablero a 45 (losa) con los extremos al cruce con las de las caras; en la alacena, como en la L
+       a la profundidad de los bajos (oculta) o con sus regresos hasta el tablero a 45 (diagonal). El liston 1x2 no sigue la diagonal.
+   A246. [Master hecho 17/10; SketchUp: Interactuar en las caras 2 y 3 y cajon con direccion; Revit pendiente; Revit P12.339 (sin doblez de las plegables ni bisagras de modelo)] Interactuar del esquinero (usuario
        17/10): sus puertas, hojas y cajones (bajo, alto, alacena oculta, barra de la alacena, ciego, L y diagonal) abren: aperturasEsquinero
        les da frente y abre por su cara vista (la puerta gira 90 sobre su canto lejano a la esquina; la de 45 sobre su canto del lado de la
        cara k); las hojas en L plegables abren juntas y la b se dobla sobre la a; las abatibles, cada una por su cuenta; los cajones del
@@ -4373,7 +4383,8 @@ function planDePiezas(c = cfg){
     if (highs.length && cfg.tapetaSuperior) {
       const tramosTs = []; let xc = ajusteIzq();
       highs.forEach((u, i) => { const bajo = lows.length === highs.length ? lows[i] : null;
-        const f = u.reserved && bajo && isSpecial(bajo) ? bajo.fondo : isDoble(u) && u.fondoSuperior > 0 ? u.fondoSuperior : u.fondo;
+        const f = u.esquina && esquinaAlta(u) ? fondoCara(cfg, false)   /* A247: la alacena de esquina, al fondo de los bajos */
+          : u.reserved && bajo && isSpecial(bajo) ? bajo.fondo : isDoble(u) && u.fondoSuperior > 0 ? u.fondoSuperior : u.fondo;
         tramosTs.push([xc, xc + u.ancho, sep + f + t]); xc += u.ancho; });
       if (tramosTs.length) { tramosTs[0][0] = run0; tramosTs[tramosTs.length - 1][1] = run1; }
       const unidos = []; tramosTs.forEach(q => { const u = unidos[unidos.length - 1]; if (u && Math.abs(u[2] - q[2]) < .01 && Math.abs(u[1] - q[0]) < .01) u[1] = q[1]; else unidos.push(q.slice()); });
@@ -4387,9 +4398,30 @@ function planDePiezas(c = cfg){
       const esqDe = lado => multiCara() ? cfg.modulos.find(m => m.esquina && m.upper && m.esquina.lado === lado) : null;
       const ingleteEsq = lado => { const m = esqDe(lado); if (!m) return false; const ta = altoEsquina(cfg.esquinas[m.esquina.k]); return ta === 'L' || ta === 'ciego'; };
       const yMOtra = (lado, c9) => { const m = esqDe(lado); return sep + fondoCara(caraDe(lado === 'der' ? m.esquina.k + 1 : m.esquina.k), true) - PLAN_HOLGURA_PUERTA - crownFaja(c9); };
+      /* A247: rectas en planta (punto p y direccion unitaria d), su cruce y su paralela a s (s > 0: a la derecha de d, hacia las cajas) */
+      const ln = (P, D) => { const L = Math.hypot(D[0], D[1]) || 1; return { p: P, d: [D[0]/L, D[1]/L] }; };
+      const corta = (a, b) => { const den = a.d[0]*b.d[1] - a.d[1]*b.d[0]; if (Math.abs(den) < 1e-9) return null; const u = ((b.p[0] - a.p[0])*b.d[1] - (b.p[1] - a.p[1])*b.d[0])/den; return [a.p[0] + a.d[0]*u, a.p[1] + a.d[1]*u]; };
+      const despl = (l, s) => ({ p: [l.p[0] + l.d[1]*s, l.p[1] - l.d[0]*s], d: l.d });
+      /* A247: la esquina de este lado como rectas de las caras de las cajas, en ejes de esta cara (marco de la esquina: p desde el muro de
+         la cara k + 1, q desde el de la k; la cara k ve x = largo - p, y = q y la k + 1, x = q, y = p). recta: L, ciego o alacena oculta
+         (al fondo de los bajos); diag: alto diagonal o alacena diagonal (su frente a 45 pasado a la cara de la caja). antes: rectas que van
+         antes del primer tramo (cara k + 1); despues: tras el ultimo (cara k); corte: x donde terminan los tramos (alacena diagonal) */
+      const esquinaTs = lado => { const m = esqDe(lado); if (!m) return null; const k = m.esquina.k, e = cfg.esquinas[k], ta = altoEsquina(e), alac = e.tipo === 'alacena';
+        const diag = alac ? e.alacena === 'diagonal' : ta === 'diagonal', recta = alac ? !diag : ta === 'L' || ta === 'ciego'; if (!diag && !recta) return null;
+        const hol = PLAN_HOLGURA_PUERTA, fA = fondoCara(caraDe(k), !alac), fB = fondoCara(caraDe(k + 1), !alac), [wA, wB] = huellaEsquina(k), R = reg().esquina, L0 = cfg.longitud, der = lado === 'der';
+        const lin = ([p, q], [dp, dq]) => ln(der ? [L0 - p, q] : [q, p], der ? [-dp, dq] : [dq, dp]);
+        const lA = lin([0, sep + fA - hol], [-1, 0]), lB = lin([sep + fB - hol, 0], [0, 1]);
+        if (recta) return { k, alac, diag: false, antes: [{ l: lA, own: false }], despues: [{ l: lB, own: false }], corte: null };
+        const c = Math.min(R.ladoAlto, wA, wB), ab = alac ? [wA, wB] : unionAlto(e) === 'tapeta' ? [Math.min(wA, R.ladoAlto), Math.min(wB, R.ladoAlto)] : [c, c];
+        const P1 = [ab[0], sep + fA + t], P2 = [sep + fB + t, sep + ab[1]], lD = despl(lin(P1, [P2[0] - P1[0], P2[1] - P1[1]]), t + hol);   /* de la cara de las puertas a la de la caja */
+        if (!alac) return { k, alac, diag: true, lD, antes: [{ l: lD, own: false }], despues: [{ l: lD, own: true, id: ':diagonal' }, { l: lB, own: false }], corte: null };
+        const sA = lin([wA, 0], [0, 1]), sB = lin([0, wB], [-1, 0]);   /* laterales de la alacena: los regresos de los altos vecinos */
+        return { k, alac, diag: true, lD, sA, sB, antes: [{ l: lD, own: false }, { l: sB, own: true, id: ':regreso:esquina' }], despues: [{ l: sA, own: true, id: null }, { l: lD, own: true, id: ':diagonal' }, { l: sB, own: false }],
+          corte: der ? L0 - wA : wB }; };
       unidos.forEach(([a, b, fo], k) => { const sf = unidos.length > 1 ? ':' + k : '';
         if (listonTs()) { const yb = r2(fo - t - PLAN_HOLGURA_PUERTA - crownFaja(altoTs)), hL = Math.min(LIST.alto, altoTs);   /* detras de la faja de apoyo, sobre el techo del gabinete */
           add({ id: 'tapeta:liston' + sf, rol: 'tapeta', tipo: 'Liston', x: a, y: r2(yb - LIST.grueso), z: zTop, ancho: b - a, fondo: LIST.grueso, alto: r2(hL), material: matTs, etiqueta: 'tapetas' }); }
+        if (conMolduraTs && !window.__coronaVieja) return;   /* A247: la corona se arma despues, como recorrido */
         if (conMolduraTs) {   /* corona a 45 grados: su espalda vertical sobre el plano de las puertas y su canto superior saliendo al cuarto hasta el techo */
           const c9 = r2(altoTs), yM = r2(fo - t - PLAN_HOLGURA_PUERTA - crownFaja(c9)), pf = cfg.tapetaSuperiorPerfil || 'ogee', ci = k === 0 && cfg.cerrarMolduraIzq, cd = k === unidos.length - 1 && cfg.cerrarMolduraDer;
           const pts = perfilCrown(pf, c9, c9), ingD = k === unidos.length - 1 && ingleteEsq('der'), ingI = k === 0 && ingleteEsq('izq');   /* A235 */
@@ -4416,6 +4448,45 @@ function planDePiezas(c = cfg){
            saliente a la espalda del suyo */
         const f0 = Math.min(fo, sig[2]), f1 = Math.max(fo, sig[2]);
         add({ id: 'tapeta:superior:regreso' + sf, rol: 'tapeta', x: sig[2] > fo ? b : b - t, y: f0 - t - dTs, z: zTop, ancho: t, fondo: f1 - f0, alto: altoTs, material: matTs, etiqueta: 'tapetas' }); });
+      /* A247: la corona como recorrido por las caras de las cajas: cada recta su pieza, cortada en el cruce de su espalda y de su frente con
+         los de la vecina (sin vecina, a escuadra); la diagonal, pieza girada (forma.giro, largo y origen) */
+      if (conMolduraTs && !window.__coronaVieja && unidos.length) {
+        const c9 = r2(altoTs), fsC = crownFaja(c9), pts = perfilCrown(cfg.tapetaSuperiorPerfil || 'ogee', c9, c9), hol = PLAN_HOLGURA_PUERTA, sfk = k => unidos.length > 1 ? ':' + k : '', k4 = v => Math.round(v*10000)/10000;
+        const cI = esquinaTs('izq'), cD = esquinaTs('der'), ci = !cI && cfg.cerrarMolduraIzq, cd = !cD && cfg.cerrarMolduraDer;
+        let tr = unidos.map(([a, b, fo], k) => ({ a, b, yb: fo - t - hol, k }));   /* yb: cara de la caja */
+        if (cD && cD.corte !== null) tr = tr.filter(q => q.a < cD.corte - .01).map(q => Object.assign(q, { b: Math.min(q.b, cD.corte) }));
+        if (cI && cI.corte !== null) tr = tr.filter(q => q.b > cI.corte + .01).map(q => Object.assign(q, { a: Math.max(q.a, cI.corte) }));
+        if (tr.length) {
+          const segs = [];
+          if (cI) cI.antes.forEach(s => segs.push(Object.assign({}, s)));
+          else if (ci) { const xc = tr[0].a + c9 - fsC; segs.push({ l: ln([xc, 0], [0, 1]), own: true, id: ':cierre:izq' + sfk(tr[0].k), sq0: [xc, tr[0].yb - fsC] }); }
+          tr.forEach((q, i) => { const pv = tr[i - 1], sg = { l: ln([q.a, q.yb], [1, 0]), own: true, id: sfk(q.k) };
+            if (pv && Math.abs(q.yb - pv.yb) > .5) segs.push({ l: ln([pv.b, pv.yb], [0, Math.sign(q.yb - pv.yb)]), own: true, id: ':regreso' + sfk(pv.k) });
+            else if (pv) { segs[segs.length - 1].sq1 = [pv.b, pv.yb]; sg.sq0 = [q.a, q.yb]; }
+            if (!segs.length) sg.sq0 = [q.a, q.yb];
+            segs.push(sg); });
+          const ul = tr[tr.length - 1];
+          if (cD) cD.despues.forEach(s => segs.push(Object.assign({}, s, s.id === null ? { id: ':regreso' + sfk(ul.k) } : {})));
+          else if (cd) { const xc = ul.b - c9 + fsC; segs.push({ l: ln([xc, ul.yb], [0, -1]), own: true, id: ':cierre:der' + sfk(ul.k), sq1: [xc, ul.yb - fsC] }); }
+          else segs[segs.length - 1].sq1 = [ul.b, ul.yb];
+          const bk = l => despl(l, fsC), fr = l => despl(l, -(c9 - fsC)), proy = (S, l, s) => [S[0] + l.d[1]*s, S[1] - l.d[0]*s];
+          segs.forEach((s, i) => { if (!s.own) return; const pv = segs[i - 1], nx = segs[i + 1];
+            const SB = s.sq0 || !pv ? proy(s.sq0 || s.l.p, s.l, fsC) : corta(bk(pv.l), bk(s.l)), SF = s.sq0 || !pv ? proy(s.sq0 || s.l.p, s.l, -(c9 - fsC)) : corta(fr(pv.l), fr(s.l));
+            const EB = s.sq1 || !nx ? proy(s.sq1 || s.l.p, s.l, fsC) : corta(bk(s.l), bk(nx.l)), EF = s.sq1 || !nx ? proy(s.sq1 || s.l.p, s.l, -(c9 - fsC)) : corta(fr(s.l), fr(nx.l));
+            if (!SB || !SF || !EB || !EF) return;
+            const d = s.l.d, ax = Math.abs(d[0]) > .9999 ? 0 : Math.abs(d[1]) > .9999 ? 1 : -1, q = { id: 'tapeta:superior:moldura' + s.id, rol: 'tapeta', tipo: 'Moldura', z: zTop, alto: altoTs, material: matTs, etiqueta: 'tapetas' };
+            if (ax >= 0) { const pe = 1 - ax, o = ax === 0 ? d[0] : -d[1], [lB, lF, hB, hF] = d[ax] > 0 ? [SB[ax], SF[ax], EB[ax], EF[ax]] : [EB[ax], EF[ax], SB[ax], SF[ax]];
+              const x0 = Math.min(lB, lF), x1 = Math.max(hB, hF); if (x1 - x0 < .05) return;
+              const ini = o > 0 ? [lB - x0, (lF - lB)/c9] : [lF - x0, (lB - lF)/c9], fin = o > 0 ? [x1 - hB, (hB - hF)/c9] : [x1 - hF, (hF - hB)/c9], lo = o > 0 ? SB[pe] : SB[pe] - c9;
+              if (ax === 0) Object.assign(q, { x: r2(x0), y: r2(lo), ancho: r2(x1 - x0), fondo: c9 }); else Object.assign(q, { x: r2(lo), y: r2(x0), ancho: c9, fondo: r2(x1 - x0) });
+              const f = { tipo: 'perfil', eje: ax === 0 ? 'x' : 'y', puntos: o > 0 ? pts : pts.map(([u, z]) => [r2(c9 - u), z]) };
+              if (Math.abs(ini[0]) > .005 || Math.abs(ini[1]) > .0005) f.ini = [r2(ini[0]), k4(ini[1])]; if (Math.abs(fin[0]) > .005 || Math.abs(fin[1]) > .0005) f.fin = [r2(fin[0]), k4(fin[1])];
+              q.forma = f; add(q); return; }
+            const sp = P => (P[0] - SB[0])*d[0] + (P[1] - SB[1])*d[1], sF = sp(SF), eB = sp(EB), eF = sp(EF), s0 = Math.min(0, sF), L = Math.max(eB, eF) - s0; if (L < .05) return;
+            const O = [SB[0] + d[0]*s0, SB[1] + d[1]*s0], nl = [-d[1], d[0]], es = [[0, 0], [L, 0], [L, c9], [0, c9]].map(([a, b]) => [O[0] + d[0]*a + nl[0]*b, O[1] + d[1]*a + nl[1]*b]);
+            const xs = es.map(P => P[0]), ys = es.map(P => P[1]), bx = Math.min(...xs), by = Math.min(...ys);
+            add(Object.assign(q, { x: r2(bx), y: r2(by), ancho: r2(Math.max(...xs) - bx), fondo: r2(Math.max(...ys) - by),
+              forma: { tipo: 'perfil', eje: 'x', puntos: pts, ini: [r2(-s0), k4(sF/c9)], fin: [r2(L - (eB - s0)), k4((eB - eF)/c9)], giro: k4(Math.atan2(d[1], d[0])*180/Math.PI), largo: r2(L), origen: [r2(O[0] - bx), r2(O[1] - by)] } })); }); } }
     }
     /* A146 (usuario): liston del muro del riel frances corrido por cada fila de altos que cuelgan a la misma altura: de la cara exterior
        del primer lateral a la del ultimo, pasando por las muescas de los laterales; bisel hacia arriba y hacia el muro */
@@ -10861,15 +10932,17 @@ const LAM = (() => {
       return caras;
     }
     if (f.tipo === 'perfil' && Array.isArray(f.puntos) && f.puntos.length >= 3 && ['x', 'y', 'z'].includes(f.eje)) {
-      const ei = { x: 0, y: 1, z: 2 }[f.eje], L = [p.ancho, p.fondo, p.alto][ei], ejes = [0, 1, 2].filter(i => i !== ei);
-      const pt = (q, t) => { const r = [O[0], O[1], O[2]]; r[ejes[0]] += q[0]; r[ejes[1]] += q[1]; r[ei] += t; return r; };
+      /* A247: perfil girado (la corona del diagonal): largo y origen dentro de su caja, giro en grados alrededor de z */
+      const gr = (f.giro || 0)*Math.PI/180, Og = f.origen ? [O[0] + f.origen[0], O[1] + f.origen[1], O[2]] : O, rv = v => gr ? [v[0]*Math.cos(gr) - v[1]*Math.sin(gr), v[0]*Math.sin(gr) + v[1]*Math.cos(gr), v[2]] : v;
+      const ei = { x: 0, y: 1, z: 2 }[f.eje], L = f.largo || [p.ancho, p.fondo, p.alto][ei], ejes = [0, 1, 2].filter(i => i !== ei);
+      const pt = (q, t) => { const r = [0, 0, 0]; r[ejes[0]] += q[0]; r[ejes[1]] += q[1]; r[ei] += t; const w = rv(r); return [Og[0] + w[0], Og[1] + w[1], Og[2] + w[2]]; };
       const pts = f.puntos, ar = pts.reduce((t, q, i) => { const r2 = pts[(i + 1) % pts.length]; return t + q[0] * r2[1] - r2[0] * q[1]; }, 0), sg = ar >= 0 ? 1 : -1;
       /* A235: extremos a inglete: el inicio se recorre ini[0] + ini[1]*u y el final fin[0] + fin[1]*u (u: primera coordenada del perfil) */
       const t0 = q => f.ini ? f.ini[0] + f.ini[1]*q[0] : 0, t1 = q => L - (f.fin ? f.fin[0] + f.fin[1]*q[0] : 0);
       pts.forEach((q, i) => { const r2 = pts[(i + 1) % pts.length], da = r2[0] - q[0], db = r2[1] - q[1], nn = [0, 0, 0];
-        nn[ejes[0]] = sg * db; nn[ejes[1]] = -sg * da; caras.push({ pl: [pt(q, t0(q)), pt(r2, t0(r2)), pt(r2, t1(r2)), pt(q, t1(q))], n: vunit(nn) }); });
+        nn[ejes[0]] = sg * db; nn[ejes[1]] = -sg * da; caras.push({ pl: [pt(q, t0(q)), pt(r2, t0(r2)), pt(r2, t1(r2)), pt(q, t1(q))], n: vunit(rv(nn)) }); });
       const a0 = [0, 0, 0], a1 = [0, 0, 0]; a0[ei] = -1; a1[ei] = 1; if (f.ini) a0[ejes[0]] = f.ini[1]; if (f.fin) a1[ejes[0]] = f.fin[1];
-      caras.push({ pl: pts.map(q => pt(q, t0(q))), n: vunit(a0) }); caras.push({ pl: pts.map(q => pt(q, t1(q))), n: vunit(a1) });
+      caras.push({ pl: pts.map(q => pt(q, t0(q))), n: vunit(rv(a0)) }); caras.push({ pl: pts.map(q => pt(q, t1(q))), n: vunit(rv(a1)) });
       return caras;
     }
     return null;
