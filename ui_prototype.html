@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A246. [Master hecho 17/10; SketchUp: Interactuar en las caras 2 y 3 y cajon con direccion; Revit pendiente] Interactuar del esquinero (usuario
+       17/10): sus puertas, hojas y cajones (bajo, alto, alacena oculta, barra de la alacena, ciego, L y diagonal) abren: aperturasEsquinero
+       les da frente y abre por su cara vista (la puerta gira 90 sobre su canto lejano a la esquina; la de 45 sobre su canto del lado de la
+       cara k); las hojas en L plegables abren juntas y la b se dobla sobre la a; las abatibles, cada una por su cuenta; los cajones del
+       diagonal ya no son fijos: salen a 45 (abre.direccion). Sin puertas se ocultan como los demas frentes. Pendiente: bisagras de modelo
+       en las puertas del esquinero (necesitan el modelo girado a 90 y 45 grados sobre Z).
    A245. [Master hecho 17/10; SketchUp: modelo bisagra_brazo_abierta90 en la biblioteca; Revit pendiente] Las puertas de lateral abren 90 grados
        (usuario 17/10): su brazo abierto va armado a 90 (herramientas/bisagra_90.py sobre el brazo sin codo y despues codo_bisagra.py: eslabon
        y palanca giran 90/98.75 de su movimiento real, la palanca grande sigue a la cazoleta) y la puerta gira 90 sobre el giro real de la
@@ -4656,7 +4662,7 @@ function planDePiezas(c = cfg){
        como el dibujo y no con el material por omision de SketchUp. Herrajes y equipos conservan el suyo */
     const usados = new Set();
     piezas.forEach(q => { if (q.material) return; const k = predeterminadoDe(q); if (k) { q.material = k; usados.add(k); } });
-    if (multiCara()) esquinerosPlan(add, r2, sepMuro, t);   /* A134 */
+    if (multiCara()) { esquinerosPlan(add, r2, sepMuro, t); aperturasEsquinero(piezas); }   /* A134; A246: Interactuar del esquinero */
     return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
       materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); })
@@ -4883,7 +4889,14 @@ function pruebasPlanMX(){
     const grupos = {}; p.piezas.filter(q => q.frente).forEach(q => (grupos[q.frente] = grupos[q.frente] || []).push(q));
     Object.entries(grupos).forEach(([d, qs]) => ok(qs.filter(q => q.abre).length === 1, nombre + ': el frente ' + d + ' no tiene una sola pieza que abra'));
     p.piezas.filter(q => q.rol === 'caja').forEach(q => ok(grupos[q.frente] && grupos[q.frente].some(r => r.abre && r.abre.tipo === 'Cajon'), nombre + ': caja sin su cajon ' + q.id));
-    p.piezas.filter(q => q.rol === 'frente' && ['Puerta', 'Cajon', 'Elevable'].includes(q.tipo) && !q.fijo && !q.id.startsWith('esq')).forEach(q => ok(q.frente, nombre + ': frente que no abre ' + q.id));   /* A134: Interactuar del esquinero, pendiente */
+    p.piezas.filter(q => q.rol === 'frente' && ['Puerta', 'Cajon', 'Elevable'].includes(q.tipo) && !q.fijo).forEach(q => ok(q.frente && (q.frente !== q.id || q.abre), nombre + ': frente que no abre ' + q.id));   /* A134; A246: tambien el esquinero */
+    /* A246: el esquinero abre hacia afuera: cada puerta abierta (girada sobre su eje) queda del lado de su cara vista y las hojas plegables se doblan juntas */
+    p.piezas.filter(q => /^esq\d/.test(q.id) && q.abre && q.abre.tipo === 'Puerta' && !q.abre.grupo).forEach(q => { const a = q.abre.grados*Math.PI/180*(q.abre.lado === 'izquierda' ? 1 : -1);
+      const cx = q.x + q.ancho/2, cy = q.y + q.fondo/2, g = [q.abre.x + (cx - q.abre.x)*Math.cos(a) - (cy - q.abre.y)*Math.sin(a), q.abre.y + (cx - q.abre.x)*Math.sin(a) + (cy - q.abre.y)*Math.cos(a)];
+      const u = q.forma && q.forma.eje === 'z' ? (pt => { const n = [pt[3][0] - pt[0][0], pt[3][1] - pt[0][1]]; return [-n[0], -n[1]]; })(q.forma.puntos) : q.fondo <= q.ancho ? [0, 1] : [-1, 0];
+      ok((g[0] - cx)*u[0] + (g[1] - cy)*u[1] > 0, nombre + ': la puerta del esquinero abre hacia adentro ' + q.id); });
+    { const hojas = p.piezas.filter(q => /:hoja:[ab]$/.test(q.id) && q.abre); if (hojas.some(q => q.abre.grupo)) ok(hojas.every(q => q.abre.grupo), nombre + ': hojas plegables sin su grupo'); }
+    p.piezas.filter(q => /^esq\d/.test(q.id) && q.abre && q.abre.tipo === 'Cajon').forEach(q => ok(Array.isArray(q.abre.direccion) && Math.abs(Math.hypot(...q.abre.direccion) - 1) < .02, nombre + ': cajon del esquinero sin direccion ' + q.id));
     /* zoclo: un cierre en cada extremo pedido, en el primer y el ultimo tramo */
     const cierres = p.piezas.filter(q => q.rol === 'zoclo' && q.tipo === 'Cierre');
     ok(cierres.length === (c.generarZoclos && c.baseBajos > 0 ? (c.cerrarZocloIzq ? 1 : 0) + (c.cerrarZocloDer ? 1 : 0) : 0), nombre + ': ' + cierres.length + ' cierres de zoclo');
@@ -4894,7 +4907,7 @@ function pruebasPlanMX(){
     /* frentes dentro de la carcasa de su modulo; cajas de cajon y jaladeras, una por cada frente de cajon o frente con jaladera */
     p.piezas.filter(q => q.rol === 'frente' && q.modulo && !q.id.startsWith('esq')).forEach(f => { const e = extension(f.modulo, true);   /* A134: el esquinero sale de su columna */   /* los paneles posteriores de la isla no son de un modulo */
       ok(e && f.x >= e[0] - .01 && f.x + f.ancho <= e[1] + .01, nombre + ': frente fuera de su modulo ' + f.id); });
-    const cajones = p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Cajon' && !q.fijo && !p.piezas.some(r => r.rol === 'modulo' && r.modulo === q.modulo));
+    const cajones = p.piezas.filter(q => q.rol === 'frente' && q.tipo === 'Cajon' && !q.fijo && !/^esq\d/.test(q.id) && !p.piezas.some(r => r.rol === 'modulo' && r.modulo === q.modulo));
     /* A106: el cajon oculto del cesto tiene su tapa (un frente de cajon mas) */
     const conCondimentero = f => p.piezas.some(r => r.frente === f.frente && r.tipo === 'Condimentero');   /* A138: el condimentero no lleva caja */
     ok(p.piezas.filter(q => q.rol === 'caja' && q.tipo === 'Piso').length === cajones.filter(f => !conCondimentero(f)).length, nombre + ': falta una caja de cajon');
@@ -4958,10 +4971,10 @@ function pruebasPlanMX(){
     /* A140: la carcasa con frentes queda 3 mm detras de ellos; cada perforacion de cazoleta dentro de su pieza; el cajon oculto con su saque */
     p.piezas.filter(q => q.perforaciones).forEach(q => q.perforaciones.forEach(f => ok(f.x - f.diametro/2 >= -.01 && f.x + f.diametro/2 <= q.ancho + .01 && f.z - f.diametro/2 >= -.01 && f.z + f.diametro/2 <= q.alto + .01 && f.hondo < q.fondo, nombre + ': perforacion fuera de ' + q.id)));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada').forEach(q => ok(p.piezas.some(r => r.frente === q.frente && r.perforaciones && r.perforaciones.length), nombre + ': puerta sin perforacion de cazoleta ' + q.frente));
-    p.piezas.filter(q => q.abre && q.abre.grados).forEach(q => ok(q.abre.grados === (q.abre.tipo === 'Puerta' ? MODELO.bisagra.gradosLateral : MODELO.bisagra.gradosPuerta), nombre + ': la puerta ' + q.id + ' no abre lo que su bisagra'));   /* A146; A243: el giro real */
+    p.piezas.filter(q => q.abre && q.abre.grados && !/^esq\d/.test(q.id)).forEach(q => ok(q.abre.grados === (q.abre.tipo === 'Puerta' ? MODELO.bisagra.gradosLateral : MODELO.bisagra.gradosPuerta), nombre + ': la puerta ' + q.id + ' no abre lo que su bisagra'));   /* A146; A243: el giro real */
     /* A146: con riel frances, un liston del muro corrido por fila que cubre el riel de cada gabinete */
     p.piezas.filter(q => q.tipo === 'RielGabinete').forEach(q => ok(p.piezas.some(r => r.tipo === 'RielMuro' && Math.abs(r.z - q.z) < .01 && r.x <= q.x + .01 && r.x + r.ancho >= q.x + q.ancho - .01), nombre + ': riel de ' + q.modulo + ' sin liston del muro'));
-    p.piezas.filter(q => q.abre && q.abre.tipo === 'Puerta' && q.abre.grados).forEach(q => { const lat = p.piezas.filter(r => r.modulo === q.modulo && r.tipo === 'Lateral' && r.z < q.z + q.alto && r.z + r.alto > q.z);
+    p.piezas.filter(q => q.abre && q.abre.tipo === 'Puerta' && q.abre.grados && !/^esq\d/.test(q.id)).forEach(q => { const lat = p.piezas.filter(r => r.modulo === q.modulo && r.tipo === 'Lateral' && r.z < q.z + q.alto && r.z + r.alto > q.z);
       ok(lat.every(r => Math.abs(r.y + r.fondo + PLAN_HOLGURA_PUERTA - q.y) < .02 || r.y + r.fondo < q.y - 1 || r.y + r.fondo >= q.y + q.fondo - .02), nombre + ': la carcasa de ' + q.modulo + ' no deja la holgura tras la puerta'); });   /* A156: o la embutida */
     c.modulos.filter(m => m.tipo === 'Basura' && m.cestoVariante === 'oculto' && !m.reserved).forEach(m => { const tapa = p.piezas.find(q => q.id === m.id + ':oculto'), piso = p.piezas.find(q => q.id === m.id + ':caja:oculto:piso');
       ok(tapa && piso && !tapa.ranura && piso.z - tapa.z >= PLAN_SAQUE - .01, nombre + ': la tapa del cajon oculto no baja su saque en ' + m.id); });   /* A141 */
@@ -6655,6 +6668,32 @@ function avisoCoccion(m){
 /* A134: esquineros en el plan de piezas. Cada esquina k se arma en la cara k (la de su izquierda; la esquina en su extremo derecho,
    x = LA) en ejes de esa cara (y desde el muro). La cara de la derecha recorta su zoclo, su cubierta y su backsplash al llegar a la
    esquina (los pone la cara k). Medio detalle (B19): tableros, puertas, charolas y repisas; sin herrajes de catalogo */
+/* A246 (usuario 17/10: «integra los modulos de esquina»): Interactuar del esquinero. Sus frentes se arman despues de movibles, asi que aqui
+   cada puerta, hoja o cajon del esquinero (bajo, alto, alacena, barra) recibe su frente y su abre segun su cara vista: la de cara a la
+   habitacion de la cara k (delgada en y) gira sobre su canto lejano a la esquina (x menor); la de cara a la de la cara k + 1 (delgada en x)
+   sobre el de y mayor; la de 45 (losa) sobre su primer punto (lado de la cara k). Todas 90 grados hacia afuera. Las hojas en L plegables
+   abren juntas (abre.grupo): la a gira y la b se dobla sobre la cara vista de la a (180 grados sobre el punto medio). Los cajones salen a lo
+   largo de su cara vista (abre.direccion, en ejes del plan). Lo que cuelga del frente (id del frente + ':') va con el */
+function aperturasEsquinero(piezas){
+  const r = v => Math.round(v*100)/100, e = cfg.esquinas[cfg.cara], plegable = !!e && puertasL(e) === 'plegable';
+  const esq = piezas.filter(q => /^esq\d/.test(q.id)), fr = esq.filter(q => q.rol === 'frente' && ['Puerta', 'Cajon', 'Elevable'].includes(q.tipo) && !q.fijo);
+  const vista = q => {   /* {o1: canto de la bisagra en la cara vista, o2: canto libre, u: normal hacia afuera} */
+    if (q.forma && q.forma.eje === 'z') { const pt = q.forma.puntos, n = [pt[3][0] - pt[0][0], pt[3][1] - pt[0][1]], L = Math.hypot(n[0], n[1]) || 1;
+      return { o1: [q.x + pt[0][0], q.y + pt[0][1]], o2: [q.x + pt[1][0], q.y + pt[1][1]], u: [-n[0]/L, -n[1]/L] }; }
+    if (q.fondo <= q.ancho) return { o1: [q.x, q.y + q.fondo], o2: [q.x + q.ancho, q.y + q.fondo], u: [0, 1] };
+    return { o1: [q.x, q.y + q.fondo], o2: [q.x, q.y], u: [-1, 0] }; };
+  const gira = ([x, y], [cx, cy], g) => { const a = g*Math.PI/180; return [cx + (x - cx)*Math.cos(a) - (y - cy)*Math.sin(a), cy + (x - cx)*Math.sin(a) + (y - cy)*Math.cos(a)]; };
+  const puerta = (q, [px, py], g, extra = {}) => { q.abre = Object.assign({ tipo: 'Puerta', lado: g > 0 ? 'izquierda' : 'derecha', x: r(px), y: r(py), grados: r(Math.abs(g)) }, extra); };
+  fr.forEach(q => { const c = vista(q), d = [c.o2[0] - c.o1[0], c.o2[1] - c.o1[1]], sg = Math.sign(d[0]*c.u[1] - d[1]*c.u[0]) || 1;
+    q.frente = q.id; q.ocultaSinPuertas = true;
+    if (q.tipo === 'Cajon') q.abre = { tipo: 'Cajon', recorrido: 35, direccion: [r(c.u[0]), r(c.u[1])], independiente: true };
+    else puerta(q, c.o1, sg*90, { independiente: true }); });
+  if (plegable) fr.filter(q => /:hoja:a$/.test(q.id)).forEach(a => { const b = fr.find(q => q.id === a.id.replace(/a$/, 'b')); if (!b) return;
+    const ca = vista(a), libre = gira(ca.o2, ca.o1, a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados), p0 = [b.x, b.y];   /* el canto de la b junto a la esquina, en su cara vista */
+    const grupo = a.id.replace(/:a$/, 's'); delete a.abre.independiente;
+    puerta(b, [(p0[0] + libre[0])/2, (p0[1] + libre[1])/2], 180, { grupo }); a.abre.grupo = grupo; });
+  esq.forEach(q => { if (q.frente || q.rol === 'frente' && !fr.includes(q)) return; const f = fr.find(d => q.id.startsWith(d.id + ':')); if (f) { q.frente = f.id; if (q.rol === 'herraje' && ['Jaladera', 'Boton'].includes(q.tipo)) q.ocultaSinPuertas = true; } });
+}
 function esquinerosPlan(add, r2, sep, tf){
   const R = reg().esquina, e1 = PLAN_CUERPO.lateral, ef = cuerpoFondo(), zb = cfg.baseBajos, A = cfg.altoBajos, k0 = cfg.cara;
   const caja = (id, rol, tipo, modulo, x0, x1, y0, y1, z0, z1, material, etiqueta) => { if (x1 - x0 > .05 && y1 - y0 > .05 && z1 - z0 > .05) add({ id, rol, modulo, tipo, x: x0, y: sep + y0, z: z0, ancho: x1 - x0, fondo: y1 - y0, alto: z1 - z0, material, etiqueta }); };
@@ -6825,7 +6864,7 @@ function esquinerosPlan(add, r2, sep, tf){
     if (diag) { const zfD = conGola ? z1 - agarre() : z1, sd = e.tipo === 'diagonal' ? subE : null, hol = holF();
       if (sd === 'cajones') { const nC = cajonesDiagEsq(e), H = zfD - zb, caja0 = insetPoly(innerE, PLAN_CAJA.holgura);   /* A223: cajones con caja en V */
         for (let k = 0; k < nC; k++) { const fz0 = zb + k*H/nC + (k ? hol : 0), fz1 = zb + (k + 1)*H/nC - (k < nC - 1 ? hol : 0), bz0 = fz0 + 1, bz1 = Math.max(bz0 + 6, fz1 - PLAN_CAJA.libreArriba);
-          const fC = frenteDiag(id + ':cajon:' + k, 'Cajon', wA, wB, fA, fB, fz0, fz1, modB); if (fC) fC.fijo = true;   /* sale a 45: Interactuar todavia no lo abre */
+          frenteDiag(id + ':cajon:' + k, 'Cajon', wA, wB, fA, fB, fz0, fz1, modB);   /* A246: sale a 45 (abre.direccion); antes fijo */
           losa(id + ':cajon:' + k + ':piso', 'panel', 'Piso', modB, insetPoly(caja0, PLAN_CAJA.lado), bz0, bz0 + PLAN_CAJA.piso, mat, 'gabinetes');
           paredesPoly(caja0, PLAN_CAJA.lado).forEach((q, j) => losa(id + ':cajon:' + k + ':lado:' + j, 'panel', 'Lado', modB, q, bz0, bz1, mat, 'gabinetes')); } }
       else if (sd === 'tarja') { const hF = altoFijoTarja(); frenteDiag(id + ':fijo', 'Frente fijo', wA, wB, fA, fB, zfD - hF + hol, zfD, modB); puertaDiag(id, wA, wB, fA, fB, zb, zfD - hF - hol, modB); }   /* A223 */
@@ -10798,7 +10837,7 @@ const LAM = (() => {
   /* movimiento de un frente al abrirse, en ejes locales de su cara (la misma regla de Interaccion.movimiento en Ruby) */
   const movimientoDe = a => !a ? null : a.tipo === 'Puerta' ? { gira: [a.x, -a.y, 0], eje: [0, 0, 1], g: (a.lado === 'derecha' ? 1 : -1) * (a.grados || 90) * (a.sentido === 'adentro' ? -1 : 1) }
     : a.tipo === 'Elevable' ? { gira: [0, -a.y, a.z], eje: [1, 0, 0], g: -(a.grados || 90) }   /* A243: con bisagras, su giro real */
-    : a.tipo === 'Cajon' ? { mueve: [0, -a.recorrido * (a.fraccion || 1), 0] } : null;
+    : a.tipo === 'Cajon' ? { mueve: (d => [d[0]*a.recorrido*(a.fraccion || 1), -d[1]*a.recorrido*(a.fraccion || 1), 0])(a.direccion || [0, 1]) } : null;   /* A246: el del esquinero sale en su direccion */
   const mover = (v, m) => { if (!m) return v; if (m.mueve) return vadd(v, m.mueve);
     const r = vsub(v, m.gira), t = m.g * Math.PI / 180, c = Math.cos(t), s = Math.sin(t), k = m.eje, kr = vcruz(k, r), kd = vpunto(k, r);
     return vadd(m.gira, [r[0] * c + kr[0] * s + k[0] * kd * (1 - c), r[1] * c + kr[1] * s + k[1] * kd * (1 - c), r[2] * c + kr[2] * s + k[2] * kd * (1 - c)]); };
