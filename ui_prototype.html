@@ -303,6 +303,9 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A229. [Master hecho 16/10; Revit pendiente] Repisero del ciego hasta el borde de la columna del bajo (16/10, usuario, tras probar
+       P12.323, con la linea marcada en el alzado): la columna del alto con repisero es la del bajo (donde termina la tapeta del bajo y
+       empieza el bajo vecino); el alto vecino ya no cambia. La tapeta de ajuste sigue junto al frente de la otra cara (A228).
    A228. [Master hecho 16/10; Revit P12.323] Repisero del ciego, correccion de A227 (16/10, usuario, tras probar P12.322: «el repisero
        arranca en la interseccion de la tapeta baja (cara A) con los bajos de la cara B, para que en la interseccion de los altos antes de
        tocar los frentes de B exista una tapeta de ajuste»): la columna del alto en la cara no duena termina en el inicio de la tapeta del
@@ -2855,7 +2858,7 @@ function vecinoAltoOk(k, s){ const q = caraDe(s ? k + 1 : k); if (!q) return fal
   const c = ups.findIndex(m => m.esquina && m.esquina.k === k && m.esquina.lado === (s ? 'izq' : 'der')); if (c < 0) return false; const v = ups[s ? c + 1 : c - 1];
   return !!v && !v.esquina && !(lows.length === ups.length && isSpecial(lows[ups.indexOf(v)])); }
 function huellaAlto(k){ const e = cfg.esquinas[k], h = huellaEsquina(k);
-  return h.map((lw, s) => { if (repiseroCiego(e, s) && vecinoAltoOk(k, s)) return inicioTapetaBajo(k, s);   /* A228: la columna termina en el inicio de la tapeta del bajo */   /* A227 */
+  return h.map((lw, s) => { if (repiseroCiego(e, s)) return lw;   /* A228; A229: la columna del alto es la del bajo: el repisero llega al borde de su tapeta (donde empieza el bajo vecino) */   /* A227 */
     const v = s ? e.altoB : e.altoA; if (!(v > 0) || !ladoTapetaAlto(e, s) || !vecinoAltoOk(k, s)) return lw; return Math.max(cuerpoAlto(k, s), Math.min(lw, v)); }); }
 const huecoEsqAlto = (k, s) => huellaAlto(k)[s] - finCuerpoAlto(k, s);
 /* lo que cede la esquina al alto vecino v de la cara activa */
@@ -8030,7 +8033,7 @@ function esquinaPanel(m){
       h2 += `<div class="grid-2" style="margin-top:6px">${repiseroCiego(e, s) ? num('esqTapRep', 'Tapeta de ajuste', tapetaRepisero(e), 'cm', cfg.region === 'US' ? inch(1) : 2.5, cfg.region === 'US' ? inch(2) : 5) : num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
         + radios(s ? 'esqRepB' : 'esqRepA', [['tapa', 'Tapa ciega'], ['repisero', 'Repisero abierto']], repiseroEsq(e, s) ? 'repisero' : 'tapa')
         + (!repiseroCiego(e, s) && repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : ''); });
-    if (altoEsquina(e) === 'ciego') h2 = `<div class="note-sm">El alto ciego es un gabinete recto en su cara, hasta el muro; la otra cara cierra con tapa o con repisero: tapeta de ajuste junto al frente y el repisero hasta la tapeta del bajo, donde empieza el alto vecino.</div>` + h2;   /* A227 */
+    if (altoEsquina(e) === 'ciego') h2 = `<div class="note-sm">El alto ciego es un gabinete recto en su cara, hasta el muro; la otra cara cierra con tapa o con repisero: tapeta de ajuste junto al frente y el repisero hasta el borde de la columna del bajo.</div>` + h2;   /* A227 */
     if (altoEsquina(e) === 'ciego') { const s = e.duena === 1 ? 1 : 0, d = cierreDef(k);
       h2 += `<div class="grid-2" style="margin-top:10px">${num('esqCierre', `Cierre en cara ${letraCara(k + s)}`, cierreAlto(k), 'cm', Math.min(tapetaCiego(), d), d)}</div><div class="note-sm">Al acortar el cierre crece la puerta; si pasa de ${medida(puertaMaxEsq())}, lleva dos puertas.</div>`; }
     html += section('Alto con tapeta', h2 + `<div class="note-sm">El alto vecino toma lo que cede la esquina. También se arrastra en el alzado.</div>`
