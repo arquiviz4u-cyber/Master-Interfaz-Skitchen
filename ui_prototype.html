@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A237. [Master hecho 17/10; Revit pendiente] Esquinero: panel por doble clic, tapeta superior y corona escalonada (17/10, usuario):
+       1) panel del esquinero: un clic muestra solo «Tipo» y «Gabinete ciego en» (o «Puerta en»); doble clic en el bajo o en el alto
+       de una cara (esqFoco) muestra solo las opciones de ese mueble y de esa cara (bajo: interior, ancho de su cara, Magic corner,
+       puertas del L; alto: alto de la esquina, puertas del L, armado, tapa o repisero y cierre de su cara); la otra cara, en su pestana;
+       2) tapeta superior en la columna de esquina (L y ciego): la de la cara k llega a la cara de atras de la tapeta de la otra y la de
+       la cara k + 1 arranca en el frente de la de la k (antes se encimaban); 3) corona escalonada: donde cambia el fondo entre tramos,
+       el tramo profundo voltea a 45 grados, un regreso corre hasta el tramo menos profundo y este se corta a 45 grados contra el
+       regreso (forma.ini / forma.fin). Pendiente: diagonal y alacena de esquina.
    A236. [Master hecho 16/10; Revit P12.331] Proyecciones de apertura de los esquineros en el alzado (16/10, usuario: «checar las
        proyecciones en el master de los modulos de esquina»): las puertas del esquinero llevan el triangulo punteado hacia su bisagra
        como las demas (con proyecciones encendidas): ciego, bisagra del lado exterior (en la doble puerta del alto, cada hoja a su lado);
@@ -4320,7 +4328,13 @@ function planDePiezas(c = cfg){
         if (conMolduraTs) {   /* corona a 45 grados: su espalda vertical sobre el plano de las puertas y su canto superior saliendo al cuarto hasta el techo */
           const c9 = r2(altoTs), yM = r2(fo - t - PLAN_HOLGURA_PUERTA - crownFaja(c9)), pf = cfg.tapetaSuperiorPerfil || 'ogee', ci = k === 0 && cfg.cerrarMolduraIzq, cd = k === unidos.length - 1 && cfg.cerrarMolduraDer;
           const pts = perfilCrown(pf, c9, c9), ingD = k === unidos.length - 1 && ingleteEsq('der'), ingI = k === 0 && ingleteEsq('izq');   /* A235 */
-          const xa = ingI ? r2(yMOtra('izq', c9)) : a, xb = ingD ? r2(cfg.longitud - yMOtra('der', c9)) : b, ini = ingI ? [0, 1] : ci ? [c9, -1] : null, fin = ingD ? [0, 1] : cd ? [c9, -1] : null;
+          /* A237: escalon donde cambia el fondo: el tramo profundo voltea a 45 grados y el menos profundo se corta contra el regreso */
+          const fsC = crownFaja(c9), prv = k > 0 ? unidos[k - 1] : null, nxt = k < unidos.length - 1 ? unidos[k + 1] : null, stI = prv && Math.abs(prv[2] - fo) > .5, stD = nxt && Math.abs(nxt[2] - fo) > .5;
+          const xa = ingI ? r2(yMOtra('izq', c9)) : stI ? r2(prv[2] > fo ? a - fsC : a + fsC - c9) : a, xb = ingD ? r2(cfg.longitud - yMOtra('der', c9)) : stD ? r2(nxt[2] > fo ? b + fsC : b - fsC + c9) : b;
+          const ini = ingI ? [0, 1] : ci ? [c9, -1] : stI ? (prv[2] > fo ? [0, 1] : [c9, -1]) : null, fin = ingD ? [0, 1] : cd ? [c9, -1] : stD ? (nxt[2] > fo ? [0, 1] : [c9, -1]) : null;
+          if (stD) { const yN = r2(nxt[2] - t - PLAN_HOLGURA_PUERTA - fsC), ys = Math.min(yM, yN), yd = Math.max(yM, yN), hondo = nxt[2] > fo;   /* regreso entre los dos fondos */
+            add({ id: 'tapeta:superior:moldura:regreso' + sf, rol: 'tapeta', tipo: 'Moldura', x: r2(hondo ? b + fsC - c9 : b - fsC), y: ys, z: zTop, ancho: c9, fondo: r2(yd + c9 - ys), alto: altoTs, material: matTs, etiqueta: 'tapetas',
+              forma: hondo ? { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [r2(c9 - y), z]), ini: [c9, -1], fin: [0, 1] } : { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [y, z]), ini: [0, 1], fin: [c9, -1] } }); }
           add({ id: 'tapeta:superior:moldura' + sf, rol: 'tapeta', tipo: 'Moldura', x: xa, y: yM, z: zTop, ancho: r2(xb - xa), fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
             forma: Object.assign({ tipo: 'perfil', eje: 'x', puntos: pts }, ini ? { ini } : {}, fin ? { fin } : {}) });
           /* A214 (usuario): cierre del extremo como en los zoclos: el perfil regresa hacia el gabinete (vista de lado, extruido a lo ancho de su proyeccion) */
@@ -4329,7 +4343,9 @@ function planDePiezas(c = cfg){
           if (cd) add({ id: 'tapeta:superior:moldura:cierre:der' + sf, rol: 'tapeta', tipo: 'Moldura', x: r2(b - c9), y: yM, z: zTop, ancho: c9, fondo: c9, alto: altoTs, material: matTs, etiqueta: 'tapetas',
             forma: { tipo: 'perfil', eje: 'y', puntos: pts.map(([y, z]) => [y, z]), fin: [c9, -1] } });   /* A235 */
           return; }
-        add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: a, y: fo - t - dTs, z: zTop, ancho: b - a, fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
+        /* A237: en la columna de esquina (L y ciego) llega a la cara de atras de la tapeta de la otra cara, o arranca en el frente de la de la otra */
+        const tsA = k === 0 && ingleteEsq('izq') ? r2(sep + fondoCara(caraDe(esqDe('izq').esquina.k), true) + t - dTs) : a, tsB = k === unidos.length - 1 && ingleteEsq('der') ? r2(cfg.longitud - (sep + fondoCara(caraDe(esqDe('der').esquina.k + 1), true) - dTs)) : b;
+        add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: tsA, y: fo - t - dTs, z: zTop, ancho: r2(tsB - tsA), fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01) return;
         /* A161 (usuario): el regreso no sobresale del canto de la columna mas saliente: va dentro de ella, del canto del frente menos
            saliente a la espalda del suyo */
@@ -5352,7 +5368,7 @@ function showDialog(title, message, buttons = [{ text: 'Aceptar', primary: true 
 let selection = new Set([row(false)[0].id]);  /* el real arranca con el primer modulo seleccionado */
 /* seleccion particular: focusPanel = cuerpo de torre o alacena ('panel:<id>:<zona>', marco naranja); upperFocus = modulo inferior
    de un alto doble (marco naranja); pieces = repisas y fondos elegidos con doble clic ('piece:<id>:<zona>.<pieza>') */
-let focusPanel = null, upperFocus = null, pieces = new Set(), justActivated = null;
+let focusPanel = null, upperFocus = null, esqFoco = null,   /* A237: doble clic en el bajo o en el alto de un esquinero */ pieces = new Set(), justActivated = null;
 const pieceSelected = key => !!selectedPart && selectedPart.startsWith('piece:') && pieces.has(key);
 let selectedPart = null;   /* 'wall' | 'cover' | 'sink' | 'tap' | 'plinth' | 'backsplash' | 'fillerI' | 'fillerD' | 'gola' */
 let view = 'Alzado', showDoors = true, flat = false, measure = false, medirTodo = false, seccionOn = false;   /* A119: Medir en tres pasos (elegidos, todos, apagado) */   /* A115: seccion lateral junto al alzado */
@@ -7641,7 +7657,7 @@ function staticPartAt(p){
   for (const k of PART_ORDER) if (partHits.some(h => h.key === k && inside(p, h.rect))) return k;
   return null;
 }
-function selectPart(key){ selection.clear(); selectedPart = key; focusPanel = null; upperFocus = null; if (!key.startsWith('piece:')) pieces.clear(); render(); }
+function selectPart(key){ selection.clear(); selectedPart = key; focusPanel = null; upperFocus = null; esqFoco = null; if (!key.startsWith('piece:')) pieces.clear(); render(); }
 function pick(p){
   const d = dimHits.find(d => inside(p, d.rect)); if (d) return 'dim:' + d.key;
   const gd = topmost(guideHits, p); if (gd) return 'guide:' + gd.key;
@@ -7758,13 +7774,14 @@ canvas.addEventListener('mousedown', e => {
     /* (A38) un clic sobre el gabinete inferior unido elige la caja completa; la franja del superior sigue eligiendo la columna */
     if (h.body && isDoble(m) && !e.ctrlKey) { const g = bodyGroupOf(m); if (g) { selectPart('box:' + g.members[0].id); return; } }
     upperFocus = dbl && isDoble(m) ? id : null;   /* doble clic en un alto doble: su modulo inferior */
+    esqFoco = dbl && m.esquina ? id : null;   /* A237 */
     if (e.ctrlKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); }
     else { const bx = byId(id) && byId(id).upper && !isDoble(byId(id)) ? bodyGroups().find(g => g.members.some(q => q.id === id)) : null;   /* un clic sobre una caja corrida abierta la selecciona completa; en el alto doble, solo su columna (A37) */
       if (bx) selection = new Set(bx.members.map(q => q.id)); else if (!selection.has(id)) selection = new Set([id]); drag = { kind: 'module', id, over: null, x: p.x, y: p.y }; }
     render(); return;
   }
   /* vacio: sin Ctrl selecciona el muro; arrastrando, recuadro de seleccion */
-  focusPanel = null; upperFocus = null;
+  focusPanel = null; upperFocus = null; esqFoco = null;
   if (!e.ctrlKey) { selection.clear(); pieces.clear(); selectedPart = view === 'Alzado' ? 'wall' : null; }   /* SelectPart("wall") en cualquier vacio del lienzo */
   drag = { kind: 'box', x0: p.x, y0: p.y, x1: p.x, y1: p.y, ctrl: e.ctrlKey };
   render();
@@ -8085,6 +8102,12 @@ function esquinaPanel(m){
   const e = esquinaDe(m), k = m.esquina.k, R = reg().esquina, h = huellaEsquina(k), alacena = e.tipo === 'alacena';
   let html = head('Esquinero', `Caras ${letraCara(k)} y ${letraCara(k + 1)} · ${fmt(h[0])} / ${fmt(h[1])}${uS()}`);
   html += section('Tipo', radios('esqTipo', ESQ_TIPOS, e.tipo));
+  if (e.tipo === 'ciego' || alacena && e.alacena === 'oculta') html += section(e.tipo === 'ciego' ? 'Gabinete ciego en' : 'Puerta en', radios('esqDuena', [['0', `Cara ${letraCara(k)}`], ['1', `Cara ${letraCara(k + 1)}`]], String(e.duena === 1 ? 1 : 0)));
+  /* A237: las demas opciones, con doble clic en el bajo o en el alto de esta cara */
+  const sq = m.esquina.lado === 'der' ? 0 : 1;
+  if (esqFoco !== m.id) return html + `<div class="note">Doble clic en el bajo o en el alto de la cara ${letraCara(k + sq)} para sus opciones; las de la otra cara, en su pestaña.</div>`;
+  html += `<div class="note-sm" style="margin:4px 0"><b>${m.upper ? 'Alto' : 'Bajo'} de la cara ${letraCara(k + sq)}</b></div>`;
+  if (!m.upper) {
   if (alacena) html += section('Alacena', radios('esqAlacena', [['oculta', 'Oculta, puerta de piso a techo'], ['diagonal', 'Diagonal, una puerta']], e.alacena === 'diagonal' ? 'diagonal' : 'oculta')
     + `<div class="note">Del zoclo al tope de los altos; no lleva alto encima.</div>`)
     + section('Interior', radios('esqInterior', [['repisas', 'Repisas completas'], ['barra', 'Con barra de un lado']], interiorAlacena(e))
@@ -8095,34 +8118,36 @@ function esquinaPanel(m){
       + (barraFuncion(e) === 'cajones' ? `<div class="grid-2">${num('esqBarraCaj', 'Cajones', barraCajones(e), '', 1, 5, 1)}</div>` : '')
       + `<div class="note-sm">También se elige con un clic en el bajo, en la sección.</div>`) : '');   /* A166 */
   if (alacena) { const hh = huellaEsquina(k);   /* A140: ancho a gusto en cada cara */
-    html += section('Ancho de la alacena', `<div class="grid-2">${num('esqAnchoA', `En cara ${letraCara(k)}`, hh[0], 'cm', 40, 200)}${num('esqAnchoB', `En cara ${letraCara(k + 1)}`, hh[1], 'cm', 40, 200)}</div>`
+    html += section('Ancho de la alacena', `<div class="grid-2">${sq === 0 ? num('esqAnchoA', `En cara ${letraCara(k)}`, hh[0], 'cm', 40, 200) : num('esqAnchoB', `En cara ${letraCara(k + 1)}`, hh[1], 'cm', 40, 200)}</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
-  if (e.tipo === 'ciego' || alacena && e.alacena === 'oculta') html += section(e.tipo === 'ciego' ? 'Gabinete ciego en' : 'Puerta en', radios('esqDuena', [['0', `Cara ${letraCara(k)}`], ['1', `Cara ${letraCara(k + 1)}`]], String(e.duena === 1 ? 1 : 0)));
   if (SUB_ESQ[e.tipo]) { const sE = subEsquina(e);   /* A223: subcategoria */
     html += section(e.tipo === 'diagonal' ? 'Función' : 'Interior', radios('esqSub', SUB_ESQ[e.tipo], sE)
       + (e.tipo === 'carrusel' && sE === 'repisas' ? `<div class="grid-2" style="margin-top:10px">${num('esqRepL', 'Repisas', repisasLEsq(e), '', 0, 3, 1)}</div>` : '')
       + (e.tipo === 'diagonal' && sE === 'cajones' ? `<div class="grid-2" style="margin-top:10px">${num('esqCajDiag', 'Cajones', cajonesDiagEsq(e), '', 2, 4, 1)}</div><div class="note-sm">Cajas en V que siguen el diamante.</div>` : '')
       + (e.tipo === 'diagonal' && sE === 'tarja' ? `<div style="margin-top:10px">${radios('esqTarjaTipo', [['1', 'Sencilla'], ['2', 'Doble']], String(e.tarjaTipo === 2 ? 2 : 1))}</div><div class="note-sm">La tarja de la cocina va en la cubierta diamante; abajo, frente fijo y puerta a 45°.</div>` : '')
       + (e.tipo === 'ciego' ? `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()}; el lado ciego va en la cara elegida y en la otra queda una tapeta de ajuste de ${fmt(R.tapeta)}${uS()}.</div>` : '')); }
-  if (e.tipo === 'ciego') { const cd = ciegoDueno(k), dA = e.duena !== 1, R9 = reg().esquina;   /* A221: ancho del ciego en su cara duena */
+  if (e.tipo === 'ciego' && (e.duena === 1 ? 1 : 0) === sq) { const cd = ciegoDueno(k), dA = e.duena !== 1, R9 = reg().esquina;   /* A221: ancho del ciego en su cara duena */
     html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.w0, cd.w0 + R9.ciegoMax - R9.ciego)}</div>`
       + `<div class="note-sm">De ${medida(cd.w0)} a ${medida(cd.w0 + R9.ciegoMax - R9.ciego)}: crecen la caja y su puerta; la parte ciega queda igual.</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
+  if (e.tipo === 'carrusel') html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 165°']], puertasL(e)));
+  return html; }
+  if (alacena) return html + `<div class="note">La alacena llega al tope de los altos: no lleva alto.</div>`;
   if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Igual que el bajo'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
-  if (!alacena && (e.tipo === 'carrusel' || altoEsquina(e) === 'L')) html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 165°']], puertasL(e)));   /* A232 */
+  if (!alacena && altoEsquina(e) === 'L') html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 165°']], puertasL(e)));   /* A232 */
   if (!alacena && altoEsquina(e) !== 'ninguno' && altoEsquina(e) !== 'ciego') html += section('Armado del alto', radios('esqUnion', [['L', 'Unido en L, un solo gabinete'], ['tapeta', 'Dos gabinetes con tapeta']], e.union === 'tapeta' ? 'tapeta' : 'L'));
   if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) !== 'tapeta') html += section('Junto a la esquina', radios('esqRelleno', [['puerta', 'Gabinete con puerta'], ['repisas', 'Repisas abiertas']], e.relleno === 'repisas' ? 'repisas' : 'puerta')
     + `<div class="note">El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.</div>`);
   if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) === 'tapeta') { let h2 = '';   /* A226 */
     const cg = altoEsquina(e) === 'ciego';   /* A230: en el ciego, que se entienda que lado es cual */
-    [0, 1].filter(s => ladoTapetaAlto(e, s)).forEach(s => { const hu = huellaAlto(k)[s], hq = huecoEsqAlto(k, s);
+    [0, 1].filter(s => s === sq && ladoTapetaAlto(e, s)).forEach(s => { const hu = huellaAlto(k)[s], hq = huecoEsqAlto(k, s);
       h2 += `<div class="note-sm" style="margin-top:8px"><b>Cara ${letraCara(k + s)}${cg ? ', lado ciego' : ''}</b></div>`
         + (cg ? radios('esqLadoCiego', [['repisero', 'Repisero abierto'], ['tapa', 'Tapa ciega']], e.ladoCiego === 'tapa' ? 'tapa' : 'repisero')
           : radios(s ? 'esqRepB' : 'esqRepA', [['tapa', 'Tapa ciega'], ['repisero', 'Repisero abierto']], repiseroEsq(e, s) ? 'repisero' : 'tapa'))
         + `<div class="grid-2" style="margin-top:6px">${repiseroCiego(e, s) ? num('esqTapRep', 'Tapeta de ajuste', tapetaRepisero(e), 'cm', cfg.region === 'US' ? inch(1) : 2.5, cfg.region === 'US' ? inch(2) : 5) : num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
         + (!cg && repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : ''); });
     if (cg) h2 = `<div class="note-sm">El alto ciego es un gabinete recto en su cara, hasta el muro. El lado ciego cierra con un repisero (tapeta de ajuste junto al frente y el repisero hasta el borde de la columna del bajo) o con una tapa.</div>` + h2;
-    if (cg) { const s = e.duena === 1 ? 1 : 0, d = cierreDef(k);
+    if (cg && (e.duena === 1 ? 1 : 0) === sq) { const s = e.duena === 1 ? 1 : 0, d = cierreDef(k);
       h2 += `<div class="note-sm" style="margin-top:10px"><b>Cara ${letraCara(k + s)}, puerta del ciego</b></div><div class="grid-2" style="margin-top:6px">${num('esqCierre', 'Cierre junto a la puerta', cierreAlto(k), 'cm', Math.min(tapetaCiego(), d), d)}</div><div class="note-sm">Al acortar el cierre crece la puerta; si pasa de ${medida(puertaMaxEsq())}, lleva dos puertas.</div>`; }
     html += section(cg ? 'Alto ciego' : 'Alto con tapeta', h2 + (cg ? '' : `<div class="note-sm">El alto vecino toma lo que cede la esquina. También se arrastra en el alzado.</div>`)
       + (e.altoA > 0 || e.altoB > 0 || e.cierreAlto > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAltoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
