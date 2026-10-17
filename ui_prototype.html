@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A231. [Master hecho 16/10; Revit pendiente] Charolas Magic corner del bajo ciego (16/10, usuario, con foto de un herraje de riñon de
+       dos niveles: 840 mm de ancho, 370 mm entre charolas, poste a un lado): en lugar de la caja del herraje, dos charolas en forma de
+       riñon (charolaRinon: lobulo chico del lado del poste, cintura y lobulo grande del lado ciego; hasta 84 cm de largo y 46 de fondo,
+       centradas en el fondo de la caja) a 37 cm una de otra, con barandal de 4 cm (paredesPoly de 0.5) y poste cilindrico junto a la
+       puerta (piezas :charola:i, :charola:i:borde:j, :poste; tipo MagicCorner). Pendiente (siguiente): el pivote al Interactuar (la
+       puerta del ciego y las charolas giran sobre el poste); hoy el esquinero no entra en Interactuar ni en el master ni en Revit.
    A230. [Master hecho 16/10; Revit P12.325] Alto ciego, ajustes (16/10, usuario, tras probar P12.324): 1) panel: «Sigue al bajo» pasa a
        «Igual que el bajo»; en el ciego la seccion se llama «Alto ciego», con «Cara X, lado ciego» (Repisero abierto / Tapa ciega) y
        «Cara Y, puerta del ciego» (cierre); 2) el repisero de fabrica en el ciego (e.ladoCiego: null o "repisero"; "tapa" para la tapa
@@ -2834,6 +2840,11 @@ const altoFijoTarja = () => cfg.region === 'US' ? inch(6) : 15;   /* A223: frent
 const areaPoly = q => q.reduce((s, a, i) => { const b = q[(i + 1) % q.length]; return s + a[0]*b[1] - b[0]*a[1]; }, 0)/2;
 function insetPoly(q, d){ const s = Math.sign(areaPoly(q)) || 1, n = q.length, L = q.map((a, i) => { const b = q[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [[a[0] - dy/l*s*d, a[1] + dx/l*s*d], [dx, dy]]; });
   return L.map((l1, i) => { const [p0, v0] = L[(i + n - 1) % n], [p1, v1] = l1, den = v0[0]*v1[1] - v0[1]*v1[0]; if (Math.abs(den) < 1e-9) return p1; const k = ((p1[0] - p0[0])*v1[1] - (p1[1] - p0[1])*v1[0])/den; return [p0[0] + v0[0]*k, p0[1] + v0[1]*k]; }); }
+/* A231: contorno de charola de riñon (Magic corner) de largo L y fondo D: x de 0 (lado del poste) a L, y de -D/2 a D/2 */
+const charolaRinon = (L, D) => { const n = 18, el = (x, c, a) => Math.sqrt(Math.max(0, 1 - ((x - c)/a)**2)), g = x => Math.max(el(x, .24*L, .24*L), el(x, .7*L, .3*L), x > .24*L && x < .7*L ? .62 : 0);
+  const xs = Array.from({ length: n + 1 }, (_, i) => L*(1 - Math.cos(Math.PI*i/n))/2), o = [...xs.map(x => [x, D/2*g(x)]), ...xs.slice().reverse().map(x => [x, -D/2*g(x)])], r = [];
+  o.forEach(p => { const q = r[r.length - 1]; if (!q || Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) > .05) r.push(p); });
+  if (r.length > 1 && Math.abs(r[0][0] - r[r.length - 1][0]) + Math.abs(r[0][1] - r[r.length - 1][1]) < .05) r.pop(); return r; };
 const paredesPoly = (q, g) => { const r = insetPoly(q, g); return q.map((a, i) => [a, q[(i + 1) % q.length], r[(i + 1) % q.length], r[i]]); };
 function recortaPoly(q, f){ const o = []; q.forEach((a, i) => { const b = q[(i + 1) % q.length], fa = f(a), fb = f(b); if (fa >= 0) o.push(a); if ((fa >= 0) !== (fb >= 0)) { const k = fa/(fa - fb); o.push([a[0] + (b[0] - a[0])*k, a[1] + (b[1] - a[1])*k]); } }); return o; }
 const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !== 'auto' ? e.alto : { ciego: 'ciego', carrusel: 'L', diagonal: 'diagonal' }[e.tipo] || 'L';
@@ -4779,7 +4790,7 @@ function pruebasPlanMX(){
       if (e.tipo === 'diagonal' && sE === 'tarja' && c.generarCubierta) ok(has(':tarja:fondo') && has(':fijo') && p.piezas.filter(q => /^esq\d+:cubierta(:\d+)?$/.test(q.id)).length > 1, nombre + ': tarja del diagonal (tina, frente fijo y cubierta con hueco)');
       if (e.tipo === 'diagonal' && sE === 'carrusel') ok(has(':charola:0') && has(':charola:1'), nombre + ': charolas del diagonal');
       if (e.tipo === 'carrusel' && sE === 'repisas') ok(has(':repisa:' + repisasLEsq(e)) && !has(':charola'), nombre + ': repisas de la L');
-      if (e.tipo === 'ciego') ok(!!e.herraje === has(':herraje') && !has(':repisa'), nombre + ': interior del ciego'); });
+      if (e.tipo === 'ciego') ok(!!e.herraje === has(':charola:0') && !has(':repisa'), nombre + ': interior del ciego'); });
     (c.esquinas || []).forEach((e, k) => { const q = e.tipo === 'ciego' && p.piezas.find(r => r.id === 'esq' + k + ':puerta'); if (!q) return;   /* A221 */
       const prev = cfg; cfg = c; let ex; try { ex = reg().esquina.ciegoPuerta + ciegoExtra(k); } finally { cfg = prev; }
       ok(Math.abs((e.duena !== 1 ? q.ancho : q.fondo) - ex) < .01, nombre + ': la puerta del ciego no sigue su ancho (A221)'); });
@@ -6566,7 +6577,14 @@ function esquinerosPlan(add, r2, sep, tf){
     if (op && P > puertaMaxEsq() + 1e-6) { const g = holF(); bx(':puerta', 'frente', 'Puerta', w - P, w - P/2 - g, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':puerta:2', 'frente', 'Puerta', w - P/2 + g, w, fF, fF + tf, z0, zf, frente, 'frentes'); }   /* A226 */
     else bx(':puerta', 'frente', 'Puerta', w - P, w, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':tapeta', 'tapeta', 'Compensacion', fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara */
     if (gola) { bx(':gola', 'herraje', 'Gola', fOtra + tf, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', fOtra + tf, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
-    if (herraje) bx(':herraje', 'herraje', 'HerrajeEsquina', u0 + e1 + 3, w - P - 3, ef + 4, fOwn - 4, z0 + e1 + 6, z0 + (z1 - z0)*.62, null, 'herrajes');
+    if (herraje) { /* A231: charolas Magic corner (riñon de dos niveles, barandal y poste junto a la puerta) */
+      const uE = w - e1 - 3, vMax = fOwn - 1, L = Math.max(30, Math.min(84, uE - (u0 + e1 + 2))), D = Math.max(20, Math.min(46, vMax - ef - 4)), vc = (ef + vMax)/2;
+      const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], contorno = charolaRinon(L, D).map(([x, y]) => pt(uE - x, vc + y)), paso = Math.min(37, (z1 - z0) - 30);
+      [z0 + e1 + 8, z0 + e1 + 8 + paso].forEach((z, i) => { losa(pre + ':charola:' + i, 'herraje', 'MagicCorner', modulo, contorno, z, z + 1.2, null, 'herrajes');
+        paredesPoly(contorno, .5).forEach((q, j) => losa(pre + ':charola:' + i + ':borde:' + j, 'herraje', 'MagicCorner', modulo, q, z + 1.2, z + 5, null, 'herrajes')); });
+      const [px, py] = pt(uE - 2, vMax - 3), hP = r2(z1 - z0 - 2*e1);
+      add({ id: pre + ':poste', rol: 'herraje', modulo, tipo: 'MagicCorner', x: px - 1.5, y: sep + py - 1.5, z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
+        forma: { tipo: 'cilindro', de: [1.5, 1.5, 0], a: [1.5, 1.5, hP], diametro: 3, lados: 12 } }); }
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
   const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false, rep = null, piso = true, fajas = false) => {
