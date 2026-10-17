@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A230. [Master hecho 16/10; Revit pendiente] Alto ciego, ajustes (16/10, usuario, tras probar P12.324): 1) panel: «Sigue al bajo» pasa a
+       «Igual que el bajo»; en el ciego la seccion se llama «Alto ciego», con «Cara X, lado ciego» (Repisero abierto / Tapa ciega) y
+       «Cara Y, puerta del ciego» (cierre); 2) el repisero de fabrica en el ciego (e.ladoCiego: null o "repisero"; "tapa" para la tapa
+       ciega); 3) el repisero es una sola caja (sus dos laterales, trasero, piso, techo y 2 repisas) que sale hasta el pano de los
+       frentes de los altos; 4) la tapa del lado ciego da la vuelta por debajo hasta el muro (pieza :fondo) para que no quede hueca vista
+       desde abajo; 5) la tapa del lado ciego arranca en el frente de la cara duena y se une con su cierre (sin hueco en la esquina);
+       6) el unero del alto ciego cubre solo la puerta y el cierre (el tramo ciego lleva el piso completo). Pendiente: charolas Magic
+       corner del bajo ciego con su pivote en Interactuar (siguiente).
    A229. [Master hecho 16/10; Revit P12.324] Repisero del ciego hasta el borde de la columna del bajo (16/10, usuario, tras probar
        P12.323, con la linea marcada en el alzado): la columna del alto con repisero es la del bajo (donde termina la tapeta del bajo y
        empieza el bajo vecino); el alto vecino ya no cambia. La tapeta de ajuste sigue junto al frente de la otra cara (A228).
@@ -2849,7 +2857,7 @@ const tapetaRepisero = e => { const U = cfg.region === 'US', mn = U ? inch(1) : 
 const repiseroCiego = (e, s) => altoEsquina(e) === 'ciego' && repiseroEsq(e, s);
 const ladoTapetaAlto = (e, s) => unionAlto(e) === 'tapeta' && altoEsquina(e) !== 'ninguno' && (altoEsquina(e) !== 'ciego' || s !== (e.duena === 1 ? 1 : 0));
 const repiseroMin = () => cfg.region === 'US' ? inch(6) : 15, puertaMaxEsq = () => cfg.region === 'US' ? inch(24) : 60;
-const repiseroEsq = (e, s) => !!(s ? e.repiseroB : e.repiseroA) && ladoTapetaAlto(e, s);
+const repiseroEsq = (e, s) => ladoTapetaAlto(e, s) && (altoEsquina(e) === 'ciego' ? e.ladoCiego !== 'tapa' : !!(s ? e.repiseroB : e.repiseroA));   /* A230: en el ciego, el repisero de fabrica */
 /* lo que ocupa el cuerpo del alto en el lado s: en el ciego, el fondo del alto de la cara duena (y su frente); en L y diagonal, su ala */
 const finCuerpoAlto = (k, s) => { const e = cfg.esquinas[k]; return altoEsquina(e) === 'ciego' ? fondoCara(caraDe(s ? k : k + 1), true) : Math.min(huellaEsquina(k)[s], reg().esquina.ladoAlto); };
 const cuerpoAlto = (k, s) => Math.min(huellaEsquina(k)[s], finCuerpoAlto(k, s) + (altoEsquina(cfg.esquinas[k]) === 'ciego' ? espFrente() : 0));
@@ -6547,7 +6555,8 @@ function esquinerosPlan(add, r2, sep, tf){
     const xC = ciegoExtra(k), P = op ? w - fOtra - tf - op.cierre : R.ciegoPuerta + xC, u0 = op ? 0 : Math.max(0, w - R.ciego - xC), et = 'gabinetes';   /* A226: el alto llega al muro y su puerta crece al acortar el cierre */   /* A221: crecen la caja y su puerta */
     bx(':lateral:esquina', 'panel', 'Lateral', u0, u0 + e1, 0, fOwn, z0, z1, mat, et); if (gola) { const hG = golaHondo(true), zgL = z1 - agarre() - traslapeL(); bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn - hG, z0, z1, mat, et); bx(':lateral:bajo', 'panel', 'Lateral', w - e1, w, fOwn - hG, fOwn, z0, zgL, mat, et); }   /* A163: rebaje de la gola */
     else bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0, z1, mat, et);
-    bx(':trasero', 'panel', 'Trasero', u0 + e1, w - e1, 0, ef, z0, z1, gm('Interior'), et); if (op && op.unero > 0) { bx(':piso', 'panel', 'Piso', u0 + e1, w - e1, ef, fOwn - op.unero, z0, z0 + e1, mat, et); bx(':cama', 'panel', 'Cama', u0 + e1, w - e1, ef, fOwn, z0 + e1, z0 + 2*e1, mat, et); }   /* A226: unero de los altos */
+    bx(':trasero', 'panel', 'Trasero', u0 + e1, w - e1, 0, ef, z0, z1, gm('Interior'), et); if (op && op.unero > 0) { const cs = Math.max(u0 + e1, fOtra + tf);   /* A230: el unero solo en la puerta y el cierre; el tramo ciego lleva el piso completo */
+      bx(':piso:ciego', 'panel', 'Piso', u0 + e1, cs, ef, fOwn, z0, z0 + e1, mat, et); bx(':piso', 'panel', 'Piso', cs, w - e1, ef, fOwn - op.unero, z0, z0 + e1, mat, et); bx(':cama', 'panel', 'Cama', cs, w - e1, ef, fOwn, z0 + e1, z0 + 2*e1, mat, et); }   /* A226: unero de los altos */
     else bx(':piso', 'panel', 'Piso', u0 + e1, w - e1, ef, fOwn, z0, z0 + e1, mat, et);
     const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, zf = gola ? z1 - agarre() : z1, zg = z1 - agarre() - traslapeL();
     /* A163 (usuario 11/10): bajo la cubierta, fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa */
@@ -6717,20 +6726,22 @@ function esquinerosPlan(add, r2, sep, tf){
     const tapaL = (s, t0, w1) => { if (w1 - t0 > .01) { if (s === 0) caja(pre + ':tapeta:a', 'tapeta', 'Compensacion', modU, LA - w1, LA - t0, fAu, fAu + tf, z0u, z1u, gm('Tapetas'), 'tapetas');
       else caja(pre + ':tapeta:b', 'tapeta', 'Compensacion', modU, LA - fBu - tf, LA - fBu, t0, w1, z0u, z1u, gm('Tapetas'), 'tapetas'); } };
     /* A227: con r0 (ciego) la tapa va de t0 a r0 y el repisero de r0 a w1, con su lateral junto a la tapa */
+    /* A230: en el ciego (conLateral) la tapa da la vuelta por debajo hasta el muro, para que no quede hueca vista desde abajo */
+    const fondoTapa = (s, u0, u1) => { if (u1 - u0 < .01) return; if (s === 0) caja(pre + ':tapeta:a:fondo', 'tapeta', 'Compensacion', modU, LA - u1, LA - u0, 0, fAu, z0u, z0u + tf, gm('Tapetas'), 'tapetas');
+      else caja(pre + ':tapeta:b:fondo', 'tapeta', 'Compensacion', modU, LA - fBu, LA, u0, u1, z0u, z0u + tf, gm('Tapetas'), 'tapetas'); };
     const ladoTap = (s, h0, t0, w1, conLateral, r0 = null) => {
-      if (r0 !== null && w1 - r0 < repiseroMin() - 1e-6) { tapaL(s, t0, w1); return; }   /* A228: sin espacio, solo la tapa */
-      if (r0 !== null) { tapaL(s, t0, r0); h0 = r0; }
-      else if (!(repiseroEsq(e, s) && w1 - h0 >= repiseroMin() - 1e-6)) { if (w1 - t0 > .01) { if (s === 0) caja(pre + ':tapeta:a', 'tapeta', 'Compensacion', modU, LA - w1, LA - t0, fAu, fAu + tf, z0u, z1u, gm('Tapetas'), 'tapetas');
-        else caja(pre + ':tapeta:b', 'tapeta', 'Compensacion', modU, LA - fBu - tf, LA - fBu, t0, w1, z0u, z1u, gm('Tapetas'), 'tapetas'); } return; }
+      if (r0 !== null && w1 - r0 < repiseroMin() - 1e-6) { tapaL(s, t0, w1); if (conLateral) fondoTapa(s, h0, w1); return; }   /* A228: sin espacio, solo la tapa */
+      if (r0 !== null) { tapaL(s, t0, r0); if (conLateral) fondoTapa(s, h0, r0); h0 = r0; }
+      else if (!(repiseroEsq(e, s) && w1 - h0 >= repiseroMin() - 1e-6)) { tapaL(s, t0, w1); if (conLateral) fondoTapa(s, h0, w1); return; }
       const pz = (n, rol, tipo, u0, u1, v0, v1, a0, a1, mt) => s === 0 ? caja(pre + ':repisero:a:' + n, rol, tipo, modU, LA - u1, LA - u0, v0, v1, a0, a1, mt, 'gabinetes') : caja(pre + ':repisero:b:' + n, rol, tipo, modU, LA - v1, LA - v0, u0, u1, a0, a1, mt, 'gabinetes');
-      const fh = s === 0 ? fAh : fBh, i0 = h0 + (conLateral ? e1 : 0);
-      if (conLateral) pz('lateral', 'panel', 'Lateral', h0, h0 + e1, 0, fh, z0u, z1u, mat);
-      pz('trasero', 'panel', 'Trasero', i0, w1, 0, ef, z0u, z1u, gm('Interior')); pz('piso', 'panel', 'Piso', i0, w1, ef, fh, z0u, z0u + e1, mat); pz('techo', 'panel', 'Techo', i0, w1, ef, fh, z1u - e1, z1u, mat);
-      for (let i = 1; i <= 2; i++) { const z = z0u + e1 + (z1u - z0u - 2*e1)*i/3; pz('repisa:' + i, 'repisa', 'Repisa', i0, w1, ef, fh, z - e1/2, z + e1/2, gm('Repisas')); } };
+      const fh = (s === 0 ? fAu : fBu) + tf, i0 = h0 + e1, i1 = w1 - e1;   /* A230: una sola caja con sus dos laterales, hasta el pano de los frentes */
+      pz('lateral', 'panel', 'Lateral', h0, h0 + e1, 0, fh, z0u, z1u, mat); pz('lateral:2', 'panel', 'Lateral', w1 - e1, w1, 0, fh, z0u, z1u, mat);
+      pz('trasero', 'panel', 'Trasero', i0, i1, 0, ef, z0u, z1u, gm('Interior')); pz('piso', 'panel', 'Piso', i0, i1, ef, fh, z0u, z0u + e1, mat); pz('techo', 'panel', 'Techo', i0, i1, ef, fh, z1u - e1, z1u, mat);
+      for (let i = 1; i <= 2; i++) { const z = z0u + e1 + (z1u - z0u - 2*e1)*i/3; pz('repisa:' + i, 'repisa', 'Repisa', i0, i1, ef, fh, z - e1/2, z + e1/2, gm('Repisas')); } };
     if (ta === 'ciego') { const duenaA = e.duena !== 1, w = duenaA ? wA : wB, fOwn = duenaA ? fAu : fBu, fOtra = duenaA ? fBu : fAu;
       ciego(pre, duenaA, w, fOwn, fOtra, z0u, z1u, modU, false, false, false, { cierre: cierreAlto(k), unero: cfg.style === 'Moderna' ? golaHondo(true) : 0 });
       const s = duenaA ? 1 : 0, fo = duenaA ? fAu : fBu;   /* la otra cara cierra su columna con la tapa o el repisero */
-      ladoTap(s, fo, fo + tf, s ? wBu : wAu, true, repiseroCiego(e, s) ? fo + tf + tapetaRepisero(e) : null);   /* A227; A228: tapeta de ajuste junto al frente y el repisero hasta la columna */
+      ladoTap(s, fo, fo, s ? wBu : wAu, true, repiseroCiego(e, s) ? fo + tf + tapetaRepisero(e) : null);   /* A230: la tapa arranca en el frente de la cara duena y se une con su cierre */   /* A227; A228: tapeta de ajuste junto al frente y el repisero hasta la columna */
       return; }
     const a = Math.min(wA, R.ladoAlto), b = Math.min(wB, R.ladoAlto), dt = ta === 'diagonal';
     esquinaL(pre, a, b, fAu, fBu, z0u, z1u, modU, dt, 1, true, 0, cfg.style === 'Moderna' ? golaHondo(true) : 0);   /* A139: doble cama */
@@ -8024,19 +8035,22 @@ function esquinaPanel(m){
     html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.w0, cd.w0 + R9.ciegoMax - R9.ciego)}</div>`
       + `<div class="note-sm">De ${medida(cd.w0)} a ${medida(cd.w0 + R9.ciegoMax - R9.ciego)}: crecen la caja y su puerta; la parte ciega queda igual.</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
-  if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Sigue al bajo'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
+  if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Igual que el bajo'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
   if (!alacena && altoEsquina(e) !== 'ninguno' && altoEsquina(e) !== 'ciego') html += section('Armado del alto', radios('esqUnion', [['L', 'Unido en L, un solo gabinete'], ['tapeta', 'Dos gabinetes con tapeta']], e.union === 'tapeta' ? 'tapeta' : 'L'));
   if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) !== 'tapeta') html += section('Junto a la esquina', radios('esqRelleno', [['puerta', 'Gabinete con puerta'], ['repisas', 'Repisas abiertas']], e.relleno === 'repisas' ? 'repisas' : 'puerta')
     + `<div class="note">El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.</div>`);
   if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) === 'tapeta') { let h2 = '';   /* A226 */
+    const cg = altoEsquina(e) === 'ciego';   /* A230: en el ciego, que se entienda que lado es cual */
     [0, 1].filter(s => ladoTapetaAlto(e, s)).forEach(s => { const hu = huellaAlto(k)[s], hq = huecoEsqAlto(k, s);
-      h2 += `<div class="grid-2" style="margin-top:6px">${repiseroCiego(e, s) ? num('esqTapRep', 'Tapeta de ajuste', tapetaRepisero(e), 'cm', cfg.region === 'US' ? inch(1) : 2.5, cfg.region === 'US' ? inch(2) : 5) : num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
-        + radios(s ? 'esqRepB' : 'esqRepA', [['tapa', 'Tapa ciega'], ['repisero', 'Repisero abierto']], repiseroEsq(e, s) ? 'repisero' : 'tapa')
-        + (!repiseroCiego(e, s) && repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : ''); });
-    if (altoEsquina(e) === 'ciego') h2 = `<div class="note-sm">El alto ciego es un gabinete recto en su cara, hasta el muro; la otra cara cierra con tapa o con repisero: tapeta de ajuste junto al frente y el repisero hasta el borde de la columna del bajo.</div>` + h2;   /* A227 */
-    if (altoEsquina(e) === 'ciego') { const s = e.duena === 1 ? 1 : 0, d = cierreDef(k);
-      h2 += `<div class="grid-2" style="margin-top:10px">${num('esqCierre', `Cierre en cara ${letraCara(k + s)}`, cierreAlto(k), 'cm', Math.min(tapetaCiego(), d), d)}</div><div class="note-sm">Al acortar el cierre crece la puerta; si pasa de ${medida(puertaMaxEsq())}, lleva dos puertas.</div>`; }
-    html += section('Alto con tapeta', h2 + `<div class="note-sm">El alto vecino toma lo que cede la esquina. También se arrastra en el alzado.</div>`
+      h2 += `<div class="note-sm" style="margin-top:8px"><b>Cara ${letraCara(k + s)}${cg ? ', lado ciego' : ''}</b></div>`
+        + (cg ? radios('esqLadoCiego', [['repisero', 'Repisero abierto'], ['tapa', 'Tapa ciega']], e.ladoCiego === 'tapa' ? 'tapa' : 'repisero')
+          : radios(s ? 'esqRepB' : 'esqRepA', [['tapa', 'Tapa ciega'], ['repisero', 'Repisero abierto']], repiseroEsq(e, s) ? 'repisero' : 'tapa'))
+        + `<div class="grid-2" style="margin-top:6px">${repiseroCiego(e, s) ? num('esqTapRep', 'Tapeta de ajuste', tapetaRepisero(e), 'cm', cfg.region === 'US' ? inch(1) : 2.5, cfg.region === 'US' ? inch(2) : 5) : num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
+        + (!cg && repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : ''); });
+    if (cg) h2 = `<div class="note-sm">El alto ciego es un gabinete recto en su cara, hasta el muro. El lado ciego cierra con un repisero (tapeta de ajuste junto al frente y el repisero hasta el borde de la columna del bajo) o con una tapa.</div>` + h2;
+    if (cg) { const s = e.duena === 1 ? 1 : 0, d = cierreDef(k);
+      h2 += `<div class="note-sm" style="margin-top:10px"><b>Cara ${letraCara(k + s)}, puerta del ciego</b></div><div class="grid-2" style="margin-top:6px">${num('esqCierre', 'Cierre junto a la puerta', cierreAlto(k), 'cm', Math.min(tapetaCiego(), d), d)}</div><div class="note-sm">Al acortar el cierre crece la puerta; si pasa de ${medida(puertaMaxEsq())}, lleva dos puertas.</div>`; }
+    html += section(cg ? 'Alto ciego' : 'Alto con tapeta', h2 + (cg ? '' : `<div class="note-sm">El alto vecino toma lo que cede la esquina. También se arrastra en el alzado.</div>`)
       + (e.altoA > 0 || e.altoB > 0 || e.cierreAlto > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAltoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   return html;
 }
@@ -8531,6 +8545,7 @@ const ACT = {
   esqAnchoA: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, true, v)), esqAnchoB: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, false, v)),   /* A221 */
   esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */
   esqAltoA: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 0, v)), esqAltoB: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 1, v)),   /* A226 */
+  esqLadoCiego: (v, m) => change(() => { esquinaDe(byId(m.id)).ladoCiego = v; }),   /* A230 */
   esqRepA: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroA = v === 'repisero'; }), esqRepB: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroB = v === 'repisero'; }),
   esqCierre: (v, m) => change(() => { const k = byId(m.id).esquina.k; cfg.esquinas[k].cierreAlto = Math.abs(v - cierreDef(k)) < .01 ? null : v; }),
   esqAltoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.altoA = e.altoB = e.cierreAlto = e.repiseroAncho = e.tapetaRepisero = null; }),
