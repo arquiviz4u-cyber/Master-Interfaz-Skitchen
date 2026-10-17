@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A238. [Master hecho 17/10; Revit pendiente] Reglas rapidas (17/10, usuario): 1) los taquetes no se modelan (decision del usuario: la
+       fijacion por el fondo sigue igual, fondo de 1.8 al muro; solo dejan de ser piezas); 2) tarja doble: si la columna ya mide el minimo
+       de la doble o mas, conserva su ancho (antes se forzaba a 85/90 y fallaba al no caber lo que sobraba en las tapetas); si mide menos,
+       sube al minimo; el minimo de la jerarquia es el mismo (anchoTarjaDoble); 3) refrigerador: fondo propio en su panel («Fondo»; mueve
+       su torre, su gabinete de arriba y sus cierres laterales; la cota de fondo de la fila ya no cambia los especiales) y sus tapetas
+       laterales se llaman «Cierres laterales». (El uñero de los altos del master ya no lleva aluminio; Revit lo quita en su version.)
    A237. [Master hecho 17/10; Revit P12.332] Esquinero: panel por doble clic, tapeta superior y corona escalonada (17/10, usuario):
        1) panel del esquinero: un clic muestra solo «Tipo» y «Gabinete ciego en» (o «Puerta en»); doble clic en el bajo o en el alto
        de una cara (esqFoco) muestra solo las opciones de ese mueble y de esa cara (bajo: interior, ancho de su cara, Magic corner,
@@ -3707,10 +3713,7 @@ function planDePiezas(c = cfg){
         panel('riel:gabinete', 'RielGabinete', x0, x1, sep, sep + G, z1 - H, z1);   /* A150: a todo el ancho del gabinete, tras su fondo */
         piezas[piezas.length - 1].forma = { tipo: 'perfil', eje: 'x', puntos: [[0, r2(h1)], [G, r2(h1 + G)], [G, r2(H)], [0, r2(H)]] };
         panel('riel:calza', 'Calza', x0, x1, sep, sep + G, zl, zl + Math.min(FX.frances.calza, z1 - zl - H - 1)); }
-      else if (fx === 'taquetes') {   /* cabezas de los tornillos con taquete sobre la cara interior del trasero, arriba y abajo */
-        const T = FX.taquetes, r = T.diametro/2, zs = [z1 - (techo ? e : 0) - T.borde, zl + (led ? 0 : e) + T.borde], xs = [x0 + e + T.borde, x1 - e - T.borde];
-        if (x1 - x0 > 2*(e + T.borde) + T.diametro) zs.forEach((zc, i) => xs.forEach((xc, j) => hx('taquete:' + i + ':' + j, 'Taquete', xc - r, xc + r, y0 + ef, y0 + ef + T.cabeza, zc - r, zc + r,
-          { forma: { tipo: 'cilindro', de: [r, 0, r], a: [r, T.cabeza, r], diametro: T.diametro, lados: 10 } }))); }
+      /* A238: los taquetes no se modelan (la fijacion por el fondo sigue: fondo de 1.8 al muro) */
       return { x0: x0 + e, x1: x1 - e, y0: y0 + ef + (FA ? e : 0), y1, yF: sep + fondo, z0: z0 + e, z1: z1 - e };   /* yF: cara posterior de los frentes */
     };
     /* repisas repartidas en el alto libre (drawShelves) y divisiones verticales repartidas en el ancho; con divisiones,
@@ -4830,11 +4833,11 @@ function pruebasPlanMX(){
       const cs = p.piezas.filter(q => q.id.startsWith(o + ':corredera:'));
       ok(cs.filter(q => q.tipo === 'Corredera').length === 2 && cs.filter(q => q.tipo === 'CorrederaMovil').length === 2, nombre + ': cajon oculto sin correderas'); });
     /* A145: los altos sin fajas de anclaje; cada uno con su fijacion (riel frances o taquetes, A147) */
-    if (!c.isla && !c.closet) { const fx = FIJACIONES.some(([k]) => k === c.fijacionAltos) ? c.fijacionAltos : 'taquetes', tipoFx = { frances: 'RielGabinete', taquetes: 'Taquete' }[fx];
+    if (!c.isla && !c.closet) { const fx = FIJACIONES.some(([k]) => k === c.fijacionAltos) ? c.fijacionAltos : 'taquetes', tipoFx = { frances: 'RielGabinete', taquetes: null }[fx];   /* A238: los taquetes no se modelan */
       c.modulos.filter(m => m.upper && !m.reserved && m.tipo !== 'Esquina').forEach(m => { const lat = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Lateral' && q.z > c.baseBajos + c.altoBajos);   /* el alto de esquina (A134) va aparte */
         if (!lat.length) return;
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'FajaAnclaje' && q.z > c.baseBajos + c.altoBajos), nombre + ': el alto ' + m.id + ' lleva fajas de anclaje');
-        ok(p.piezas.some(q => q.modulo === m.id && q.tipo === tipoFx), nombre + ': el alto ' + m.id + ' sin su fijacion ' + fx); }); }
+        ok(!tipoFx || p.piezas.some(q => q.modulo === m.id && q.tipo === tipoFx), nombre + ': el alto ' + m.id + ' sin su fijacion ' + fx); }); }
     /* A149: el modulo superior del alto doble no lleva fijacion (lo carga el inferior); el lateral de un alto no se parte en dos */
     ok(!p.piezas.some(q => /:superior:(riel|taquete)/.test(q.id)), nombre + ': el modulo superior lleva fijacion propia');
     (c.esquinas || []).forEach((e, k) => { const has = s => p.piezas.some(q => q.id.startsWith('esq' + k + s)), sE = subEsquina(e);   /* A223 */
@@ -5214,7 +5217,7 @@ function nivelAncho(m){ if (m.esquina || m.reserved || ['Estufa', 'Lavavajillas'
   if (isSpecial(m)) return 5; if (!m.upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0) return 4; if (m.tipo === 'Especiero') return 3; if (m.tipo === 'Basura') return 2; return 1; }
 function repartirJerarquia(r, d, excl, fuera = null){
   const o = row(!r[0].upper), par = o.length === r.length, q = cfg.region === 'US' ? DIECISEISAVO : 1, base = r[0].upper && par ? o : r;
-  const minDe = m => { let mn = minWidth(m); if (!m.upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0) mn = Math.max(mn, cfg.tarjaAncho*(cfg.tipoTarja === 2 ? 1.6 : 1) + 8); return mn; };
+  const minDe = m => { let mn = minWidth(m); if (!m.upper && m.id === cfg.moduloTarja && cfg.tipoTarja > 0) mn = Math.max(mn, cfg.tipoTarja === 2 ? anchoTarjaDoble() : cfg.tarjaAncho + 8);   /* A238 */ return mn; };
   const maxDe = m => reg().ancho.max + (m.anexo ? m.anexo.ancho : 0);
   const pon = (m, w) => { const i = r.indexOf(m); m.ancho = Math.round(w*1e4)/1e4; m.fijo = true; if (par) { o[i].ancho = m.ancho; o[i].fijo = true; } };
   for (let nv = 1; nv <= 5 && Math.abs(d) >= q - 1e-9; nv++) {
@@ -7974,7 +7977,7 @@ function commitDimension(){
        altos dobles conservan su modulo superior */
     else if (k === 'upperBody' || k === 'upperLift') { const hs = k === 'upperLift' ? v : altoAltos() - v, ls = row(true).filter(q => !q.reserved && isDoble(q) && !soloCamp(q)), h0 = Math.max(...ls.map(q => q.altoSuperior));
       ls.filter(q => Math.abs(q.altoSuperior - h0) < .01).forEach(q => q.altoSuperior = hs); }
-    else if (k === 'pdepth') { const r = row(id === 'up'), t = r.filter(x => selection.has(x.id)); (t.length ? t : r).forEach(x => x.fondo = v); }
+    else if (k === 'pdepth') { const r = row(id === 'up'), t = r.filter(x => selection.has(x.id)); (t.length ? t : r.filter(x => !isSpecial(x) && !(x.reserved))).forEach(x => x.fondo = v); }   /* A238: la cota de la fila no cambia los especiales (fondo propio) */
   }, ['wall', 'bar', 'closetAlto', 'cseg', 'gap', 'mheight', 'boxh', 'tw', 'mlift', 'upperBody', 'upperLift'].includes(k) ? 'Revisar altura' : 'Revisar distribución');
 }
 
@@ -8244,7 +8247,7 @@ function specialPanel(m){
     html += section('Refrigerador', `<div class="info-card"><div class="info-row">Ancho libre <b>${fmt(anchoLibreRefri(m))}${uS()}</b></div></div>`
       + `<div class="grid-2" style="margin-top:10px">${num('anchoRefri', 'Ancho del refrigerador', anchoRefri(m), 'cm', 40, reg().ancho.max)}${num('huecoRefri', 'Alto libre refrigerador', m.huecoRefri, 'cm', 120, 300)}</div>`
       + `<div class="note-sm">Se ajusta a la columna con al menos ${fmt(holguraRefri())}${uS()} de holgura; si lo escribes, la columna se ajusta a él.</div>`
-      + chk('supRefri', m.superiorRefri, 'Gabinete superior') + chk('latRefri', m.lateralesRefri, 'Tapetas laterales')
+      + chk('supRefri', m.superiorRefri, 'Gabinete superior') + chk('latRefri', m.lateralesRefri, 'Cierres laterales') + `<div class="grid-2" style="margin-top:8px">${num('fondoRefri', 'Fondo', m.fondo, 'cm', 50, 80)}</div><div class="note-sm">Fondo propio: su torre, su gabinete de arriba y sus cierres laterales.</div>`
       + (m.superiorRefri ? `<div style="margin-top:8px">${sel('refriSup', FUNCIONES_REFRI, refriSup(m))}</div>` + (refriSup(m) !== 'Puertas' ? '' : `<div class="sub">${chk('inv', m.invertir, 'Invertir abatimiento')}</div>`)
         + `<div class="grid-2" style="margin-top:10px">${num('repRefri', 'Repisas gabinete superior', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'), showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '') : ''));
   }
@@ -8632,8 +8635,8 @@ const ACT = {
   extBox: () => { const bx = currentBox(); if (!bx) return; const lastId = bx.members[bx.members.length - 1].id, asPart = !!partBox(); change(() => { byId(lastId).unirCuerpo = true; joinRight(lastId); });
     const nb = bodyGroups().find(g => g.members.some(q => q.id === lastId)); if (nb && !asPart) selection = new Set(nb.members.map(q => q.id)); render(); }, aPano: v => change(c => c.cubiertaAPano = v),
   prep: (v, m) => change(c => { const q = byId(m.id); q.preparadoTarja = v; if (!v) quitarTarja(c, m.id); else q.parrilla = false; }),   /* sin preparar, la tarja se quita (A36) */
-  tarja: (v, m) => change(c => { c.moduloTarja = m.id; c.tipoTarja = v === 'Tarja sencilla' ? 1 : v === 'Tarja doble' ? 2 : 0; if (c.tipoTarja && !c.generarCubierta) { const bar = altoBarra(); c.generarCubierta = true; c.altoBajos = bar - c.baseBajos - paquete(); }   /* A123: con nariz, la cama ya no sube los altos */ if (c.tipoTarja === 2 && m.ancho !== anchoTarjaDoble()) applyWidth(m.id, anchoTarjaDoble()); if (c.tipoTarja) byId(m.id).parrilla = false; }),
-  bajoCub: v => change(c => { c.tarjaBajoCubierta = v; c.retiroTarja = v ? 10 : 7; const tm = c.tipoTarja === 2 && byId(c.moduloTarja); if (tm && tm.ancho !== anchoTarjaDoble()) applyWidth(tm.id, anchoTarjaDoble()); }),   /* A132: la tarja doble bajo cubierta ensancha su gabinete a 90 cm (y vuelve a 85 al quitarlo) */
+  tarja: (v, m) => change(c => { c.moduloTarja = m.id; c.tipoTarja = v === 'Tarja sencilla' ? 1 : v === 'Tarja doble' ? 2 : 0; if (c.tipoTarja && !c.generarCubierta) { const bar = altoBarra(); c.generarCubierta = true; c.altoBajos = bar - c.baseBajos - paquete(); }   /* A123: con nariz, la cama ya no sube los altos */ if (c.tipoTarja === 2 && m.ancho < anchoTarjaDoble() - 1e-6) applyWidth(m.id, anchoTarjaDoble());   /* A238: si ya mide el minimo o mas, conserva su ancho */ if (c.tipoTarja) byId(m.id).parrilla = false; }),
+  bajoCub: v => change(c => { c.tarjaBajoCubierta = v; c.retiroTarja = v ? 10 : 7; const tm = c.tipoTarja === 2 && byId(c.moduloTarja); if (tm && tm.ancho < anchoTarjaDoble() - 1e-6) applyWidth(tm.id, anchoTarjaDoble()); }),   /* A132: la tarja doble bajo cubierta ensancha su gabinete a 90 cm (y vuelve a 85 al quitarlo) */
   muro: v => change(c => c.alturaMuro = v, 'Revisar altura'), piso: v => change(c => c.desfasePiso = v), sepPost: v => change(c => c.separacionPosterior = v),
   genCub: v => change(c => { const bar = altoBarra(); c.generarCubierta = v; c.altoBajos = bar - c.baseBajos - paquete(); }),   /* A123: el alto de la cubierta se conserva */ espCub: v => change(c => c.espesorCubierta = v, 'Revisar altura'), vuelo: v => change(c => c.vuelo = v),
   tAncho: v => change(c => c.tarjaAncho = v), tFondo: v => change(c => c.tarjaFondo = v), tProf: v => change(c => c.tarjaProf = v), tRetiro: v => change(c => c.retiroTarja = v),
@@ -8644,6 +8647,7 @@ const ACT = {
   esqAnchoA: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, true, v)), esqAnchoB: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, false, v)),   /* A221 */
   esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */
   esqAltoA: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 0, v)), esqAltoB: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 1, v)),   /* A226 */
+  fondoRefri: (v, m) => change(() => { byId(m.id).fondo = v; }),   /* A238 */
   esqPuertasL: (v, m) => change(() => { esquinaDe(byId(m.id)).puertasL = v; }),   /* A232 */
   esqLadoCiego: (v, m) => change(() => { esquinaDe(byId(m.id)).ladoCiego = v; }),   /* A230 */
   esqRepA: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroA = v === 'repisero'; }), esqRepB: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroB = v === 'repisero'; }),
@@ -8797,7 +8801,7 @@ function renderStyle(){
     + `<div class="note">La separación es el hueco entre puertas y cajones vecinos (${medida(cfg.region === 'US' ? inch(1/8) : .3)} de fábrica); cada frente deja la mitad a cada lado.</div>`);   /* A109 */
   html += section('Herrajes', `<label class="check"><input type="checkbox" id="hinge" ${cfg.bisagras ? 'checked' : ''}>Bisagras de cazoleta en las puertas</label>`);
   if (!cfg.closet && !cfg.isla) html += section('Fijación de los altos', opt('fijAltos', 'frances', fijacionAltos(), 'Riel francés', 'Listón de 15 cm cortado a 45°: la mitad corrida en el muro y la otra en cada gabinete, tras el fondo metido 1.8 cm.')
-    + opt('fijAltos', 'taquetes', fijacionAltos(), 'Taquetes por el fondo', 'Fondo de 1.8 cm atornillado al muro; se ven las cabezas.'));   /* A145 */
+    + opt('fijAltos', 'taquetes', fijacionAltos(), 'Taquetes por el fondo', 'Fondo de 1.8 cm atornillado al muro.'));   /* A145 */
   if (cfg.closet) html = section('Puertas del closet', opt('pcl', 'Abatibles', cfg.puertasCloset, 'Abatibles por módulo', `Dos hojas a partir de ${medida(60)}.`) + opt('pcl', 'Correderas', cfg.puertasCloset, 'Correderas para todo el tramo', '')
       + opt('pcl', 'Sin puertas', cfg.puertasCloset, 'Sin puertas', 'Closet abierto.')
       + `<div class="grid-2" style="margin-top:12px"><label class="field"><span>Hojas correderas (0 = automático)</span><div class="unit" data-unit="u"><input type="number" id="hojasCor" value="${cfg.hojasCorredera}" min="0" max="8" step="1" ${closetSliding() ? '' : 'disabled'}></div></label></div>`
@@ -9542,7 +9546,7 @@ const EN = {
   'Tapeta superior bajo la cubierta': 'Top filler under the countertop',
   'Tapeta superior de la puerta oculta': 'Hidden door top filler',
   'Tapetas': 'Fillers',
-  'Tapetas laterales': 'Side fillers', 'Fijación de los altos': 'Wall cabinet mounting', 'Riel francés': 'French cleat', 'Colgadores ocultos': 'Concealed hangers', 'Taquetes por el fondo': 'Screws through the back', 'Separación entre frentes': 'Gap between fronts', 'Espesor de frentes': 'Front thickness',
+  'Tapetas laterales': 'Side fillers', 'Cierres laterales': 'Side panels', 'Fondo propio: su torre, su gabinete de arriba y sus cierres laterales.': 'Own depth: its tower, its upper cabinet and its side panels.', 'Fijación de los altos': 'Wall cabinet mounting', 'Riel francés': 'French cleat', 'Colgadores ocultos': 'Concealed hangers', 'Taquetes por el fondo': 'Screws through the back', 'Separación entre frentes': 'Gap between fronts', 'Espesor de frentes': 'Front thickness',
   'Tarja': 'Sink',
   'Tarja bajo cubierta': 'Undermount sink',
   'Tarja doble': 'Double sink',
