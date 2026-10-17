@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A236. [Master hecho 16/10; Revit pendiente] Proyecciones de apertura de los esquineros en el alzado (16/10, usuario: «checar las
+       proyecciones en el master de los modulos de esquina»): las puertas del esquinero llevan el triangulo punteado hacia su bisagra
+       como las demas (con proyecciones encendidas): ciego, bisagra del lado exterior (en la doble puerta del alto, cada hoja a su lado);
+       alacena oculta, del lado del vecino; L abatible, exterior en cada cara; L plegable, la hoja de la cara k gira en el canto exterior
+       y la de la cara k + 1 en la esquina; la puerta junto a la esquina del alto unido, exterior; los cajones del diagonal, la X.
    A235. [Master hecho 16/10; Revit P12.330] Moldura corona a 45 grados en las vueltas (16/10, usuario: «el crownmolding no sigue las
        configuraciones de esquina, ademas los cierres en cada vuelta deben estar a 45 grados en todas las molduras»): 1) en una cocina
        en L/U, con alto de esquina en L o ciego, la corona de cada cara sigue hasta el cruce con la de la otra cara y se corta a inglete
@@ -6860,14 +6865,17 @@ function drawEsquina(m, x0, RX, X, Z, post){
   /* A155 (usuario 11/10): en el modo Interior (sin puertas) el esquinero muestra su interior: repisas o charolas de cada tipo */
   const nInt = m.upper ? (e.relleno === 'repisas' ? 2 : 1) : e.tipo === 'carrusel' ? (subEsquina(e) === 'repisas' ? repisasLEsq(e) : 2) : e.tipo === 'ciego' ? 0 : e.tipo === 'diagonal' ? (subEsquina(e) === 'carrusel' ? 2 : 0)   /* A223 */
     : e.tipo === 'alacena' ? repisasAlacena(e) : 0;
-  const puerta = (u0, u1, t, diag) => { if (u1 - u0 < .01) return; const r = caja(u0, u1);
+  const puerta = (u0, u1, t, diag, bis = null) => { if (u1 - u0 < .01) return; const r = caja(u0, u1);   /* A236: bis, lado de la bisagra ('ext' exterior, 'esq' la esquina) */
     if (!showDoors) { fillMat(r.x, r.y, r.w, r.h, flat ? null : gmInterior(), C.interior); outline(r, C.line, 1);
       post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; for (let i = 1; i <= nInt; i++) { const y = r.y + r.h*i/(nInt + 1); line(r.x + 2, y, r.x + r.w - 2, y); } });
       texto(r, !m.upper && (e.tipo === 'carrusel' || e.tipo === 'diagonal') && subEsquina(e) === 'carrusel' ? t + ' · charolas' : t); return; }
     fillMat(r.x, r.y, r.w, r.h, flat ? null : (m.materialPuertas || mat), C.front); outline(r, C.line, 1);
     if (!exporting) frontHits.push({ rect: r, module: m, kind: 'Puerta' });   /* A137 */
     if (diag) post.push(() => { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(r.x, r.y); ctx.lineTo(r.x + r.w, r.y + r.h); ctx.stroke(); ctx.restore(); });
+    if (bis && proyOn()) post.push(() => { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing; ctx.lineWidth = 1; const hx = (bis === 'ext') !== der ? r.x + r.w : r.x, fx = hx === r.x ? r.x + r.w : r.x;   /* A236 */
+      line(hx, r.y, fx, r.y + r.h/2); line(hx, r.y + r.h, fx, r.y + r.h/2); ctx.restore(); });
     texto(r, t); };
+  const bisL = () => puertasL(e) === 'abatible' || der ? 'ext' : 'esq';   /* A236: plegable: la hoja de la cara k gira en el canto exterior y la de la k + 1 en la esquina */
   /* A143 (usuario 11/10): franja de gola sobre los frentes del bajo del esquinero (como drawGola) */
   const golaZ = (u0, u1) => { if (u1 - u0 < .01) return; const gT = agarre(), r = cajaZ(u0, u1, z1 - gT, z1); fillMat(r.x, r.y, r.w, r.h, groupMaterial('Gola'), C.gola); outline(r, C.line, 1);
     partHits.push({ rect: r, key: 'gola', active: true }); if (selectedPart === 'gola') post.push(() => outline(r, C.select, 2)); };
@@ -6878,17 +6886,18 @@ function drawEsquina(m, x0, RX, X, Z, post){
     if (alfa > 0) post.push(() => { ctx.save(); ctx.fillStyle = C.accent; ctx.globalAlpha = .85*alfa; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1; line(gx - 1.5, r.y + 8, gx - 1.5, r.y + r.h - 8); line(gx + 1.5, r.y + 8, gx + 1.5, r.y + r.h - 8); ctx.restore(); }); };
   if (!m.upper) {
     const gE = golaEsquina(e);
-    if (e.tipo === 'ciego') { const Pc = R.ciegoPuerta + ciegoExtra(m.esquina.k);   /* A221 */ if (duena) { perfil(0, fOtra); tapeta(fOtra, w - Pc); puerta(w - Pc, w, e.herraje ? 'Ciego · Magic corner' : 'Ciego'); if (gE) golaZ(fOtra, w); } else { perfil(0, fOtra); tapeta(fOtra + espFrente(), w); } }   /* A151: tapeta de ajuste */
-    else if (oculta) { if (duena) { perfil(0, fOtra); puerta(fOtra, w, 'Alacena oculta');
+    if (e.tipo === 'ciego') { const Pc = R.ciegoPuerta + ciegoExtra(m.esquina.k);   /* A221 */ if (duena) { perfil(0, fOtra); tapeta(fOtra, w - Pc); puerta(w - Pc, w, e.herraje ? 'Ciego · Magic corner' : 'Ciego', false, 'ext'); if (gE) golaZ(fOtra, w); } else { perfil(0, fOtra); tapeta(fOtra + espFrente(), w); } }   /* A151: tapeta de ajuste */
+    else if (oculta) { if (duena) { perfil(0, fOtra); puerta(fOtra, w, 'Alacena oculta', false, 'ext');
       if (showDoors) { const ua = fOtra + espFrente(), wd = w - ua;   /* A234: marco y jaladera */
         if (cfg.style === 'Clasica') { const fw = marcoShaker(wd, z1 - z0), ri = cajaZ(ua + fw, w - fw, z0 + fw, z1 - fw); post.push(() => outline(ri, C.line, 1)); }
         if (cfg.style !== 'Moderna') { const ax = ua + cantoJaladera(wd, z1 - z0), hh = cfg.jaladera === 'Boton' ? 2.5 : cfg.largoJaladera, rh = cajaZ(ax - .6, ax + .6, 95 - hh/2, 95 + hh/2); post.push(() => { ctx.fillStyle = C.line; ctx.fillRect(rh.x, rh.y, Math.max(2, rh.w), rh.h); }); } } }
       else { perfil(0, fOtra); tapeta(fOtra, w); } }
     else { const diag = esquinaDiag(e); perfil(0, fOtra);
       /* A143: si el ancho llega al borde de la barra perpendicular, esta cara no lleva puerta (solo se ve el canto de la otra) */
-      if (!sinFrenteEsquina(w, fOtra)) { const sE = subEsquina(e); puerta(fOtra, w, alacena ? (diag ? 'Alacena diagonal' : 'Alacena en L') : diag ? 'Diagonal · ' + (sE === 'cajones' ? 'cajones' : sE === 'tarja' ? 'tarja' : 'carrusel') : 'L · ' + (sE === 'repisas' ? 'repisas' : 'carrusel') + (puertasL(e) === 'abatible' ? ' · 165°' : ''), diag); if (gE) golaZ(fOtra, w);
+      if (!sinFrenteEsquina(w, fOtra)) { const sE = subEsquina(e); puerta(fOtra, w, alacena ? (diag ? 'Alacena diagonal' : 'Alacena en L') : diag ? 'Diagonal · ' + (sE === 'cajones' ? 'cajones' : sE === 'tarja' ? 'tarja' : 'carrusel') : 'L · ' + (sE === 'repisas' ? 'repisas' : 'carrusel') + (puertasL(e) === 'abatible' ? ' · 165°' : ''), diag, diag ? null : bisL()); if (gE) golaZ(fOtra, w);
         if (showDoors && e.tipo === 'diagonal' && (sE === 'cajones' || sE === 'tarja')) { const zf = gE ? z1 - agarre() : z1, nC = cajonesDiagEsq(e), cuts = sE === 'cajones' ? Array.from({ length: nC - 1 }, (_, i) => zb + (zf - zb)*(i + 1)/nC) : [zf - altoFijoTarja()];   /* A223 */
-          post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; cuts.forEach(zc => { const rc = cajaZ(fOtra, w, zc, zc); line(rc.x, rc.y, rc.x + rc.w, rc.y); }); }); } } }
+          post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; cuts.forEach(zc => { const rc = cajaZ(fOtra, w, zc, zc); line(rc.x, rc.y, rc.x + rc.w, rc.y); });
+            if (sE === 'cajones' && proyOn()) { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing; [zb, ...cuts, zf].forEach((za, i, l) => { if (i === l.length - 1) return; const rq = cajaZ(fOtra, w, za, l[i + 1]); line(rq.x, rq.y, rq.x + rq.w, rq.y + rq.h); line(rq.x + rq.w, rq.y, rq.x, rq.y + rq.h); }); ctx.restore(); } }); } } }   /* A236: X de los cajones */
     /* A143: agarre del ancho en el canto interior de la columna (carrusel, diagonal y alacena): se arrastra con guia e iman */
     if ((e.tipo !== 'ciego' || !duena) && !exporting) { const xi = der ? x0 : x0 + w,   /* A151: en el ciego, la cara no duena */ gx = frame.X(xi), gy = Z(zb + A/2), r = { x: gx - 4, y: gy - 16, w: 8, h: 32 };
       esqGripHits.push({ rect: r, m, xi });
@@ -6904,13 +6913,13 @@ function drawEsquina(m, x0, RX, X, Z, post){
     const c = Math.min(w, R.ladoAlto), abierto = (u0, u1) => { if (u1 - u0 < .01) return; const r = caja(u0, u1); fillMat(r.x, r.y, r.w, r.h, flat ? null : mat, C.box); outline(r, C.line, 1);
       post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; [1, 2].forEach(i => { const y = r.y + r.h*i/3; line(r.x + 2, y, r.x + r.w - 2, y); }); }); };
     const kq = m.esquina.k, sq = der ? 0 : 1, tapU = unionAlto(e) === 'tapeta', lw = huellaEsquina(kq)[sq];   /* A226: con tapeta, la columna del alto tiene su ancho; tapa o repisero */
-    const ext = (u0, u1) => !tapU ? (e.relleno === 'repisas' ? abierto(u0, u1) : puerta(u0, u1, '')) : repiseroEsq(e, sq) && u1 - u0 >= repiseroMin() - 1e-6 ? abierto(u0, u1) : tapeta(u0, u1);   /* usuario 11/10: o con tapeta */
+    const ext = (u0, u1) => !tapU ? (e.relleno === 'repisas' ? abierto(u0, u1) : puerta(u0, u1, '', false, 'ext')) : repiseroEsq(e, sq) && u1 - u0 >= repiseroMin() - 1e-6 ? abierto(u0, u1) : tapeta(u0, u1);   /* usuario 11/10: o con tapeta */
     if (tAlto === 'ciego') { perfil(0, fOtra);
-      if (duena && tapU) { const D = puertaCiegoAlto(kq), u = w - D; tapeta(fOtra, u); if (D > puertaMaxEsq() + 1e-6) { puerta(u, u + D/2, 'Ciego'); puerta(u + D/2, w, ''); } else puerta(u, w, 'Ciego'); gripAlto(u, 'cierre'); }
+      if (duena && tapU) { const D = puertaCiegoAlto(kq), u = w - D; tapeta(fOtra, u); if (D > puertaMaxEsq() + 1e-6) { puerta(u, u + D/2, 'Ciego', false, 'esq'); puerta(u + D/2, w, '', false, 'ext'); } else puerta(u, w, 'Ciego', false, 'ext'); gripAlto(u, 'cierre'); }
       else if (duena) { const Pa = R.ciegoPuerta + ciegoExtra(kq); ext(fOtra, w - Pa); puerta(w - Pa, w, 'Ciego'); }   /* A221 */
       else if (tapU && repiseroCiego(e, sq)) { const r0 = fOtra + espFrente() + tapetaRepisero(e); if (w - r0 >= repiseroMin() - 1e-6) { tapeta(fOtra, r0); abierto(r0, w); gripAlto(r0, 'tapRep'); } else tapeta(fOtra, w);   /* A228 */ }   /* A227 */
       else { ext(fOtra, w); if (tapU) gripAlto(w, 'alto'); } }
-    else { perfil(0, fOtra); const c2 = tapU ? Math.min(lw, R.ladoAlto) : c; if (!sinFrenteEsquina(tapU ? lw : w, fOtra)) { puerta(fOtra, c2, tAlto === 'diagonal' ? 'Diagonal' : puertasL(e) === 'abatible' ? 'Abatible 165°' : 'Plegable', tAlto === 'diagonal'); ext(c2, w); if (tapU) gripAlto(w, 'alto'); } }
+    else { perfil(0, fOtra); const c2 = tapU ? Math.min(lw, R.ladoAlto) : c; if (!sinFrenteEsquina(tapU ? lw : w, fOtra)) { puerta(fOtra, c2, tAlto === 'diagonal' ? 'Diagonal' : puertasL(e) === 'abatible' ? 'Abatible 165°' : 'Plegable', tAlto === 'diagonal', tAlto === 'diagonal' ? null : bisL()); ext(c2, w); if (tapU) gripAlto(w, 'alto'); } }
   }
   const full = caja(0, w); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel);
 }
