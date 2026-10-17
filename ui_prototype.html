@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A249. [Master hecho 17/10; SketchUp: nombre de instancia de cada bisagra con su especificacion; Revit pendiente] Especificacion de las bisagras
+       (usuario 17/10: la misma bisagra, pero al especificar y cuantificar debe salir el angulo de apertura): cada bisagra cerrada (y el brazo
+       de la puerta oculta) lleva bisagra = { uso, apertura }: traslape o embutida (90), elevable (98.75), puerta oculta, esquinero, esquinero diagonal,
+       plegable o abatible (90). La tabla de herrajes del rotulo da una fila por uso y apertura y la nota de la lamina el desglose.
    A248. [Master hecho 17/10; SketchUp: modelo.ejes y biblioteca del piston; Revit pendiente] (usuario 17/10) 1) Piston del usuario (piston.skp):
        herramientas/preparar_piston.py lo parte en cuerpo, vastago, soporte del lateral y soporte de la puerta; su ubicacion se resuelve por sus
        largos: con el giro real de la puerta, el soporte del lateral queda donde el piston mide su largo cerrado (puerta cerrada) y extendido
@@ -3687,6 +3691,16 @@ const cajaEjes = ([mn, mx], o, e) => { const ps = [mn[0], mx[0]].flatMap(x => [m
   const lo = [0, 1, 2].map(i => Math.min(...ps.map(q => q[i]))), hi = [0, 1, 2].map(i => Math.max(...ps.map(q => q[i])));
   return { x: lo[0], y: lo[1], z: lo[2], ancho: hi[0] - lo[0], fondo: hi[1] - lo[1], alto: hi[2] - lo[2] }; };
 const r3 = v => Math.round(v*1000)/1000;
+/* A249 (usuario 17/10: la misma bisagra, pero al especificar y cuantificar debe salir su apertura): cada bisagra cerrada (y el brazo de la
+   puerta oculta) lleva bisagra = { uso, apertura }; la tabla de herrajes y la nota de la lamina las agrupan asi, y SketchUp la nombra igual */
+const USOS_BISAGRA = { traslape: 'traslape', embutida: 'embutida', elevable: 'elevable', 'puerta oculta': 'puerta oculta',
+  esquinero: 'esquinero', 'esquinero 45': 'esquinero diagonal', 'esquinero plegable': 'esquinero plegable', 'esquinero abatible': 'esquinero abatible' };
+const especBisagra = (uso, apertura) => ({ uso, apertura: Math.round(apertura*100)/100 });
+const esBisagraCerrada = q => q.tipo === 'Bisagra' && q.estado !== 'abierto' || q.tipo === 'Brazo';
+/* [[uso, apertura, piezas]] de las bisagras de unas piezas, de la mas comun a la menos */
+const gruposBisagra = piezas => { const g = new Map(); piezas.filter(esBisagraCerrada).forEach(q => { const b = q.bisagra || { uso: 'traslape', apertura: 90 }, k = b.uso + '|' + b.apertura;
+  g.set(k, (g.get(k) || 0) + 1); }); return [...g].map(([k, n]) => { const [uso, a] = k.split('|'); return [uso, +a, n]; }).sort((a, b) => b[2] - a[2]); };
+const fmtGrados = a => (Math.round(a*100)/100).toString() + '°';
 /* A160: en un cuerpo con frente de piston (torre, refrigerador) las repisas van bajo el mecanismo: su punta cae min(20, 35 %) bajo el
    canto y el ancla sube sobre la repisa de arriba; con 4 cm mas de libre el piston siempre cabe */
 const reservaPiston = h => Math.min(20, h*.35) + 4;                    /* B19: el cuerpo es el 60 % del piston cerrado (Revit) */
@@ -3905,7 +3919,7 @@ function planDePiezas(c = cfg){
       if (!cfg.bisagras) return;
       const B = PLAN_BISAGRA, h = z1 - z0, n = h <= 90 ? 2 : h <= 160 ? 3 : h <= 200 ? 4 : 5, borde = Math.min(10, h*.25), paso = (h - 2*borde)/(n - 1);
       const cx = derecha ? b - B.canto : a + B.canto;
-      for (let k = 0; k < n; k++) add({ id: base + ':bisagra:' + k, rol: 'herraje', modulo: m.id, tipo: 'Bisagra', x: cx - B.cazoleta/2, y, z: z0 + borde + paso*k - B.cazoleta/2, ancho: B.cazoleta, fondo: B.hondo, alto: B.cazoleta, material: null, etiqueta: 'herrajes',
+      for (let k = 0; k < n; k++) add({ id: base + ':bisagra:' + k, rol: 'herraje', modulo: m.id, tipo: 'Bisagra', bisagra: especBisagra(/:hoja$/.test(base) ? 'puerta oculta' : 'traslape', MODELO.bisagra.gradosLateral), x: cx - B.cazoleta/2, y, z: z0 + borde + paso*k - B.cazoleta/2, ancho: B.cazoleta, fondo: B.hondo, alto: B.cazoleta, material: null, etiqueta: 'herrajes',
         forma: { tipo: 'cilindro', de: [B.cazoleta/2, 0, B.cazoleta/2], a: [B.cazoleta/2, B.hondo, B.cazoleta/2], diametro: B.cazoleta, lados: 12 } });
     };
     /* frente: liso, o en estilo Clasica con marco shaker (como drawHandle: frentes de 8 cm o mas que no son fijos): tablero
@@ -4626,7 +4640,7 @@ function planDePiezas(c = cfg){
         const GL = MB.gradosLateral, eje = ejeBisagra(canto + calza, Math.max(...fr.map(r => r.fondo)), lat0 ? yb - (lat0.y + lat0.fondo) : 0, GL);   /* A141; A245: a 90 */
         const mz = marco(z), DR = recorridoBisagra(eje, GL), D = MB.desfaseAbierta.map((v, i) => v + DR[i]), BA = MB.brazoAbierto90.map(c => c.map((v, i) => v + DR[i]));   /* A243 */
         const k = cajaModelo(MB.brazoCerrado, mz); Object.keys(k).forEach(e => k[e] = r2(k[e]));
-        Object.assign(q, k, { modelo: { archivo: 'bisagra_brazo_cerrada', espejo: !der, origen: puntoModelo([0, 0, 0], mz) }, estado: 'cerrado' });
+        Object.assign(q, k, { modelo: { archivo: 'bisagra_brazo_cerrada', espejo: !der, origen: puntoModelo([0, 0, 0], mz) }, estado: 'cerrado', bisagra: especBisagra(embutida ? 'embutida' : 'traslape', MB.gradosLateral) });   /* A249 */
         add(Object.assign({ id: q.id.replace(':bisagra:', ':bisagraAbierta:'), rol: 'herraje', modulo: q.modulo, tipo: 'Bisagra', frente: q.frente, estado: 'abierto', material: null, etiqueta: 'herrajes',
           modelo: { archivo: 'bisagra_brazo_abierta90', espejo: !der, origen: puntoModelo(D, mz) } }, cajaModelo(BA, mz)));   /* A245 */
         add(Object.assign({ id: q.id.replace(':bisagra:', ':cazoleta:'), rol: 'herraje', modulo: q.modulo, tipo: 'Cazoleta', frente: q.frente, material: null, etiqueta: 'herrajes',
@@ -4641,7 +4655,7 @@ function planDePiezas(c = cfg){
           if (d > 1 && hondo > .2) (duena.perforaciones = duena.perforaciones || []).push({ x: r2(cx - duena.x), z: r2(z - duena.z), diametro: r2(d), hondo: r2(hondo) }); }
         return; }
       const [brazo, placa] = cajas(z), dato = { rol: 'herraje', modulo: q.modulo, material: null, etiqueta: 'herrajes' };
-      add(Object.assign({ id: q.id.replace(':bisagra:', ':brazo:'), tipo: 'Brazo' }, dato, brazo));
+      add(Object.assign({ id: q.id.replace(':bisagra:', ':brazo:'), tipo: 'Brazo', bisagra: especBisagra('puerta oculta', pr.abre.grados || 90) }, dato, brazo));   /* A249 */
       add(Object.assign({ id: q.id.replace(':bisagra:', ':placa:'), tipo: 'Placa' }, dato, placa));
     });
     /* correderas: un par por cajon, en la holgura entre el lateral y la caja. Fija (perfil en C abierto hacia la caja) en el lateral;
@@ -4706,7 +4720,7 @@ function planDePiezas(c = cfg){
           const dueno = piezas.find(r => r.frente === d && r.rol === 'frente' && r.z + r.alto >= z1 - .5 && bx >= r.x + 2 && bx <= r.x + r.ancho - 2 && r.alto >= 9);   /* la perforacion de la cazoleta en la cara posterior de la puerta elevable */
           if (!dueno) { k--; return; }
           (dueno.perforaciones = dueno.perforaciones || []).push({ x: r2(bx - dueno.x), z: r2(zt + MB.cazoleta - MB.lateral - dueno.z), diametro: PLAN_BISAGRA.cazoleta, hondo: PLAN_BISAGRA.hondo });   /* A243: al centro de la cazoleta */
-          add(Object.assign({ id: d + ':bisagra:s' + j, tipo: 'Bisagra', estado: 'cerrado', modelo: { archivo: 'bisagra_brazo_cerrada', espejo: false, giro: 90, origen: puntoModeloG([0, 0, 0], marco) } }, base, cajaModeloG(MB.brazoCerrado, marco)));
+          add(Object.assign({ id: d + ':bisagra:s' + j, tipo: 'Bisagra', estado: 'cerrado', bisagra: especBisagra('elevable', MB.gradosPuerta), modelo: { archivo: 'bisagra_brazo_cerrada', espejo: false, giro: 90, origen: puntoModeloG([0, 0, 0], marco) } }, base, cajaModeloG(MB.brazoCerrado, marco)));
           add(Object.assign({ id: d + ':bisagraAbierta:s' + j, tipo: 'Bisagra', estado: 'abierto', modelo: { archivo: 'bisagra_brazo_abierta', espejo: false, giro: 90, origen: puntoModeloG(D, marco) } }, base, cajaModeloG(BA, marco)));
           add(Object.assign({ id: d + ':cazoleta:s' + j, tipo: 'Cazoleta', modelo: { archivo: 'bisagra_cazoleta', espejo: false, giro: 90, origen: puntoModeloG([0, 0, 0], marco) } }, base, cajaModeloG(MB.cazoletaCaja, marco))); });
         /* A242 (usuario 17/10: al abrir, la cazoleta se separaba de su brazo): con bisagras la elevable gira 90 grados sobre el eje que lleva el
@@ -5041,6 +5055,9 @@ function pruebasPlanMX(){
     p.piezas.filter(q => /^esq\d/.test(q.id) && q.tipo === 'Cazoleta' && q.modelo && q.modelo.ejes).forEach(q => { const f = p.piezas.find(r => r.id === q.frente), MB = MODELO.bisagra;
       const c = puntoEjes([MB.cazoleta, MB.cazoletaCerrada[1], MB.centroZ], q.modelo.origen, q.modelo.ejes);
       ok(f && c[0] > f.x - .5 && c[0] < f.x + f.ancho + .5 && c[1] > f.y - .5 && c[1] < f.y + f.fondo + .5 && c[2] > f.z && c[2] < f.z + f.alto, nombre + ': cazoleta fuera de su puerta ' + q.id); });
+    /* A249: cada bisagra cerrada lleva su especificacion: un uso conocido y la apertura de su puerta */
+    p.piezas.filter(esBisagraCerrada).forEach(q => { const f = p.piezas.find(r => r.abre && r.frente === q.frente && r.rol === 'frente');
+      ok(q.bisagra && USOS_BISAGRA[q.bisagra.uso] && (!f || Math.abs(q.bisagra.apertura - (f.abre.grados || 90)) < .01), nombre + ': bisagra sin su especificacion ' + q.id); });
     /* A246: el esquinero abre hacia afuera: cada puerta abierta (girada sobre su eje) queda del lado de su cara vista y las hojas plegables se doblan juntas */
     p.piezas.filter(q => /^esq\d/.test(q.id) && q.abre && q.abre.tipo === 'Puerta' && !q.abre.grupo).forEach(q => { const a = q.abre.grados*Math.PI/180*(q.abre.lado === 'izquierda' ? 1 : -1);
       const cx = q.x + q.ancho/2, cy = q.y + q.fondo/2, g = [q.abre.x + (cx - q.abre.x)*Math.cos(a) - (cy - q.abre.y)*Math.sin(a), q.abre.y + (cx - q.abre.x)*Math.sin(a) + (cy - q.abre.y)*Math.cos(a)];
@@ -6876,7 +6893,7 @@ function aperturasEsquinero(piezas, add){
     for (let j = 0; j < nB; j++) { const zc = q.z + borde + (h - 2*borde)*j/(nB - 1), mz = { ox: cara, refX: MB.lateral, espejo: !der, oy: yb, refY: MB.trasCara, oz: zc, refZ: MB.centroZ };
       const o0 = aPlan(puntoModelo([0, 0, 0], mz)).map(r3), oA = aPlan(puntoModelo(D, mz)).map(r3);
       const parte = (id, tipo, archivo, o, caja, extra) => add(Object.assign({ id: q.id + ':' + id + ':' + j, tipo, modelo: { archivo, origen: o, ejes: ejesL } }, base, extra, cajaEjes(caja, o0, ejesL)));   /* la caja, en ejes de la cerrada */
-      parte('bisagra', 'Bisagra', 'bisagra_brazo_cerrada', o0, MB.brazoCerrado, { estado: 'cerrado' });
+      parte('bisagra', 'Bisagra', 'bisagra_brazo_cerrada', o0, MB.brazoCerrado, { estado: 'cerrado', bisagra: especBisagra(q.forma && q.forma.eje === 'z' ? 'esquinero 45' : /:hoja:[ab]$/.test(q.id) ? (plegable ? 'esquinero plegable' : 'esquinero abatible') : 'esquinero', GL) });   /* A249 */
       parte('bisagraAbierta', 'Bisagra', 'bisagra_brazo_abierta90', oA, MB.brazoAbierto90.map(cc => cc.map((v, i) => v + DR[i])), { estado: 'abierto' });
       parte('cazoleta', 'Cazoleta', 'bisagra_cazoleta', o0, MB.cazoletaCaja, { ocultaSinPuertas: true }); }
     const pv = aPlan([cara + (der ? 1 : -1)*(eje[0] - MB.lateral), yb + MB.trasCara - eje[1], 0]);
@@ -12269,7 +12286,7 @@ const LAM = (() => {
     let pl; try { pl = planCocina(); } catch (e) { pl = { piezas: [], materiales: [] }; }   /* el closet aun no tiene plan de piezas: leyenda vacia */
     const piezas = pl.piezas.concat((pl.caras || []).flatMap(c => c.piezas));
     const cuenta = f => piezas.filter(f).length;
-    const herrajes = [['Bisagras (piezas)', cuenta(p => p.tipo === 'Bisagra' && p.estado !== 'abierto')], ['Correderas (juegos)', Math.round(cuenta(p => p.tipo === 'Corredera') / 2)],
+    const herrajes = [...gruposBisagra(piezas).map(([uso, a, n]) => [`${T('Bisagras')} ${T(USOS_BISAGRA[uso] || uso)} ${fmtGrados(a)} (${T('pzas')})`, n]), ['Correderas (juegos)', Math.round(cuenta(p => p.tipo === 'Corredera') / 2)],   /* A249 */
       ['Jaladeras (piezas)', cuenta(p => p.tipo === 'Jaladera' || p.tipo === 'Boton')], ['Pistones (piezas)', cuenta(p => p.tipo === 'Piston')]].filter(q => q[1] > 0);
     const hoy = new Date(), dd = hoy.toLocaleDateString(prefs.idioma === 'en' ? 'en-US' : 'es-MX'), kind = cfg.isla ? 'Isla' : cfg.closet ? 'Closet' : 'Cocina';
     const dibujoAuto = modo ? `${T(kind)} · ${modo === 'plano' ? T('Plano') : T('Color')}` : T(kind);
@@ -12285,7 +12302,7 @@ const LAM = (() => {
   const NT = {
     frentes: 'Frentes de {0}, {1} de espesor', carcasa: 'Carcasa de {0}: laterales de {1} y trasera de {2}', cubierta: 'Cubierta de {0}, {1} de espesor',
     zoclo: 'Zoclo de {0}, {1} de alto', backsplash: 'Backsplash de {0}, {1} de alto', tarja: 'Tarja de {0} × {1}; hueco en la cubierta',
-    parrilla: 'Parrilla de inducción de {0}, con hueco de {1} × {2}', monomando: 'Monomando', bisagras: 'Bisagras de cazoleta de 35 mm ({0} pzas), apertura de {1}°',
+    parrilla: 'Parrilla de inducción de {0}, con hueco de {1} × {2}', monomando: 'Monomando', bisagras: 'Bisagras de cazoleta de 35 mm: {0}',
     correderas: 'Correderas de extracción total de {0} ({1} juegos)', jaladeras: 'Jaladeras ({0} pzas)', gola: 'Perfil de gola en {0}' };
   const llena = (id, ...v) => v.reduce((t, x, i) => t.replace('{' + i + '}', x), T(NT[id]));
   /* cada nota: id estable (para recordar lo que el usuario edita), texto y donde se ancla: p = pieza del plan y fx, fy, fz = posicion
@@ -12329,8 +12346,8 @@ const LAM = (() => {
     add('parrilla', pa && pa.hueco ? llena('parrilla', medida(pa.ancho), medida(pa.hueco.ancho), medida(pa.hueco.fondo)) : '', pa, .04, .5, 1, false);
     const mo = P.find(q => q.tipo === 'Monomando');
     add('monomando', T(NT.monomando), mo, .5, .5, .5, true);
-    const hin = P.filter(q => q.tipo === 'Bisagra' && q.estado !== 'abierto'), pu = P.find(q => q.abre && q.abre.tipo === 'Puerta');
-    if (hin.length && pu) add('bisagras', llena('bisagras', hin.length, pu.abre.grados || 90), pu, pu.abre.lado === 'derecha' ? .96 : .04, 1, .5, true);
+    const hin = gruposBisagra(P.concat((pl.caras || []).flatMap(c => c.piezas))), pu = P.find(q => q.abre && q.abre.tipo === 'Puerta');   /* A249: por uso y apertura */
+    if (hin.length && pu) add('bisagras', llena('bisagras', hin.map(([uso, a, n]) => `${n} ${T('pzas')} ${T(USOS_BISAGRA[uso] || uso)} ${T('a')} ${fmtGrados(a)}`).join(', ')), pu, pu.abre.lado === 'derecha' ? .96 : .04, 1, .5, true);
     const cor = P.filter(q => q.tipo === 'Corredera'), caj = P.find(q => q.abre && q.abre.tipo === 'Cajon');
     if (cor.length && caj) add('correderas', llena('correderas', medida(cor[0].fondo), Math.round(cor.length / 2)), caj, .5, 1, .5, true);
     const ja = P.filter(q => q.tipo === 'Jaladera' || q.tipo === 'Boton');
