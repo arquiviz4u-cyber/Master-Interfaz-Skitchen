@@ -303,6 +303,9 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A251. [Master hecho 17/10; SketchUp: Wall-kitchen con 2 o 3 caras (Modo, ElegirCaras, Muro.en_esquina); Revit ya lo tiene (P12.268)]
+       Cocina en L y en U desde SketchUp (usuario 17/10: «no puedo ver la opcion»): puente sketchupNuevaCaras(longitudes, alturaMuro) y
+       setForma(c, v, largos) con la longitud medida de cada cara (antes las caras B y C salian de 240 / 96").
    A250. [Master hecho 17/10; SketchUp sin cambios (modelo.ejes); Revit pendiente] Soporte del piston en la puerta (usuario 17/10, captura):
        con la puerta cerrada la placa quedaba inclinada 10 grados y despegada de la puerta. En piston.skp la placa del soporte viene inclinada
        10 grados (normal (sen 10, 0, cos 10) en XZ) y su cara esta a 1.978 de la rotula: MODELO_PISTON.placa = 10 y puerta = 1.978; el
@@ -3065,7 +3068,8 @@ function aplicarEsquinas(){
     if (m.esquina.lado === 'der') { cfg.tapetaDer = false; cfg.corridaDer = false; cfg.cerrarZocloDer = false; cfg.cerrarMolduraDer = false; } else { cfg.tapetaIzq = false; cfg.corridaIzq = false; cfg.cerrarZocloIzq = false; cfg.cerrarMolduraIzq = false; } });
 }
 /* cambia la forma: recta (una cara), L (dos) o U (tres); las caras nuevas salen como una cocina de muro de 240 (US 96") con su esquina */
-function setForma(c, v){
+/* A251: largos = longitud de cada cara (las que SketchUp mide en el modelo); sin ellos, las caras nuevas salen del largo de fabrica */
+function setForma(c, v, largos = null){
   if ((c.forma || 'recta') === v) return;
   if (multiCara(c)) { guardarCara(c); cargarCara(c, 0); }
   c.modulos = c.modulos.filter(m => !m.esquina);
@@ -3073,7 +3077,7 @@ function setForma(c, v){
   const n = v === 'L' ? 2 : 3, largo = c.region === 'US' ? inch(96) : 240, previas = c.esquinas || [];
   c.forma = v; c.cara = 0; c.esquinas = Array.from({ length: n - 1 }, (_, k) => previas[k] || nuevaEsquina());
   c.caras = [datosCara(c)];
-  for (let k = 1; k < n; k++) { const d = defaultConfig(largo); c.caras.push(datosCara(d)); }
+  for (let k = 1; k < n; k++) { const d = defaultConfig(largos && largos[k] > 0 ? Math.round(largos[k]*100)/100 : largo); c.caras.push(datosCara(d)); }
   const esq = (cara, k, lado) => { const add = [false, true].map(upper => Object.assign(newModule(upper, c.region), { tipo: 'Esquina', esquina: { k, lado }, fijo: true,
     fondo: upper ? prefs.inicio.fondoAltos : prefs.inicio.fondoBajos }));
     cara.modulos = lado === 'der' ? cara.modulos.concat(add) : add.concat(cara.modulos); };
@@ -10646,7 +10650,8 @@ function offerSave(action, proceed){
    Solo existe dentro del UI::HtmlDialog de Skitchen (../Skitchen_SketchUp/src/drawlibri_skitchen/dialogo.rb), que inyecta
    window.sketchup. Llamadas a Ruby: sketchup.listo() al cargar, sketchup.generar(texto) con {config, plan} y
    sketchup.cerrar(). Ruby responde con sketchupCargar(texto) (configuracion guardada en la cocina elegida),
-   sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida), sketchupNuevaIsla(longitud, ancho) (isla nueva
+   sketchupNueva(longitud, alturaMuro) (cocina nueva en la cara de muro elegida), sketchupNuevaCaras(longitudes, alturaMuro) (A251: cocina
+   en L o en U con las 2 o 3 caras elegidas en orden; longitudes hasta las esquinas interiores), sketchupNuevaIsla(longitud, ancho) (isla nueva
    con los 3 puntos de Line-Island) y sketchupResultado(ok, mensaje). En el navegador nada de esto se usa y el prototipo sigue igual.
    A70: configuraciones del proyecto. Ruby manda sketchupConfiguraciones(texto con la lista) al cargar y el master guarda la lista
    completa con sketchup.guardar_configuraciones(texto) en el modelo.
@@ -10687,6 +10692,15 @@ function sketchupNueva(longitud, alturaMuro){
   const largo = Math.round(longitud*100)/100;   /* D1: el decimal del muro lo absorben las tapetas */
   sketchupAbrir(() => { const c = defaultConfig(largo); c.catalogo = cfg.catalogo; c.alturaMuro = Math.round(alturaMuro*10)/10; return c; },
     `El muro elegido (${fmt(longitud)} × ${fmt(alturaMuro)}${uS()}) no admite una cocina: `, `Muro de ${fmt(largo)} × ${fmt(alturaMuro)}${uS()} tomado de SketchUp.`);
+}
+/* A251 (usuario 17/10: «no puedo ver la opcion de generar cocina en L y U» en SketchUp): Wall-kitchen con 2 o 3 caras de muro elegidas en
+   orden; cada longitud va de su extremo (o esquina) a la esquina siguiente, como la mide marcosCaras */
+function sketchupNuevaCaras(longitudes, alturaMuro){
+  liveDisponible = false; enVivo = false;
+  const largos = longitudes.map(v => Math.round(v*100)/100), forma = largos.length === 3 ? 'U' : 'L';
+  sketchupAbrir(() => { const c = defaultConfig(largos[0]); c.catalogo = cfg.catalogo; c.alturaMuro = Math.round(alturaMuro*10)/10; cfg = c; setForma(c, forma, largos); return c; },
+    `Las caras elegidas (${largos.map(v => fmt(v)).join(' + ')}${uS()}) no admiten una cocina en ${forma}: `,
+    `Cocina en ${forma} de ${largos.map(v => fmt(v)).join(' + ')}${uS()} tomada de SketchUp (cara A a la izquierda).`);
 }
 /* isla nueva con el largo y el ancho de los 3 puntos de Line-Island (canto frontal de la cubierta y lado de los bancos) */
 function sketchupNuevaIsla(longitud, ancho){
