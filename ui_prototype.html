@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A253. [Master hecho 17/10; SketchUp: biblioteca (preparar_equipos.py); Revit pendiente] Tarjas, llave y rejilla del usuario (17/10,
+       G:/Sketchup/Kitchen): la tarja doble o la pequena (segun la tarja doble) va en la pieza :tarja:fondo con la medida de la ceja (de
+       sobreponer) o del hueco (bajo cubierta) y del fondo de la tina a su borde; las demas laminas y la ceja llevan soloDibujo. La llave
+       de tarja va en :monomando (su base donde el monomando, tamano real). La rejilla de la torre (la de 60) va en :rejilla. La tarja del
+       esquinero diagonal sigue con laminas.
    A252. [Master hecho 17/10; SketchUp: biblioteca (preparar_equipos.py), Estirar y soloDibujo; Revit pendiente] Equipos y herrajes de
        esquina del usuario (17/10, G:/Sketchup/Kitchen; «ignora la estufa»): horno y microondas de empotrar (Hornos.skp partido), microondas
        de sobreponer, parrilla de induccion, campana, frigobar de vinos y lavavajillas (cerrado, sin canastillas) van en el equipo con
@@ -3717,14 +3722,20 @@ const MODELO_EQUIPOS = {
   frigobar_vinos: { medida: [60.96, 73.622, 86.36], minimo: [28.11, 13.27, 27.33], cara: 8.9 },
   lavavajillas: { medida: [59, 60.143, 78], minimo: [42.04, 12.2, 33.84], cara: 0 },
   magic_corner: { medida: [86.97, 51.692, 76.2], escala: true },
-  carrusel: { medida: [115.63, 117.833, 75.5], escala: true, poste: [56.89, 56.89], radio: 56.29 } };
+  carrusel: { medida: [115.63, 117.833, 75.5], escala: true, poste: [56.89, 56.89], radio: 56.29 },
+  /* A253 (usuario 17/10): tarjas (a lo ancho y fondo se escalan; las coladeras van enteras), llave de tarja (base: centro de su base en
+     planta, ejes del modelo) y rejilla de la torre (la de 60, cara perforada al frente) */
+  tarja_doble: { medida: [84.03, 53.973, 16.535], minimo: [1, 1, 15.05], cara: 0 },
+  tarja_sencilla: { medida: [51.895, 52.323, 15.493], minimo: [1, 46.8, 14.43], cara: 0 },
+  llave_tarja: { medida: [18.742, 20.939, 32.86], escala: true, base: [11.27, 18.6] },
+  rejilla_torre: { medida: [60, 4, 7], escala: true } };
 /* modelo estirable con su frente-izquierda-abajo en el punto o del plan; ejes sin giro salvo que se den (imagen de X, Y y Z del modelo) */
 const modeloEquipo = (archivo, o, medida, ejes = [[1, 0, 0], [0, -1, 0], [0, 0, 1]]) => ({ archivo, estirar: true, origen: o.map(r3), ejes, medida: medida.map(r3) });
 /* la campana del usuario es de chimenea: su visera queda en el hueco de la campana y la chimenea sube hasta el tope de la columna (bajo un
    alto pasa por dentro de el, como el ducto) */
 /* equipo de x a..b y z z0..z1 con su cara al paño yF de los frentes; fondo hasta yB (sin yB, el natural del modelo); nunca bajo su minimo */
-const equipoModelo = (archivo, a, b, z0, z1, yF, yB = null) => { const E = MODELO_EQUIPOS[archivo], D = yB === null ? E.medida[1] : yF + E.cara - yB;
-  return modeloEquipo(archivo, [a, yF + E.cara, z0], [b - a, D, z1 - z0].map((v, k) => Math.max(v, E.minimo[k]))); };
+const equipoModelo = (archivo, a, b, z0, z1, yF, yB = null) => { const E = MODELO_EQUIPOS[archivo], D = yB === null ? E.medida[1] : yF + (E.cara || 0) - yB;
+  return modeloEquipo(archivo, [a, yF + (E.cara || 0), z0], [b - a, D, z1 - z0].map((v, k) => Math.max(v, (E.minimo || [0, 0, 0])[k]))); };
 const largoPiston = () => { const M = MODELO_PISTON; return Math.hypot(M.P0[0] - M.A0[0], M.P0[2] - M.A0[2]); };
 /* A248: un modelo por su origen con ejes cualesquiera (imagen en el plan de X, Y, Z del archivo): punto del plan y caja que lo envuelve */
 const puntoEjes = (Q, o, e) => [0, 1, 2].map(i => o[i] + Q[0]*e[0][i] + Q[1]*e[1][i] + Q[2]*e[2][i]);
@@ -4049,7 +4060,8 @@ function planDePiezas(c = cfg){
         const zh = zb + m.baseHorno, lift = towerLift(m), lh = lift ? towerLiftHeight(m) : 0;
         piso('lecho:horno', zh - e);
         repisas(zona(zb + e, zh - e), m.id + ':inferior', hasDrawers(m) ? 0 : zoneShelves(m, 'inferior'), 'inferior');
-        if (grille(m) > 0) add({ id: m.id + ':rejilla', rol: 'herraje', modulo: m.id, tipo: 'Rejilla', x: xi0, y: y1, z: zb + bodyH(m), ancho: xi1 - xi0, fondo: t, alto: grille(m), material: null, etiqueta: 'herrajes' });
+        if (grille(m) > 0) add({ id: m.id + ':rejilla', rol: 'herraje', modulo: m.id, tipo: 'Rejilla', x: xi0, y: y1, z: zb + bodyH(m), ancho: xi1 - xi0, fondo: t, alto: grille(m), material: null, etiqueta: 'herrajes',
+          modelo: equipoModelo('rejilla_torre', xi0, xi1, zb + bodyH(m), zb + bodyH(m) + grille(m), y1 + t) });   /* A253: la rejilla del usuario */
         let z = zh;
         if (m.mostrarEquipos) equipo(m, 'horno', 'Horno', xi0, xi1, z, z + m.altoHorno, y0 + ef, yl, equipoModelo('horno_empotrar', xi0, xi1, z, z + m.altoHorno, yl));
         z += m.altoHorno; piso('division:horno', z); z += e;
@@ -4349,7 +4361,12 @@ function planDePiezas(c = cfg){
          lleva ceja encima. Monomando detras de la tina */
       if (hueco) {
         const h = hueco, g = PLAN_TARJA.lamina, bajo = cfg.tarjaBajoCubierta, zt = bajo ? zBar - pq : zBar, zf = zt - cfg.tarjaProf, id = h.m.id + ':tarja';
-        const lamina = (k, a, b, c0, c1, d0, d1) => add({ id: id + ':' + k, rol: 'equipo', modulo: h.m.id, tipo: 'Tarja', x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material: null, etiqueta: 'equipos' });
+        /* A253 (usuario 17/10): la tarja del usuario (doble o pequena) va en la pieza del fondo, de la ceja (de sobreponer) o del hueco (bajo
+           cubierta) y del fondo de la tina a su borde; las demas laminas quedan solo para el dibujo del master */
+        const c9 = bajo ? 0 : PLAN_TARJA.ceja, zTop = bajo ? zt : zBar + PLAN_TARJA.cejaAlto;
+        const modTarja = equipoModelo(h.doble ? 'tarja_doble' : 'tarja_sencilla', h.x0 - c9, h.x1 + c9, zf, zTop, h.y1 + c9, h.y0 - c9);
+        const lamina = (k, a, b, c0, c1, d0, d1) => add(Object.assign({ id: id + ':' + k, rol: 'equipo', modulo: h.m.id, tipo: 'Tarja', x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material: null, etiqueta: 'equipos' },
+          k === 'fondo' ? { modelo: modTarja } : { soloDibujo: true }));
         lamina('fondo', h.x0, h.x1, h.y0, h.y1, zf, zf + g);
         lamina('izq', h.x0, h.x0 + g, h.y0, h.y1, zf + g, zt); lamina('der', h.x1 - g, h.x1, h.y0, h.y1, zf + g, zt);
         lamina('atras', h.x0 + g, h.x1 - g, h.y0, h.y0 + g, zf + g, zt); lamina('frente', h.x0 + g, h.x1 - g, h.y1 - g, h.y1, zf + g, zt);
@@ -4357,7 +4374,9 @@ function planDePiezas(c = cfg){
         const c = PLAN_TARJA.ceja, ch = PLAN_TARJA.cejaAlto;
         if (!bajo) { lamina('ceja:izq', h.x0 - c, h.x0, h.y0 - c, h.y1 + c, zBar, zBar + ch); lamina('ceja:der', h.x1, h.x1 + c, h.y0 - c, h.y1 + c, zBar, zBar + ch);
           lamina('ceja:atras', h.x0, h.x1, h.y0 - c, h.y0, zBar, zBar + ch); lamina('ceja:frente', h.x0, h.x1, h.y1, h.y1 + c, zBar, zBar + ch); }
-        if (cfg.monomando) { const y1 = h.y0 - (bajo ? 1 : c + 1); add({ id: id + ':monomando', rol: 'herraje', modulo: h.m.id, tipo: 'Monomando', x: h.cx - 1.5, y: y1 - 3, z: zBar, ancho: 3, fondo: 3, alto: 18, material: null, etiqueta: 'herrajes' }); }
+        if (cfg.monomando) { const y1 = h.y0 - (bajo ? 1 : c + 1), LL = MODELO_EQUIPOS.llave_tarja;   /* A253: la llave del usuario, su base donde el monomando */
+          add({ id: id + ':monomando', rol: 'herraje', modulo: h.m.id, tipo: 'Monomando', x: h.cx - 1.5, y: y1 - 3, z: zBar, ancho: 3, fondo: 3, alto: 18, material: null, etiqueta: 'herrajes',
+            modelo: modeloEquipo('llave_tarja', [h.cx - LL.base[0], y1 - 1.5 + LL.base[1], zBar], LL.medida) }); }
       }
       /* parrilla de induccion (planta): placa centrada a 4 cm del frente del gabinete, sobre la cubierta */
       if (cfg.generarCubierta) { let px = ajusteIzq(); lows.forEach(m => {
@@ -5108,7 +5127,7 @@ function pruebasPlanMX(){
     /* A252: cada modelo estirable es de la biblioteca, con sus ejes y nunca bajo su minimo; lo de soloDibujo lo sustituye un modelo */
     p.piezas.filter(q => q.modelo && q.modelo.estirar).forEach(q => { const E = MODELO_EQUIPOS[q.modelo.archivo];
       ok(E && q.modelo.medida.length === 3 && q.modelo.ejes && (E.escala || q.modelo.medida.every((v, k) => v >= E.minimo[k] - .01)), nombre + ': modelo estirable fuera de su medida ' + q.id); });
-    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && q.modelo.estirar && MODELO_EQUIPOS[q.modelo.archivo].escala), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');
+    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && q.modelo.estirar), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');
     /* A249: cada bisagra cerrada lleva su especificacion: un uso conocido y la apertura de su puerta */
     p.piezas.filter(esBisagraCerrada).forEach(q => { const f = p.piezas.find(r => r.abre && r.frente === q.frente && r.rol === 'frente');
       ok(q.bisagra && USOS_BISAGRA[q.bisagra.uso] && (!f || Math.abs(q.bisagra.apertura - (f.abre.grados || 90)) < .01), nombre + ': bisagra sin su especificacion ' + q.id); });
