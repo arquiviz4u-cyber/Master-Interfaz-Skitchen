@@ -303,6 +303,9 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A255. [Master hecho 18/10; SketchUp y Revit sin cambios (dibujo del master)] Isometrico espejado en cocinas en L y U (usuario 18/10):
+       con el observador al frente izquierda (SX = -1) la proyeccion invertia la x de pantalla; ahora x = x + SX y (y la de la caja, igual)
+       y los simbolos de herrajes cambian su reflejo en ese lado. La cocina recta (SX = 1) no cambia.
    A254. [Master hecho 17/10; SketchUp sin cambios (piezas de siempre); Revit pendiente] Cierre de la tapeta superior en los laterales
        (usuario 17/10: «los crownmolding no se cierran en los laterales; todas las tapetas superiores deben tener esa opcion»): con
        cerrarMolduraIzq/Der la corona sigue por el lateral del gabinete del extremo hasta el muro (inglete con el frente; antes era un
@@ -11258,7 +11261,7 @@ const LAM = (() => {
       if (mod) {
         const gira = m && m.gira && m.eje && m.eje[2] === 1, rot = gira && Math.abs(Math.abs(m.g) - 90) < 1 ? (m.g > 0 ? 90 : -90) : 0;
         const sim0 = !(m && m.gira && !rot) ? simDe(mod.archivo, 'i', mod.espejo, { SX: fs.sx, rot, k: mod.sy }) : null;   /* giros distintos de 90: se queda la caja */
-        const sim = sim0 && { id: sim0.id, flip: fs.f < 0 !== !!sim0.flip };
+        const sim = sim0 && { id: sim0.id, flip: (fs.f < 0 !== !!sim0.flip) !== (SX < 0) };   /* A255: del lado izquierdo el simbolo ya no va espejado con la pantalla */
         const OO = sim ? K(mover([mod.origen[0], -mod.origen[1], mod.origen[2]], m)) : null;
         if (sim && COR_CAJA[mod.archivo]) simQ = { id: sim.id, flip: sim.flip, O: OO };   /* A185: ordenada con las demas cajas */
         else if (sim && FAM[mod.archivo] === 'arm') {
@@ -11317,7 +11320,7 @@ const LAM = (() => {
       for (const pass of [0, 1]) { const ini = H.length; (pass ? P.slice().reverse() : P).forEach(p => { while (H.length >= ini + 2 && cr(H[H.length - 2], H[H.length - 1], p) <= 1e-9) H.pop(); H.push(p); }); H.pop(); }
       return H; };
     const areaP = P => P.reduce((t, p, k) => { const q = P[(k + 1) % P.length]; return t + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
-    cajas.forEach(q => { q.hull = casco(q.v.map(v => [(SX * v[0] + v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]])); if (q.hull.length > 2 && areaP(q.hull) < 0) q.hull.reverse(); });
+    cajas.forEach(q => { q.hull = casco(q.v.map(v => [(v[0] + SX * v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]])); if (q.hull.length > 2 && areaP(q.hull) < 0) q.hull.reverse(); });   /* A255 */
     const recorta = (S, Cc) => { let out = S;   /* Sutherland-Hodgman: la parte de S dentro del convexo Cc (antihorario) */
       for (let k = 0; k < Cc.length && out.length; k++) { const c1 = Cc[k], c2 = Cc[(k + 1) % Cc.length], inp = out; out = [];
         const dentro = p => (c2[0] - c1[0]) * (p[1] - c1[1]) - (c2[1] - c1[1]) * (p[0] - c1[0]) >= 0;
@@ -11340,7 +11343,9 @@ const LAM = (() => {
       if (pick < 0) { let mejor = 1e18; for (let i = 0; i < N; i++) if (!hecho[i] && peso[i] < mejor) { mejor = peso[i]; pick = i; }
         forzadas.push(cajas[pick].p.id); }   /* ciclo (cajas finas en molinete): sale la que menos tapado pendiente tiene */
       hecho[pick] = true; orden.push(cajas[pick]); despues[pick].forEach(([j, w]) => { faltan[j]--; peso[j] -= w; }); }
-    const proy = v => [(SX * v[0] + v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a un lado y abajo; el cuarto (-Y) al otro y abajo */
+    /* A255 (usuario 18/10: «el isometrico de presentar pone la cocina espejeada»): con el observador al frente izquierda (SX = -1, la cocina
+       en L o U con sus caras a la derecha) la pantalla tomaba -x: un espejo, no la vista desde el otro lado. x de pantalla = x + SX y */
+    const proy = v => [(v[0] + SX * v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a un lado y abajo; el cuarto (-Y) al otro y abajo */
     const V = [SX, -1, 1], luz = vunit([.35 * SX, -.45, .82]);
     const caraIdx = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]];
     const normalHacia = (pts, ref, haciaAfuera) => { let n = vunit(vcruz(vsub(pts[1], pts[0]), vsub(pts[2], pts[0])));
