@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A254. [Master hecho 17/10; SketchUp sin cambios (piezas de siempre); Revit pendiente] Cierre de la tapeta superior en los laterales
+       (usuario 17/10: «los crownmolding no se cierran en los laterales; todas las tapetas superiores deben tener esa opcion»): con
+       cerrarMolduraIzq/Der la corona sigue por el lateral del gabinete del extremo hasta el muro (inglete con el frente; antes era un
+       remate de su vuelo dentro del gabinete) y la tapeta lisa (a ras o detras) lleva un tablero en el lateral, del muro al frente, con la
+       del frente alargada a tapar su canto. La opcion se muestra en toda tapeta superior.
    A253. [Master hecho 17/10; SketchUp: biblioteca (preparar_equipos.py); Revit pendiente] Tarjas, llave y rejilla del usuario (17/10,
        G:/Sketchup/Kitchen): la tarja doble o la pequena (segun la tarja doble) va en la pieza :tarja:fondo con la medida de la ceja (de
        sobreponer) o del hueco (bajo cubierta) y del fondo de la tina a su borde; las demas laminas y la ceja llevan soloDibujo. La llave
@@ -4544,7 +4549,12 @@ function planDePiezas(c = cfg){
             add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: a, y: y0, z: zTop, ancho: r2(b - a), fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
             if (yE - y0 > .05) add({ id: 'tapeta:superior:regreso' + sf, rol: 'tapeta', x: r2(b), y: r2(y0), z: zTop, ancho: t, fondo: r2(yE - y0), alto: altoTs, material: matTs, etiqueta: 'tapetas' });
             losaTs('tapeta:superior:diagonal', [corta(tB(cDs.lD), lx), corta(tB(cDs.lD), cDs.sB), corta(tF(cDs.lD), cDs.sB), corta(tF(cDs.lD), lx)]); return; } }
-        add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: tsA, y: fo - t - dTs, z: zTop, ancho: r2(tsB - tsA), fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
+        /* A254 (usuario 17/10: «los crownmolding no se cierran en los laterales; todas las tapetas superiores deben tener esa opcion»): con el
+           extremo cerrado, un tablero sobre el lateral del gabinete, del muro al frente de la tapeta, y la del frente se alarga a tapar su canto */
+        const yTs = fo - t - dTs, cierreI = primero && !cIs && cfg.cerrarMolduraIzq, cierreD = ultimo && !cDs && cfg.cerrarMolduraDer;
+        if (cierreI) { tsA = r2(a - t); if (yTs - sep > .05) add({ id: 'tapeta:superior:cierre:izq', rol: 'tapeta', x: r2(a - t), y: sep, z: zTop, ancho: t, fondo: r2(yTs - sep), alto: altoTs, material: matTs, etiqueta: 'tapetas' }); }
+        if (cierreD) { tsB = r2(b + t); if (yTs - sep > .05) add({ id: 'tapeta:superior:cierre:der', rol: 'tapeta', x: b, y: sep, z: zTop, ancho: t, fondo: r2(yTs - sep), alto: altoTs, material: matTs, etiqueta: 'tapetas' }); }
+        add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: tsA, y: yTs, z: zTop, ancho: r2(tsB - tsA), fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01) return;
         /* A161 (usuario): el regreso no sobresale del canto de la columna mas saliente: va dentro de ella, del canto del frente menos
            saliente a la espalda del suyo */
@@ -4561,7 +4571,7 @@ function planDePiezas(c = cfg){
         if (tr.length) {
           const segs = [];
           if (cI) cI.antes.forEach(s => segs.push(Object.assign({}, s)));
-          else if (ci) { const xc = tr[0].a + c9 - fsC; segs.push({ l: ln([xc, 0], [0, 1]), own: true, id: ':cierre:izq' + sfk(tr[0].k), sq0: [xc, tr[0].yb - fsC] }); }
+          else if (ci) { const xc = tr[0].a; segs.push({ l: ln([xc, 0], [0, 1]), own: true, id: ':cierre:izq' + sfk(tr[0].k), sq0: [xc, sep] }); }   /* A254: por el lateral hasta el muro */
           tr.forEach((q, i) => { const pv = tr[i - 1], sg = { l: ln([q.a, q.yb], [1, 0]), own: true, id: sfk(q.k) };
             if (pv && Math.abs(q.yb - pv.yb) > .5) segs.push({ l: ln([pv.b, pv.yb], [0, Math.sign(q.yb - pv.yb)]), own: true, id: ':regreso' + sfk(pv.k) });
             else if (pv) { segs[segs.length - 1].sq1 = [pv.b, pv.yb]; sg.sq0 = [q.a, q.yb]; }
@@ -4569,7 +4579,7 @@ function planDePiezas(c = cfg){
             segs.push(sg); });
           const ul = tr[tr.length - 1];
           if (cD) cD.despues.forEach(s => segs.push(Object.assign({}, s, s.id === null ? { id: ':regreso' + sfk(ul.k) } : {})));
-          else if (cd) { const xc = ul.b - c9 + fsC; segs.push({ l: ln([xc, ul.yb], [0, -1]), own: true, id: ':cierre:der' + sfk(ul.k), sq1: [xc, ul.yb - fsC] }); }
+          else if (cd) { const xc = ul.b; segs.push({ l: ln([xc, ul.yb], [0, -1]), own: true, id: ':cierre:der' + sfk(ul.k), sq1: [xc, sep] }); }   /* A254: por el lateral hasta el muro */
           else segs[segs.length - 1].sq1 = [ul.b, ul.yb];
           const bk = l => despl(l, fsC), fr = l => despl(l, -(c9 - fsC)), proy = (S, l, s) => [S[0] + l.d[1]*s, S[1] - l.d[0]*s];
           segs.forEach((s, i) => { if (!s.own) return; const pv = segs[i - 1], nx = segs[i + 1];
@@ -8897,7 +8907,7 @@ function partPanel(key){
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`
       + (cfg.tapetaSuperior && cfg.style === 'Clasica' ? chk('tapSMol', molduraTs(), 'Moldura (corona)') : '')
       + (molduraTs() ? chk('tapSLis', cfg.listonTapeta, 'Listón de fijación 1x2') : '')
-      + (molduraTs() ? chk('tapSCI', cfg.cerrarMolduraIzq, 'Cerrar extremo izquierdo') + chk('tapSCD', cfg.cerrarMolduraDer, 'Cerrar extremo derecho') : '')
+      + (cfg.tapetaSuperior ? chk('tapSCI', cfg.cerrarMolduraIzq, 'Cerrar el lateral izquierdo (hasta el muro)') + chk('tapSCD', cfg.cerrarMolduraDer, 'Cerrar el lateral derecho (hasta el muro)') : '')   /* A254: toda tapeta superior */
       + (molduraTs() ? `<div class="p-label" style="margin-top:10px">Perfil de la moldura</div>` + crownCards(cfg.tapetaSuperiorPerfil || 'ogee') + `<div style="font-size:11px;color:var(--muted,#6B7680);margin-top:6px">La altura de la tapeta toma la caída del perfil elegido (medidas comerciales de corona para gabinete, 45° de resalto); puedes ajustarla arriba.</div>` : ''));
   } else if (key === 'gola') {
     html += section('Perfil de aluminio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Perfil de aluminio visible en 3D.</div>` + radios('perfil', [['L', 'Perfil L'], ['C', 'Perfil C']], cfg.perfil) + `<div class="note-sm">Suelta un material en una franja: va a toda la gola.</div>`);
