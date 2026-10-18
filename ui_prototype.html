@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A252. [Master hecho 17/10; SketchUp: biblioteca (preparar_equipos.py), Estirar y soloDibujo; Revit pendiente] Equipos y herrajes de
+       esquina del usuario (17/10, G:/Sketchup/Kitchen; «ignora la estufa»): horno y microondas de empotrar (Hornos.skp partido), microondas
+       de sobreponer, parrilla de induccion, campana, frigobar de vinos y lavavajillas (cerrado, sin canastillas) van en el equipo con
+       modelo { archivo, estirar, origen, ejes, medida } y la caja de siempre (los dibujos del master no cambian); SketchUp los estira
+       por zonas sin deformar perillas, jaladeras ni botones (MODELO_EQUIPOS: medida natural, minimo y cara al paño de los frentes).
+       Magic corner (ciego con herraje) y carrusel de la esquina en L: el modelo del usuario escalado va en el poste y las charolas hechas
+       a mano llevan soloDibujo (SketchUp y Revit no las construyen). El carrusel del diagonal sigue con charolas redondas (el del
+       usuario es de 3/4).
    A251. [Master hecho 17/10; SketchUp: Wall-kitchen con 2 o 3 caras (Modo, ElegirCaras, Muro.en_esquina); Revit ya lo tiene (P12.268)]
        Cocina en L y en U desde SketchUp (usuario 17/10: «no puedo ver la opcion»): puente sketchupNuevaCaras(longitudes, alturaMuro) y
        setForma(c, v, largos) con la longitud medida de cada cara (antes las caras B y C salian de 240 / 96").
@@ -3694,6 +3702,29 @@ const PLAN_PISTON = { cuerpo: 1.8, vastago: .8, largoCuerpo: .6 };
 const MODELO_PISTON = { A0: [1.99, -1.55, 2.0], P0: [11.373, -1.71, 23.796], puerta: 1.978, placa: 10, carrera: 8, cuerpo: 13.5,
   cajas: { piston_cuerpo: [[.862, -2.388, .715], [8.098, -.637, 14.879]], piston_vastago: [[7.087, -2.479, 14.447], [12.517, -.936, 25.188]],
            piston_soporte: [[.486, -1.128, .488], [3.48, -.005, 3.482]], piston_soporte_puerta: [[9.508, -1.669, 23.623], [14.45, -.169, 26.131]] } };
+/* A252 (usuario 17/10, G:/Sketchup/Kitchen: «hornos de sobreponer y de empotrar, campana, vinos y lavavajillas parametricos, sin
+   deformaciones; herrajes de los bajos de esquina»): modelos del usuario en la biblioteca de SketchUp (herramientas/equipos.py y
+   preparar_equipos.py). SketchUp los lleva a cualquier medida: las piezas chicas (perillas, botones, jaladeras cortas) se trasladan
+   enteras y el cuerpo se estira solo en franjas sin detalle. medida: la natural (ejes del modelo: ancho, fondo desde su frente, alto);
+   minimo: hasta donde encoge cada eje; cara: fondo (desde el frente del modelo) del plano que va al paño de los frentes; escala: solo se
+   escala (herrajes de esquina). Datos de catalogo.json de la biblioteca */
+const MODELO_EQUIPOS = {
+  horno_empotrar: { medida: [59.5, 6.088, 59.5], minimo: [36.25, 6.09, 19.89], cara: 4.09 },
+  micro_empotrar: { medida: [59.5, 2.8, 39.5], minimo: [36.04, 2.8, 19.06], cara: .8 },
+  micro_sobreponer: { medida: [52.367, 44.678, 29.8], minimo: [1, 35.29, 1], cara: 0 },
+  parrilla_induccion: { medida: [80, 55, 1], minimo: [18.59, 9.99, .1], cara: 0 },
+  campana: { medida: [78, 50.15, 60.4], minimo: [41.37, 26.52, 22.36], cara: 0 },
+  frigobar_vinos: { medida: [60.96, 73.622, 86.36], minimo: [28.11, 13.27, 27.33], cara: 8.9 },
+  lavavajillas: { medida: [59, 60.143, 78], minimo: [42.04, 12.2, 33.84], cara: 0 },
+  magic_corner: { medida: [86.97, 51.692, 76.2], escala: true },
+  carrusel: { medida: [115.63, 117.833, 75.5], escala: true, poste: [56.89, 56.89], radio: 56.29 } };
+/* modelo estirable con su frente-izquierda-abajo en el punto o del plan; ejes sin giro salvo que se den (imagen de X, Y y Z del modelo) */
+const modeloEquipo = (archivo, o, medida, ejes = [[1, 0, 0], [0, -1, 0], [0, 0, 1]]) => ({ archivo, estirar: true, origen: o.map(r3), ejes, medida: medida.map(r3) });
+/* la campana del usuario es de chimenea: su visera queda en el hueco de la campana y la chimenea sube hasta el tope de la columna (bajo un
+   alto pasa por dentro de el, como el ducto) */
+/* equipo de x a..b y z z0..z1 con su cara al paño yF de los frentes; fondo hasta yB (sin yB, el natural del modelo); nunca bajo su minimo */
+const equipoModelo = (archivo, a, b, z0, z1, yF, yB = null) => { const E = MODELO_EQUIPOS[archivo], D = yB === null ? E.medida[1] : yF + E.cara - yB;
+  return modeloEquipo(archivo, [a, yF + E.cara, z0], [b - a, D, z1 - z0].map((v, k) => Math.max(v, E.minimo[k]))); };
 const largoPiston = () => { const M = MODELO_PISTON; return Math.hypot(M.P0[0] - M.A0[0], M.P0[2] - M.A0[2]); };
 /* A248: un modelo por su origen con ejes cualesquiera (imagen en el plan de X, Y, Z del archivo): punto del plan y caja que lo envuelve */
 const puntoEjes = (Q, o, e) => [0, 1, 2].map(i => o[i] + Q[0]*e[0][i] + Q[1]*e[1][i] + Q[2]*e[2][i]);
@@ -3969,7 +4000,7 @@ function planDePiezas(c = cfg){
       muescas.push({ modulo: m.id, x0: xa, x1: xb, y0, z0, z1, hueco: [gz, gz + gh], e });
     });
     /* equipo como caja (horno, microondas, refrigerador, estufa, frigobar): marca el hueco y el volumen, sin modelo propio */
-    const equipo = (m, k, tipo, a, b, z0, z1, c0, c1) => add({ id: m.id + ':' + k, rol: 'equipo', modulo: m.id, tipo, x: a, y: c0, z: z0, ancho: b - a, fondo: c1 - c0, alto: z1 - z0, material: null, etiqueta: 'equipos' });
+    const equipo = (m, k, tipo, a, b, z0, z1, c0, c1, modelo = null) => add(Object.assign({ id: m.id + ':' + k, rol: 'equipo', modulo: m.id, tipo, x: a, y: c0, z: z0, ancho: b - a, fondo: c1 - c0, alto: z1 - z0, material: null, etiqueta: 'equipos' }, modelo ? { modelo } : {}));   /* A252: con el modelo del usuario */
     /* cajas de cajon de un especial: cada frente de cajon va en la zona interior con la que mas se solapa */
     const cajasEn = (m, x, zonas) => fronts(m).forEach((f, k) => {
       if (f.kind !== 'Cajon' || f.fijo || !zonas.length) return;
@@ -3982,10 +4013,10 @@ function planDePiezas(c = cfg){
     const especial = (m, x) => {
       const zb = cfg.baseBajos, x1 = x + m.ancho, y0 = sep, mat = matDe(m); let y1 = sep + m.fondo;
       if (m.tipo === 'Estufa') { equipo(m, 'estufa', 'Estufa', x, x1, 0, altoBarra(), y0, y1 + t); return; }
-      if (m.tipo === 'Lavavajillas') { equipo(m, 'lavavajillas', 'Lavavajillas', x, x1, 0, zb + cfg.altoBajos, y0, y1 + t); return; }   /* E6: del piso a la cubierta */
+      if (m.tipo === 'Lavavajillas') { equipo(m, 'lavavajillas', 'Lavavajillas', x, x1, 0, zb + cfg.altoBajos, y0, y1 + t, equipoModelo('lavavajillas', x, x1, 0, zb + cfg.altoBajos, y1 + t, y0)); return; }   /* E6: del piso a la cubierta */
       if (m.tipo === 'Frigobar') {
         const A = cfg.altoBajos, fh = Math.min(m.altoFrigobar, zb + A), z0 = fh > A ? zb + A - fh : zb;
-        equipo(m, 'frigobar', 'Frigobar', x, x1, z0, z0 + fh, y0, y1 + t);
+        equipo(m, 'frigobar', 'Frigobar', x, x1, z0, z0 + fh, y0, y1 + t, equipoModelo('frigobar_vinos', x, x1, z0, z0 + fh, y1 + t, y0));
         if (fh < A && m.tapetaFrigobar) add({ id: m.id + ':tapeta', rol: 'tapeta', modulo: m.id, tipo: 'Frigobar', x, y: y1, z: zb + fh, ancho: m.ancho, fondo: t, alto: A - fh, material: groupMaterial('Tapetas') || null, etiqueta: 'tapetas' });
         return;
       }
@@ -4020,7 +4051,7 @@ function planDePiezas(c = cfg){
         repisas(zona(zb + e, zh - e), m.id + ':inferior', hasDrawers(m) ? 0 : zoneShelves(m, 'inferior'), 'inferior');
         if (grille(m) > 0) add({ id: m.id + ':rejilla', rol: 'herraje', modulo: m.id, tipo: 'Rejilla', x: xi0, y: y1, z: zb + bodyH(m), ancho: xi1 - xi0, fondo: t, alto: grille(m), material: null, etiqueta: 'herrajes' });
         let z = zh;
-        if (m.mostrarEquipos) equipo(m, 'horno', 'Horno', xi0, xi1, z, z + m.altoHorno, y0 + ef, yl);
+        if (m.mostrarEquipos) equipo(m, 'horno', 'Horno', xi0, xi1, z, z + m.altoHorno, y0 + ef, yl, equipoModelo('horno_empotrar', xi0, xi1, z, z + m.altoHorno, yl));
         z += m.altoHorno; piso('division:horno', z); z += e;
         if (m.microondas) {
           const mg = microGap(m);
@@ -4029,7 +4060,9 @@ function planDePiezas(c = cfg){
             z += mg; if (mg > e) piso('lecho:micro', z - e);
           }
           const sob = m.microSobreponer, mw = sob ? Math.min(m.microAncho, xi1 - xi0 - 1) : xi1 - xi0, mx = (xi0 + xi1)/2 - mw/2;
-          if (m.mostrarEquipos) equipo(m, 'micro', 'Microondas', mx, mx + mw, z, z + (sob ? m.microAlto : m.altoMicro), y0 + ef, sob ? y1 : yl);
+          if (m.mostrarEquipos) equipo(m, 'micro', 'Microondas', mx, mx + mw, z, z + (sob ? m.microAlto : m.altoMicro), y0 + ef, sob ? y1 : yl,
+            sob ? equipoModelo('micro_sobreponer', mx, mx + mw, z, z + m.microAlto, y1 - 1, Math.max(y0 + ef, y1 - 1 - MODELO_EQUIPOS.micro_sobreponer.medida[1]))
+                : equipoModelo('micro_empotrar', mx, mx + mw, z, z + m.altoMicro, yl));
           z += m.altoMicro; piso('division:micro', z); z += e;
         }
         if (lift) piso('division:piston', top - lh - e);
@@ -4106,7 +4139,8 @@ function planDePiezas(c = cfg){
         if (m.reserved || m.esquina) { x += m.ancho; continue; }   /* A134: el esquinero en 3D, etapa siguiente */
         if (isSpecial(m) || esAparato(m)) { especial(m, x); x += m.ancho; continue; }
         if (upper && soloCamp(m)) {   /* A81: solo la campana */
-          if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana);
+          if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana,
+            equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + Math.max(huecoAlto(m), bodyH(m)), sep + m.fondoCampana, sep));
           x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
            interior del primero (BodyLead) y a todo el ancho del grupo */
@@ -4151,7 +4185,8 @@ function planDePiezas(c = cfg){
         }
         fronts(m).forEach((f, k) => frente(m, f, k, x));
         /* campana (drawCampana): en el hueco bajo el alto, del muro a su fondo y casi a todo el ancho */
-        if (hasCampana(m) && m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana);
+        if (hasCampana(m) && m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana,
+            equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + Math.max(huecoAlto(m), bodyH(m)), sep + m.fondoCampana, sep));
         /* gola: franja de perfil en cada hueco de agarre (golaStrips), detras del plano de los frentes */
         gola(m, x, x + m.ancho);
         /* modulo superior del alto doble (drawCap): uno por grupo de columnas unidas, del primero y a todo su ancho */
@@ -4327,7 +4362,8 @@ function planDePiezas(c = cfg){
       /* parrilla de induccion (planta): placa centrada a 4 cm del frente del gabinete, sobre la cubierta */
       if (cfg.generarCubierta) { let px = ajusteIzq(); lows.forEach(m => {
         if (m.parrilla && !m.reserved) { const pe = parrillaEn(m), pd = Math.min(52, m.fondo - 8), lab = reg().parrilla.labio, n = piezas.length;   /* A133: ancho real */
-          equipo(m, 'parrilla', 'Parrilla', pe.x0, pe.x1, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4 - pd, sepDe(m) + m.fondo - 4);
+          equipo(m, 'parrilla', 'Parrilla', pe.x0, pe.x1, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4 - pd, sepDe(m) + m.fondo - 4,
+            equipoModelo('parrilla_induccion', pe.x0, pe.x1, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4, sepDe(m) + m.fondo - 4 - pd));
           if (piezas.length > n) piezas[n].hueco = { x: r2(lab), y: r2(lab), ancho: r2(pe.hueco), fondo: r2(pd - 2*lab) }; }
         px += m.ancho; }); }
       if (cfg.backsplash) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
@@ -5069,6 +5105,10 @@ function pruebasPlanMX(){
     p.piezas.filter(q => /^esq\d/.test(q.id) && q.tipo === 'Cazoleta' && q.modelo && q.modelo.ejes).forEach(q => { const f = p.piezas.find(r => r.id === q.frente), MB = MODELO.bisagra;
       const c = puntoEjes([MB.cazoleta, MB.cazoletaCerrada[1], MB.centroZ], q.modelo.origen, q.modelo.ejes);
       ok(f && c[0] > f.x - .5 && c[0] < f.x + f.ancho + .5 && c[1] > f.y - .5 && c[1] < f.y + f.fondo + .5 && c[2] > f.z && c[2] < f.z + f.alto, nombre + ': cazoleta fuera de su puerta ' + q.id); });
+    /* A252: cada modelo estirable es de la biblioteca, con sus ejes y nunca bajo su minimo; lo de soloDibujo lo sustituye un modelo */
+    p.piezas.filter(q => q.modelo && q.modelo.estirar).forEach(q => { const E = MODELO_EQUIPOS[q.modelo.archivo];
+      ok(E && q.modelo.medida.length === 3 && q.modelo.ejes && (E.escala || q.modelo.medida.every((v, k) => v >= E.minimo[k] - .01)), nombre + ': modelo estirable fuera de su medida ' + q.id); });
+    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && q.modelo.estirar && MODELO_EQUIPOS[q.modelo.archivo].escala), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');
     /* A249: cada bisagra cerrada lleva su especificacion: un uso conocido y la apertura de su puerta */
     p.piezas.filter(esBisagraCerrada).forEach(q => { const f = p.piezas.find(r => r.abre && r.frente === q.frente && r.rol === 'frente');
       ok(q.bisagra && USOS_BISAGRA[q.bisagra.uso] && (!f || Math.abs(q.bisagra.apertura - (f.abre.grados || 90)) < .01), nombre + ': bisagra sin su especificacion ' + q.id); });
@@ -5162,7 +5202,7 @@ function pruebasPlanMX(){
       ok(tapa && piso && !tapa.ranura && piso.z - tapa.z >= PLAN_SAQUE - .01, nombre + ': la tapa del cajon oculto no baja su saque en ' + m.id); });   /* A141 */
     /* A138: herrajes tal cual: cada pieza con modelo de la biblioteca y caja positiva; cada bisagra cerrada con su abierta (las dos
        con estado y su puerta) y la puerta girando cerca de la placa; cada corredera media en sus dos estados */
-    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'condimentero', 'bote'];
+    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252 */
     p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada' && !q.modelo.ejes).forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
@@ -6921,9 +6961,9 @@ function aperturasEsquinero(piezas, add){
 function esquinerosPlan(add, r2, sep, tf){
   const R = reg().esquina, e1 = PLAN_CUERPO.lateral, ef = cuerpoFondo(), zb = cfg.baseBajos, A = cfg.altoBajos, k0 = cfg.cara;
   const caja = (id, rol, tipo, modulo, x0, x1, y0, y1, z0, z1, material, etiqueta) => { if (x1 - x0 > .05 && y1 - y0 > .05 && z1 - z0 > .05) add({ id, rol, modulo, tipo, x: x0, y: sep + y0, z: z0, ancho: x1 - x0, fondo: y1 - y0, alto: z1 - z0, material, etiqueta }); };
-  const losa = (id, rol, tipo, modulo, pts, z0, z1, material, etiqueta) => { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const losa = (id, rol, tipo, modulo, pts, z0, z1, material, etiqueta, extra = null) => { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
     const pu = pts.map(([a, b]) => [r2(a - x0), r2(b - y0)]);   /* A223: la caja cubre los puntos redondeados */
-    const q = { id, rol, modulo, tipo, x: x0, y: sep + y0, z: z0, ancho: Math.max(Math.max(...xs) - x0, ...pu.map(q => q[0])), fondo: Math.max(Math.max(...ys) - y0, ...pu.map(q => q[1])), alto: z1 - z0, material, etiqueta, forma: { tipo: 'perfil', eje: 'z', puntos: pu } }; add(q); return q; };
+    const q = { id, rol, modulo, tipo, x: x0, y: sep + y0, z: z0, ancho: Math.max(Math.max(...xs) - x0, ...pu.map(q => q[0])), fondo: Math.max(Math.max(...ys) - y0, ...pu.map(q => q[1])), alto: z1 - z0, material, etiqueta, forma: { tipo: 'perfil', eje: 'z', puntos: pu } }; if (extra) Object.assign(q, extra); add(q); return q; };   /* A252: extra (soloDibujo) */
   /* recortes en la cara de la derecha de la esquina k0 - 1 (su extremo izquierdo es la esquina) */
   if (k0 > 0) { const qa = caraDe(k0 - 1), fA = fondoCara(qa, false), ret = cfg.retiroZoclo, ep = cfg.esquinas[k0 - 1], hp = huellaEsquina(k0 - 1)[1];
     /* A139: con esquinero diagonal la cubierta empieza al final de su huella (ahi va la pieza diamante) y el zoclo donde llega el de 45 */
@@ -6983,11 +7023,17 @@ function esquinerosPlan(add, r2, sep, tf){
     if (herraje) { /* A231: charolas Magic corner (riñon de dos niveles, barandal y poste junto a la puerta) */
       const uE = w - e1 - 3, uB = u0 + e1 + 3, vMax = fOwn - 1, L = Math.max(30, Math.min(84, uE - uB)),   /* A232: el poste del lado ciego */ D = Math.max(20, Math.min(46, vMax - ef - 4)), vc = (ef + vMax)/2;
       const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], contorno = charolaRinon(L, D).map(([x, y]) => pt(uB + x, vc + y)), paso = Math.min(37, (z1 - z0) - 30);
-      [z0 + e1 + 8, z0 + e1 + 8 + paso].forEach((z, i) => { losa(pre + ':charola:' + i, 'herraje', 'MagicCorner', modulo, contorno, z, z + 1.2, null, 'herrajes');
-        paredesPoly(contorno, .5).forEach((q, j) => losa(pre + ':charola:' + i + ':borde:' + j, 'herraje', 'MagicCorner', modulo, q, z + 1.2, z + 5, null, 'herrajes')); });
+      const SD = { soloDibujo: true };   /* A252: en el modelo van las charolas del usuario (el modelo del poste) */
+      [z0 + e1 + 8, z0 + e1 + 8 + paso].forEach((z, i) => { losa(pre + ':charola:' + i, 'herraje', 'MagicCorner', modulo, contorno, z, z + 1.2, null, 'herrajes', SD);
+        paredesPoly(contorno, .5).forEach((q, j) => losa(pre + ':charola:' + i + ':borde:' + j, 'herraje', 'MagicCorner', modulo, q, z + 1.2, z + 5, null, 'herrajes', SD)); });
       const [px, py] = pt(uB + 2, vMax - 3), hP = r2(z1 - z0 - 2*e1);
+      /* A252: el Magic corner del usuario escalado parejo en planta al largo de las charolas (L) sin pasar del fondo: su largo corre por la
+         cara duena desde el lado ciego (u = uB), su frente (el poste) en vMax */
+      const o9 = pt(uB, vMax), ej9 = duenaA ? [[-1, 0, 0], [0, -1, 0], [0, 0, 1]] : [[0, 1, 0], [1, 0, 0], [0, 0, 1]], MM = MODELO_EQUIPOS.magic_corner.medida;
+      const s9 = Math.min(L/MM[0], (vMax - ef - 1)/MM[1]);
       add({ id: pre + ':poste', rol: 'herraje', modulo, tipo: 'MagicCorner', x: px - 1.5, y: sep + py - 1.5, z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
-        forma: { tipo: 'cilindro', de: [1.5, 1.5, 0], a: [1.5, 1.5, hP], diametro: 3, lados: 12 } }); }
+        forma: { tipo: 'cilindro', de: [1.5, 1.5, 0], a: [1.5, 1.5, hP], diametro: 3, lados: 12 },
+        modelo: modeloEquipo('magic_corner', [o9[0], sep + o9[1], z0 + e1], [MM[0]*s9, MM[1]*s9, hP], ej9) }); }
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
   const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false, rep = null, piso = true, fajas = false) => {
@@ -7137,9 +7183,12 @@ function esquinerosPlan(add, r2, sep, tf){
     if (e.tipo === 'carrusel' && subE === 'carrusel') {   /* dos charolas de 3/4 de giro (sin el cuarto que mira a la puerta) y su poste */
       const cx = LA - Math.min(wA, wB)/2, cy = Math.min(wA, wB)/2, rr = Math.max(10, Math.min(wA, wB)/2 - ef - 3), arco = [[cx, cy]];
       for (let g = 180; g <= 450; g += 15) arco.push([cx + rr*Math.cos(g*Math.PI/180), cy + rr*Math.sin(g*Math.PI/180)]);
-      [zb + e1 + 8, zb + A*.55].forEach((z, i) => losa(id + ':charola:' + i, 'repisa', 'Carrusel', modB, arco, z, z + 1.2, null, 'herrajes'));
+      [zb + e1 + 8, zb + A*.55].forEach((z, i) => losa(id + ':charola:' + i, 'repisa', 'Carrusel', modB, arco, z, z + 1.2, null, 'herrajes', { soloDibujo: true }));   /* A252 */
+      /* A252: el carrusel del usuario (charolas de 3/4 sin el cuarto de la puerta, como el arco) escalado a su radio y su poste en el centro */
+      const MC = MODELO_EQUIPOS.carrusel, sc = rr/MC.radio;
       add({ id: id + ':poste', rol: 'herraje', modulo: modB, tipo: 'Carrusel', x: cx - 1.25, y: sep + cy - 1.25, z: zb + e1, ancho: 2.5, fondo: 2.5, alto: A - 2*e1, material: null, etiqueta: 'herrajes',
-        forma: { tipo: 'cilindro', de: [1.25, 1.25, 0], a: [1.25, 1.25, r2(A - 2*e1)], diametro: 2.5, lados: 10 } }); }
+        forma: { tipo: 'cilindro', de: [1.25, 1.25, 0], a: [1.25, 1.25, r2(A - 2*e1)], diametro: 2.5, lados: 10 },
+        modelo: modeloEquipo('carrusel', [cx - MC.poste[0]*sc, sep + cy + MC.poste[1]*sc, zb + e1], [MC.medida[0]*sc, MC.medida[1]*sc, A - 2*e1]) }); }
   }
   /* alto de la esquina en la misma columna (wA, wB): ciego, L o diagonal de 60 x 60 (US 24 x 24) con tapetas hasta la columna */
   const ta = altoEsquina(e); if (ta === 'ninguno' || !mu) return;
