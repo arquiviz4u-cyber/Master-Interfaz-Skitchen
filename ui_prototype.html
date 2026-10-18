@@ -303,6 +303,18 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A281. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «la holgura entre frentes y cama de altos en clasica y
+       simple no es de 3 mm») La cama de los altos con puertas queda PLAN_HOLGURA_PUERTA (3 mm) detras de ellas, como la caja (antes tocaba
+       la cara posterior de las puertas). El repisero sigue llegando al frente (A266); con gola, igual menos el unero.
+   A280. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «el tirador del especiero al costado de torres se
+       coloca a media altura del mismo en vertical») El extraible del especiero anexado lleva la jaladera vertical, centrada en su ancho y
+       a media altura (antes horizontal en el riel de arriba), en 3D, alzado y corte (jalEspeciero, jalVertical, jalZ).
+   A279. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «las repisas de gabinete superior de torres no se
+       reparten homogeneamente») Con piston en el gabinete de arriba de la torre (y del refrigerador) ya no se reserva el alto del piston
+       (reservaPiston bajaba todas las repisas): se reparten con luces iguales en toda la zona, como en los altos con piston.
+   A278. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «el cierre de la tapeta en cierre de extremos esta
+       fuera del pano lateral») El cierre de la tapeta superior lisa (cerrarMolduraIzq/Der) va sobre el lateral del extremo, con su cara al
+       pano del lateral, y la tapeta del frente llega al mismo pano (antes ambos un grueso por fuera). La corona sigue rodeando el lateral.
    A277. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «la faja central de entre hornos se sigue haciendo de
        dos o mas piezas, ocupamos solo una; el snap del micro ya no me deja pegar el horno con el inferior para que queden consecutivos sin
        que se vea la faja central») Con cualquier separacion del microondas de empotrar la faja entre los equipos es una sola pieza: el
@@ -3376,6 +3388,12 @@ function frentesConAnexo(m){
   return r;
 }
 const grille = m => isTower(m) && m.rejillaHorno ? m.altoRejilla : 0;
+/* A280 (usuario 18/10: «el tirador del especiero al costado de torres se coloca a media altura del mismo en vertical»): el extraible del
+   especiero anexado lleva la jaladera vertical, centrada en su ancho y a media altura; el resto sigue HandleAt */
+const jalEspeciero = f => !!(f.anexo && f.especiero);
+const jalVertical = f => f.kind === 'Puerta' || jalEspeciero(f);
+const jalZ = (f, L, ck) => jalEspeciero(f) ? (f.z0 + f.z1)/2 : jalVertical(f) ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2)
+  : f.kind === 'Elevable' ? f.z0 + ck : f.arriba ? f.z1 - ck : (f.z0 + f.z1)/2;
 /* A273 (usuario 18/10: «el panel de los hornos queda montado sobre unos rellenos que no llegan al pano de los frentes para que quede alineado;
    por dentro descansa en los patines (hueco de ventilacion), ese levantamiento se tapa con un relleno o con la rejilla; los hornos tienen un
    ancho total (el panel) y un ancho de apertura de montaje que se crea con rellenos, para que sin los hornos se vean bien los cierres»).
@@ -3911,7 +3929,7 @@ const PLAN_LED = { ancho: 1.7, hondo: .7, retiro: 8 }, PLAN_JUNTA = { ancho: .4,
    fondo menos el unero de la gola (Moderna), tenga puertas o no: refLed */
 const ranuraLedEn = (y1, y0) => { const L = PLAN_LED, hueco = y1 - y0 - L.ancho, ret = Math.max(0, Math.min(hueco, cfg.ledRetiro ?? L.retiro));
   return cfg.ledCentro ? y0 + hueco/2 : cfg.ledFrente ? y1 - ret - L.ancho : y0 + ret; };
-const uneroLed = () => cfg.style === 'Moderna' ? golaHondo(true) : 0;
+const uneroLed = () => cfg.style === 'Moderna' ? golaHondo(true) : PLAN_HOLGURA_PUERTA;   /* A281: sin gola, el canto de la cama queda 3 mm detras de las puertas */
 const fondoLedAtras = () => !cfg.isla && fijacionAltos() === 'frances' ? PLAN_FIJACION.frances.grueso : 0;   /* A150: con riel frances, al pano del fondo */
 const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 2.25,                       /* E15: cazoleta de 35 mm con su centro a 22.5 mm del canto (perforacion de 5 mm; Blum pide 3-8 mm). Antes 1.8 */
   brazo: 4.5, brazoAlto: 1.6, brazoPaso: .6, placa: 3, placaAlto: 4, placaGrueso: .8 };   /* B19: brazo y placa en el lateral */
@@ -4181,10 +4199,10 @@ function planDePiezas(c = cfg){
     /* jaladera (drawHandle / HandleAt): solo fuera del estilo Moderna; frentes de 8 cm o mas que no son fijos */
     const jaladera = (m, f, x0, base, yF = sep + m.fondo + t) => {   /* yF: cara vista (el modulo superior tiene su propio fondo) */
       if (cfg.style === 'Moderna' || f.fijo || f.kind === 'Elevable' || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;   /* A113: los frentes de piston no llevan jaladera */
-      const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', J = PLAN_JALADERA, boton = cfg.jaladera === 'Boton';
+      const L = cfg.largoJaladera, vertical = jalVertical(f), J = PLAN_JALADERA, boton = cfg.jaladera === 'Boton';   /* A280 */
       const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
-      const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : f.arriba ? f.z1 - ck : (f.z0 + f.z1)/2;
-      const cx = x0 + (vertical ? (f.hingeRight ? f.x0 + ck : f.x1 - ck) : (f.x0 + f.x1)/2);
+      const cz = jalZ(f, L, ck);
+      const cx = x0 + (vertical && !jalEspeciero(f) ? (f.hingeRight ? f.x0 + ck : f.x1 - ck) : (f.x0 + f.x1)/2);
       const [w, h] = boton ? [J.boton, J.boton] : vertical ? [J.grueso, L] : [L, J.grueso];
       add({ id: base + ':jaladera', rol: 'herraje', modulo: m.id, tipo: boton ? 'Boton' : 'Jaladera', x: cx - w/2, y: yF, z: cz - h/2, ancho: w, fondo: boton ? J.boton : J.salida, alto: h, material: groupMaterial('Jaladeras') || null, etiqueta: 'herrajes' });
     };
@@ -4325,7 +4343,9 @@ function planDePiezas(c = cfg){
         }
         if (lift) pisoV('division:piston', top - lh - e);
         const hzS = Object.assign(zona(z, top - e - (lift ? lh : 0)), { y0: y0 + ef + vH });   /* A260: las repisas de arriba dejan el canal */
-        repisas(m.torreSuperior === 'Pistón' ? Object.assign({}, hzS, { z1: hzS.z1 - reservaPiston(top - z) }) : hzS, m.id + ':superior', zoneShelves(m, 'superior'), 'superior');   /* A160 */
+        /* A279 (usuario 18/10: «las repisas de gabinete superior de torres no se reparten homogeneamente»): con piston ya no se reserva su
+           alto arriba (las bajaba todas): se reparten en toda la zona, como en los altos con piston, y el piston las libra al resolverse */
+        repisas(hzS, m.id + ':superior', zoneShelves(m, 'superior'), 'superior');   /* A160; A279 */
         if (lift) zona(top - lh, top - e);
       } else if (isPantry(m)) {
         tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'cuerpo1', 'fondo', 'Interior'));
@@ -4351,7 +4371,7 @@ function planDePiezas(c = cfg){
           tab('superior:trasero', 'Trasero', sx0, sx1, y0, y0 + ef, hr, top, matPanel(m, 'superior', 'fondo', 'Interior'));
           tab('superior:piso', 'Piso', sx0, sx1, y0 + ef, ys, hr, hr + e); tab('superior:techo', 'Techo', sx0, sx1, y0 + ef, ys, top - e, top);
           const hz = { x0: sx0, x1: sx1, y0: y0 + ef, y1: ys, yF: y1, z0: hr + e, z1: top - e };
-          repisas(m.pistonRefri ? Object.assign({}, hz, { z1: hz.z1 - reservaPiston(top - hr) }) : hz, m.id + ':superior', zoneShelves(m, 'superior'), 'superior');   /* A160 */
+          repisas(hz, m.id + ':superior', zoneShelves(m, 'superior'), 'superior');   /* A160; A279: sin reserva del piston */
         }
       }
       /* A150 (usuario): el cuerpo de arriba ensanchado comparte sus repisas con el lado del especiero; A152: una sola repisa a todo el ancho */
@@ -4483,7 +4503,9 @@ function planDePiezas(c = cfg){
       const refLed = new Map(); { let corr = [];
         const cierra = () => { const r = Math.min(...corr.map(q => sep + q.fondo - uneroLed())); corr.forEach(q => refLed.set(q, r)); corr = []; };
         tramosCama.forEach(q => { if (corr.length && Math.abs(corr[corr.length - 1].x1 - q.x0) > .01) cierra(); corr.push(q); }); if (corr.length) cierra(); }
-      tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo + (sinPuertas(q.m) ? t : 0), z0 = baseAltos() + elevAlto(q.m), e = PLAN_CUERPO.lateral;   /* A95; A266: la del repisero, al frente */
+      /* A281 (usuario 18/10: «la holgura entre frentes y cama de altos en clasica y simple no es de 3 mm»): con puertas la cama queda
+         PLAN_HOLGURA_PUERTA detras de ellas, como la caja (antes tocaba la cara posterior); el repisero sigue al frente */
+      tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo + (sinPuertas(q.m) ? t : cfg.style === 'Moderna' ? 0 : -PLAN_HOLGURA_PUERTA), z0 = baseAltos() + elevAlto(q.m), e = PLAN_CUERPO.lateral;   /* A95; A266: la del repisero, al frente */
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
         /* A91 (usuario, 08/10): con gola, la cama del piso se queda la profundidad del canal (golaHondo) antes del pano de las puertas:
            ese hueco es el unero de los altos, y la cama interior de encima llega al pano y lo cierra. Con LED igual (la ranura y la tira
@@ -4799,8 +4821,10 @@ function planDePiezas(c = cfg){
         /* A254 (usuario 17/10: «los crownmolding no se cierran en los laterales; todas las tapetas superiores deben tener esa opcion»): con el
            extremo cerrado, un tablero sobre el lateral del gabinete, del muro al frente de la tapeta, y la del frente se alarga a tapar su canto */
         const yTs = fo - t - dTs, cierreI = primero && !cIs && cfg.cerrarMolduraIzq, cierreD = ultimo && !cDs && cfg.cerrarMolduraDer;
-        if (cierreI) { tsA = r2(a - t); if (yTs - sep > .05) add({ id: 'tapeta:superior:cierre:izq', rol: 'tapeta', x: r2(a - t), y: sep, z: zTop, ancho: t, fondo: r2(yTs - sep), alto: altoTs, material: matTs, etiqueta: 'tapetas' }); }
-        if (cierreD) { tsB = r2(b + t); if (yTs - sep > .05) add({ id: 'tapeta:superior:cierre:der', rol: 'tapeta', x: b, y: sep, z: zTop, ancho: t, fondo: r2(yTs - sep), alto: altoTs, material: matTs, etiqueta: 'tapetas' }); }
+        /* A278 (usuario 18/10: «el cierre de la tapeta en cierre de extremos esta fuera del pano lateral»): el cierre va sobre el lateral, su
+           cara al pano del lateral del extremo (antes un grueso por fuera) y la tapeta del frente llega al mismo pano */
+        if (cierreI && yTs - sep > .05) add({ id: 'tapeta:superior:cierre:izq', rol: 'tapeta', x: a, y: sep, z: zTop, ancho: t, fondo: r2(yTs - sep), alto: altoTs, material: matTs, etiqueta: 'tapetas' });
+        if (cierreD && yTs - sep > .05) add({ id: 'tapeta:superior:cierre:der', rol: 'tapeta', x: r2(b - t), y: sep, z: zTop, ancho: t, fondo: r2(yTs - sep), alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: tsA, y: yTs, z: zTop, ancho: r2(tsB - tsA), fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01) return;
         /* A161 (usuario): el regreso no sobresale del canto de la columna mas saliente: va dentro de ella, del canto del frente menos
@@ -5212,6 +5236,8 @@ function pruebasPlanMX(){
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
     ['esquinero con materiales propios en el bajo y el alto (A272)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const mb = c.modulos.find(m => m.esquina && !m.upper), mu = c.modulos.find(m => m.esquina && m.upper);
       const ids = (c.catalogo || []).map(q => q.id); if (ids.length > 2) { mb.material = ids[1]; mu.material = ids[2]; mu.materialesPaneles = { 'esquina.fondo': ids[1], 'esquina.repisa.1': ids[2] }; } } finally { cfg = prev; } return c; }],
+    ['torre con piston arriba y repisas, clasica con tapeta superior cerrada (A278, A279, A281)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Clasica'; c.led = true; c.tapetaSuperior = true; c.cerrarMolduraIzq = c.cerrarMolduraDer = true; c.corridaIzq = c.corridaDer = false;
+      Object.assign(l[0], { tipo: 'Hornos', ancho: 60, fijo: true, torreSuperior: 'Pistón', repisasSuperior: 2 }); return c; }],
     ['torre con el microondas separado 10 del horno (A277)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 60, fijo: true, elevacionMicro: 10, microSobreponer: false }); return c; }],
     ['torre de 76 con horno y microondas juntos (A275)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 76, fijo: true, hornosJuntos: true, rejillaHorno: false }); return c; }],
     ['esquinero plegable con la bisagra oculta Blum (A270)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].bisagraIntermedia = 'oculta'; } finally { cfg = prev; } return c; }],
@@ -5347,7 +5373,7 @@ function pruebasPlanMX(){
       if (camas.length && camas[0].ranura && led) { const cm = camas[0], zb = cm.z, zc = cm.z + cm.alto, rr = cm.ranura;
         ok(Math.abs(z0 - zc) < .01, nombre + ': los laterales de ' + m.id + ' no apoyan sobre la cama');
         ok(Math.abs(led.z - zb) < .01 && Math.abs(led.y - cm.y - rr.y) < .01 && Math.abs(led.fondo - rr.ancho) < .01 && Math.abs(led.alto - rr.hondo) < .01, nombre + ': el LED no va embutido a ras en la ranura de ' + m.id);
-        const frente = cm.y + cm.fondo - (led.y + led.fondo) - (sinPuertas(m) ? (c.style === 'Moderna' ? golaHondo(true) : 0) + espFrente() : 0), atras = led.y - cm.y, borde = c.ledFrente ? frente : atras;   /* A266: el repisero llega al frente */   /* del borde del mueble al inicio del canal; A264: el repisero desde su unero, como los demas */
+        const frente = cm.y + cm.fondo - (led.y + led.fondo) - (sinPuertas(m) ? uneroLed() + espFrente() : 0), atras = led.y - cm.y, borde = c.ledFrente ? frente : atras;   /* A266: el repisero llega al frente */   /* del borde del mueble al inicio del canal; A264: el repisero desde su unero, como los demas */
         if (c.ledCentro) ok(Math.abs(frente - atras) < .01, nombre + ': el canal del LED no queda al centro en ' + m.id);
         else ok(Math.abs(borde - Math.min(c.ledRetiro ?? PLAN_LED.retiro, cm.fondo - led.fondo)) < .01, nombre + ': el canal del LED queda a ' + borde + ' cm del borde en ' + m.id);
         ok(!p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piso' && q.z < zc + 1), nombre + ': ' + m.id + ' lleva doble piso');
@@ -5426,6 +5452,15 @@ function pruebasPlanMX(){
         const fl = p.piezas.filter(q => /^luz:/.test(q.id)); if (la && fl.length) ok(fl.some(q => Math.abs(q.x + q.ancho - la.x) < .01 && Math.abs(q.y - la.y) < .01), nombre + ': la luz del esquinero no sigue a la de su cara'); } }
     /* A269: las hojas en L del alto de esquina miden al menos hojaMinAlto */
     p.piezas.filter(q => /^esq\d+:alto(:sup)?:hoja:[ab]$/.test(q.id)).forEach(q => ok(Math.max(q.ancho, q.fondo) >= reg().esquina.hojaMinAlto - .05, nombre + ': la hoja ' + q.id + ' mide menos de ' + reg().esquina.hojaMinAlto));
+    /* A278: el cierre de la tapeta superior al pano del lateral (no por fuera) */
+    ['izq', 'der'].forEach(l => { const q = p.piezas.find(x => x.id === 'tapeta:superior:cierre:' + l); if (!q) return; const W = c.longitud;
+      ok(q.x > -.01 && q.x + q.ancho < W + .01, nombre + ': el cierre ' + l + ' de la tapeta superior sale del pano del lateral'); });
+    /* A281: la cama de un alto con puertas, 3 mm detras de ellas */
+    p.piezas.filter(q => q.tipo === 'Cama' && /^cama:/.test(q.id)).forEach(q => { const m = c.modulos.find(o => o.id === q.modulo), fr = p.piezas.find(x => x.modulo === q.modulo && x.rol === 'frente');
+      if (m && fr && !sinPuertas(m) && c.style !== 'Moderna') ok(Math.abs(fr.y - (q.y + q.fondo) - PLAN_HOLGURA_PUERTA) < .01, nombre + ': la cama de ' + m.id + ' no deja 3 mm a sus puertas'); });
+    /* A279: las repisas del gabinete de arriba de la torre, con luces iguales */
+    c.modulos.filter(m => isTower(m) && !m.upper).forEach(m => { const rs = p.piezas.filter(q => q.modulo === m.id && /:superior:repisa:\d+$/.test(q.id)).sort((a, b) => a.z - b.z); if (rs.length < 2) return;
+      const lz = rs.slice(1).map((q, i) => q.z - rs[i].z); ok(Math.max(...lz) - Math.min(...lz) < .05, nombre + ': las repisas de arriba de la torre ' + m.id + ' no se reparten parejo'); });
     /* A272: el alto de esquina con su material y el esquinero con su fondo y sus repisas propios */
     c.modulos.filter(m => m.esquina && m.material).forEach(m => { const pz = p.piezas.filter(q => q.modulo === m.id && q.rol === 'panel' && q.tipo === 'Lateral');
       ok(!pz.length || pz.every(q => q.material === m.material), nombre + ': el esquinero ' + m.id + ' no toma su material'); });
@@ -5527,7 +5562,7 @@ function pruebasPlanMX(){
       if (c.tipoZoclo === 'patas' && c.generarZoclos && c.baseBajos > 0) ok(p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Pata' && q.id.endsWith(':placa')).length === (isRefri(m) ? 2 : 6), nombre + ': patas del mueble con especiero ' + m.id); });
     /* A160: la tapeta superior es un canto al frente (no llega al muro); el brazo de la bisagra se queda sin puertas; el piston de
        la torre y del refrigerador cubre su cuerpo de arriba */
-    p.piezas.filter(q => /^tapeta:superior/.test(q.id) && !q.id.includes('regreso') && q.tipo !== 'Moldura').forEach(q => ok(q.fondo <= espFrente() + .01 && q.y > 1, nombre + ': tapeta superior solida ' + q.id));
+    p.piezas.filter(q => /^tapeta:superior/.test(q.id) && !q.id.includes('regreso') && !q.id.includes(':cierre:') && q.tipo !== 'Moldura')   /* A278: el cierre va del muro al frente */.forEach(q => ok(q.fondo <= espFrente() + .01 && q.y > 1, nombre + ': tapeta superior solida ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada').forEach(q => ok(!q.ocultaSinPuertas, nombre + ': el brazo de la bisagra se oculta sin puertas ' + q.id));
     c.modulos.filter(m => !m.upper && (isRefri(m) && m.pistonRefri && m.superiorRefri || isTower(m) && m.torreSuperior === 'Pistón')).forEach(m =>
       ok(p.piezas.some(q => q.modulo === m.id && q.abre && q.abre.tipo === 'Elevable' && q.abre.zona === 'superior') && p.piezas.some(q => q.modulo === m.id && q.tipo === 'Piston'), nombre + ': ' + m.id + ' sin su piston'));
@@ -6511,8 +6546,8 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     for (let k = 1; k <= n; k++) { const lz = (inner - n*1.8)/(n + 1); brd({ x: body.x + 2, y: Z(z0 + 1.8 + k*lz + (k - .5)*1.8 + .9), w: body.w - 2*t, h: t }, mm); }
     /* A125 (usuario, 09/10): jaladeras en corte (clasica y simple): salen del frente; puertas a lo largo, cajones de canto, boton */
     if (cfg.style !== 'Moderna') fr.forEach(f => { if (f.kind === 'Elevable' || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
-      const L = cfg.largoJaladera, vert = f.kind === 'Puerta', ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0), sale = 2.5;
-      const cz = vert ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.arriba ? f.z1 - ck : (f.z0 + f.z1)/2;
+      const L = cfg.largoJaladera, vert = jalVertical(f), ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0), sale = 2.5;   /* A280 */
+      const cz = jalZ(f, L, ck);
       const hz = cfg.jaladera === 'Boton' ? 1.2 : vert ? L/2 : .6, q = { x: body.x - t - sale*s, y: Z(cz + hz), w: sale*s, h: 2*hz*s };
       post.push(() => { ctx.fillStyle = colorJaladera(); ctx.fillRect(q.x, q.y, q.w, Math.max(2, q.h)); }); });
     outline(body, C.line, 1); if (selection.has(m.id)) post.push(() => outline(body, C.accent, 2.5));
@@ -8147,10 +8182,10 @@ function drawHandle(f, r, scale){
   if (cfg.style === 'Clasica') { const fw = marcoShaker(f.x1 - f.x0, f.z1 - f.z0)*scale; ctx.strokeStyle = C.shaker; ctx.lineWidth = 1; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
   if (f.kind === 'Elevable') return;   /* A113: el frente de piston conserva su marco pero no lleva jaladera */
   /* HandleAt: altos, abajo; puertas altas (mas de 110 cm hasta sobre 160), a 95 cm del lecho; resto, arriba. Elevable: abajo */
-  const L = cfg.largoJaladera, vertical = f.kind === 'Puerta', Zs = frame.Z;
+  const L = cfg.largoJaladera, vertical = jalVertical(f), Zs = frame.Z;   /* A280 */
   const ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0);
-  const cz = vertical ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2) : f.kind === 'Elevable' ? f.z0 + ck : f.arriba ? f.z1 - ck : (f.z0 + f.z1)/2;
-  const cx = vertical ? (f.hingeRight ? r.x + ck*scale : r.x + r.w - ck*scale) : r.x + r.w/2, cy = Zs(cz);
+  const cz = jalZ(f, L, ck);
+  const cx = vertical && !jalEspeciero(f) ? (f.hingeRight ? r.x + ck*scale : r.x + r.w - ck*scale) : r.x + r.w/2, cy = Zs(cz);
   ctx.fillStyle = ctx.strokeStyle = colorJaladera();
   if (cfg.jaladera === 'Boton') { const rb = Math.max(2.5, 1.1*scale); ctx.beginPath(); ctx.arc(cx, cy, rb, 0, Math.PI*2); ctx.fill(); destinoJaladera(cx - rb, cy - rb, cx + rb, cy + rb); return; }
   const h = L/2*scale; ctx.lineWidth = Math.max(2, Math.min(4, 1.2*scale)); ctx.lineCap = 'round';
