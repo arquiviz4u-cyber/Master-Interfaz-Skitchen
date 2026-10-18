@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A258. [Master hecho 18/10; SketchUp sin cambios de codigo; Revit pendiente] Esquineros (usuario 18/10): 1) material por defecto (el paso
+       de predeterminados iba antes del esquinero); 2) altos de esquina en Moderna: el lateral no llega al frente en el grueso del piso (L,
+       diagonal y ciego del lado de la puerta): el unero sigue de corrido como en los demas altos; 3) golas del esquinero en L a inglete
+       (alma y aleta cortadas a 45, antes dos cajas que se cruzaban); 4) hojas en L (abatibles y plegables, bajos y altos) abren 165 sobre
+       su canto (sin el brazo abierto de la bisagra, que no hay a 165); la hoja b plegable dobla 90 sobre la bisagra intermedia y se va con
+       la a: un solo giro equivalente (de mas de 180, el mismo hacia el otro lado).
    A257. [SketchUp hecho 18/10; Revit: lo mismo con sus familias; master sin cambios de codigo] Metal homogeneo en los equipos (usuario 18/10): horno, microondas, campana, frigobar y lavavajillas comparten el acero inoxidable del horno (gris 139, DLB_Acero_inoxidable); las caras sin material o de un gris de brillo medio pasan a el, el vidrio negro y los blancos se quedan. Aplica a los proximos equipos de metal que se integren (Modelos::EQUIPOS_METAL en SketchUp). Las tarjas se dejan fuera por ahora.
    A256. [Master hecho 18/10; Ruby y Revit: default huecoCampana 5 cm (US 2 in)] Gabinete de campana: la elevacion del gabinete sobre la campana (canopy visible) nace en 5 cm (antes 10; US 2 in, antes 6) y se ajusta de 5 a 40 cm.
    A255. [Master hecho 18/10; SketchUp y Revit sin cambios (dibujo del master)] Isometrico espejado en cocinas en L y U (usuario 18/10):
@@ -4892,9 +4898,10 @@ function planDePiezas(c = cfg){
     piezas.forEach(q => { if ((q.rol === 'frente' || (q.rol === 'herraje' && (['Jaladera', 'Boton', 'Cazoleta', 'Junta', 'PistonSoportePuerta'].includes(q.tipo) || q.tipo === 'Bisagra' && !q.modelo)) ||   /* A160: el brazo y su placa van en el lateral: se quedan sin puertas */ (q.rol === 'zoclo' && q.tipo === 'Hoja')) && q.estado !== 'abierto') q.ocultaSinPuertas = true; });   /* A138: la bisagra abierta ya va oculta */
     /* (A61) la pieza sin material lleva el tono con que la dibuja el editor (paleta clara): asi la primera generacion se ve
        como el dibujo y no con el material por omision de SketchUp. Herrajes y equipos conservan el suyo */
+    if (multiCara()) { esquinerosPlan(add, r2, sepMuro, t); aperturasEsquinero(piezas, add); }   /* A134; A246: Interactuar del esquinero */
+    /* A258 (usuario 18/10: «los muebles esquineros siguen sin tener material por default»): el paso va despues del esquinero */
     const usados = new Set();
     piezas.forEach(q => { if (q.material) return; const k = predeterminadoDe(q); if (k) { q.material = k; usados.add(k); } });
-    if (multiCara()) { esquinerosPlan(add, r2, sepMuro, t); aperturasEsquinero(piezas, add); }   /* A134; A246: Interactuar del esquinero */
     return { esquema: PLAN_ESQUEMA, unidad: 'cm', producto: 'skitchen',
       tramo: { longitud: cfg.longitud, alturaMuro: cfg.alturaMuro, desfasePiso: cfg.desfasePiso || 0, separacionPosterior: sep },
       materiales: (cfg.catalogo || []).map(q => { const tx = texturaDe(q); return Object.assign({ id: q.id, nombre: q.nombre, rgb: [q.r, q.g, q.b] }, tx ? { textura: tx } : {}); })
@@ -6960,10 +6967,13 @@ function aperturasEsquinero(piezas, add){
     return { o1: [q.x, q.y + q.fondo], o2: [q.x, q.y], u: [-1, 0] }; };
   const gira = ([x, y], [cx, cy], g) => { const a = g*Math.PI/180; return [cx + (x - cx)*Math.cos(a) - (y - cy)*Math.sin(a), cy + (x - cx)*Math.sin(a) + (y - cy)*Math.cos(a)]; };
   const puerta = (q, [px, py], g, extra = {}) => { q.abre = Object.assign({ tipo: 'Puerta', lado: g > 0 ? 'izquierda' : 'derecha', x: r(px), y: r(py), grados: r(Math.abs(g)) }, extra); };
+  /* A258 (usuario 18/10: «las puertas de esquineros bajos y altos en L se extienden a 165, en plegables tambien, con la bisagra intermedia»):
+     las hojas en L (abatibles y plegables) abren 165 sobre su canto */
+  const GL165 = 165, hojaL = q => /:hoja:[ab]$/.test(q.id);
   fr.forEach(q => { const c = vista(q), d = [c.o2[0] - c.o1[0], c.o2[1] - c.o1[1]], sg = Math.sign(d[0]*c.u[1] - d[1]*c.u[0]) || 1;
     q.frente = q.id; q.ocultaSinPuertas = true;
     if (q.tipo === 'Cajon') q.abre = { tipo: 'Cajon', recorrido: 35, direccion: [r(c.u[0]), r(c.u[1])], independiente: true };
-    else puerta(q, c.o1, sg*90, { independiente: true }); });
+    else puerta(q, c.o1, sg*(hojaL(q) ? GL165 : 90), { independiente: true }); });
   /* A248 (usuario 17/10: «hazlas con mi bisagra girada»): bisagras del esquinero. Cada puerta (salvo la hoja b plegable, que cuelga de la a) lleva
      la bisagra del usuario como una puerta de lateral, en un marco local: x desde el canto de la bisagra hacia el libre (al reves si el giro
      es horario), y hacia afuera; ese marco va girado al angulo de la puerta (90 en la cara de al lado, 45 en la diagonal) con modelo.ejes.
@@ -6972,7 +6982,7 @@ function aperturasEsquinero(piezas, add){
   if (cfg.bisagras) fr.filter(q => q.tipo === 'Puerta' && !(plegable && /:hoja:b$/.test(q.id))).forEach(q => {
     const MB = MODELO.bisagra, c = vista(q), L = Math.hypot(c.o2[0] - c.o1[0], c.o2[1] - c.o1[1]) || 1, dd = [(c.o2[0] - c.o1[0])/L, (c.o2[1] - c.o1[1])/L];
     const sg = Math.sign(dd[0]*c.u[1] - dd[1]*c.u[0]) || 1, der = sg < 0, xh = der ? [-dd[0], -dd[1]] : dd, yh = c.u, t9 = espFrente();
-    const canto = PLAN_CUERPO.lateral - holF(), cara = der ? -canto : canto, yb = -t9, GL = MB.gradosLateral;
+    const canto = PLAN_CUERPO.lateral - holF(), cara = der ? -canto : canto, yb = -t9, GL = hojaL(q) ? GL165 : MB.gradosLateral;   /* A258 */
     const aPlan = ([lx, ly, lz]) => [c.o1[0] + lx*xh[0] + ly*yh[0], c.o1[1] + lx*xh[1] + ly*yh[1], lz];
     const ejesL = [[(der ? 1 : -1)*xh[0], (der ? 1 : -1)*xh[1], 0], [-yh[0], -yh[1], 0], [0, 0, 1]].map(v => v.map(r3));
     const eje = ejeBisagra(canto, t9, PLAN_HOLGURA_PUERTA, GL), DR = recorridoBisagra(eje, GL), D = MB.desfaseAbierta.map((v, i) => v + DR[i]);
@@ -6982,14 +6992,21 @@ function aperturasEsquinero(piezas, add){
       const o0 = aPlan(puntoModelo([0, 0, 0], mz)).map(r3), oA = aPlan(puntoModelo(D, mz)).map(r3);
       const parte = (id, tipo, archivo, o, caja, extra) => add(Object.assign({ id: q.id + ':' + id + ':' + j, tipo, modelo: { archivo, origen: o, ejes: ejesL } }, base, extra, cajaEjes(caja, o0, ejesL)));   /* la caja, en ejes de la cerrada */
       parte('bisagra', 'Bisagra', 'bisagra_brazo_cerrada', o0, MB.brazoCerrado, { estado: 'cerrado', bisagra: especBisagra(q.forma && q.forma.eje === 'z' ? 'esquinero 45' : /:hoja:[ab]$/.test(q.id) ? (plegable ? 'esquinero plegable' : 'esquinero abatible') : 'esquinero', GL) });   /* A249 */
-      parte('bisagraAbierta', 'Bisagra', 'bisagra_brazo_abierta90', oA, MB.brazoAbierto90.map(cc => cc.map((v, i) => v + DR[i])), { estado: 'abierto' });
+      if (!hojaL(q)) parte('bisagraAbierta', 'Bisagra', 'bisagra_brazo_abierta90', oA, MB.brazoAbierto90.map(cc => cc.map((v, i) => v + DR[i])), { estado: 'abierto' });   /* A258: sin modelo de la bisagra a 165 */
       parte('cazoleta', 'Cazoleta', 'bisagra_cazoleta', o0, MB.cazoletaCaja, { ocultaSinPuertas: true }); }
-    const pv = aPlan([cara + (der ? 1 : -1)*(eje[0] - MB.lateral), yb + MB.trasCara - eje[1], 0]);
+    const pv = hojaL(q) ? c.o1 : aPlan([cara + (der ? 1 : -1)*(eje[0] - MB.lateral), yb + MB.trasCara - eje[1], 0]);   /* A258: la hoja a 165 gira sobre su canto */
     puerta(q, [pv[0], pv[1]], sg*GL, q.abre && q.abre.independiente ? { independiente: true } : {}); });
+  /* A258: la hoja b de la plegable cuelga de la a por la bisagra intermedia (en el canto libre de la a): dobla 90 sobre ella hasta quedar
+     paralela y se va con la a. Los dos giros juntos son uno solo (el angulo suma; su centro es el punto que no se mueve); de mas de 180,
+     el mismo giro hacia el otro lado (Interactuar llega a 180) */
   if (plegable) fr.filter(q => /:hoja:a$/.test(q.id)).forEach(a => { const b = fr.find(q => q.id === a.id.replace(/a$/, 'b')); if (!b) return;
-    const ca = vista(a), libre = gira(ca.o2, [a.abre.x, a.abre.y], a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados), p0 = [b.x, b.y];   /* el canto de la b junto a la esquina, en su cara vista */
+    const ca = vista(a), ga = a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados, tfa = Math.min(a.ancho, a.fondo), J = [ca.o2[0] - ca.u[0]*tfa, ca.o2[1] - ca.u[1]*tfa], Ha = [a.abre.x, a.abre.y];   /* bisagra intermedia en la cara de atras: la b se dobla contra ella */
+    const gb = ga + Math.sign(ga)*90, J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
+    /* centro C: J2 = C + R (J - C)  =>  (I - R) C = J2 - R J */
+    const RJ = [co*J[0] - si*J[1], si*J[0] + co*J[1]], v = [J2[0] - RJ[0], J2[1] - RJ[1]], m = [[1 - co, si], [-si, 1 - co]], det = m[0][0]*m[1][1] - m[0][1]*m[1][0];
+    const C = [(v[0]*m[1][1] - m[0][1]*v[1])/det, (m[0][0]*v[1] - v[0]*m[1][0])/det], g1 = Math.abs(gb) > 180 ? gb - Math.sign(gb)*360 : gb;
     const grupo = a.id.replace(/:a$/, 's'); delete a.abre.independiente;
-    puerta(b, [(p0[0] + libre[0])/2, (p0[1] + libre[1])/2], 180, { grupo }); a.abre.grupo = grupo; });
+    puerta(b, C, g1, { grupo }); a.abre.grupo = grupo; });
   esq.forEach(q => { if (q.frente || q.rol === 'frente' && !fr.includes(q)) return; const f = fr.find(d => q.id.startsWith(d.id + ':')); if (f) { q.frente = f.id; if (q.rol === 'herraje' && ['Jaladera', 'Boton'].includes(q.tipo)) q.ocultaSinPuertas = true; } });
 }
 function esquinerosPlan(add, r2, sep, tf){
@@ -7041,6 +7058,7 @@ function esquinerosPlan(add, r2, sep, tf){
     const bx = (n, rol, tipo, u0, u1, v0, v1, a, b, m2, et) => duenaA ? caja(pre + n, rol, tipo, modulo, LA - u1, LA - u0, v0, v1, a, b, m2, et) : caja(pre + n, rol, tipo, modulo, LA - v1, LA - v0, u0, u1, a, b, m2, et);
     const xC = ciegoExtra(k), P = op ? w - fOtra - tf - op.cierre : R.ciegoPuerta + xC, u0 = 0, et = 'gabinetes';   /* A232: el bajo tambien llega al muro */   /* A226: el alto llega al muro y su puerta crece al acortar el cierre */   /* A221: crecen la caja y su puerta */
     bx(':lateral:esquina', 'panel', 'Lateral', u0, u0 + e1, 0, fOwn, z0, z1, mat, et); if (gola) { const hG = golaHondo(true), zgL = z1 - agarre() - traslapeL(); bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn - hG, z0, z1, mat, et); bx(':lateral:bajo', 'panel', 'Lateral', w - e1, w, fOwn - hG, fOwn, z0, zgL, mat, et); }   /* A163: rebaje de la gola */
+    else if (op && op.unero > 0) { bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0 + e1, z1, mat, et); bx(':lateral:unero', 'panel', 'Lateral', w - e1, w, 0, fOwn - op.unero, z0, z0 + e1, mat, et); }   /* A258: el unero de corrido */
     else bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0, z1, mat, et);
     bx(':trasero', 'panel', 'Trasero', u0 + e1, w - e1, 0, ef, z0, z1, gm('Interior'), et); if (op && op.unero > 0) { const cs = Math.max(u0 + e1, fOtra + tf);   /* A230: el unero solo en la puerta y el cierre; el tramo ciego lleva el piso completo */
       bx(':piso:ciego', 'panel', 'Piso', u0 + e1, cs, ef, fOwn, z0, z0 + e1, mat, et); bx(':cama:ciego', 'panel', 'Cama', u0 + e1, cs, ef, fOwn, z0 + e1, z0 + 2*e1, mat, et);   /* A233: al pano de la caja, detras del cierre corrido */   /* A232: doble cama tambien en la parte ciega, al pano de los frentes */
@@ -7082,6 +7100,9 @@ function esquinerosPlan(add, r2, sep, tf){
     const ng = canal > 0 ? (conDiag && !cd ? canal*Math.SQRT2 : canal) : 0, zg = z1 - agarre() - traslapeL();
     if (ng > 0) { caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa - ng, z0, z1, mat, et); caja(pre + ':lateral:a:bajo', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, fa - ng, fa, z0, zg, mat, et);
       caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb + ng, LA, b - e1, b, z0, z1, mat, et); caja(pre + ':lateral:b:bajo', 'panel', 'Lateral', modulo, LA - fb, LA - fb + ng, b - e1, b, z0, zg, mat, et); }
+    else if (unero > 0) {   /* A258 (usuario 18/10): en el alto (Moderna) el lateral no llega al frente en el grueso del piso: el unero sigue de corrido */
+      caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa, z0 + e1, z1, mat, et); caja(pre + ':lateral:a:unero', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa - unero, z0, z0 + e1, mat, et);
+      caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb, LA, b - e1, b, z0 + e1, z1, mat, et); caja(pre + ':lateral:b:unero', 'panel', 'Lateral', modulo, LA - fb + unero, LA, b - e1, b, z0, z0 + e1, mat, et); }
     else { caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa, z0, z1, mat, et); caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb, LA, b - e1, b, z0, z1, mat, et); }
     caja(pre + ':trasero:a', 'panel', 'Trasero', modulo, LA - a + e1, LA, 0, ef, z0, z1, gm('Interior'), et); caja(pre + ':trasero:b', 'panel', 'Trasero', modulo, LA - ef, LA, ef, b - e1, z0, z1, gm('Interior'), et);
     /* A139 (usuario 11/10): con gola, el alto de esquina lleva doble cama como los demas altos: el piso se queda el unero antes del
@@ -7113,6 +7134,12 @@ function esquinerosPlan(add, r2, sep, tf){
     /* A163: desde el limite de la columna de cada cara (empata con la gola del vecino) y a la profundidad del perfil de las caras; las
        almas se cruzan en la esquina */
     { const fa2 = fa - PLAN_HOLGURA_PUERTA, fb2 = fb - PLAN_HOLGURA_PUERTA;   /* A165: al pano de la caja, 3 mm detras de las hojas */
+    /* A258 (usuario 18/10: «las golas en esquineros se intersectan a 45»): con las dos alas, alma y aleta de cada una cortadas a 45 en la esquina */
+    if (ha && hb) { const xA = LA - fb2 + hondo, xF = xA - eG, yA = fa2 - hondo, yF = yA + eG;
+      losa(pre + ':gola:a', 'herraje', 'Gola', modulo, [[LA - a, yA], [xA, yA], [xF, yF], [LA - a, yF]], zg, z1, gmt, 'herrajes');
+      losa(pre + ':gola:a:perfil', 'herraje', 'Perfil', modulo, [[LA - a, yF], [xF, yF], [LA - fb2, fa2], [LA - a, fa2]], zg, zg + eG, gmt, 'herrajes');
+      losa(pre + ':gola:b', 'herraje', 'Gola', modulo, [[xA, yA], [xA, b], [xF, b], [xF, yF]], zg, z1, gmt, 'herrajes');
+      losa(pre + ':gola:b:perfil', 'herraje', 'Perfil', modulo, [[xF, yF], [xF, b], [LA - fb2, b], [LA - fb2, fa2]], zg, zg + eG, gmt, 'herrajes'); return; }
     if (ha) { caja(pre + ':gola:a', 'herraje', 'Gola', modulo, LA - a, hb ? LA - fb2 + hondo - eG : LA - fb2 + hondo, fa2 - hondo, fa2 - hondo + eG, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:a:perfil', 'herraje', 'Perfil', modulo, LA - a, LA - fb2 + hondo - eG, fa2 - hondo + eG, fa2, zg, zg + eG, gmt, 'herrajes'); }
     if (hb) { caja(pre + ':gola:b', 'herraje', 'Gola', modulo, LA - fb2 + hondo - eG, LA - fb2 + hondo, fa2 - hondo, b, zg, z1, gmt, 'herrajes'); caja(pre + ':gola:b:perfil', 'herraje', 'Perfil', modulo, LA - fb2, LA - fb2 + hondo - eG, ha ? fa2 : fa2 - hondo + eG, b, zg, zg + eG, gmt, 'herrajes'); } } };
   /* A139 (usuario 11/10): el frente a 45 va entre los cantos de las puertas vecinas, al pano de ellas y con media separacion de frentes a
