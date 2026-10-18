@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A261. [Master hecho 18/10; SketchUp sin cambios de codigo (piezas de siempre); Revit pendiente] Editor (usuario 18/10): 1) la alacena
+       lleva «Invertir abatimiento» y 2) abre por defecto hacia el borde de la fila en que este pegada (derecho: bisagra a la derecha;
+       bisagraAlacena); 3) «Modulo inferior sin puertas (repisas)» se llama «Modulo inferior solo repisas»; 4) el alto Inferior + superior
+       une columnas desde su panel (derecha o izquierda; el modulo superior y, si es solo repisas, la caja de abajo) sin doble clic;
+       5) el modulo superior tambien se extiende a la columna izquierda (el vecino pasa a primero con lo del grupo); 6) el alto de la
+       esquina en L (un solo gabinete) tiene funcion: puertas, repisas abiertas o inferior + superior (dos cajas en L encimadas, la de
+       arriba de e.altoSuperior con puertas en L o repisas; e.funcionAlto, e.supFuncion), en planta de piezas, alzado y panel.
    A260. [Master hecho 18/10; SketchUp: nombre de la pieza Patin; Revit pendiente] (usuario 18/10) 1) La division vertical interna no aplica
        con campana (tampoco en el gabinete superior de su columna): su ducto sube por el gabinete. 2) Torre de hornos segun la instalacion de
        hornos de empotrar en columna (Whirlpool: min 50 mm detras en suelos intermedios, 70-80 en la base, min 80 arriba; Bosch: 45 mm al
@@ -3412,7 +3419,7 @@ function fronts(m){
       let at = pantryStart(m); const hs = pantryHeights(m), n = hs.length;
       hs.forEach((h, j) => {
         const bt = bodyType(m, j, n), z0 = (j === 0 && m.tipo === 'EspecieroTorre' && m.especieroAlPiso ? 0 : at) + hol, z1 = at + h - (pantryTopGola(m, j, n) || bt === 'Especiero extraíble' && j < n - 1 ? agarre() : hol);
-        if (bt === '1 puerta' || bt === 'Especiero') door(hol, W1, z0, z1, false, m.invertir);
+        if (bt === '1 puerta' || bt === 'Especiero') door(hol, W1, z0, z1, false, bisagraAlacena(m));   /* A261 */
         else if (bt === '2 puertas') door(hol, W1, z0, z1, true, false);
         else if (bt === 'Elevable') r.push({ kind: 'Elevable', x0: hol, x1: W1, z0, z1 });
         else if (bt === 'Especiero extraíble') r.push({ kind: 'Cajon', x0: hol, x1: W1, z0, z1, especiero: true });   /* A150: con su herraje como el bajo */
@@ -3481,6 +3488,29 @@ function golaStrips(m){
   return s;
 }
 /* division vertical interna: altos con dos puertas o abiertos; bajos de puertas con dos hojas y sin tarja */
+/* A261 (usuario 18/10): la alacena pegada al borde derecho de la fila abre hacia ese lado (bisagra a la derecha); en el izquierdo o en medio,
+   a la izquierda. «Invertir abatimiento» lo cambia */
+const alacenaBordeDer = m => { if (!isPantry(m)) return false; const r = row(false).filter(q => !q.reserved), i = r.indexOf(m); return i > 0 && i === r.length - 1; };
+const bisagraAlacena = m => alacenaBordeDer(m) !== !!m.invertir;
+/* A261: funcion del alto de la esquina en L (un solo gabinete): puertas, repisas abiertas o inferior + superior (dos cajas en L encimadas) */
+const funcionAltoEsq = e => e.funcionAlto === 'repisas' || e.funcionAlto === 'doble' ? e.funcionAlto : 'puertas';
+const supAltoEsq = e => e.supFuncion === 'repisas' ? 'repisas' : 'puertas';
+const altoSupEsq = e => { if (e.altoSuperior > 0) return e.altoSuperior; const d = cfg.modulos.find(q => q.upper && !q.reserved && q.tipo === 'Doble'); return d ? d.altoSuperior : 30; };
+/* A261: une la columna vecina (lado +1 derecha, -1 izquierda) al modulo superior del alto doble m; con inferior, tambien su caja de repisas.
+   Del lado izquierdo el vecino pasa a ser el primero del grupo y toma lo del modulo superior. Devuelve el vecino (o null) */
+const CAMPOS_SUP = ['fondoSuperior', 'altoSuperior', 'tipoSuperior', 'bisagraDerechaSuperior', 'repisasSuperior', 'divisionSuperior', 'divisionesSuperior', 'materialSuperior', 'mostrarPuertaSuperior'];
+function vecinoColumna(m, lado){ const up = row(true), g = capGroupOf(m) || { members: [m] }, ref = lado > 0 ? g.members[g.members.length - 1] : g.members[0], v = up[up.indexOf(ref) + lado];
+  return v && !v.reserved && !isSpecial(v) && !v.esquina && !hasCampana(v) ? v : null; }
+function unirColumna(m, lado, conInferior){
+  const g = capGroupOf(m) || { members: [m] }, first = g.members[0], last = g.members[g.members.length - 1], v = vecinoColumna(m, lado);
+  if (!v) return null;
+  ponerDoble(v);
+  if (lado < 0) CAMPOS_SUP.forEach(k => { v[k] = first[k]; }); else v.altoSuperior = last.altoSuperior;
+  (lado > 0 ? last : v).unirSuperior = true;
+  if (conInferior && m.inferiorAbierto) { v.inferiorAbierto = true; (lado > 0 ? last : v).unirCuerpo = true; }
+  const ng = capGroupOf(v);   /* como capExt (A224): con puertas pasa a piston; a caja de repisas solo si pasa del maximo del piston */
+  if (ng && ng.lead.tipoSuperior !== 'Repisas') { if (ng.width > reg().ancho.piston + .01) { if (ng.members.length <= 3) ng.lead.tipoSuperior = 'Repisas'; } else if (ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Piston'; }
+  return v; }
 const hasDivider = m => !!m.division && (m.upper ? (m.dosPuertas || sinPuertas(m) || isDoble(m)) && !hasCampana(m) : m.dosPuertas && m.tipo === 'Puertas' && !m.preparadoTarja);   /* A260: con campana no (su ducto sube por el gabinete) */
 /* MaxShelves: entre repisas quedan al menos 35 cm libres */
 function maxShelves(h, t = 1.8, gap = 35){ const inner = h - 2*t; if (inner < 20) return 0; return Math.max(1, Math.floor((inner-gap)/(gap+t) + 1e-9)); }
@@ -7312,6 +7342,20 @@ function esquinerosPlan(add, r2, sep, tf){
     ladoTap(0, a, a, wAu, false); ladoTap(1, b, b, wBu, false);
     return; }
   const abierto = e.relleno === 'repisas', dg = ta === 'diagonal', c = Math.min(R.ladoAlto, wA, wB), P = R.ciegoPuerta + ciegoExtra(k);   /* A221 */
+  /* A261 (usuario 18/10: «alto de la esquina en L da opciones de puertas, repisas y superior + inferior»): repisas abiertas (sin puertas) o dos
+     cajas en L encimadas, la de arriba de altoSupEsq con puertas en L o repisas, como el modulo superior de los demas altos */
+  const fnA = ta === 'L' ? funcionAltoEsq(e) : 'puertas';
+  if (fnA !== 'puertas') {
+    const zS = fnA === 'doble' ? r2(z1u - Math.max(DOBLE_MIN, Math.min(altoSupEsq(e), z1u - z0u - DOBLE_MIN))) : z1u;
+    const cajaL = (pf, za, zz, conP, unero) => {
+      esquinaL(pf, wA, wB, fAu, fBu, za, zz, modU, false, conP ? 1 : 2, true, 0, unero);
+      if (!conP) return;
+      hojasL(pf, c, c, fAu, fBu, za, zz, modU, false, puertasL(e) === 'abatible');
+      if (wA > c + .5) { caja(pf + ':ext:a', 'frente', 'Puerta', modU, LA - wA, LA - c, fAu, fAu + tf, za, zz, frente, 'frentes'); caja(pf + ':division:a', 'division', 'Division', modU, LA - c, LA - c + e1, ef, fAu, za + e1, zz - e1, gm('Interior'), 'gabinetes'); }
+      if (wB > c + .5) { caja(pf + ':ext:b', 'frente', 'Puerta', modU, LA - fBu - tf, LA - fBu, c, wB, za, zz, frente, 'frentes'); caja(pf + ':division:b', 'division', 'Division', modU, LA - fBu, LA - ef, c - e1, c, za + e1, zz - e1, gm('Interior'), 'gabinetes'); } };
+    if (fnA === 'repisas') cajaL(pre, z0u, z1u, false, 0);
+    else { cajaL(pre, z0u, zS, true, cfg.style === 'Moderna' ? golaHondo(true) : 0); cajaL(pre + ':sup', zS, z1u, supAltoEsq(e) === 'puertas', 0); }
+    return; }
   const puertaA = (n, x0, x1) => { if (!abierto) caja(pre + ':' + n, 'frente', 'Puerta', modU, x0, x1, fAu, fAu + tf, z0u, z1u, frente, 'frentes'); };
   const puertaB = (n, y0, y1) => { if (!abierto) caja(pre + ':' + n, 'frente', 'Puerta', modU, LA - fBu - tf, LA - fBu, y0, y1, z0u, z1u, frente, 'frentes'); };
   const divA = x => caja(pre + ':division:a', 'division', 'Division', modU, x, x + e1, ef, fAu, z0u + e1, z1u - e1, gm('Interior'), 'gabinetes');
@@ -7417,7 +7461,19 @@ function drawEsquina(m, x0, RX, X, Z, post){
       else if (duena) { const Pa = R.ciegoPuerta + ciegoExtra(kq); ext(fOtra, w - Pa); puerta(w - Pa, w, 'Ciego'); }   /* A221 */
       else if (tapU && repiseroCiego(e, sq)) { const r0 = fOtra + espFrente() + tapetaRepisero(e); if (w - r0 >= repiseroMin() - 1e-6) { tapeta(fOtra, r0); abierto(r0, w); gripAlto(r0, 'tapRep'); } else tapeta(fOtra, w);   /* A228 */ }   /* A227 */
       else { ext(fOtra, w); if (tapU) gripAlto(w, 'alto'); } }
-    else { perfil(0, fOtra); const c2 = tapU ? Math.min(lw, R.ladoAlto) : c; if (!sinFrenteEsquina(tapU ? lw : w, fOtra)) { puerta(fOtra, c2, tAlto === 'diagonal' ? 'Diagonal' : puertasL(e) === 'abatible' ? 'Abatible 165°' : 'Plegable', tAlto === 'diagonal', tAlto === 'diagonal' ? null : bisL()); ext(c2, w); if (tapU) gripAlto(w, 'alto'); } }
+    else { perfil(0, fOtra); const c2 = tapU ? Math.min(lw, R.ladoAlto) : c, fnA = tAlto === 'L' && !tapU ? funcionAltoEsq(e) : 'puertas';   /* A261 */
+      /* banda de alto za..zz: puertas (la del L y la de junto a la esquina) o caja abierta con repisas */
+      const banda = (za, zz, conP, t) => { const pz = (u0, u1, tt) => { if (u1 - u0 < .01) return; const r = cajaZ(u0, u1, za, zz);
+          if (conP && showDoors) { fillMat(r.x, r.y, r.w, r.h, flat ? null : (m.materialPuertas || mat), C.front); outline(r, C.line, 1); if (!exporting) frontHits.push({ rect: r, module: m, kind: 'Puerta' }); texto(r, tt); return; }
+          fillMat(r.x, r.y, r.w, r.h, flat ? null : (conP ? gmInterior() : mat), conP ? C.interior : C.box); outline(r, C.line, 1);
+          post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; const y = r.y + r.h/2; line(r.x + 2, y, r.x + r.w - 2, y); }); texto(r, tt); };
+        if (conP) { pz(fOtra, c2, t); pz(c2, w, ''); } else pz(fOtra, w, t); };
+      if (!sinFrenteEsquina(tapU ? lw : w, fOtra)) {
+        if (fnA === 'repisas') abierto(fOtra, w);
+        else if (fnA === 'doble') { const zS = z1 - Math.max(DOBLE_MIN, Math.min(altoSupEsq(e), z1 - z0 - DOBLE_MIN)), et = puertasL(e) === 'abatible' ? 'Abatible 165°' : 'Plegable';
+          banda(z0, zS, true, et); banda(zS, z1, supAltoEsq(e) === 'puertas', supAltoEsq(e) === 'puertas' ? et : 'Repisas'); }
+        else { puerta(fOtra, c2, tAlto === 'diagonal' ? 'Diagonal' : puertasL(e) === 'abatible' ? 'Abatible 165°' : 'Plegable', tAlto === 'diagonal', tAlto === 'diagonal' ? null : bisL()); ext(c2, w); }
+        if (tapU) gripAlto(w, 'alto'); } }
   }
   const full = caja(0, w); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel);
 }
@@ -8636,9 +8692,13 @@ function esquinaPanel(m){
   return html; }
   if (alacena) return html + `<div class="note">La alacena llega al tope de los altos: no lleva alto.</div>`;
   if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Igual que el bajo'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
-  if (!alacena && altoEsquina(e) === 'L') html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 165°']], puertasL(e)));   /* A232 */
+  if (!alacena && altoEsquina(e) === 'L' && unionAlto(e) !== 'tapeta') { const fn = funcionAltoEsq(e);   /* A261 */
+    html += section('Función del alto', radios('esqAltoFn', [['puertas', 'Puertas'], ['repisas', 'Repisas abiertas'], ['doble', 'Inferior + superior']], fn)
+      + (fn === 'doble' ? `<div class="grid-2" style="margin-top:10px">${num('esqAltoSup', 'Alto del superior', altoSupEsq(e), 'cm', DOBLE_MIN, 80)}</div>` + radios('esqSupFn', [['puertas', 'Superior con puertas'], ['repisas', 'Superior con repisas abiertas']], supAltoEsq(e)) : '')
+      + `<div class="note-sm">${fn === 'doble' ? 'Dos cajas en L: abajo con puertas, arriba con puertas o repisas, como el módulo superior de los demás altos.' : fn === 'repisas' ? 'Una caja en L abierta, con dos repisas.' : 'Una caja en L con sus puertas.'}</div>`); }
+  if (!alacena && altoEsquina(e) === 'L' && !(unionAlto(e) !== 'tapeta' && funcionAltoEsq(e) === 'repisas')) html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 165°']], puertasL(e)));   /* A232 */
   if (!alacena && altoEsquina(e) !== 'ninguno' && altoEsquina(e) !== 'ciego') html += section('Armado del alto', radios('esqUnion', [['L', 'Unido en L, un solo gabinete'], ['tapeta', 'Dos gabinetes con tapeta']], e.union === 'tapeta' ? 'tapeta' : 'L'));
-  if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) !== 'tapeta') html += section('Junto a la esquina', radios('esqRelleno', [['puerta', 'Gabinete con puerta'], ['repisas', 'Repisas abiertas']], e.relleno === 'repisas' ? 'repisas' : 'puerta')
+  if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) !== 'tapeta' && !(altoEsquina(e) === 'L' && funcionAltoEsq(e) !== 'puertas')) html += section('Junto a la esquina', radios('esqRelleno', [['puerta', 'Gabinete con puerta'], ['repisas', 'Repisas abiertas']], e.relleno === 'repisas' ? 'repisas' : 'puerta')
     + `<div class="note">El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.</div>`);
   if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) === 'tapeta') { let h2 = '';   /* A226 */
     const cg = altoEsquina(e) === 'ciego';   /* A230: en el ciego, que se entienda que lado es cual */
@@ -8681,7 +8741,7 @@ function modulePanel(m){
   if (divVis) opts += chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, 4, 1)}</div></div>` : '');
   if (!m.upper && m.tipo === 'Puertas' && !m.preparadoTarja) opts += chk('repBajo', m.repisaBajo, 'Repisa interior');
   if (m.upper && sinPuertas(m) && !hasCampana(m) && !bx) opts += chk('unir', m.unirCuerpo, 'Unir con la columna derecha (caja corrida)');
-  if (isDoble(m) && !hasCampana(m)) opts += chk('infAb', m.inferiorAbierto, 'Módulo inferior sin puertas (repisas)');
+  if (isDoble(m) && !hasCampana(m)) opts += chk('infAb', m.inferiorAbierto, 'Módulo inferior solo repisas');   /* A261 */
   if (isDoble(m) && !bx && bodyGroupOf(m)) opts += `<div class="note-sm">Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o</div><button class="btn btn-block" style="margin-top:6px" data-act="editBox">Editar la caja corrida</button>`;
   html += section('Opciones', opts);
   if (m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
@@ -8695,6 +8755,10 @@ function modulePanel(m){
       + chk('supDiv', cl.divisionSuperior, 'División vertical interna') + (cl.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', cl.divisionesSuperior || 1, 'u', 1, capJoined(cl) ? 99 : 4, 1)}</div></div>` : '')
       + `<div class="note-sm">${cl.tipoSuperior === 'Repisas' ? 'Caja de repisas abierta.' : 'Detrás de su puerta se ven en la vista Interior.'}</div>`);
   }
+  if (isDoble(m) && !soloCamp(m)) { const gC = capGroupOf(m), vD = vecinoColumna(m, 1), vI = vecinoColumna(m, -1), ab = m.inferiorAbierto;   /* A261: unir columnas sin doble clic */
+    const bt = [vI ? `<button class="btn btn-block" data-act="dobUnirIzq">Unir con la columna izquierda</button>` : '', vD ? `<button class="btn btn-block" data-act="dobUnirDer">Unir con la columna derecha</button>` : '',
+      gC && gC.members.length > 1 ? `<button class="btn btn-block" data-act="dobSeparar">Separar la última columna</button>` : ''].join('');
+    if (bt) html += section('Columnas', `<div style="display:grid;gap:8px">${bt}</div><div class="note-sm">Une ${ab ? 'el módulo superior y la caja de repisas de abajo' : 'el módulo superior'} con la columna vecina (si no es doble, se vuelve Inferior + superior).</div>`); }
   if (isDoble(m) && !soloCamp(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuerta', 'Una puerta'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + (capLead(m).tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('supInv', !!capLead(m).bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : '')   /* A116: tambien con columnas unidas: va al primero del grupo */
     + `<div class="note-sm">Doble clic en el dibujo: alto, material y unir columnas.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
   if (m.upper && !hasCampana(m) && !isDoble(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
@@ -8750,7 +8814,8 @@ function specialPanel(m){
       + (m.superiorRefri ? `<div style="margin-top:8px">${sel('refriSup', FUNCIONES_REFRI, refriSup(m))}</div>` + (refriSup(m) !== 'Puertas' ? '' : `<div class="sub">${chk('inv', m.invertir, 'Invertir abatimiento')}</div>`)
         + `<div class="grid-2" style="margin-top:10px">${num('repRefri', 'Repisas gabinete superior', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'), showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '') : ''));
   }
-  else if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en un cuerpo o en la cajonera para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`);
+  else if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en un cuerpo o en la cajonera para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`
+    + chk('inv', m.invertir, 'Invertir abatimiento') + `<div class="note-sm">Las puertas abren hacia el borde ${alacenaBordeDer(m) ? 'derecho' : 'izquierdo'}${alacenaBordeDer(m) ? ' (la alacena está en el borde derecho de la fila)' : ''}${m.invertir ? '; invertido' : ''}.</div>`);   /* A261 */
   else html += section('Especiero', `<div class="note-sm">Especiero anexado a la torre: del zoclo al cuerpo de arriba de la torre, que se ensancha y lo cubre.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
     + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas apiladas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')
     + `<div style="margin-top:8px">${chk('espPiso', !!m.especieroAlPiso, 'Frente hasta el piso (oculta el zoclo)')}</div>`);   /* A150; A152 */   /* A144 */
@@ -8817,7 +8882,8 @@ function capPanel(id){
     + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; con pistón, a ${medida(reg().ancho.piston)}; la caja abierta, a 3 columnas.</div>`
     + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
     + (m.tipoSuperior === 'Piston' ? chk('capMostrar', m.mostrarPuertaSuperior, 'Mostrar puerta elevable') : ''));
-  const cols = (next && !next.reserved ? `<button class="btn btn-block" data-act="capExt">Extender a la columna derecha</button>` : '') + (g.members.length > 1 ? `<button class="btn btn-block" data-act="capSep">Separar la última columna</button>` : '');
+  const cols = (vecinoColumna(m, -1) ? `<button class="btn btn-block" data-act="capExtIzq">Extender a la columna izquierda</button>` : '')   /* A261 */
+    + (next && !next.reserved ? `<button class="btn btn-block" data-act="capExt">Extender a la columna derecha</button>` : '') + (g.members.length > 1 ? `<button class="btn btn-block" data-act="capSep">Separar la última columna</button>` : '');
   html += section('Columnas', (cols ? `<div style="display:grid;gap:8px;margin-bottom:10px">${cols}</div>` : '') + `<div class="note-sm" style="margin-top:0">Es independiente del gabinete alto. Suelta un material sobre él; doble clic elige sus repisas o su fondo.</div>`);
   return html + `<div class="p-foot" style="display:grid;gap:8px"><button class="btn btn-danger btn-block" data-act="capQuitar">Quitar módulo superior</button><button class="btn btn-block" data-act="capEditar">Editar el gabinete alto</button></div>`;
 }
@@ -9068,6 +9134,9 @@ const ACT = {
     if (ng && ng.lead.tipoSuperior !== 'Repisas') { if (ng.width > reg().ancho.piston + .01) { if (ng.members.length <= 3) ng.lead.tipoSuperior = 'Repisas'; } else if (ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Piston'; }
   }),
   capSep: () => change(() => { const g = capGroupOf(partMod()); if (g && g.members.length > 1) g.members[g.members.length - 2].unirSuperior = false; }),
+  capExtIzq: () => { let v = null; change(() => { v = unirColumna(partMod(), -1, false); }); if (v) { selectedPart = 'ucap:' + v.id; render(); } },   /* A261: el vecino es el nuevo primero */
+  dobUnirDer: (v, m) => change(() => { unirColumna(byId(m.id), 1, true); }), dobUnirIzq: (v, m) => change(() => { unirColumna(byId(m.id), -1, true); }),
+  dobSeparar: (v, m) => change(() => { const g = capGroupOf(byId(m.id)); if (!g || g.members.length < 2) return; const q = g.members[g.members.length - 2]; q.unirSuperior = false; q.unirCuerpo = false; }),
   capQuitar: () => deletePart(selectedPart),
   capEditar: () => { const id = partMod().id; selectedPart = null; selection = new Set([id]); render(); },
   /* torre: horno, microondas y rejilla */
@@ -9150,6 +9219,8 @@ const ACT = {
   esqAltoA: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 0, v)), esqAltoB: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 1, v)),   /* A226 */
   fondoRefri: (v, m) => change(() => { byId(m.id).fondo = v; }),   /* A238 */
   esqPuertasL: (v, m) => change(() => { esquinaDe(byId(m.id)).puertasL = v; }),   /* A232 */
+  esqAltoFn: (v, m) => change(() => { esquinaDe(byId(m.id)).funcionAlto = v; }), esqSupFn: (v, m) => change(() => { esquinaDe(byId(m.id)).supFuncion = v; }),   /* A261 */
+  esqAltoSup: (v, m) => change(() => { esquinaDe(byId(m.id)).altoSuperior = v; }),
   esqLadoCiego: (v, m) => change(() => { esquinaDe(byId(m.id)).ladoCiego = v; }),   /* A230 */
   esqRepA: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroA = v === 'repisero'; }), esqRepB: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroB = v === 'repisero'; }),
   esqCierre: (v, m) => change(() => { const k = byId(m.id).esquina.k; cfg.esquinas[k].cierreAlto = Math.abs(v - cierreDef(k)) < .01 ? null : v; }),
@@ -9970,7 +10041,7 @@ const EN = {
   'Mostrar horno y microondas genéricos': 'Show generic oven and microwave',
   'Mostrar puerta elevable': 'Show lift-up door',
   'Módulo inferior + módulo superior': 'Stacked wall cabinet',
-  'Módulo inferior sin puertas (repisas)': 'Lower cabinet without doors (shelves)',
+  'Módulo inferior solo repisas': 'Lower cabinet, shelves only',
   'Módulo superior': 'Stacker',
   'No': 'No',
   'Nombre': 'Name',
