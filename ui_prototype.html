@@ -303,6 +303,9 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A286. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «es la torre de hornos, quita el campo cuando hay
+       cajones») El gabinete de abajo de la torre con cajones (3 o 2) ya no muestra «Repisas en este gabinete» (no se generan repisas con
+       cajones); en su lugar, una nota.
    A285. [Master hecho 18/10; SketchUp: sin cambio (usa el master); Revit pendiente] El brazo abierto a 90 (bisagra_brazo_abierta90,
        A245) no estaba en la tabla FAM de simbolos: en el isometrico con la puerta abierta la bisagra salia como caja y el detalle de
        bisagra del conjunto (ConjBisagra) fallaba con «Este conjunto no lleva bisagras de cazoleta». Ahora usa el simbolo del brazo
@@ -9347,7 +9350,9 @@ function focusPanelHtml(m, zone, chip){
   else if (tower) kind = sel('torreSup', [['Puertas','Puertas'],['2 puertas','2 puertas'],['Repisas','Repisas'],['Pistón','Pistón']], m.torreSuperior);   /* A160 (usuario): como en los altos */
   /* repisas propias del cuerpo, con el maximo que cabe (35 cm entre repisas) */
   const shelvesField = (text, open) => `<div class="grid-2">${num('repZona', text, zoneShelves(m, zone), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, zone), zoneShelves(m, zone), !open && showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '');
-  if (tower) more = shelvesField('Repisas en este gabinete', (zone === 'inferior' ? m.torreInferior : m.torreSuperior).includes('Repisas') || zone === 'superior' && (towerLift(m) || m.torreSuperior === 'Pistón'));
+  /* A286 (usuario 18/10: «es la torre de hornos, quita el campo cuando hay cajones»): con cajones abajo no hay repisas que elegir */
+  if (tower && zone === 'inferior' && hasDrawers(m)) more = `<div class="note-sm" style="margin-top:0">Con cajones este gabinete no lleva repisas.</div>`;
+  else if (tower) more = shelvesField('Repisas en este gabinete', (zone === 'inferior' ? m.torreInferior : m.torreSuperior).includes('Repisas') || zone === 'superior' && (towerLift(m) || m.torreSuperior === 'Pistón'));
   else if (zone === 'cajones') { kind = sel('cajDob', [['3','3 cajones'],['2','2 cajones']], m.cajonesDobles ? '2' : '3'); more = `<div class="grid-2">${num('altoCaj', 'Alto de cajonera', m.altoCajonesAlacena, 'cm', 40, 100)}</div>`; }
   else {
     const j = +zone.slice(6) - 1, bt = bodyType(m, j, n);
