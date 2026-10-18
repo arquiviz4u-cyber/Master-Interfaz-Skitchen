@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A270. [Master hecho 18/10; SketchUp: modelos bisagra_libro_a/b (herramientas/bisagra_libro.py), tipo BisagraAla, uso libro y regla de
+       licencia por archivo (herrajes_premium: la Blum oculta, pro por confirmar); Revit pendiente] (usuario 18/10: «agrega la opcion de libro;
+       los detalles basicos en la opcion gratuita, en la de pago mejores herrajes; cuidemos la apertura al interactuar, choca con el
+       mueble») 1) Bisagra intermedia de la plegable: de libro (de fabrica; nudillo en la esquina de los frentes, alas embutidas en los
+       cantos, abre 90 hasta dejar las hojas planas) u oculta Blum 79T8500 (A268, abre 60). Panel del esquinero: «Bisagra intermedia».
+       2) La b abria hacia el frente de la a: con la a a 155 entraba en el mueble vecino. Abre hacia plano (al reves del giro de la a),
+       como la 79T8500 (KA-150: 150 entre hojas): queda del lado de la habitacion. Autoprueba: abiertas, ninguna hoja detras del frente.
    A269. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «un ancho minimo para abrir las puertas con las
        bisagras de 155 en el superior porque las siento muy pequenas; poder editar su ancho manualmente») El lado de la esquina del alto
        en L o diagonal (del rincon a las hojas o al frente a 45; antes fijo en ladoAlto, 60 / 24 in: hojas de ~23 cm) ya no deja hojas de
@@ -3727,10 +3734,16 @@ const MODELO = {
      puertas en L): la cara posterior de la hoja a en Y = espalda (la puerta hacia +Y; la cazoleta de 35 con su centro en X = cazoleta), la
      de la hoja b en X = 0 (la puerta hacia +X), Z = 0 al centro. En el plan va con espejo en X: X -> -x, Y -> +y. grados: lo que la hoja b
      se dobla sobre la a */
-  /* grados: la apertura de la 79T8500. Abre como cualquier bisagra: las caras posteriores (con la bisagra) se separan y los frentes se
-     acercan: la hoja b gira 60 hacia el frente de la a sobre la esquina donde se juntan sus frentes (entre los frentes queda una V de 30) */
+  /* grados: la apertura de la 79T8500. A270 (usuario 18/10: al Interactuar la b chocaba con el mueble): abre la L hacia plano, como una
+     bisagra normal montada al reves (la cara que toca el canto de la b es el frente de la a): la b gira 60 sobre la esquina donde se juntan
+     los frentes y entre las hojas quedan 150 (KA-150 de Blum); con la a abierta 155 la b queda del lado de la habitacion */
   bisagraPlegable: { espalda: -5.6, cazoleta: 3.45, grados: 60, cazoletaCaja: [[-1.342, -6.941, -2.85], [5.1, -3.539, 2.85]],
                      brazo: [[-2.038, -6.593, -2.65], [1.307, 2.95, 2.65]] },
+  /* A270 (usuario 18/10: «agrega la opcion de libro; los detalles basicos en la opcion gratuita, en la de pago mejores herrajes»): bisagra
+     de libro entre las hojas de la plegable (herramientas/bisagra_libro.py): nudillo de 9 mm en la esquina donde se juntan los frentes y
+     alas embutidas en los cantos; ejes con el origen en esa esquina (la hoja a hacia -X, la b hacia +Y, Z al centro). Abre 90: la b queda
+     en el plano de la a. La Blum oculta es de pago (licencia_reglas.json, herrajes_premium) */
+  bisagraLibro: { grados: 90, cajaA: [[-.45, -1.67, -3.8], [.45, .45, 3.8]], cajaB: [[-.45, -.45, -3.8], [1.67, .45, 3.8]] },
   corredera: { fija: [[.139, 0, 0], [1.27, 49.845, 2.869]], media: [[.162, 6.493, .32], [1.087, 49.845, 2.549]], movil: [[0, .675, .668], [.675, 50.003, 2.201]],
                lateral: 1.27, largo: 50.003, alto: 2.869 },
   condimentero: { caja: [[.5, 0, 0], [9.5, 46.176, 47]], centroX: 5, tira: 1.31 },
@@ -3890,7 +3903,10 @@ const r3 = v => Math.round(v*1000)/1000;
    puerta oculta) lleva bisagra = { uso, apertura }; la tabla de herrajes y la nota de la lamina las agrupan asi, y SketchUp la nombra igual */
 const USOS_BISAGRA = { traslape: 'traslape', embutida: 'embutida', elevable: 'elevable', 'puerta oculta': 'puerta oculta',
   esquinero: 'esquinero', 'esquinero 45': 'esquinero diagonal', 'esquinero plegable': 'esquinero plegable', 'esquinero abatible': 'esquinero abatible',
-  plegable: 'plegable' };   /* A268: la intermedia de la plegable */
+  plegable: 'plegable', libro: 'libro' };   /* A268: la intermedia de la plegable; A270: la de libro */
+/* A270: bisagra intermedia de la plegable del esquinero: 'libro' (basica, de fabrica) u 'oculta' (Blum 79T8500, de pago) */
+const intermediaEsq = e => e && e.bisagraIntermedia === 'oculta' ? 'oculta' : 'libro';
+const giroIntermedia = e => intermediaEsq(e) === 'oculta' ? MODELO.bisagraPlegable.grados : MODELO.bisagraLibro.grados;
 const especBisagra = (uso, apertura) => ({ uso, apertura: Math.round(apertura*100)/100 });
 const esBisagraCerrada = q => q.tipo === 'Bisagra' && q.estado !== 'abierto' || q.tipo === 'Brazo';
 /* [[uso, apertura, piezas]] de las bisagras de unas piezas, de la mas comun a la menos */
@@ -5114,6 +5130,7 @@ function pruebasPlanMX(){
     ['cocina en L con carrusel (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; } finally { cfg = prev; } return c; }],
     ['cocina en L con LED y un repisero junto a un alto con puertas (A264)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.led = true; c.style = 'Moderna';
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
+    ['esquinero plegable con la bisagra oculta Blum (A270)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].bisagraIntermedia = 'oculta'; } finally { cfg = prev; } return c; }],
     ['cocina en L con LED, alto de esquina con tapeta y repiseros (A266)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.led = true; Object.assign(c.esquinas[0], { union: 'tapeta', repiseroA: true, repiseroB: true }); } finally { cfg = prev; } return c; }],
     ['esquinero diagonal con cajones (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].sub = 'cajones'; } finally { cfg = prev; } return c; }],
     ['esquinero diagonal con tarja doble (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].sub = 'tarja'; c.esquinas[0].tarjaTipo = 2; } finally { cfg = prev; } return c; }],
@@ -5336,12 +5353,19 @@ function pruebasPlanMX(){
       ok(q.abre && q.abre.grados === MODELO.bisagra155.grados && (q.perforaciones || []).length === br.length + pl.length, nombre + ': la hoja ' + q.id + ' no abre 155 o le falta la perforacion');
       /* A268: la plegable lleva una 79T8500 por bisagra de la a (brazo con la b, cazoleta con la a) y la b se dobla 60 sobre la a */
       const hb = p.piezas.find(r => r.id === q.id.replace(/a$/, 'b') && r.abre && r.abre.grupo);
-      if (hb && /:hoja:a$/.test(q.id)) { const cp = p.piezas.filter(r => r.id.startsWith(q.id + ':plegable:cazoleta:')), sg = r => (r.abre.lado === 'izquierda' ? 1 : -1)*r.abre.grados;
-        ok(pl.length === br.length && cp.length === br.length && pl.every(r => r.frente === hb.id) && cp.every(r => r.frente === q.id), nombre + ': la plegable ' + q.id + ' sin sus bisagras intermedias');
-        const dg = ((sg(hb) - sg(q)) % 360 + 540) % 360 - 180; ok(Math.abs(Math.abs(dg) - MODELO.bisagraPlegable.grados) < .05, nombre + ': la hoja b de ' + q.id + ' no se dobla ' + MODELO.bisagraPlegable.grados + ' sobre la a'); } });
+      if (hb && /:hoja:a$/.test(q.id)) { const sg = r => (r.abre.lado === 'izquierda' ? 1 : -1)*r.abre.grados, ec = c.esquinas[c.cara], oc = intermediaEsq(ec) === 'oculta';   /* A270: la de libro o la Blum */
+        const ia = p.piezas.filter(r => r.id.startsWith(q.id + (oc ? ':plegable:cazoleta:' : ':plegable:libroA:'))), ib = p.piezas.filter(r => r.id.startsWith(q.id + (oc ? ':plegable:brazo:' : ':plegable:libroB:')));
+        ok(ib.length === br.length && ia.length === br.length && ib.every(r => r.frente === hb.id) && ia.every(r => r.frente === q.id), nombre + ': la plegable ' + q.id + ' sin sus bisagras intermedias');
+        const gI = oc ? MODELO.bisagraPlegable.grados : MODELO.bisagraLibro.grados, dg = ((sg(hb) - sg(q)) % 360 + 540) % 360 - 180;
+        ok(Math.abs(dg + Math.sign(sg(q))*gI) < .05, nombre + ': la hoja b de ' + q.id + ' no abre ' + gI + ' hacia plano sobre la a');
+        /* A270: abiertas, ninguna hoja queda detras del frente de la cara (no entran al mueble vecino) */
+        const abierto = (r, P) => { const a = sg(r)*Math.PI/180, cx = r.abre.x, cy = r.abre.y; return [cx + (P[0] - cx)*Math.cos(a) - (P[1] - cy)*Math.sin(a), cy + (P[0] - cx)*Math.sin(a) + (P[1] - cy)*Math.cos(a)]; };
+        const esq = r => [[r.x, r.y], [r.x + r.ancho, r.y], [r.x + r.ancho, r.y + r.fondo], [r.x, r.y + r.fondo]], yF = q.y + q.fondo;
+        const yMin = Math.min(...esq(q).map(P => abierto(q, P)[1]), ...esq(hb).map(P => abierto(hb, P)[1]));
+        ok(yMin >= yF - .05, nombre + ': abierta, la plegable ' + q.id + ' entra ' + Math.round((yF - yMin)*10)/10 + ' detras del frente de su cara'); } });
     /* A249: cada bisagra cerrada lleva su especificacion: un uso conocido y la apertura de su puerta */
     p.piezas.filter(esBisagraCerrada).forEach(q => { const f = p.piezas.find(r => r.abre && r.frente === q.frente && r.rol === 'frente');
-      ok(q.bisagra && USOS_BISAGRA[q.bisagra.uso] && (!f || q.bisagra.uso === 'plegable' || Math.abs(q.bisagra.apertura - (f.abre.grados || 90)) < .01), nombre + ': bisagra sin su especificacion ' + q.id); });   /* A268: la plegable abre respecto a la hoja a */
+      ok(q.bisagra && USOS_BISAGRA[q.bisagra.uso] && (!f || ['plegable', 'libro'].includes(q.bisagra.uso) || Math.abs(q.bisagra.apertura - (f.abre.grados || 90)) < .01), nombre + ': bisagra sin su especificacion ' + q.id); });   /* A268: la plegable abre respecto a la hoja a */
     /* A246: el esquinero abre hacia afuera: cada puerta abierta (girada sobre su eje) queda del lado de su cara vista y las hojas plegables se doblan juntas */
     p.piezas.filter(q => /^esq\d/.test(q.id) && q.abre && q.abre.tipo === 'Puerta' && !q.abre.grupo).forEach(q => { const a = q.abre.grados*Math.PI/180*(q.abre.lado === 'izquierda' ? 1 : -1);
       const cx = q.x + q.ancho/2, cy = q.y + q.fondo/2, g = [q.abre.x + (cx - q.abre.x)*Math.cos(a) - (cy - q.abre.y)*Math.sin(a), q.abre.y + (cx - q.abre.x)*Math.sin(a) + (cy - q.abre.y)*Math.cos(a)];
@@ -5433,7 +5457,7 @@ function pruebasPlanMX(){
       ok(tapa && piso && !tapa.ranura && piso.z - tapa.z >= PLAN_SAQUE - .01, nombre + ': la tapa del cajon oculto no baja su saque en ' + m.id); });   /* A141 */
     /* A138: herrajes tal cual: cada pieza con modelo de la biblioteca y caja positiva; cada bisagra cerrada con su abierta (las dos
        con estado y su puerta) y la puerta girando cerca de la placa; cada corredera media en sus dos estados */
-    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252 */
+    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252 */
     p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada' && !q.modelo.ejes).forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
@@ -7200,7 +7224,12 @@ function aperturasEsquinero(piezas, add){
         /* A268: en la plegable, a cada altura la 79T8500 entre las hojas: la cazoleta (con su eslabon) va con la a y el brazo (con su placa)
            con la b; la perforacion en la cara posterior de la a, dentro de la hoja aunque la cazoleta llegue a su canto */
         const hb = plegable && /:hoja:a$/.test(q.id) ? fr.find(r => r.id === q.id.replace(/a$/, 'b')) : null;
-        if (hb) { const BP = MODELO.bisagraPlegable, oP = [r3(hb.x + hb.ancho), r3(q.y - BP.espalda), r3(zc)], eP = [[-1, 0, 0], [0, 1, 0], [0, 0, 1]];
+        if (hb && intermediaEsq(e) === 'libro') {   /* A270: la de libro, en la esquina de los frentes: ala y nudillos con la a, la otra ala con la b */
+          const BL = MODELO.bisagraLibro, oL = [r3(hb.x), r3(q.y + q.fondo), r3(zc)], eL = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+          const pl2 = (n, tipo, archivo, caja, fd, extra) => add(Object.assign({ id: q.id + ':plegable:' + n + ':' + j, tipo, modelo: { archivo, origen: oL, ejes: eL } }, base, { frente: fd }, extra, cajaEjes(caja, oL, eL)));
+          pl2('libroA', 'BisagraAla', 'bisagra_libro_a', BL.cajaA, q.id, {});
+          pl2('libroB', 'Bisagra', 'bisagra_libro_b', BL.cajaB, hb.id, { bisagra: especBisagra('libro', BL.grados) }); }
+        else if (hb) { const BP = MODELO.bisagraPlegable, oP = [r3(hb.x + hb.ancho), r3(q.y - BP.espalda), r3(zc)], eP = [[-1, 0, 0], [0, 1, 0], [0, 0, 1]];
           const pp = (n, tipo, archivo, caja, fd, extra) => add(Object.assign({ id: q.id + ':plegable:' + n + ':' + j, tipo, modelo: { archivo, origen: oP, ejes: eP } }, base, { frente: fd }, extra, cajaEjes(caja, oP, eP)));
           pp('cazoleta', 'Cazoleta', 'bisagra_plegable_cazoleta', BP.cazoletaCaja, q.id, { ocultaSinPuertas: true });
           pp('brazo', 'Bisagra', 'bisagra_plegable_brazo', BP.brazo, hb.id, { bisagra: especBisagra('plegable', BP.grados) });
@@ -7218,10 +7247,10 @@ function aperturasEsquinero(piezas, add){
      paralela y se va con la a. Los dos giros juntos son uno solo (el angulo suma; su centro es el punto que no se mueve); de mas de 180,
      el mismo giro hacia el otro lado (Interactuar llega a 180) */
   if (plegable) fr.filter(q => /:hoja:a$/.test(q.id)).forEach(a => { const b = fr.find(q => q.id === a.id.replace(/a$/, 'b')); if (!b) return;
-    /* A268: la b gira MODELO.bisagraPlegable.grados (60, la 79T8500) hacia el frente de la a, sobre la esquina donde se juntan sus frentes
-       (la hoja a llega al pano frontal de la b): el lado de las bisagras se abre y las hojas no se cruzan */
+    /* A268: la b gira sobre la esquina donde se juntan sus frentes (la hoja a llega al pano frontal de la b). A270: hacia plano (al reves
+       del giro de la a): 60 con la Blum, 90 con la de libro; con la a abierta la b queda del lado de la habitacion y no entra al mueble */
     const ga = a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados, J = [b.x, a.y + a.fondo], Ha = [a.abre.x, a.abre.y];
-    const gb = ga + Math.sign(ga)*MODELO.bisagraPlegable.grados, J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
+    const gb = ga - Math.sign(ga)*giroIntermedia(e), J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
     /* centro C: J2 = C + R (J - C)  =>  (I - R) C = J2 - R J */
     const RJ = [co*J[0] - si*J[1], si*J[0] + co*J[1]], v = [J2[0] - RJ[0], J2[1] - RJ[1]], m = [[1 - co, si], [-si, 1 - co]], det = m[0][0]*m[1][1] - m[0][1]*m[1][0];
     const C = [(v[0]*m[1][1] - m[0][1]*v[1])/det, (m[0][0]*v[1] - v[0]*m[1][0])/det], g1 = Math.abs(gb) > 180 ? gb - Math.sign(gb)*360 : gb;
@@ -8871,6 +8900,9 @@ function closetPanel(m){
   return html;
 }
 /* A134: panel del esquinero (bajo o alto de la columna de esquina) */
+/* A270: la bisagra entre las hojas de la plegable */
+const bisIntHTML = e => puertasL(e) !== 'plegable' ? '' : section('Bisagra intermedia', radios('esqBisInt', [['libro', 'De libro (básica)'], ['oculta', 'Oculta, Blum 79T8500 (Pro)']], intermediaEsq(e))
+  + `<div class="note-sm">${intermediaEsq(e) === 'oculta' ? 'Cazoleta en la hoja junto a la bisagra de 155° y brazo en la otra; la plegable abre a 150° entre hojas.' : 'Nudillo en la esquina de los frentes y alas embutidas en los cantos; la plegable abre hasta quedar plana.'}</div>`);
 function esquinaPanel(m){
   const e = esquinaDe(m), k = m.esquina.k, R = reg().esquina, h = huellaEsquina(k), alacena = e.tipo === 'alacena';
   let html = head('Esquinero', `Caras ${letraCara(k)} y ${letraCara(k + 1)} · ${fmt(h[0])} / ${fmt(h[1])}${uS()}`);
@@ -8903,7 +8935,7 @@ function esquinaPanel(m){
     html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.w0, cd.w0 + R9.ciegoMax - R9.ciego)}</div>`
       + `<div class="note-sm">De ${medida(cd.w0)} a ${medida(cd.w0 + R9.ciegoMax - R9.ciego)}: crecen la caja y su puerta; la parte ciega queda igual.</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
-  if (e.tipo === 'carrusel') html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 155°']], puertasL(e)));
+  if (e.tipo === 'carrusel') html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 155°']], puertasL(e))) + bisIntHTML(e);   /* A270 */
   return html; }
   if (alacena) return html + `<div class="note">La alacena llega al tope de los altos: no lleva alto.</div>`;
   if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Igual que el bajo'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
@@ -8911,7 +8943,7 @@ function esquinaPanel(m){
     html += section('Función del alto', radios('esqAltoFn', [['puertas', 'Puertas'], ['repisas', 'Repisas abiertas'], ['doble', 'Inferior + superior']], fn)
       + (fn === 'doble' ? `<div class="grid-2" style="margin-top:10px">${num('esqAltoSup', 'Alto del superior', altoSupEsq(e), 'cm', DOBLE_MIN, 80)}</div>` + radios('esqSupFn', [['puertas', 'Superior con puertas'], ['repisas', 'Superior con repisas abiertas']], supAltoEsq(e)) : '')
       + `<div class="note-sm">${fn === 'doble' ? 'Dos cajas en L: abajo con puertas, arriba con puertas o repisas, como el módulo superior de los demás altos.' : fn === 'repisas' ? 'Una caja en L abierta, con dos repisas.' : 'Una caja en L con sus puertas.'}</div>`); }
-  if (!alacena && altoEsquina(e) === 'L' && !(unionAlto(e) !== 'tapeta' && funcionAltoEsq(e) === 'repisas')) html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 155°']], puertasL(e)));   /* A232 */
+  if (!alacena && altoEsquina(e) === 'L' && !(unionAlto(e) !== 'tapeta' && funcionAltoEsq(e) === 'repisas')) html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 155°']], puertasL(e))) + bisIntHTML(e);   /* A232; A270 */
   if (!alacena && ['L', 'diagonal'].includes(altoEsquina(e))) { const mx = Math.min(h[0], h[1]), mn = Math.min(minLadoAlto(k), mx), v9 = Math.min(ladoAltoEsq(k), mx), rd = x => Math.round(x*10)/10;   /* A269 */
     html += section('Ancho de la esquina del alto', `<div class="grid-2">${num('esqLadoAlto', 'Del rincón a las puertas', rd(v9), 'cm', rd(mn), rd(mx))}</div>`
       + `<div class="note-sm">${altoEsquina(e) === 'L' ? 'Las hojas en L' : 'El frente a 45°'} van de aquí a la otra cara; nunca con hojas de menos de ${medida(R.hojaMinAlto)} (de fábrica, ${medida(Math.min(mx, Math.max(mn, R.ladoAlto)))}).</div>`
@@ -9435,6 +9467,7 @@ const ACT = {
   esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; }),
   esqAnchoA: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, true, v)), esqAnchoB: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, false, v)),   /* A221 */
   esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */
+  esqBisInt: (v, m) => change(() => { esquinaDe(byId(m.id)).bisagraIntermedia = v; }),   /* A270 */
   esqLadoAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).ladoAlto = v; }), esqLadoAltoAuto: (v, m) => change(() => { esquinaDe(byId(m.id)).ladoAlto = null; }),   /* A269 */
   esqAltoA: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 0, v)), esqAltoB: (v, m) => change(() => altoEsquinaAncho(byId(m.id).esquina.k, 1, v)),   /* A226 */
   fondoRefri: (v, m) => change(() => { byId(m.id).fondo = v; }),   /* A238 */
