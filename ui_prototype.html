@@ -303,6 +303,17 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A283. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «mostrar solo campana deberia subir la campana hasta el
+       tope, las tapetas superiores se recortan y dan vuelta en el espacio vacio de la campana; si la campana queda en borde, desaparece la
+       tapeta lateral tambien») Con la campana sola la chimenea llega al techo si hay tapeta superior (si no, al tope de los altos;
+       topeCampanaSola) y el backsplash sube detras hasta ahi. La tapeta superior (lisa o corona) no pasa por esa columna: cada tramo cierra
+       por el lateral del alto vecino hasta el muro (cierres como A254/A278; la corona en recorridos separados). En el borde, la tapeta
+       lateral alta de ese lado no se genera. 3D y alzado.
+   A282. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «los gabinetes altos con campana no hacen hueco para el
+       paso de campana») La chimenea del modelo de campana (MODELO_EQUIPOS.campana.chimenea, en su lugar tras estirarse a la columna con la
+       regla de Skitchen: mapaEstirar, chimeneaCampana) atraviesa el alto: piso, repisas y techo son una pieza con la muesca (forma perfil
+       eje z), la trasera y el riel frances se parten a sus lados, una division se recorta por detras; holgura de 1 cm. El alzado dibuja la
+       chimenea con su ancho real.
    A281. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «la holgura entre frentes y cama de altos en clasica y
        simple no es de 3 mm») La cama de los altos con puertas queda PLAN_HOLGURA_PUERTA (3 mm) detras de ellas, como la caja (antes tocaba
        la cara posterior de las puertas). El repisero sigue llegando al frente (A266); con gola, igual menos el unero.
@@ -3325,6 +3336,10 @@ function campanaFuera(c, bajo){ const l = c.modulos.filter(q => !q.upper), h = c
 function campanaSobre(c, bajo){ const l = c.modulos.filter(q => !q.upper), h = c.modulos.filter(q => q.upper); if (l.length !== h.length) return; const a = h[l.indexOf(bajo)];
   if (a && !a.reserved && a.tipo !== 'Abierto' && !a.campana) { a.campana = true; a.inferiorAbierto = false; } }
 /* A123 (usuario, 09/10): columnas de campana sola (sin gabinetes): [x0, x1] de cada una; ahi el backsplash sube por el muro hasta el tope de los altos */
+/* A283 (usuario 18/10: «mostrar solo campana deberia subir la campana hasta el tope, las tapetas superiores se recortan y dan vuelta en el
+   espacio vacio de la campana; si la campana queda en borde, desaparece la tapeta lateral tambien»): con tapeta superior la chimenea llega
+   al techo (la tapeta no pasa por esa columna), sin ella al tope de los altos */
+const topeCampanaSola = () => cfg.tapetaSuperior ? cfg.alturaMuro : topeAltos();
 const columnasCampanaSola = () => { const r = []; let x = ajusteIzq(); row(true).forEach(m => { if (!m.reserved && soloCamp(m)) { if (r.length && Math.abs(r[r.length - 1][1] - x) < .01) r[r.length - 1][1] = x + m.ancho; else r.push([x, x + m.ancho]); } x += m.ancho; }); return r; };   /* A124: vecinas unidas */
 /* A83 (usuario, 06/10): con gola (Moderna) los altos llevan siempre doble cama, con o sin LED: la cama del piso (con la ranura si hay LED)
    y encima una cama interior desde 1.8 cm tras el frente hasta el trasero (como LedUpgrade de Revit); deja el unero y oculta el LED */
@@ -3956,7 +3971,10 @@ const MODELO_EQUIPOS = {
   micro_empotrar: { medida: [59.5, 2.8, 39.5], minimo: [36.04, 2.8, 19.06], cara: .8 },
   micro_sobreponer: { medida: [52.367, 44.678, 29.8], minimo: [1, 35.29, 1], cara: 0 },
   parrilla_induccion: { medida: [80, 55, 1], minimo: [18.59, 9.99, .1], cara: 0 },
-  campana: { medida: [78, 50.15, 60.1], minimo: [41.37, 26.52, 22.06], cara: 0 },   /* A259: sin los spots de la visera */
+  campana: { medida: [78, 50.15, 60.1], minimo: [41.37, 26.52, 22.06], cara: 0,   /* A259: sin los spots de la visera */
+    /* A282: chimenea del modelo en sus ejes normalizados (x de izquierda a derecha, y desde el frente) y las zonas que se estiran
+       (catalogo.json de Skitchen): donde queda la chimenea con la medida de la columna */
+    chimenea: { x: [23.2, 55], y: [25.35, 50.15] }, zonas: { x: [[2.8, 10], [18.45, 25.65], [27.6, 35], [43.45, 50.35], [52.3, 60], [68.45, 75.15]], y: [[9.85, 25.3], [25.55, 37.9]] } },
   frigobar_vinos: { medida: [60.96, 73.622, 86.36], minimo: [28.11, 13.27, 27.33], cara: 8.9 },
   lavavajillas: { medida: [59, 60.143, 78], minimo: [42.04, 12.2, 33.84], cara: 0 },
   magic_corner: { medida: [86.97, 51.692, 76.2], escala: true },
@@ -3972,6 +3990,16 @@ const modeloEquipo = (archivo, o, medida, ejes = [[1, 0, 0], [0, -1, 0], [0, 0, 
 /* la campana del usuario es de chimenea: su visera queda en el hueco de la campana y la chimenea sube hasta el tope de la columna (bajo un
    alto pasa por dentro de el, como el ducto) */
 /* equipo de x a..b y z z0..z1 con su cara al paño yF de los frentes; fondo hasta yB (sin yB, el natural del modelo); nunca bajo su minimo */
+/* A282: la regla de estirar de Skitchen (estirar.rb, Estirar.mapa): x -> x' por tramos; la diferencia se reparte entre las zonas segun su ancho */
+const mapaEstirar = (zonas, natural, objetivo) => { if (!zonas || !zonas.length) return v => v*objetivo/natural;
+  const anchos = zonas.map(([a, b]) => b - a), total = anchos.reduce((u, w) => u + w, 0), d = objetivo - natural; let corr = 0;
+  const tramos = zonas.map(([a, b], i) => { const nw = anchos[i] + d*anchos[i]/total, q = [a, b, corr, nw/anchos[i]]; corr += nw - anchos[i]; return q; });
+  return v => { let c = 0; for (const [a, b, c0, sc] of tramos) { if (v > a && v < b) return a + c0 + (v - a)*sc; if (v >= b) c = c0 + (b - a)*(sc - 1); } return v + c; }; };
+/* A282: chimenea de la campana de la columna que empieza en x (ejes de la cara): x0..x1 y su frente y1 (va contra el muro) */
+const chimeneaCampana = (m, x, sep = cfg.isla ? 0 : cfg.separacionPosterior || 0) => { const E = MODELO_EQUIPOS.campana, w = Math.max(m.ancho - 2, E.minimo[0]), D = Math.max(m.fondoCampana, E.minimo[1]);
+  const mx = mapaEstirar(E.zonas.x, E.medida[0], w), my = mapaEstirar(E.zonas.y, E.medida[1], D);
+  return { x0: x + 1 + mx(E.chimenea.x[0]), x1: x + 1 + mx(E.chimenea.x[1]), y1: sep + m.fondoCampana - my(E.chimenea.y[0]) }; };
+const HOLGURA_CHIMENEA = 1;   /* A282: luz alrededor de la chimenea */
 const equipoModelo = (archivo, a, b, z0, z1, yF, yB = null) => { const E = MODELO_EQUIPOS[archivo], D = yB === null ? E.medida[1] : yF + (E.cara || 0) - yB;
   return modeloEquipo(archivo, [a, yF + (E.cara || 0), z0], [b - a, D, z1 - z0].map((v, k) => Math.max(v, (E.minimo || [0, 0, 0])[k]))); };
 const largoPiston = () => { const M = MODELO_PISTON; return Math.hypot(M.P0[0] - M.A0[0], M.P0[2] - M.A0[2]); };
@@ -4416,9 +4444,9 @@ function planDePiezas(c = cfg){
         sep = sepDe(m);
         if (m.reserved || m.esquina) { x += m.ancho; continue; }   /* A134: el esquinero en 3D, etapa siguiente */
         if (isSpecial(m) || esAparato(m)) { especial(m, x); x += m.ancho; continue; }
-        if (upper && soloCamp(m)) {   /* A81: solo la campana */
+        if (upper && soloCamp(m)) {   /* A81: solo la campana; A283: la chimenea hasta el tope */
           if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana,
-            equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + Math.max(huecoAlto(m), bodyH(m)), sep + m.fondoCampana, sep));
+            equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), topeCampanaSola(), sep + m.fondoCampana, sep));
           x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
            interior del primero (BodyLead) y a todo el ancho del grupo */
@@ -4464,6 +4492,21 @@ function planDePiezas(c = cfg){
           }
         }
         fronts(m).forEach((f, k) => frente(m, f, k, x));
+        /* A282 (usuario 18/10: «los gabinetes altos con campana no hacen hueco para el paso de campana»): la chimenea sube por dentro del
+           gabinete; sus tableros (piso, repisas, techo) son una pieza con la muesca de la chimenea (forma perfil eje z), la trasera y el riel
+           se parten a sus lados y una division que la cruce se recorta por detras. Holgura HOLGURA_CHIMENEA alrededor */
+        if (upper && hasCampana(m)) { const ch = chimeneaCampana(m, x, sep), hg = HOLGURA_CHIMENEA, hx0 = ch.x0 - hg, hx1 = ch.x1 + hg, hy1 = ch.y1 + hg;
+          const zc0 = baseAltos() + huecoAlto(m) - .01, zc1 = baseAltos() + Math.max(huecoAlto(m), bodyH(m)) + .01;
+          for (let i = piezas.length - 1; i >= 0; i--) { const q = piezas[i];
+            const fx = q.forma && !(q.forma.tipo === 'perfil' && q.forma.eje === 'x' && !q.forma.ini && !q.forma.fin && !q.forma.giro);   /* el riel (perfil a lo largo de x) se parte */
+            if (q.modulo !== m.id || !['panel', 'repisa', 'division'].includes(q.rol) || fx || q.frente || q.z < zc0 || q.z + q.alto > zc1) continue;
+            if (q.x >= hx1 - .01 || q.x + q.ancho <= hx0 + .01 || q.y >= hy1 - .01) continue;
+            const X0 = q.x, X1 = q.x + q.ancho, Y0 = q.y, Y1 = q.y + q.fondo, a = Math.max(X0, hx0), b = Math.min(X1, hx1);
+            if (q.ancho <= 2.5 && q.fondo > 2.5) { if (Y1 - hy1 > .5) Object.assign(q, { y: r2(hy1), fondo: r2(Y1 - hy1) }); else piezas.splice(i, 1); continue; }   /* division */
+            if (q.alto <= 2.5 && q.fondo > 2.5 && Y1 - hy1 > .5) {   /* tablero: una pieza con la muesca */
+              const P = [[X0, Y0], [a, Y0], [a, hy1], [b, hy1], [b, Y0], [X1, Y0], [X1, Y1], [X0, Y1]].filter((v, j, A) => { const w = A[(j + A.length - 1) % A.length]; return Math.hypot(v[0] - w[0], v[1] - w[1]) > .01; });
+              q.forma = { tipo: 'perfil', eje: 'z', puntos: P.map(([u, v]) => [r2(u - X0), r2(v - Y0)]) }; continue; }
+            piezas.splice(i, 1, ...[[X0, a, ''], [b, X1, ':der']].filter(([u0, u1]) => u1 - u0 > .3).map(([u0, u1, sf]) => Object.assign({}, q, { id: q.id + sf, x: r2(u0), ancho: r2(u1 - u0) }))); } }   /* trasera, riel */
         /* campana (drawCampana): en el hueco bajo el alto, del muro a su fondo y casi a todo el ancho */
         if (hasCampana(m) && m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana,
             equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + Math.max(huecoAlto(m), bodyH(m)), sep + m.fondoCampana, sep));
@@ -4662,7 +4705,7 @@ function planDePiezas(c = cfg){
       if (cfg.backsplash) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
         /* A123: detras de la campana sola el backsplash sigue por el muro hasta el tope de los altos. A125 (usuario, 09/10): de una
            pieza: el tramo y sus subidas son un solo perfil (forma perfil, eje y: puntos [x, z] desde la esquina de la caja) */
-        const zt = topeAltos(), cols = zt > top + .01 ? columnasCampanaSola() : [];
+        const zt = topeCampanaSola(), cols = zt > top + .01 ? columnasCampanaSola() : [];   /* A283 */
         cutRun(run0, run1, cortaBack).forEach(([a, b], k) => {
           const sube = cols.map(([c0, c1]) => [Math.max(a, c0), Math.min(b, c1)]).filter(([c0, c1]) => c1 - c0 > .01).sort((p, q) => q[0] - p[0]);
           const pieza = { id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: (sube.length ? zt : top) - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' };
@@ -4725,7 +4768,7 @@ function planDePiezas(c = cfg){
       if (left ? cfg.corridaIzq : cfg.corridaDer) { pieza('', 0, cfg.alturaMuro, Math.max(dBajo, dAlto)); return; }
       const lo = lows.length ? lows[left ? 0 : lows.length - 1] : null, hi = highs.length ? highs[left ? 0 : highs.length - 1] : null;
       if (lo) { const [z0, z1] = isSpecial(lo) ? [0, topeEspecial(lo)] : cortaZoclo(lo) ? [0, zBar - pq] : [zb, zBar - pq]; pieza(':bajo', z0, z1, dBajo); }
-      if (hi && !hi.reserved) pieza(':alto', zBA, zTop, dAlto);
+      if (hi && !hi.reserved && !soloCamp(hi)) pieza(':alto', zBA, zTop, dAlto);   /* A283 */
     });
     /* puertas ocultas (drawHiddenDoors / hdFronts): fuera de la cota del muro. Hoja de piso a techo con su zoclo pegado (o desde
        el piso), juntas aplicadas al frente, jaladera a 100 cm junto al canto libre, gabinete de piston opcional y tapetas lateral
@@ -4759,8 +4802,9 @@ function planDePiezas(c = cfg){
       highs.forEach((u, i) => { const bajo = lows.length === highs.length ? lows[i] : null;
         const f = u.esquina && esquinaAlta(u) ? fondoCara(cfg, false)   /* A247: la alacena de esquina, al fondo de los bajos */
           : u.reserved && bajo && isSpecial(bajo) ? bajo.fondo : isDoble(u) && u.fondoSuperior > 0 ? u.fondoSuperior : u.fondo;
-        tramosTs.push([xc, xc + u.ancho, sep + f + t]); xc += u.ancho; });
-      if (tramosTs.length) { tramosTs[0][0] = run0; tramosTs[tramosTs.length - 1][1] = run1; }
+        if (!soloCamp(u)) tramosTs.push([xc, xc + u.ancho, sep + f + t]); xc += u.ancho; });   /* A283: sin tramo sobre la campana sola */
+      if (tramosTs.length) { if (!soloCamp(highs[0])) tramosTs[0][0] = run0; if (!soloCamp(highs[highs.length - 1])) tramosTs[tramosTs.length - 1][1] = run1; }
+      const huecosTs = columnasCampanaSola(), huecoA = x => huecosTs.some(([, c1]) => Math.abs(c1 - x) < .01), huecoB = x => huecosTs.some(([c0]) => Math.abs(c0 - x) < .01);   /* A283 */
       const unidos = []; tramosTs.forEach(q => { const u = unidos[unidos.length - 1]; if (u && Math.abs(u[2] - q[2]) < .01 && Math.abs(u[1] - q[0]) < .01) u[1] = q[1]; else unidos.push(q.slice()); });
       /* A160 (usuario): no es una pieza solida hasta el muro: un canto del grueso del frente en el borde de los altos y, donde
          cambia el saque, un regreso del frente menos saliente al mas saliente */
@@ -4820,13 +4864,13 @@ function planDePiezas(c = cfg){
             losaTs('tapeta:superior:diagonal', [corta(tB(cDs.lD), lx), corta(tB(cDs.lD), cDs.sB), corta(tF(cDs.lD), cDs.sB), corta(tF(cDs.lD), lx)]); return; } }
         /* A254 (usuario 17/10: «los crownmolding no se cierran en los laterales; todas las tapetas superiores deben tener esa opcion»): con el
            extremo cerrado, un tablero sobre el lateral del gabinete, del muro al frente de la tapeta, y la del frente se alarga a tapar su canto */
-        const yTs = fo - t - dTs, cierreI = primero && !cIs && cfg.cerrarMolduraIzq, cierreD = ultimo && !cDs && cfg.cerrarMolduraDer;
+        const yTs = fo - t - dTs, cierreI = primero && !cIs && cfg.cerrarMolduraIzq || huecoA(a), cierreD = ultimo && !cDs && cfg.cerrarMolduraDer || huecoB(b);   /* A283: y junto a la campana sola */
         /* A278 (usuario 18/10: «el cierre de la tapeta en cierre de extremos esta fuera del pano lateral»): el cierre va sobre el lateral, su
            cara al pano del lateral del extremo (antes un grueso por fuera) y la tapeta del frente llega al mismo pano */
         if (cierreI && yTs - sep > .05) add({ id: 'tapeta:superior:cierre:izq', rol: 'tapeta', x: a, y: sep, z: zTop, ancho: t, fondo: r2(yTs - sep), alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         if (cierreD && yTs - sep > .05) add({ id: 'tapeta:superior:cierre:der', rol: 'tapeta', x: r2(b - t), y: sep, z: zTop, ancho: t, fondo: r2(yTs - sep), alto: altoTs, material: matTs, etiqueta: 'tapetas' });
         add({ id: 'tapeta:superior' + sf, rol: 'tapeta', x: tsA, y: yTs, z: zTop, ancho: r2(tsB - tsA), fondo: t, alto: altoTs, material: matTs, etiqueta: 'tapetas' });
-        const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01) return;
+        const sig = unidos[k + 1]; if (!sig || Math.abs(sig[2] - fo) < .01 || huecoB(b)) return;   /* A283 */
         /* A161 (usuario): el regreso no sobresale del canto de la columna mas saliente: va dentro de ella, del canto del frente menos
            saliente a la espalda del suyo */
         const f0 = Math.min(fo, sig[2]), f1 = Math.max(fo, sig[2]);
@@ -4839,18 +4883,20 @@ function planDePiezas(c = cfg){
         let tr = unidos.map(([a, b, fo], k) => ({ a, b, yb: fo - t - hol, k }));   /* yb: cara de la caja */
         if (cD && cD.corte !== null) tr = tr.filter(q => q.a < cD.corte - .01).map(q => Object.assign(q, { b: Math.min(q.b, cD.corte) }));
         if (cI && cI.corte !== null) tr = tr.filter(q => q.b > cI.corte + .01).map(q => Object.assign(q, { a: Math.max(q.a, cI.corte) }));
-        if (tr.length) {
+        /* A283: la campana sola corta el recorrido: un recorrido por grupo de tramos seguidos, con cierre por el lateral junto a ella */
+        const grupos = []; tr.forEach(q => { const g = grupos[grupos.length - 1]; if (g && q.a - g[g.length - 1].b < .01) g.push(q); else grupos.push([q]); });
+        grupos.forEach((tr, gi) => { const pri = gi === 0, ult = gi === grupos.length - 1;
           const segs = [];
-          if (cI) cI.antes.forEach(s => segs.push(Object.assign({}, s)));
-          else if (ci) { const xc = tr[0].a; segs.push({ l: ln([xc, 0], [0, 1]), own: true, id: ':cierre:izq' + sfk(tr[0].k), sq0: [xc, sep] }); }   /* A254: por el lateral hasta el muro */
+          if (pri && cI) cI.antes.forEach(s => segs.push(Object.assign({}, s)));
+          else if (pri && ci || huecoA(tr[0].a)) { const xc = tr[0].a; segs.push({ l: ln([xc, 0], [0, 1]), own: true, id: ':cierre:izq' + sfk(tr[0].k), sq0: [xc, sep] }); }   /* A254: por el lateral hasta el muro */
           tr.forEach((q, i) => { const pv = tr[i - 1], sg = { l: ln([q.a, q.yb], [1, 0]), own: true, id: sfk(q.k) };
             if (pv && Math.abs(q.yb - pv.yb) > .5) segs.push({ l: ln([pv.b, pv.yb], [0, Math.sign(q.yb - pv.yb)]), own: true, id: ':regreso' + sfk(pv.k) });
             else if (pv) { segs[segs.length - 1].sq1 = [pv.b, pv.yb]; sg.sq0 = [q.a, q.yb]; }
             if (!segs.length) sg.sq0 = [q.a, q.yb];
             segs.push(sg); });
           const ul = tr[tr.length - 1];
-          if (cD) cD.despues.forEach(s => segs.push(Object.assign({}, s, s.id === null ? { id: ':regreso' + sfk(ul.k) } : {})));
-          else if (cd) { const xc = ul.b; segs.push({ l: ln([xc, ul.yb], [0, -1]), own: true, id: ':cierre:der' + sfk(ul.k), sq1: [xc, sep] }); }   /* A254: por el lateral hasta el muro */
+          if (ult && cD) cD.despues.forEach(s => segs.push(Object.assign({}, s, s.id === null ? { id: ':regreso' + sfk(ul.k) } : {})));
+          else if (ult && cd || huecoB(ul.b)) { const xc = ul.b; segs.push({ l: ln([xc, ul.yb], [0, -1]), own: true, id: ':cierre:der' + sfk(ul.k), sq1: [xc, sep] }); }   /* A254: por el lateral hasta el muro; A283 */
           else segs[segs.length - 1].sq1 = [ul.b, ul.yb];
           const bk = l => despl(l, fsC), fr = l => despl(l, -(c9 - fsC)), proy = (S, l, s) => [S[0] + l.d[1]*s, S[1] - l.d[0]*s];
           segs.forEach((s, i) => { if (!s.own) return; const pv = segs[i - 1], nx = segs[i + 1];
@@ -4869,7 +4915,7 @@ function planDePiezas(c = cfg){
             const O = [SB[0] + d[0]*s0, SB[1] + d[1]*s0], nl = [-d[1], d[0]], es = [[0, 0], [L, 0], [L, c9], [0, c9]].map(([a, b]) => [O[0] + d[0]*a + nl[0]*b, O[1] + d[1]*a + nl[1]*b]);
             const xs = es.map(P => P[0]), ys = es.map(P => P[1]), bx = Math.min(...xs), by = Math.min(...ys);
             add(Object.assign(q, { x: r2(bx), y: r2(by), ancho: r2(Math.max(...xs) - bx), fondo: r2(Math.max(...ys) - by),
-              forma: { tipo: 'perfil', eje: 'x', puntos: pts, ini: [r2(-s0), k4(sF/c9)], fin: [r2(L - (eB - s0)), k4((eB - eF)/c9)], giro: k4(Math.atan2(d[1], d[0])*180/Math.PI), largo: r2(L), origen: [r2(O[0] - bx), r2(O[1] - by)] } })); }); } }
+              forma: { tipo: 'perfil', eje: 'x', puntos: pts, ini: [r2(-s0), k4(sF/c9)], fin: [r2(L - (eB - s0)), k4((eB - eF)/c9)], giro: k4(Math.atan2(d[1], d[0])*180/Math.PI), largo: r2(L), origen: [r2(O[0] - bx), r2(O[1] - by)] } })); }); }); }
     }
     /* A146 (usuario): liston del muro del riel frances corrido por cada fila de altos que cuelgan a la misma altura: de la cara exterior
        del primer lateral a la del ultimo, pasando por las muescas de los laterales; bisel hacia arriba y hacia el muro */
@@ -5236,6 +5282,9 @@ function pruebasPlanMX(){
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
     ['esquinero con materiales propios en el bajo y el alto (A272)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const mb = c.modulos.find(m => m.esquina && !m.upper), mu = c.modulos.find(m => m.esquina && m.upper);
       const ids = (c.catalogo || []).map(q => q.id); if (ids.length > 2) { mb.material = ids[1]; mu.material = ids[2]; mu.materialesPaneles = { 'esquina.fondo': ids[1], 'esquina.repisa.1': ids[2] }; } } finally { cfg = prev; } return c; }],
+    ['alto con campana y su hueco de chimenea, con riel frances (A282)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true }); c.fijacionAltos = 'frances'; return c; }],
+    ['campana sola en el borde con tapeta superior y corona (A283)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); c.style = 'Clasica'; c.tapetaSuperior = true; c.tapetaSuperiorMoldura = true;
+      if (h[0]) Object.assign(h[0], { campana: true, soloCampana: true, mostrarCampana: true }); if (h[3]) Object.assign(h[3], { campana: true, soloCampana: true, mostrarCampana: true }); return c; }],
     ['torre con piston arriba y repisas, clasica con tapeta superior cerrada (A278, A279, A281)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Clasica'; c.led = true; c.tapetaSuperior = true; c.cerrarMolduraIzq = c.cerrarMolduraDer = true; c.corridaIzq = c.corridaDer = false;
       Object.assign(l[0], { tipo: 'Hornos', ancho: 60, fijo: true, torreSuperior: 'Pistón', repisasSuperior: 2 }); return c; }],
     ['torre con el microondas separado 10 del horno (A277)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 60, fijo: true, elevacionMicro: 10, microSobreponer: false }); return c; }],
@@ -5343,7 +5392,8 @@ function pruebasPlanMX(){
       a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago') ||   /* B19: el vastago entra en su cuerpo */
       a.tipo === 'RielMuro' && b.tipo === 'RielGabinete' ||   /* A145: las dos mitades del riel frances comparten su caja (A146: el del muro corre por toda la fila) */
       a.tipo === 'Nariz' && b.tipo === 'Losa' && (b.id === a.id.replace(/:nariz$/, '') || b.id.startsWith(a.id.replace(/:nariz$/, '') + ':')) ||   /* A88: inglete */
-      (a.id.startsWith('esq') || b.id.startsWith('esq')) && (a.forma && a.forma.eje === 'z' || b.forma && b.forma.eje === 'z' || a.forma && a.forma.tipo === 'cilindro' || b.forma && b.forma.tipo === 'cilindro');   /* A134: las losas del esquinero (L, charolas, frente a 45) no son su caja */
+      (a.id.startsWith('esq') || b.id.startsWith('esq')) && (a.forma && a.forma.eje === 'z' || b.forma && b.forma.eje === 'z' || a.forma && a.forma.tipo === 'cilindro' || b.forma && b.forma.tipo === 'cilindro') ||   /* A134: las losas del esquinero (L, charolas, frente a 45) no son su caja */
+      a.tipo === 'Moldura' && b.tipo === 'Moldura' || a.rol === 'backsplash' && a.forma;   /* A283: la corona a inglete y el backsplash que sube detras de la campana sola no son su caja */
     p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !choca(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
     /* bisagras: las de la regla de Revit en cada puerta (2 hasta 90 cm, 3 hasta 160, 4 hasta 200, 5 mas) */
     const ocultas = new Set((c.puertasOcultas || []).map(d => d.id));
@@ -5452,6 +5502,22 @@ function pruebasPlanMX(){
         const fl = p.piezas.filter(q => /^luz:/.test(q.id)); if (la && fl.length) ok(fl.some(q => Math.abs(q.x + q.ancho - la.x) < .01 && Math.abs(q.y - la.y) < .01), nombre + ': la luz del esquinero no sigue a la de su cara'); } }
     /* A269: las hojas en L del alto de esquina miden al menos hojaMinAlto */
     p.piezas.filter(q => /^esq\d+:alto(:sup)?:hoja:[ab]$/.test(q.id)).forEach(q => ok(Math.max(q.ancho, q.fondo) >= reg().esquina.hojaMinAlto - .05, nombre + ': la hoja ' + q.id + ' mide menos de ' + reg().esquina.hojaMinAlto));
+    /* A282: en el alto con campana nada de su caja cruza la chimenea (con su holgura) */
+    { let xr = ajusteIzq(); c.modulos.filter(m => m.upper).forEach(m => { const x = xr; xr += m.ancho; if (m.reserved || m.esquina || !hasCampana(m) || soloCamp(m)) return;
+      const prev = cfg; cfg = c; let ch; try { ch = chimeneaCampana(m, x); } finally { cfg = prev; }
+      const hx0 = ch.x0 - HOLGURA_CHIMENEA + .02, hx1 = ch.x1 + HOLGURA_CHIMENEA - .02, hy1 = ch.y1 + HOLGURA_CHIMENEA - .02;
+      const dentroPol = (P, u, v) => { let cc = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, yi] = P[i], [xj, yj] = P[j]; if ((yi > v) !== (yj > v) && u < (xj - xi)*(v - yi)/(yj - yi) + xi) cc = !cc; } return cc; };
+      const zA = baseAltos() + huecoAlto(m) + .02, zB = baseAltos() + bodyH(m) - .02;
+      p.piezas.filter(q => q.modulo === m.id && ['panel', 'repisa', 'division'].includes(q.rol) && q.z < zB && q.z + q.alto > zA && q.y < hy1).forEach(q => {
+        const P = q.forma && q.forma.tipo === 'perfil' && q.forma.eje === 'z' ? q.forma.puntos.map(([u, v]) => [q.x + u, q.y + v]) : null;
+        const choca = P ? [.1, .5, .9].some(fx => [.1, .5, .9].some(fy => dentroPol(P, hx0 + (hx1 - hx0)*fx, q.y + (hy1 - q.y)*fy))) : q.x < hx1 && q.x + q.ancho > hx0;
+        ok(!choca, nombre + ': ' + q.id + ' cruza la chimenea de la campana de ' + m.id); }); }); }
+    /* A283: con la campana sola la tapeta superior no pasa por su columna y cierra a sus lados; la chimenea llega al tope */
+    { let xr = ajusteIzq(); c.modulos.filter(m => m.upper).forEach(m => { const x = xr; xr += m.ancho; if (m.reserved || !soloCamp(m)) return;
+      const ts = p.piezas.filter(q => /^tapeta:superior/.test(q.id) && !q.id.includes(':cierre:') && q.x < x + m.ancho - (q.tipo === 'Moldura' ? q.alto + .05 : .02) && q.x + q.ancho > x + (q.tipo === 'Moldura' ? q.alto + .05 : .02) && q.y + q.fondo > (c.separacionPosterior || 0) + 5);   /* la corona sobresale su vuelo a la vista */
+      ok(!c.tapetaSuperior || !ts.length, nombre + ': la tapeta superior pasa sobre la campana sola de ' + m.id + ' (' + ts.map(q => q.id) + ')');
+      const eq = p.piezas.find(q => q.modulo === m.id && q.tipo === 'Campana' && q.modelo); const prev = cfg; cfg = c;
+      try { if (eq && m.mostrarCampana) ok(Math.abs(eq.modelo.origen[2] + eq.modelo.medida[2] - topeCampanaSola()) < .05, nombre + ': la chimenea de la campana sola de ' + m.id + ' no llega al tope'); } finally { cfg = prev; } }); }
     /* A278: el cierre de la tapeta superior al pano del lateral (no por fuera) */
     ['izq', 'der'].forEach(l => { const q = p.piezas.find(x => x.id === 'tapeta:superior:cierre:' + l); if (!q) return; const W = c.longitud;
       ok(q.x > -.01 && q.x + q.ancho < W + .01, nombre + ': el cierre ' + l + ' de la tapeta superior sale del pano del lateral'); });
@@ -6325,7 +6391,7 @@ function drawElevation(){
   /* backsplash entre la cubierta y los altos */
   const bsTop = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
   /* A123: detras de la campana sola sube al tope. A124 (usuario, 09/10): un solo relleno y el contorno de la union, sin lineas divisorias */
-  const bsRects = cutRun(run0, run1, cortaBack).map(([a, b]) => RX(a, b, zBar, bsTop)).concat(columnasCampanaSola().filter(() => topeAltos() > bsTop + .01).map(([a, b]) => RX(a, b, bsTop, topeAltos())));
+  const bsRects = cutRun(run0, run1, cortaBack).map(([a, b]) => RX(a, b, zBar, bsTop)).concat(columnasCampanaSola().filter(() => topeCampanaSola() > bsTop + .01).map(([a, b]) => RX(a, b, bsTop, topeCampanaSola())));   /* A283 */
   if (cfg.backsplash && bsRects.length) { const bb = bsRects.reduce((q, r) => ({ x0: Math.min(q.x0, r.x), y0: Math.min(q.y0, r.y), x1: Math.max(q.x1, r.x + r.w), y1: Math.max(q.y1, r.y + r.h) }), { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 });
     ctx.save(); ctx.beginPath(); bsRects.forEach(r => ctx.rect(r.x, r.y, r.w, r.h)); ctx.clip(); fillMat(bb.x0, bb.y0, bb.x1 - bb.x0, bb.y1 - bb.y0, groupMaterial('Backsplash'), C.backsplash); ctx.restore();
     contornoUnion(bsRects, C.line, 1); }
@@ -6336,7 +6402,7 @@ function drawElevation(){
   const sideRows = left => {
     if (left ? cfg.corridaIzq : cfg.corridaDer) return [[0, cfg.alturaMuro]];
     const lo = lows.length ? lows[left ? 0 : lows.length - 1] : null, hi = highs.length ? highs[left ? 0 : highs.length - 1] : null;
-    return [lo && isSpecial(lo) ? [0, topeEspecial(lo)] : lo && cortaZoclo(lo) ? [0, zBar - paquete()] : [zb, zBar - paquete()]].concat(hi && !hi.reserved ? [[zBA, zTop]] : []);
+    return [lo && isSpecial(lo) ? [0, topeEspecial(lo)] : lo && cortaZoclo(lo) ? [0, zBar - paquete()] : [zb, zBar - paquete()]].concat(hi && !hi.reserved && !soloCamp(hi) ? [[zBA, zTop]] : []);   /* A283 */
   };
   const tapetaPaint = r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Tapetas'), C.tapeta); outline(r, C.line, 1); };
   part('fillerI', cfg.tapetaIzq, sideRows(true).map(([a, b]) => RX(0, cfg.tapetaIzq ? ajusteIzq() : 3, a, b)), tapetaPaint, post);
@@ -6350,7 +6416,8 @@ function drawElevation(){
     crownLineas(cfg.tapetaSuperiorPerfil || 'ogee', h).forEach(dz => { const y = r.y + r.h - dz*scale; ctx.beginPath(); ctx.moveTo(r.x, y); ctx.lineTo(r.x + r.w, y); ctx.stroke(); });
     [[cfg.cerrarMolduraIzq, r.x + h*scale], [cfg.cerrarMolduraDer, r.x + r.w - h*scale]].forEach(([on, x]) => { if (!on) return; ctx.beginPath(); ctx.moveTo(x, r.y); ctx.lineTo(x, r.y + r.h); ctx.stroke(); });
     ctx.restore(); };
-  if (highs.length) part('fillerTop', cfg.tapetaSuperior, [RX(run0, run1, cfg.tapetaSuperior ? zTop : cfg.alturaMuro - 3, cfg.alturaMuro)], tapetaTopPaint, post);
+  if (highs.length) { let tr = [[run0, run1]]; columnasCampanaSola().forEach(([c0, c1]) => { tr = tr.flatMap(([a, b]) => [[a, Math.min(b, c0)], [Math.max(a, c1), b]].filter(([u, v]) => v - u > .01)); });   /* A283 */
+    part('fillerTop', cfg.tapetaSuperior, tr.map(([a, b]) => RX(a, b, cfg.tapetaSuperior ? zTop : cfg.alturaMuro - 3, cfg.alturaMuro)), tapetaTopPaint, post); }
   { const rE = cfg.potFiller ? estufaRango() : null;   /* A216: potfiller en la columna de la estufa (escudo, brazo y pico) */
     if (rE) { const cx0 = potFillerCx(rE), zc = altoBarra() + Math.max(15, cfg.potFillerAlto || 30), cils = potFillerCils(cx0, 0, zc);
       post.push(() => { ctx.save(); ctx.lineCap = 'round';
@@ -7882,7 +7949,8 @@ function drawModule(m, x0, RX, X, Z, post){
   if (m.tipo === 'Lavavajillas' && !m.upper) { drawDishwasher(m, x0, RX, post); return; }
   if (soloCamp(m)) {   /* A81: solo la campana en su hueco y la chimenea hasta el tope; sin cuerpo ni modulo superior */
     const full = RX(x0, x0 + m.ancho, baseAltos(), topeAltos()), free = RX(x0, x0 + m.ancho, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m)), sel = selection.has(m.id);
-    drawCampana(m, full, free); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel); return; }
+    const tope = RX(x0, x0 + m.ancho, baseAltos(), topeCampanaSola());   /* A283 */
+    drawCampana(m, tope, free); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel); return; }
   const zb = cfg.baseBajos, z0 = m.upper ? baseAltos() : zb, z1 = m.upper ? baseAltos() + bodyH(m) : zb + cfg.altoBajos;
   const full = RX(x0, x0 + m.ancho, z0, z1), sel = selection.has(m.id), scale = frame.scale;
   /* espacio para campana: franja libre al pie del alto; el cuerpo queda encima */
@@ -7927,8 +7995,9 @@ function drawCampana(m, full, free){
   if (m.mostrarCampana) {
     const cw = Math.max(10, free.w - 2*scale), canopy = { x: free.x + (free.w - cw)/2, y: free.y, w: cw, h: free.h };
     ctx.fillStyle = C.metal; ctx.fillRect(canopy.x, canopy.y, canopy.w, canopy.h); outline(canopy, C.line, 1);
-    const chw = 30*scale, chh = free.y - full.y - 3.6*scale;
-    if (chh > 2) outline({ x: free.x + free.w/2 - chw/2, y: full.y + 1.8*scale, w: chw, h: chh }, C.chimney, 1, [1.5, 2.5]);
+    const ch = chimeneaCampana(m, 0), chw = (ch.x1 - ch.x0)*scale, chx = free.x + ch.x0*scale;   /* A282: la del modelo */
+    if (soloCamp(m)) { const q = { x: chx, y: full.y, w: chw, h: free.y - full.y }; if (q.h > 1) { ctx.fillStyle = C.metal; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } }   /* A283: a la vista hasta el tope */
+    else { const chh = free.y - full.y - 3.6*scale; if (chh > 2) outline({ x: chx, y: full.y + 1.8*scale, w: chw, h: chh }, C.chimney, 1, [1.5, 2.5]); }
   }
   ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText('Campana', free.x + 4, free.y + 2); ctx.textBaseline = 'alphabetic';
