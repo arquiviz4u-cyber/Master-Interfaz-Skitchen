@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A265. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «que los laterales de los altos de esquina no corten la
+       cama base y por consiguiente tampoco la tira led») Con LED o gola el alto de esquina lleva cama base como los altos de las caras: el
+       piso (y su canal y tira) pasa bajo los laterales, de canto a canto de la caja, y los laterales apoyan encima (sin la pieza del
+       unero bajo el lateral: el piso ya deja el unero de corrido). En L, diagonal, repisas, inferior + superior y ciego con tapeta. Las
+       divisiones del alto de esquina arrancan sobre la cama interior (Moderna) en lugar de cruzarla.
    A264. [Master hecho 18/10; SketchUp: sin cambio (piezas LED y Piso con forma); Revit pendiente] (usuario 18/10: «con un repisero y un
        gabinete juntos la tira no se alinea, corrigela y agrega las tiras led en gabinetes de esquina») 1) El frente de referencia de la
        tira de todo alto es su fondo menos el unero de la gola (Moderna), tenga puertas o no (antes el repisero no restaba el unero: su tira
@@ -5259,7 +5264,10 @@ function pruebasPlanMX(){
       ts.forEach((q, i) => { const n = ts[i + 1]; if (n && Math.abs(q.x + q.ancho - n.x) < .01) ok(Math.abs(q.y - n.y) < .01, nombre + ': tiras LED desalineadas entre ' + q.id + ' y ' + n.id); });
       const tq = p.piezas.find(q => /^esq\d+:alto(:sup)?:led$/.test(q.id) || /^esq\d+:alto:piso(:ciego)?:led$/.test(q.id));
       if (c.esquinas && c.esquinas.length && altoEsquina(c.esquinas[c.cara] || {}) !== 'ninguno' && c.esquinas[c.cara]) { ok(!!tq, nombre + ': el alto de esquina sin su tira LED');
-        if (tq && ts.length && /:alto:led$/.test(tq.id)) ok(Math.abs(tq.y - ts[ts.length - 1].y) < .01, nombre + ': la tira del alto de esquina no se alinea con las de su cara'); } }
+        if (tq && ts.length && /:alto:led$/.test(tq.id)) ok(Math.abs(tq.y - ts[ts.length - 1].y) < .01, nombre + ': la tira del alto de esquina no se alinea con las de su cara');
+        /* A265: los laterales del alto de esquina apoyan sobre su cama base (no la cortan, ni a la tira) */
+        const pz = p.piezas.filter(q => /^esq\d+:alto:piso/.test(q.id) && q.rol === 'panel'), z0p = pz.length ? Math.min(...pz.map(q => q.z)) : null;
+        if (z0p !== null) p.piezas.filter(q => /^esq\d+:alto:lateral/.test(q.id)).forEach(q => ok(q.z >= z0p + PLAN_CUERPO.lateral - .01, nombre + ': el lateral ' + q.id + ' corta la cama base del alto de esquina')); } }
     /* A262: cada hoja en L con bisagras lleva la Blum 155 (brazo fijo sin frente, eslabones cerrados y abiertos y cazoleta con la hoja), su
        perforacion por bisagra y gira 155 sobre el eje de la bisagra */
     p.piezas.filter(q => /^esq\d.*:hoja:[ab]$/.test(q.id) && p.piezas.some(r => r.id.startsWith(q.id + ':bisagra:'))).forEach(q => {
@@ -7195,9 +7203,10 @@ function esquinerosPlan(add, r2, sep, tf){
     const fF = fOwn; fOwn = fOwn - PLAN_HOLGURA_PUERTA;   /* A143: gola en el bajo */
     const bx = (n, rol, tipo, u0, u1, v0, v1, a, b, m2, et) => duenaA ? caja(pre + n, rol, tipo, modulo, LA - u1, LA - u0, v0, v1, a, b, m2, et) : caja(pre + n, rol, tipo, modulo, LA - v1, LA - v0, u0, u1, a, b, m2, et);
     const xC = ciegoExtra(k), P = op ? w - fOtra - tf - op.cierre : R.ciegoPuerta + xC, u0 = 0, et = 'gabinetes';   /* A232: el bajo tambien llega al muro */   /* A226: el alto llega al muro y su puerta crece al acortar el cierre */   /* A221: crecen la caja y su puerta */
-    bx(':lateral:esquina', 'panel', 'Lateral', u0, u0 + e1, 0, fOwn, z0, z1, mat, et); if (gola) { const hG = golaHondo(true), zgL = z1 - agarre() - traslapeL(); bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn - hG, z0, z1, mat, et); bx(':lateral:bajo', 'panel', 'Lateral', w - e1, w, fOwn - hG, fOwn, z0, zgL, mat, et); }   /* A163: rebaje de la gola */
-    else if (op && op.unero > 0) { bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0 + e1, z1, mat, et); bx(':lateral:unero', 'panel', 'Lateral', w - e1, w, 0, fOwn - op.unero, z0, z0 + e1, mat, et); }   /* A258: el unero de corrido */
-    else bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0, z1, mat, et);
+    const cb = !!op && (cfg.led || cfg.style === 'Moderna');   /* A265: cama base bajo los laterales (alto con tapeta) */
+    bx(':lateral:esquina', 'panel', 'Lateral', u0, u0 + e1, 0, fOwn, cb ? z0 + e1 : z0, z1, mat, et); if (gola) { const hG = golaHondo(true), zgL = z1 - agarre() - traslapeL(); bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn - hG, z0, z1, mat, et); bx(':lateral:bajo', 'panel', 'Lateral', w - e1, w, fOwn - hG, fOwn, z0, zgL, mat, et); }   /* A163: rebaje de la gola */
+    else if (op && op.unero > 0) { bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, z0 + e1, z1, mat, et); if (!cb) bx(':lateral:unero', 'panel', 'Lateral', w - e1, w, 0, fOwn - op.unero, z0, z0 + e1, mat, et); }   /* A258: el unero de corrido */
+    else bx(':lateral', 'panel', 'Lateral', w - e1, w, 0, fOwn, cb ? z0 + e1 : z0, z1, mat, et);
     /* A264: el alto ciego con LED lleva el canal y la tira a lo largo en su piso, a la profundidad de las tiras de su cara */
     const rL = op && op.led && cfg.led ? ranuraLedEn(fF - uneroLed(), fondoLedAtras()) : null;
     const pisoC = (n, ua, ub, vf) => { const L = PLAN_LED;
@@ -7205,9 +7214,9 @@ function esquinerosPlan(add, r2, sep, tf){
       bx(n, 'panel', 'Piso', ua, ub, ef, rL, z0, z0 + e1, mat, et); bx(n + ':frente', 'panel', 'Piso', ua, ub, rL + L.ancho, vf, z0, z0 + e1, mat, et);
       bx(n + ':canal', 'panel', 'Piso', ua, ub, rL, rL + L.ancho, z0 + L.hondo, z0 + e1, mat, et); bx(n + ':led', 'herraje', 'LED', ua, ub, rL, rL + L.ancho, z0, z0 + L.hondo, PLAN_TIRA.id, 'herrajes'); };
     bx(':trasero', 'panel', 'Trasero', u0 + e1, w - e1, 0, ef, z0, z1, gm('Interior'), et); if (op && op.unero > 0) { const cs = Math.max(u0 + e1, fOtra + tf);   /* A230: el unero solo en la puerta y el cierre; el tramo ciego lleva el piso completo */
-      pisoC(':piso:ciego', u0 + e1, cs, fOwn); bx(':cama:ciego', 'panel', 'Cama', u0 + e1, cs, ef, fOwn, z0 + e1, z0 + 2*e1, mat, et);   /* A233: al pano de la caja, detras del cierre corrido */   /* A232: doble cama tambien en la parte ciega, al pano de los frentes */
-      pisoC(':piso', cs, w - e1, fOwn - op.unero); bx(':cama', 'panel', 'Cama', cs, w - e1, ef, fOwn, z0 + e1, z0 + 2*e1, mat, et); }   /* A226: unero de los altos */
-    else if (op) pisoC(':piso', u0 + e1, w - e1, fOwn);
+      pisoC(':piso:ciego', cb ? u0 : u0 + e1, cs, fOwn); bx(':cama:ciego', 'panel', 'Cama', u0 + e1, cs, ef, fOwn, z0 + e1, z0 + 2*e1, mat, et);   /* A233: al pano de la caja, detras del cierre corrido */   /* A232: doble cama tambien en la parte ciega, al pano de los frentes */
+      pisoC(':piso', cs, cb ? w : w - e1, fOwn - op.unero); bx(':cama', 'panel', 'Cama', cs, w - e1, ef, fOwn, z0 + e1, z0 + 2*e1, mat, et); }   /* A226: unero de los altos */
+    else if (op) pisoC(':piso', cb ? u0 : u0 + e1, cb ? w : w - e1, fOwn);
     else bx(':piso', 'panel', 'Piso', u0 + e1, w - e1, ef, fOwn, z0, z0 + e1, mat, et);
     const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, zf = gola ? z1 - agarre() : z1, zg = z1 - agarre() - traslapeL();
     /* A163 (usuario 11/10): bajo la cubierta, fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa */
@@ -7237,13 +7246,19 @@ function esquinerosPlan(add, r2, sep, tf){
     fa -= PLAN_HOLGURA_PUERTA; fb -= PLAN_HOLGURA_PUERTA;   /* A165: la caja queda 3 mm detras de los frentes */
     /* cd: con diagonal, el frente a 45 va solo en la esquina de cd x cd (alto unido: la caja llega a la columna) */
     const sinRep = q => q.filter((p, i) => { const r = q[(i + q.length - 1) % q.length]; return Math.abs(p[0] - r[0]) + Math.abs(p[1] - r[1]) > .05; });
-    const interior = (fa, fb) => conDiag && cd > 0 ? sinRep([[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, Math.min(b - e1, cd)], [LA - Math.min(a - e1, cd), fa], [LA - a + e1, fa]])
-      : conDiag ? [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - a + e1, fa]] : [[LA - a + e1, ef], [LA - ef, ef], [LA - ef, b - e1], [LA - fb, b - e1], [LA - fb, fa], [LA - a + e1, fa]];
+    /* s: lo que el poligono entra desde los laterales (e1 entre ellos; 0 bajo ellos, la cama base, A265) */
+    const interior = (fa, fb, s = e1) => conDiag && cd > 0 ? sinRep([[LA - a + s, ef], [LA - ef, ef], [LA - ef, b - s], [LA - fb, b - s], [LA - fb, Math.min(b - s, cd)], [LA - Math.min(a - s, cd), fa], [LA - a + s, fa]])
+      : conDiag ? [[LA - a + s, ef], [LA - ef, ef], [LA - ef, b - s], [LA - fb, b - s], [LA - a + s, fa]] : [[LA - a + s, ef], [LA - ef, ef], [LA - ef, b - s], [LA - fb, b - s], [LA - fb, fa], [LA - a + s, fa]];
     const et = 'gabinetes', inner = interior(fa, fb);
     /* A158 (usuario 11/10): con gola, los laterales llevan el rebaje del canal como los de las caras (no se asoman en el agarre) y el
        techo se retira lo mismo; con frente a 45 el retiro, medido sobre cada ala, es el canal por raiz de 2 */
     const ng = canal > 0 ? (conDiag && !cd ? canal*Math.SQRT2 : canal) : 0, zg = z1 - agarre() - traslapeL();
-    if (ng > 0) { caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa - ng, z0, z1, mat, et); caja(pre + ':lateral:a:bajo', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, fa - ng, fa, z0, zg, mat, et);
+    /* A265 (usuario 18/10: «que los laterales de los altos de esquina no corten la cama base ni la tira led»): con LED o gola el alto de
+       esquina lleva cama base como los altos de las caras: el piso pasa bajo los laterales (de canto a canto de la caja) y los laterales
+       apoyan encima; con unero, el piso se queda el unero antes del frente y el unero sigue de corrido bajo el lateral */
+    const camaBase = led && ng === 0 && (cfg.led || cfg.style === 'Moderna');
+    if (camaBase) { caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa, z0 + e1, z1, mat, et); caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb, LA, b - e1, b, z0 + e1, z1, mat, et); }
+    else if (ng > 0) { caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa - ng, z0, z1, mat, et); caja(pre + ':lateral:a:bajo', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, fa - ng, fa, z0, zg, mat, et);
       caja(pre + ':lateral:b', 'panel', 'Lateral', modulo, LA - fb + ng, LA, b - e1, b, z0, z1, mat, et); caja(pre + ':lateral:b:bajo', 'panel', 'Lateral', modulo, LA - fb, LA - fb + ng, b - e1, b, z0, zg, mat, et); }
     else if (unero > 0) {   /* A258 (usuario 18/10): en el alto (Moderna) el lateral no llega al frente en el grueso del piso: el unero sigue de corrido */
       caja(pre + ':lateral:a', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa, z0 + e1, z1, mat, et); caja(pre + ':lateral:a:unero', 'panel', 'Lateral', modulo, LA - a, LA - a + e1, 0, fa - unero, z0, z0 + e1, mat, et);
@@ -7259,15 +7274,16 @@ function esquinerosPlan(add, r2, sep, tf){
     const pisoLed = (pf, za) => { const L = PLAN_LED, y0r = fondoLedAtras(), un = uneroLed(), fA0 = pf[pf.length - 1][1], fB0 = LA - pf[3][0];
       const rA = Math.max(ef, Math.min(ranuraLedEn(fa + PLAN_HOLGURA_PUERTA - un, y0r), fA0 - L.ancho)), rB = Math.max(ef, Math.min(ranuraLedEn(fb + PLAN_HOLGURA_PUERTA - un, y0r), fB0 - L.ancho));
       if (rA + L.ancho > fA0 + 1e-6 || rB + L.ancho > fB0 + 1e-6) return false;
-      const xa = LA - a + e1, xb = LA - rB, xw = xb - L.ancho, ye = b - e1, yw = rA + L.ancho;
+      const xa = pf[0][0], xb = LA - rB, xw = xb - L.ancho, ye = pf[2][1], yw = rA + L.ancho;   /* A265: de canto a canto del piso (bajo los laterales con cama base) */
       const banda = [[xa, rA], [xb, rA], [xb, ye], [xw, ye], [xw, yw], [xa, yw]];
       losa(pre + ':piso', 'panel', 'Piso', modulo, [pf[0], pf[1], pf[2], [xb, ye], [xb, rA], [xa, rA]], za, za + e1, mat, et);
       losa(pre + ':piso:frente', 'panel', 'Piso', modulo, [[xa, yw], [xw, yw], [xw, ye], ...pf.slice(3)], za, za + e1, mat, et);
       losa(pre + ':piso:canal', 'panel', 'Piso', modulo, banda, za + L.hondo, za + e1, mat, et);
       losa(pre + ':led', 'herraje', 'LED', modulo, banda, za, za + L.hondo, PLAN_TIRA.id, 'herrajes'); return true; };
     const conLed = led && cfg.led;
-    if (unero > 0) { const pf = interior(fa - unero, fb - unero); if (!(conLed && pisoLed(pf, z0))) losa(pre + ':piso', 'panel', 'Piso', modulo, pf, z0, z0 + e1, mat, et); losa(pre + ':cama', 'panel', 'Cama', modulo, inner, z0 + e1, z0 + 2*e1, mat, et); }
-    else if (piso && !(conLed && pisoLed(inner, z0))) losa(pre + ':piso', 'panel', 'Piso', modulo, inner, z0, z0 + e1, mat, et);   /* A157: la alacena oculta no lleva piso */
+    const sP = camaBase ? 0 : e1;   /* A265 */
+    if (unero > 0) { const pf = interior(fa - unero, fb - unero, sP); if (!(conLed && pisoLed(pf, z0))) losa(pre + ':piso', 'panel', 'Piso', modulo, pf, z0, z0 + e1, mat, et); losa(pre + ':cama', 'panel', 'Cama', modulo, inner, z0 + e1, z0 + 2*e1, mat, et); }
+    else if (piso) { const pf = interior(fa, fb, sP); if (!(conLed && pisoLed(pf, z0))) losa(pre + ':piso', 'panel', 'Piso', modulo, pf, z0, z0 + e1, mat, et); }   /* A157: la alacena oculta no lleva piso */
     /* A140 (usuario 11/10): con gola el techo se queda detras del perfil (canal): el agarre queda libre hasta la cubierta */
     /* A163 (usuario 11/10): el bajo bajo la cubierta lleva fajas de 10 cm (al frente, siguiendo su frente o la diagonal, y atras contra
        cada muro) en lugar de la tapa completa, como los bajos de las caras (A86) */
@@ -7457,15 +7473,17 @@ function esquinerosPlan(add, r2, sep, tf){
       esquinaL(pf, wA, wB, fAu, fBu, za, zz, modU, false, conP ? 1 : 2, true, 0, unero, 0, false, null, true, false, za === z0u);   /* A264: LED en la de abajo */
       if (!conP) return;
       hojasL(pf, c, c, fAu, fBu, za, zz, modU, false, puertasL(e) === 'abatible');
-      if (wA > c + .5) { caja(pf + ':ext:a', 'frente', 'Puerta', modU, LA - wA, LA - c, fAu, fAu + tf, za, zz, frente, 'frentes'); caja(pf + ':division:a', 'division', 'Division', modU, LA - c, LA - c + e1, ef, fAu, za + e1, zz - e1, gm('Interior'), 'gabinetes'); }
-      if (wB > c + .5) { caja(pf + ':ext:b', 'frente', 'Puerta', modU, LA - fBu - tf, LA - fBu, c, wB, za, zz, frente, 'frentes'); caja(pf + ':division:b', 'division', 'Division', modU, LA - fBu, LA - ef, c - e1, c, za + e1, zz - e1, gm('Interior'), 'gabinetes'); } };
+      const zd = za + e1 + (unero > 0 ? e1 : 0);   /* A265: sobre la cama interior */
+      if (wA > c + .5) { caja(pf + ':ext:a', 'frente', 'Puerta', modU, LA - wA, LA - c, fAu, fAu + tf, za, zz, frente, 'frentes'); caja(pf + ':division:a', 'division', 'Division', modU, LA - c, LA - c + e1, ef, fAu, zd, zz - e1, gm('Interior'), 'gabinetes'); }
+      if (wB > c + .5) { caja(pf + ':ext:b', 'frente', 'Puerta', modU, LA - fBu - tf, LA - fBu, c, wB, za, zz, frente, 'frentes'); caja(pf + ':division:b', 'division', 'Division', modU, LA - fBu, LA - ef, c - e1, c, zd, zz - e1, gm('Interior'), 'gabinetes'); } };
     if (fnA === 'repisas') cajaL(pre, z0u, z1u, false, 0);
     else { cajaL(pre, z0u, zS, true, cfg.style === 'Moderna' ? golaHondo(true) : 0); cajaL(pre + ':sup', zS, z1u, supAltoEsq(e) === 'puertas', 0); }
     return; }
   const puertaA = (n, x0, x1) => { if (!abierto) caja(pre + ':' + n, 'frente', 'Puerta', modU, x0, x1, fAu, fAu + tf, z0u, z1u, frente, 'frentes'); };
   const puertaB = (n, y0, y1) => { if (!abierto) caja(pre + ':' + n, 'frente', 'Puerta', modU, LA - fBu - tf, LA - fBu, y0, y1, z0u, z1u, frente, 'frentes'); };
-  const divA = x => caja(pre + ':division:a', 'division', 'Division', modU, x, x + e1, ef, fAu, z0u + e1, z1u - e1, gm('Interior'), 'gabinetes');
-  const divB = y => caja(pre + ':division:b', 'division', 'Division', modU, LA - fBu, LA - ef, y - e1, y, z0u + e1, z1u - e1, gm('Interior'), 'gabinetes');
+  const zDiv = z0u + e1 + (cfg.style === 'Moderna' && !abierto ? e1 : 0);   /* A265: sobre la cama interior */
+  const divA = x => caja(pre + ':division:a', 'division', 'Division', modU, x, x + e1, ef, fAu, zDiv, z1u - e1, gm('Interior'), 'gabinetes');
+  const divB = y => caja(pre + ':division:b', 'division', 'Division', modU, LA - fBu, LA - ef, y - e1, y, zDiv, z1u - e1, gm('Interior'), 'gabinetes');
   esquinaL(pre, wA, wB, fAu, fBu, z0u, z1u, modU, dg, abierto ? 2 : 1, true, dg ? c : 0, cfg.style === 'Moderna' && !abierto ? golaHondo(true) : 0, 0, false, null, true, false, true);   /* A139: doble cama; A264: LED */
   if (ta === 'ciego') { const duenaA = e.duena !== 1;
     if (duenaA) { caja(pre + ':puerta', 'frente', 'Puerta', modU, LA - wA, LA - wA + P, fAu, fAu + tf, z0u, z1u, frente, 'frentes'); puertaA('ext:a', LA - wA + P, LA - fBu); puertaB('ext:b', fAu + tf, wB); if (wA - P > fBu + e1) divA(LA - wA + P); }
