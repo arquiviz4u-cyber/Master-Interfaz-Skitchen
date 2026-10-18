@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A274. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «el panel no queda al pano de los frentes, para evitar
+       recortes en los laterales; nunca he visto eso») Corrige A273: los rellenos del hueco van al pano de los cantos de los laterales (no
+       retranqueados) y el panel del horno y del microondas de empotrar se monta sobre esos cantos, delante de los frentes su grueso
+       (reg().horno.grueso). Su ancho llega hasta el exterior de la torre: en una de 60 el panel de 59.5 cubre los cantos de los laterales.
    A273. [Master hecho 18/10; SketchUp: nombres de las piezas Relleno y tapeta Patines; Revit pendiente] (usuario 18/10: torre de hornos:
        «el panel de los hornos queda montado sobre unos rellenos que no llegan al pano de los frentes para que quede alineado; por dentro
        descansa en los patines (ventilacion), ese levantamiento se tapa con un relleno o con la rejilla; los hornos tienen un ancho total (el
@@ -4252,15 +4256,17 @@ function planDePiezas(c = cfg){
         const pisoV = (k, z) => tab(k, 'Piso', xi0, xi1, y0 + ef + vH, y1, z, z + e);
         const patines = (k, z, h = hP) => { if (h <= 0) return; [[xi0, xi0 + PAT], [xi1 - PAT, xi1]].forEach(([a, b], i) => tab(k + ':patin:' + i, 'Patin', a, b, y0 + ef + vH, y1 - 1, z, z + h)); };
         /* A273: hueco de montaje del equipo de zA a zB: abajo, en el levantamiento de los patines, la rejilla o una tapa al pano; a los lados,
-           rellenos que reducen el interior al hueco (nichoHorno), retranqueados el grueso del panel; el panel (el modelo) de panelHorno de ancho,
-           centrado y al pano de los frentes, sobre ellos */
+           rellenos que reducen el interior al hueco (nichoHorno); el panel (el modelo) de panelHorno de ancho, centrado, sobre ellos.
+           A274 (usuario 18/10: «el panel no queda al pano de los frentes, para no recortar los laterales; nunca he visto eso»): los rellenos al
+           pano de los cantos de los laterales y el panel montado sobre esos cantos, delante de los frentes su grueso; su ancho, hasta el exterior
+           de la torre (en una de 60 el panel de 59.5 cubre los cantos de los laterales) */
         const montaje = (k, archivo, tipo, zA, zB, lift, rejilla) => {
-          const W = xi1 - xi0, pw = Math.min(panelHorno(m), W - 2*holF()), nw = Math.min(nichoHorno(m), W), fr = (W - nw)/2, yP = yl - reg().horno.grueso, px = (xi0 + xi1)/2 - pw/2;
+          const W = xi1 - xi0, pw = Math.min(panelHorno(m), W + 2*e - 2*holF()), nw = Math.min(nichoHorno(m), W), fr = (W - nw)/2, yP = yl, px = (xi0 + xi1)/2 - pw/2, gP = reg().horno.grueso;
           if (fr > .1) [['izq', xi0, xi0 + fr], ['der', xi1 - fr, xi1]].forEach(([l, a, b]) => tab(k + ':relleno:' + l, 'Relleno', a, b, yP - e, yP, zA + lift, zB));
           if (lift > 0 && rejilla) add({ id: m.id + ':rejilla', rol: 'herraje', modulo: m.id, tipo: 'Rejilla', x: xi0, y: y1, z: zA, ancho: W, fondo: t, alto: lift, material: null, etiqueta: 'herrajes',
             modelo: equipoModelo('rejilla_torre', xi0, xi1, zA, zA + lift, y1 + t) });   /* A253: la rejilla del usuario */
           else if (lift > 0) add({ id: m.id + ':' + k + ':tapa', rol: 'tapeta', modulo: m.id, tipo: 'Patines', x: xi0, y: y1, z: zA, ancho: W, fondo: t, alto: lift, material: (m.materialesPaneles || {}).intermedio || mat, etiqueta: 'frentes' });
-          if (m.mostrarEquipos) equipo(m, k, tipo, px, px + pw, zA + lift, zB, y0 + ef + vH, yl, equipoModelo(archivo, px, px + pw, zA + lift, zB, yl)); };
+          if (m.mostrarEquipos) equipo(m, k, tipo, px, px + pw, zA + lift, zB, y0 + ef + vH, yl + gP, equipoModelo(archivo, px, px + pw, zA + lift, zB, yl + gP)); };   /* A274: delante de los frentes */
         tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'inferior', 'fondo', 'Interior'));
         piso('piso', zb); tab('techo', 'Techo', xi0, xi1, y0 + ef + vH, y1, top - e, top);
         const zh = zb + m.baseHorno, lift = towerLift(m), lh = lift ? towerLiftHeight(m) : 0;
@@ -5394,8 +5400,9 @@ function pruebasPlanMX(){
       const tapa = p.piezas.find(q => q.id === m.id + ':rejilla' || q.id === m.id + ':horno:tapa'), rr = p.piezas.filter(q => q.id.startsWith(m.id + ':horno:relleno:')), lat = p.piezas.find(q => q.id === m.id + ':lateral:izq');
       const W = le ? le.ancho : m.ancho - 2*m.espesorLaterales, nw = Math.min(m.nichoHorno > 0 ? m.nichoHorno : reg().horno.nicho, W);   /* el interior real (con especiero anexado, el ancho del modulo lo incluye) */
       ok(!le || (tapa && Math.abs(tapa.z - (le.z + le.alto)) < .01), nombre + ': la torre ' + m.id + ' sin tapa ni rejilla en el levantamiento del horno');
-      if (W - nw > .25) ok(rr.length === 2 && lat && rr.every(q => Math.abs(q.y + q.fondo - (lat.y + lat.fondo - reg().horno.grueso)) < .01), nombre + ': la torre ' + m.id + ' sin rellenos del hueco del horno retranqueados');
-      if (ho) ok(Math.abs(ho.ancho - Math.min(m.panelHorno > 0 ? m.panelHorno : reg().horno.panel, W - 2*holF())) < .02, nombre + ': el panel del horno de ' + m.id + ' no es de su ancho'); });
+      if (W - nw > .25) ok(rr.length === 2 && lat && rr.every(q => Math.abs(q.y + q.fondo - (lat.y + lat.fondo)) < .01), nombre + ': la torre ' + m.id + ' sin rellenos del hueco del horno al pano de los laterales');   /* A274 */
+      if (ho && lat) ok(Math.abs(ho.ancho - Math.min(m.panelHorno > 0 ? m.panelHorno : reg().horno.panel, W + 2*m.espesorLaterales - 2*holF())) < .02 && Math.abs(ho.y + ho.fondo - (lat.y + lat.fondo + reg().horno.grueso)) < .01,
+        nombre + ': el panel del horno de ' + m.id + ' no es de su ancho o no va sobre los cantos de los laterales'); });
     /* A262: cada hoja en L con bisagras lleva la Blum 155 (brazo fijo sin frente, eslabones cerrados y abiertos y cazoleta con la hoja), su
        perforacion por bisagra y gira 155 sobre el eje de la bisagra */
     p.piezas.filter(q => /^esq\d.*:hoja:[ab]$/.test(q.id) && p.piezas.some(r => r.id.startsWith(q.id + ':bisagra:'))).forEach(q => {
@@ -7995,7 +8002,7 @@ function drawSpecial(m, x0, RX, Z, post){
       let pq = eq;
       if (counter) { ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(eq.x, eq.y, eq.w, eq.h); }
       else {   /* A273: hueco de montaje: tapa o rejilla en el levantamiento, rellenos a los lados y el panel del equipo (sin el, el hueco) */
-        const lift = name === 'Horno' ? liftHorno(m) : Math.max(0, m.patinesHorno ?? 2), Wi = W/scale, pw = Math.min(panelHorno(m), Wi - 2*holF()), nw = Math.min(nichoHorno(m), Wi), fr = Math.max(0, (Wi - nw)/2)*scale;
+        const lift = name === 'Horno' ? liftHorno(m) : Math.max(0, m.patinesHorno ?? 2), Wi = W/scale, pw = Math.min(panelHorno(m), Wi + 2*m.espesorLaterales - 2*holF()), nw = Math.min(nichoHorno(m), Wi), fr = Math.max(0, (Wi - nw)/2)*scale;   /* A274: el panel cubre los cantos de los laterales */
         ctx.fillStyle = flat ? C.flat : C.interior; ctx.fillRect(eq.x, eq.y, eq.w, eq.h);
         const yL = Z(start + lift);
         if (fr > .5) [eq.x, eq.x + eq.w - fr].forEach(xf => { ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(xf, eq.y, fr, yL - eq.y); stroke(); ctx.strokeRect(xf, eq.y, fr, yL - eq.y); });
@@ -9284,7 +9291,7 @@ function equipPanel(key){
   if (kind === 'oven') html = head('Horno', 'Torre de hornos') + section('Horno', `<div class="grid-2">${num('altoHorno', 'Alto libre del horno', m.altoHorno, 'cm', 40, 90)}</div>`
     + `<div class="grid-2" style="margin-top:10px">${num('ventH', 'Ventilación trasera', m.ventilacionHorno ?? 5, 'cm', 5, 10)}${num('patH', 'Patines (alto)', m.patinesHorno ?? 2, 'cm', 0, 5)}</div><div class="note-sm">Canal de aire detrás del horno y del microondas, del lecho al techo, y dos patines a los lados donde descansan (no tocan la repisa).</div>`
     + `<div class="grid-2" style="margin-top:10px">${num('hornoPanel', 'Ancho del panel', panelHorno(m), 'cm', 40, 100)}${num('hornoNicho', 'Hueco de montaje', nichoHorno(m), 'cm', 40, 100)}</div>`
-    + `<div class="note-sm">El panel del horno se monta sobre rellenos ${fmt(reg().horno.grueso)}${uS()} detrás del paño y queda al ras de los frentes; los rellenos reducen el interior al hueco. ${m.rejillaHorno ? 'La rejilla tapa el levantamiento de los patines.' : 'Una tapa al paño cubre los patines.'}${m.ancho - 2*m.espesorLaterales - 2*holF() < panelHorno(m) - .01 ? ` <b>La torre necesita ${medida(panelHorno(m) + 2*holF() + 2*m.espesorLaterales)} de ancho para el panel.</b>` : ''}</div>`   /* A273 */
+    + `<div class="note-sm">El panel del horno se monta sobre los cantos de los laterales y de los rellenos (que reducen el interior al hueco de montaje) y queda ${fmt(reg().horno.grueso)}${uS()} delante de los frentes. ${m.rejillaHorno ? 'La rejilla tapa el levantamiento de los patines.' : 'Una tapa al paño cubre los patines.'}${m.ancho - 2*holF() < panelHorno(m) - .01 ? ` <b>La torre necesita ${medida(panelHorno(m) + 2*holF())} de ancho para el panel.</b>` : ''}</div>`   /* A273; A274 */
     + chk('mEq', m.mostrarEquipos, 'Mostrar horno y microondas genéricos') + chk('rej', m.rejillaHorno, 'Rejilla de ventilación bajo el horno') + chk('micro', m.microondas, 'Microondas encima del horno'));
   else if (kind === 'micro') {
     let b = chk('micro', m.microondas, 'Incluir microondas') + chk('microSob', m.microSobreponer, 'Modelo de sobreponer (convencional)');
