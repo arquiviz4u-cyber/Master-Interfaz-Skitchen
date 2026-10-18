@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A272. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «modulos de esquinero seleccionables: que se muestren
+       opciones particulares del elemento y que se arrastren materiales independientes con la misma logica que el resto») Un clic en el bajo
+       o el alto del esquinero muestra sus opciones (antes doble clic). El alto de esquina toma su material (antes el del bajo) y el
+       esquinero su fondo interior (materialesPaneles['esquina.fondo']: traseros, divisiones y repisas) y cada repisa el suyo
+       ('esquina.repisa.N', de abajo arriba): en la vista Interior el fondo y las repisas del esquinero reciben el material arrastrado.
    A271. [Master hecho 18/10; SketchUp: bisagra_libro_a/b redibujadas por dentro (herramientas/bisagra_libro.py); Revit pendiente] (usuario
        18/10: «la bisagra de libro va oculta por dentro, solo se ve al abrir, no se ve por fuera») La de libro va en la esquina interior
        donde se cruzan las caras posteriores de las hojas (alas de 2.5 cm sobre ellas); la hoja a llega a la cara posterior de la b y la b se
@@ -5061,7 +5066,9 @@ function planDePiezas(c = cfg){
     piezas.forEach(q => { if ((q.rol === 'frente' || (q.rol === 'herraje' && (['Jaladera', 'Boton', 'Cazoleta', 'Junta', 'PistonSoportePuerta'].includes(q.tipo) || q.tipo === 'Bisagra' && !q.modelo)) ||   /* A160: el brazo y su placa van en el lateral: se quedan sin puertas */ (q.rol === 'zoclo' && q.tipo === 'Hoja')) && q.estado !== 'abierto') q.ocultaSinPuertas = true; });   /* A138: la bisagra abierta ya va oculta */
     /* (A61) la pieza sin material lleva el tono con que la dibuja el editor (paleta clara): asi la primera generacion se ve
        como el dibujo y no con el material por omision de SketchUp. Herrajes y equipos conservan el suyo */
-    if (multiCara()) { esquinerosPlan(add, r2, sepMuro, t); aperturasEsquinero(piezas, add); }   /* A134; A246: Interactuar del esquinero */
+    if (multiCara()) { esquinerosPlan(add, r2, sepMuro, t); aperturasEsquinero(piezas, add);   /* A134; A246: Interactuar del esquinero */
+      /* A272: repisa del esquinero con material propio (materialesPaneles['esquina.repisa.N'] de su modulo, N de abajo arriba) */
+      piezas.forEach(q => { const mt = /^esq\d+(:alto|:alto:sup)?:repisa:(\d+)$/.exec(q.id); if (!mt) return; const mo = cfg.modulos.find(o => o.id === q.modulo), own = mo && (mo.materialesPaneles || {})['esquina.repisa.' + mt[2]]; if (own) q.material = own; }); }
     /* A258 (usuario 18/10: «los muebles esquineros siguen sin tener material por default»): el paso va despues del esquinero */
     const usados = new Set();
     piezas.forEach(q => { if (q.material) return; const k = predeterminadoDe(q); if (k) { q.material = k; usados.add(k); } });
@@ -5135,6 +5142,8 @@ function pruebasPlanMX(){
     ['cocina en L con carrusel (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; } finally { cfg = prev; } return c; }],
     ['cocina en L con LED y un repisero junto a un alto con puertas (A264)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.led = true; c.style = 'Moderna';
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
+    ['esquinero con materiales propios en el bajo y el alto (A272)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const mb = c.modulos.find(m => m.esquina && !m.upper), mu = c.modulos.find(m => m.esquina && m.upper);
+      const ids = (c.catalogo || []).map(q => q.id); if (ids.length > 2) { mb.material = ids[1]; mu.material = ids[2]; mu.materialesPaneles = { 'esquina.fondo': ids[1], 'esquina.repisa.1': ids[2] }; } } finally { cfg = prev; } return c; }],
     ['esquinero plegable con la bisagra oculta Blum (A270)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].bisagraIntermedia = 'oculta'; } finally { cfg = prev; } return c; }],
     ['cocina en L con LED, alto de esquina con tapeta y repiseros (A266)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.led = true; Object.assign(c.esquinas[0], { union: 'tapeta', repiseroA: true, repiseroB: true }); } finally { cfg = prev; } return c; }],
     ['esquinero diagonal con cajones (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].sub = 'cajones'; } finally { cfg = prev; } return c; }],
@@ -5347,6 +5356,11 @@ function pruebasPlanMX(){
         const fl = p.piezas.filter(q => /^luz:/.test(q.id)); if (la && fl.length) ok(fl.some(q => Math.abs(q.x + q.ancho - la.x) < .01 && Math.abs(q.y - la.y) < .01), nombre + ': la luz del esquinero no sigue a la de su cara'); } }
     /* A269: las hojas en L del alto de esquina miden al menos hojaMinAlto */
     p.piezas.filter(q => /^esq\d+:alto(:sup)?:hoja:[ab]$/.test(q.id)).forEach(q => ok(Math.max(q.ancho, q.fondo) >= reg().esquina.hojaMinAlto - .05, nombre + ': la hoja ' + q.id + ' mide menos de ' + reg().esquina.hojaMinAlto));
+    /* A272: el alto de esquina con su material y el esquinero con su fondo y sus repisas propios */
+    c.modulos.filter(m => m.esquina && m.material).forEach(m => { const pz = p.piezas.filter(q => q.modulo === m.id && q.rol === 'panel' && q.tipo === 'Lateral');
+      ok(!pz.length || pz.every(q => q.material === m.material), nombre + ': el esquinero ' + m.id + ' no toma su material'); });
+    c.modulos.filter(m => m.esquina && (m.materialesPaneles || {})['esquina.fondo']).forEach(m => { const tr = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Trasero');
+      ok(tr.length && tr.every(q => q.material === m.materialesPaneles['esquina.fondo']), nombre + ': el fondo del esquinero ' + m.id + ' no toma su material'); });
     /* A262: cada hoja en L con bisagras lleva la Blum 155 (brazo fijo sin frente, eslabones cerrados y abiertos y cazoleta con la hoja), su
        perforacion por bisagra y gira 155 sobre el eje de la bisagra */
     p.piezas.filter(q => /^esq\d.*:hoja:[ab]$/.test(q.id) && p.piezas.some(r => r.id.startsWith(q.id + ':bisagra:'))).forEach(q => {
@@ -7285,7 +7299,12 @@ function esquinerosPlan(add, r2, sep, tf){
     cfg.__piezas.forEach(p => { if (p.rol === 'zoclo' && p.tipo === 'Frente' && p.x + p.ancho > xz) p.ancho = r2(Math.max(.1, xz - p.x));
       else if (e.tipo === 'diagonal' && p.rol === 'cubierta' && !(p.forma && p.forma.eje !== 'x') && p.x + p.ancho > LA - wA) p.ancho = r2(Math.max(.1, LA - wA - p.x)); }); }
   const mb = cfg.modulos.find(m => m.esquina && m.esquina.k === k && !m.upper), mu = cfg.modulos.find(m => m.esquina && m.esquina.k === k && m.upper);
-  const id = 'esq' + k, mat = (mb && mb.material) || cfg.materialGeneral || null, gm = n => groupMaterial(n) || mat;
+  /* A272 (usuario 18/10: «modulos de esquinero seleccionables: opciones particulares y materiales independientes con la misma logica que el
+     resto»): el bajo y el alto de la esquina con su material (mat cambia al del alto al armar el alto) y su fondo interior propio
+     (materialesPaneles['esquina.fondo']: traseros, divisiones y repisas); cada repisa admite el suyo ('esquina.repisa.N', de abajo arriba) */
+  let mat = (mb && mb.material) || cfg.materialGeneral || null, cur = mb || null;
+  const id = 'esq' + k, fondoEsq = () => ((cur && cur.materialesPaneles) || {})['esquina.fondo'] || null;
+  const gm = n => (n === 'Interior' || n === 'Repisas' ? fondoEsq() : null) || groupMaterial(n) || mat;
   let frente = (mb && mb.materialPuertas) || mat;   /* A137: las puertas del esquinero con el material de las puertas de bajos */
   const alacena = e.tipo === 'alacena', oculta = alacena && e.alacena === 'oculta', diag = e.tipo === 'diagonal' || alacena && e.alacena === 'diagonal';
   const z1 = alacena ? topeAltos() : zb + A;
@@ -7540,7 +7559,8 @@ function esquinerosPlan(add, r2, sep, tf){
   }
   /* alto de la esquina en la misma columna (wA, wB): ciego, L o diagonal de 60 x 60 (US 24 x 24) con tapetas hasta la columna */
   const ta = altoEsquina(e); if (ta === 'ninguno' || !mu) return;
-  frente = mu.materialPuertas || mu.material || mat;   /* A137: el alto, con las de altos */
+  mat = mu.material || cfg.materialGeneral || null; cur = mu;   /* A272: el alto con su material */
+  frente = mu.materialPuertas || mat;   /* A137: el alto, con las de altos */
   /* usuario 10/10: el alto de la esquina es un solo gabinete en L a toda la columna (wA, wB), sin tapetas. En la esquina, la hoja plegable
      de 60 x 60 (US 24 x 24), el frente a 45 o el ciego con su puerta; la parte junto a la esquina, con puerta (gabinete unido) o con
      repisas abiertas (e.relleno), separada por una division */
@@ -7659,8 +7679,13 @@ function drawEsquina(m, x0, RX, X, Z, post){
   const nInt = m.upper ? (e.relleno === 'repisas' ? 2 : 1) : e.tipo === 'carrusel' ? (subEsquina(e) === 'repisas' ? repisasLEsq(e) : 2) : e.tipo === 'ciego' ? 0 : e.tipo === 'diagonal' ? (subEsquina(e) === 'carrusel' ? 2 : 0)   /* A223 */
     : e.tipo === 'alacena' ? repisasAlacena(e) : 0;
   const puerta = (u0, u1, t, diag, bis = null) => { if (u1 - u0 < .01) return; const r = caja(u0, u1);   /* A236: bis, lado de la bisagra ('ext' exterior, 'esq' la esquina) */
-    if (!showDoors) { fillMat(r.x, r.y, r.w, r.h, flat ? null : gmInterior(), C.interior); outline(r, C.line, 1);
-      post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; for (let i = 1; i <= nInt; i++) { const y = r.y + r.h*i/(nInt + 1); line(r.x + 2, y, r.x + r.w - 2, y); } });
+    if (!showDoors) { const mp = m.materialesPaneles || {}, fo = mp['esquina.fondo'];   /* A272: fondo y repisas con material propio, como drawShelves */
+      fillMat(r.x, r.y, r.w, r.h, flat ? null : fo || gmInterior(), C.interior); outline(r, C.line, 1);
+      if (!exporting) { materialHits.push({ rect: r, key: 'panel:' + m.id + ':esquina.fondo' }); pieceHits.push({ rect: r, key: 'piece:' + m.id + ':esquina.fondo' }); }
+      const tR = Math.max(2, 1.8*frame.scale);
+      for (let i = 1; i <= nInt; i++) { const y = r.y + r.h*i/(nInt + 1), n = nInt + 1 - i, pk = 'esquina.repisa.' + n, rq = { x: r.x + 2, y: y - tR/2, w: r.w - 4, h: tR };
+        post.push(() => { fillMat(rq.x, rq.y, rq.w, rq.h, flat ? null : mp[pk] || fo || groupMaterial('Repisas'), C.interior); outline(rq, C.line, 1); });
+        if (!exporting) { const rh = { x: rq.x, y: y - Math.max(6, tR)/2, w: rq.w, h: Math.max(6, tR) }; materialHits.push({ rect: rh, key: 'panel:' + m.id + ':' + pk }); pieceHits.push({ rect: rh, key: 'piece:' + m.id + ':' + pk }); } }   /* zona de arrastre de 6 px al menos */
       texto(r, !m.upper && (e.tipo === 'carrusel' || e.tipo === 'diagonal') && subEsquina(e) === 'carrusel' ? t + ' · charolas' : t); return; }
     fillMat(r.x, r.y, r.w, r.h, flat ? null : (m.materialPuertas || mat), C.front); outline(r, C.line, 1);
     if (!exporting) frontHits.push({ rect: r, module: m, kind: 'Puerta' });   /* A137 */
@@ -8569,7 +8594,7 @@ canvas.addEventListener('mousedown', e => {
     /* (A38) un clic sobre el gabinete inferior unido elige la caja completa; la franja del superior sigue eligiendo la columna */
     if (h.body && isDoble(m) && !e.ctrlKey) { const g = bodyGroupOf(m); if (g) { selectPart('box:' + g.members[0].id); return; } }
     upperFocus = dbl && isDoble(m) ? id : null;   /* doble clic en un alto doble: su modulo inferior */
-    esqFoco = dbl && m.esquina ? id : null;   /* A237 */
+    esqFoco = m.esquina ? id : null;   /* A237; A272: un clic basta para sus opciones */
     if (e.ctrlKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); }
     else { const bx = byId(id) && byId(id).upper && !isDoble(byId(id)) ? bodyGroups().find(g => g.members.some(q => q.id === id)) : null;   /* un clic sobre una caja corrida abierta la selecciona completa; en el alto doble, solo su columna (A37) */
       if (bx) selection = new Set(bx.members.map(q => q.id)); else if (!selection.has(id)) selection = new Set([id]); drag = { kind: 'module', id, over: null, x: p.x, y: p.y }; }
@@ -8917,7 +8942,7 @@ function esquinaPanel(m){
   if (e.tipo === 'ciego' || alacena && e.alacena === 'oculta') html += section(e.tipo === 'ciego' ? 'Gabinete ciego en' : 'Puerta en', radios('esqDuena', [['0', `Cara ${letraCara(k)}`], ['1', `Cara ${letraCara(k + 1)}`]], String(e.duena === 1 ? 1 : 0)));
   /* A237: las demas opciones, con doble clic en el bajo o en el alto de esta cara */
   const sq = m.esquina.lado === 'der' ? 0 : 1;
-  if (esqFoco !== m.id) return html + `<div class="note">Doble clic en el bajo o en el alto de la cara ${letraCara(k + sq)} para sus opciones; las de la otra cara, en su pestaña.</div>`;
+  if (esqFoco !== m.id) return html + `<div class="note">Clic en el bajo o en el alto de la cara ${letraCara(k + sq)} para sus opciones; las de la otra cara, en su pestaña.</div>`;   /* A272 */
   html += `<div class="note-sm" style="margin:4px 0"><b>${m.upper ? 'Alto' : 'Bajo'} de la cara ${letraCara(k + sq)}</b></div>`;
   if (!m.upper) {
   if (alacena) html += section('Alacena', radios('esqAlacena', [['oculta', 'Oculta, puerta de piso a techo'], ['diagonal', 'Diagonal, una puerta']], e.alacena === 'diagonal' ? 'diagonal' : 'oculta')
