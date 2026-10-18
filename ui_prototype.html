@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A267. [Master hecho 18/10; SketchUp: el plano de luz de eje x mira a -X (la habitacion de la esquina); Revit pendiente] (usuario 18/10:
+       «que la simulacion de la luz en sketchup se vea continua en los esquineros») La luz del LED (B25) sigue por el alto de esquina: un
+       plano en el muro de la cara k (de LA - wA hasta la luz del otro muro) y otro en el de la cara k + 1 (forma plano eje x, hasta wB,
+       donde empieza la de esa cara), de la cubierta a los altos y delante del backsplash completo como las de las caras.
    A266. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «agrega la tira tambien en el repisero y ajusta la
        regla: los repiseros (sin puerta) llegan hasta el pano de la cara frontal de los frentes; reajusta la tira para que quede alineada»)
        1) Alto sin puertas de las caras (y su caja corrida), modulo superior de solo repisas del alto doble y alto de esquina de solo
@@ -5285,6 +5289,10 @@ function pruebasPlanMX(){
       const lat = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Lateral' && !/:superior:/.test(q.id)), vec = c.modulos.find(o => o.upper && !o.esquina && !o.reserved && !sinPuertas(o) && o.fondo === m.fondo && !hasCampana(o));
       const fr = vec ? p.piezas.filter(q => q.modulo === vec.id && q.rol === 'frente' && !/:superior:/.test(q.id)) : [];   /* la cara frontal: lo mas adelantado de sus frentes (marco shaker incluido) */
       if (lat.length && fr.length) ok(Math.abs(Math.max(...lat.map(q => q.y + q.fondo)) - Math.max(...fr.map(q => q.y + q.fondo))) < .01, nombre + ': el repisero ' + m.id + ' no llega a la cara frontal de los frentes'); });
+    /* A267: con LED y su luz, el alto de esquina lleva la luz en sus dos muros, seguida de la de su cara */
+    if (c.led && c.ledLuz !== false) { const la = p.piezas.find(q => /^esq\d+:alto:luz:a$/.test(q.id)), lb = p.piezas.find(q => /^esq\d+:alto:luz:b$/.test(q.id));
+      if (c.esquinas && c.esquinas[c.cara] && altoEsquina(c.esquinas[c.cara]) !== 'ninguno') { ok(la && lb && lb.forma.eje === 'x', nombre + ': el alto de esquina sin la luz del LED en sus dos muros');
+        const fl = p.piezas.filter(q => /^luz:/.test(q.id)); if (la && fl.length) ok(fl.some(q => Math.abs(q.x + q.ancho - la.x) < .01 && Math.abs(q.y - la.y) < .01), nombre + ': la luz del esquinero no sigue a la de su cara'); } }
     /* A262: cada hoja en L con bisagras lleva la Blum 155 (brazo fijo sin frente, eslabones cerrados y abiertos y cazoleta con la hoja), su
        perforacion por bisagra y gira 155 sobre el eje de la bisagra */
     p.piezas.filter(q => /^esq\d.*:hoja:[ab]$/.test(q.id) && p.piezas.some(r => r.id.startsWith(q.id + ':bisagra:'))).forEach(q => {
@@ -7452,6 +7460,14 @@ function esquinerosPlan(add, r2, sep, tf){
      de 60 x 60 (US 24 x 24), el frente a 45 o el ciego con su puerta; la parte junto a la esquina, con puerta (gabinete unido) o con
      repisas abiertas (e.relleno), separada por una division */
   const z0u = baseAltos(), z1u = baseAltos() + bodyH(mu), fAu = fondoCara(cfg, true), fBu = fondoCara(qb, true), pre = id + ':alto';
+  /* A267 (usuario 18/10: «que la simulacion de la luz en sketchup se vea continua en los esquineros»): la luz del LED (B25, un plano en el
+     muro de la cubierta a los altos, delante del backsplash completo) sigue por la esquina: en el muro de la cara k de LA - wA hasta la
+     luz del otro muro y en el de la cara k + 1 (x = LA - yl) hasta wB, donde empieza la de esa cara. Mismo material que las caras */
+  if (cfg.led && cfg.ledLuz !== false) { const zl = altoBarra(), alto = z0u - zl, bs = cfg.backsplash && (cfg.backsplashCompleto || altoBarra() + cfg.altoBacksplash >= baseAltos() - .01);
+    const yl = (bs ? cfg.espesorBacksplash : 0) + .05, d = .1, luz = { rol: 'luz', modulo: modU, tipo: 'Luz', z: zl, alto, material: PLAN_LUZ.id, etiqueta: 'luz' };   /* d: el plano va en la cara de su caja de 0.1 */
+    if (alto > 5 && wA > yl + d && wB > yl + d) {
+      add(Object.assign({ id: pre + ':luz:a', x: LA - wA, y: yl, ancho: r2(wA - yl - d), fondo: d, forma: { tipo: 'plano', eje: 'y' } }, luz));
+      add(Object.assign({ id: pre + ':luz:b', x: r2(LA - yl - d), y: r2(yl + d), ancho: d, fondo: r2(wB - yl - d), forma: { tipo: 'plano', eje: 'x' } }, luz)); } }
   /* usuario 11/10: tambien se puede armar como antes, con el alto de esquina de 60 x 60 (o el ciego) y tapetas hasta la columna */
   if (unionAlto(e) === 'tapeta') {   /* A227: el ciego, siempre */
     /* A226: la columna del alto en cada lado con tapeta tiene su ancho (huellaAlto); de h0 (fin del cuerpo) a w1 (fin de la columna) va
