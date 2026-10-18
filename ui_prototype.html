@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A284. [Master hecho 18/10; SketchUp: sin cambio (usa el master); Revit pendiente] (usuario 18/10: «la herramienta presentar cuando tenemos
+       muebles en L o U genera laminas generales por cara y su subdesgloce de planos de bajos y altos, segun la cara y en orden; el mueble
+       esquinero se desgloza aparte, su propio isometrico y propio despiece en sus respectivos planos») En L/U Presentar arma (al abrir, si
+       no hay laminas por cara, y con el boton «Armar las laminas por cara») en orden: por cada cara su lamina general (la A es la
+       primera; las demas con alzado con puertas, interiores y un corte dibujados con esa cara activa: enCara), bajos, altos y torres;
+       tras la cara k, el esquinero de la esquina k (conjunto 'esquinero': bajo y alto de esquina, fuera de los bajos y altos de su cara)
+       con titulo, vista general, isometrico, despiece y herrajes. Tambien se crea a mano desde Conjunto = Esquinero.
    A283. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «mostrar solo campana deberia subir la campana hasta el
        tope, las tapetas superiores se recortan y dan vuelta en el espacio vacio de la campana; si la campana queda en borde, desaparece la
        tapeta lateral tambien») Con la campana sola la chimenea llega al techo si hay tapeta superior (si no, al tope de los altos;
@@ -3111,6 +3118,9 @@ const datosCara = (c = cfg) => JSON.parse(JSON.stringify(Object.fromEntries(POR_
 function guardarCara(c = cfg){ if (Array.isArray(c.caras) && c.caras[c.cara]) c.caras[c.cara] = datosCara(c); }
 function cargarCara(c, k){ Object.assign(c, JSON.parse(JSON.stringify(c.caras[k]))); c.cara = k; }
 const caraDe = k => k === cfg.cara ? cfg : cfg.caras[k];
+/* A284: corre fn con la cara k activa (Presentar dibuja el alzado y los cortes de cada cara) y vuelve a la que estaba */
+function enCara(k, fn){ if (k === null || k === undefined || !multiCara() || k === cfg.cara || !cfg.caras[k]) return fn(); const k0 = cfg.cara; guardarCara(); cargarCara(cfg, k);
+  try { return fn(); } finally { guardarCara(); cargarCara(cfg, k0); } }
 /* A135 (usuario 11/10): las caras se nombran A, B y C (en U, B es siempre la de enmedio) */
 const letraCara = k => 'ABC'[k] || String(k + 1);
 /* A137: todos los modulos de la cocina (la cara activa y las demas) */
@@ -12184,8 +12194,9 @@ const LAM = (() => {
       iso: { esc, s: e.s, M: MARGEN, u0: esc.bb.x0, v0: esc.bb.y0 }, hits, dimsIso, ley: leyP, anchoLey: Math.max(ancho * e.s, 150) };
   }
   /* ---- conjuntos (A177): los gabinetes bajos, altos o torres de una cara, vistos aparte desde el plan de piezas ---- */
-  const GRUPOS = { bajos: 'Gabinetes bajos', altos: 'Gabinetes altos', torres: 'Torres', isla: 'Isla' };
-  const GRUPO_CORTO = { bajos: 'BAJOS', altos: 'ALTOS', torres: 'TORRES', isla: 'ISLA' };
+  const GRUPOS = { bajos: 'Gabinetes bajos', altos: 'Gabinetes altos', torres: 'Torres', esquinero: 'Esquinero', isla: 'Isla' };   /* A284: el esquinero, aparte */
+  const GRUPO_CORTO = { bajos: 'BAJOS', altos: 'ALTOS', torres: 'TORRES', esquinero: 'ESQUINERO', isla: 'ISLA' };
+  const nombreEsquina = k => `${T('Esquina')} ${letraCara(k)}–${letraCara(k + 1)}`;   /* A284: la esquina k une la cara k con la k + 1 */
   const ESC_DET = [1, 2, 5, 10, 20, 25, 50, 100];
   const ES_CONJUNTO = v => /^Conj/.test(v);
   function modulosPorId(){
@@ -12206,7 +12217,8 @@ const LAM = (() => {
       const gt = !p.modulo && p.rol === 'tapeta' ? grupoTapeta(p, ci) : null;
       if (gt) return gt === grupo;
       if (!p.modulo && p.rol === 'tapeta' && p.alto > (cfg.alturaMuro || 240) * .92) return false;   /* A188: la tapeta de piso a techo no es de bajos ni de altos */
-      const m = p.modulo && mods[p.modulo], g = m ? (m.upper ? 'altos' : (isSpecial(m) || isRefri(m)) ? 'torres' : 'bajos') : p.rol === 'backsplash' ? 'muro' : (p.z + p.alto / 2 >= zBA ? 'altos' : 'bajos');
+      const m = p.modulo && mods[p.modulo], g = m ? (m.esquina && !['cubierta', 'zoclo', 'backsplash', 'luz'].includes(p.rol) ? 'esquinero' : m.upper ? 'altos' : (isSpecial(m) || isRefri(m)) ? 'torres' : 'bajos')   /* A284: el esquinero (bajo y alto) es su propio conjunto */
+        : p.rol === 'backsplash' ? 'muro' : (p.z + p.alto / 2 >= zBA ? 'altos' : 'bajos');
       return g === grupo; };
   }
   const planDeConj = o => o.grupo === 'isla' && o.planIsla ? o.planIsla.plan : planCocina();
@@ -12850,13 +12862,14 @@ const LAM = (() => {
   /* encabezado de la lamina del conjunto: titulo grande y subtitulo espaciado */
   function capturarTituloConjunto(o){
     const g = new Grabador(560, 70), cara = o.cara || 0;
-    let letra = ''; try { letra = multiCara() ? ` · ${T('Cara')} ${letraCara(cara)}` : ''; } catch (e) { letra = ''; }
+    let letra = ''; try { letra = multiCara() ? ' · ' + (o.grupo === 'esquinero' ? nombreEsquina(cara) : `${T('Cara')} ${letraCara(cara)}`) : ''; } catch (e) { letra = ''; }   /* A284 */
     g.save(); g.fillStyle = '#111111'; g.font = "800 22px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
     g.fillText(`${T('CONJUNTO')} ${String(o.numero || 1).padStart(2, '0')} : ${T(GRUPO_CORTO[o.grupo || 'bajos'])}`, 6, 30);
     g.fillStyle = '#6B7680'; g.font = "400 13px 'Inter'"; g.fillText(`${T('Estructura')}${letra}`.split('').join(' '), 6, 54); g.restore();
     return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: 1, vista: 'ConjTitulo', plano: !!o.plano, bb: cajaTinta(g.ops), sinEscala: true, sinTitulo: true };
   }
-  const capturar = (vista, o) => { const c = capturarBase(vista, o); if (vista === 'Isometrico' || vista === 'ConjIso') c.sinEscala = true; return c; };   /* A191: el isometrico se escala a gusto, sin escala */
+  /* A284: las vistas generales de una lamina de cara (alzados y cortes) se dibujan con esa cara activa; la planta y el isometrico son de toda la cocina */
+  const capturar = (vista, o) => { const c = enCara(!ES_CONJUNTO(vista) && !['Planta', 'Isometrico'].includes(vista) && o ? o.cara : null, () => capturarBase(vista, o)); if (vista === 'Isometrico' || vista === 'ConjIso') c.sinEscala = true; return c; };   /* A191: el isometrico se escala a gusto, sin escala */
   const capturarBase = (vista, o) => vista === 'Isometrico' ? capturarIsometrico(o)
     : vista === 'ConjLocal' || vista === 'ConjIso' ? capturarConjuntoIso(vista, o)
     : vista === 'ConjAlzado' || vista === 'ConjInterior' ? capturarAlzadoConjunto(vista, o)
@@ -13265,7 +13278,7 @@ const LAM = (() => {
   const numeroConjunto = (L, it) => L.hojas.map((h, i) => h.grupo ? i : -1).filter(i => i >= 0).indexOf(it.hoja) + 1;
   const cotasDe = (L, it) => it.cotasV !== undefined && it.cotasV !== null ? !!it.cotasV : L.cotasOn !== false;   /* A186: cada vista puede llevar o no sus cotas */
   const claveCap = (L, it) => [it.vista, it.n, it.cols || 0, it.variante || 0, it.vista === 'ConjInterior' ? (it.entre || []).join(',') : '', it.plano ? 1 : 0, cotasDe(L, it) ? 1 : 0, L.proy ? 1 : 0, L.matCol ? 1 : 0,
-    it.vista === 'Corte' ? Math.round((it.corte || 0) * 10) + letraDe(L, it) + ':' + (it.dir || 0) : '',
+    it.vista === 'Corte' ? Math.round((it.corte || 0) * 10) + letraDe(L, it) + ':' + (it.dir || 0) : '', ES_CONJUNTO(it.vista) ? '' : 'c' + (it.cara || 0),   /* A284 */
     ES_CONJUNTO(it.vista) ? [it.grupo, it.cara || 0, (it.abiertos || []).slice().sort().join(','), it.explotado ? 1 : 0, numeroConjunto(L, it)].join(':') : '',
     it.vista === 'Isometrico' || it.vista === 'ConjLocal' || it.grupo === 'isla' ? islaFirma(L) : '', it.vista === 'Isometrico' && it.abiertos ? 'o:' + it.abiertos.slice().sort().join(',') : '', [...abiertos].sort().join(',')].join('|');
   const opcCap = (L, it) => ({ plano: !!it.plano, cotas: cotasDe(L, it), proy: !!L.proy, matCol: !!L.matCol, leyendaSuelta: it.vista === 'Isometrico', globos: [],   /* los globos y las marcas de corte se pintan aparte */
@@ -13469,7 +13482,9 @@ const LAM = (() => {
     const L = { papel: o.papel, cotasOn: o.cotasOn !== false, matCol: !!o.matCol, proy: o.proy !== false, marcos: o.marcos !== false, notas: o.notas !== false, notasEd: o.notasEd || {}, rotulo: o.rotulo || {},
       vistas: [], datos: null, detalles: null, notasLista: [], globos: o.globos && typeof o.globos === 'object' ? o.globos : {}, detalle: o.detalle === true, dxf: !!o.dxf,
       hojas: [{ nombre: 'Lámina general' }], hoja: 0, cotas: o.cotas && typeof o.cotas === 'object' ? o.cotas : {}, isla: o.isla && o.isla.id ? { id: o.isla.id, on: o.isla.on !== false, x: +o.isla.x || 0, y: +o.isla.y || 0, rot: +o.isla.rot || 0 } : null };
-    if (Array.isArray(o.hojas) && o.hojas.length) L.hojas = o.hojas.map((h, i) => i === 0 ? { nombre: h.nombre || 'Lámina general' } : h.modulo ? { nombre: h.nombre, modulo: h.modulo } : { nombre: h.nombre, grupo: h.grupo, cara: h.cara || 0 });
+    if (Array.isArray(o.hojas) && o.hojas.length) L.hojas = o.hojas.map((h, i) => i === 0 ? { nombre: h.nombre || 'Lámina general' } : h.modulo ? { nombre: h.nombre, modulo: h.modulo }
+      : h.general ? { nombre: h.nombre, general: true, cara: h.cara || 0 } : { nombre: h.nombre, grupo: h.grupo, cara: h.cara || 0 });   /* A284: lamina general de otra cara */
+    try { if (multiCara()) L.hojas[0].nombre = `${T('Lámina general')} · ${T('Cara')} ${letraCara(0)}`; } catch (e) { /* una sola cara */ }
     const num = v => typeof v === 'number' && isFinite(v), usados = new Set(), centros = centrosCorte();
     const nuevoId = v => { let k = 1, id = v; while (usados.has(id)) id = `${v}#${++k}`; usados.add(id); return id; };
     o.vistas.forEach(v => {
@@ -13478,7 +13493,7 @@ const LAM = (() => {
         const it = { id: nuevoId(g && g.id && !usados.has(g.id) ? g.id : v), vista: v, hoja: g && num(g.hoja) && g.hoja < L.hojas.length ? g.hoja : 0, on: g ? g.on !== false : true,
           n: g && ESC_DET.includes(g.n) ? g.n : v === 'Isometrico' ? (o.escalaIso || 50) : (o.escalaVistas || 25),
           x: g && num(g.x) ? g.x : NaN, y: g && num(g.y) ? g.y : NaN, plano: g ? !!g.plano : v !== 'Isometrico',   /* A195: en blanco y negro salvo el isometrico */ corte: g && num(g.corte) ? g.corte : NaN, dir: g && (g.dir === 1 || g.dir === -1) ? g.dir : undefined,
-          grupo: undefined, cara: 0, abiertos: [], explotado: false, cotasV: g && typeof g.cotasV === 'boolean' ? g.cotasV : undefined, tt: textoMov(g && g.tt), te: textoMov(g && g.te), ley: textoMov(g && g.ley), leyCol: g && typeof g.leyCol === 'boolean' ? g.leyCol : undefined, gl: g && g.gl === true ? true : undefined, cols: g && g.cols > 0 ? g.cols : undefined, entre: g && Array.isArray(g.entre) ? g.entre : undefined, rec: g && g.rec && typeof g.rec === 'object' ? g.rec : undefined, variante: g && g.variante > 0 ? g.variante : undefined, modulo: g && typeof g.modulo === 'string' ? g.modulo : undefined };
+          grupo: undefined, cara: g && num(g.cara) && g.hoja < L.hojas.length && L.hojas[g.hoja].general ? g.cara : 0, abiertos: [], explotado: false, cotasV: g && typeof g.cotasV === 'boolean' ? g.cotasV : undefined, tt: textoMov(g && g.tt), te: textoMov(g && g.te), ley: textoMov(g && g.ley), leyCol: g && typeof g.leyCol === 'boolean' ? g.leyCol : undefined, gl: g && g.gl === true ? true : undefined, cols: g && g.cols > 0 ? g.cols : undefined, entre: g && Array.isArray(g.entre) ? g.entre : undefined, rec: g && g.rec && typeof g.rec === 'object' ? g.rec : undefined, variante: g && g.variante > 0 ? g.variante : undefined, modulo: g && typeof g.modulo === 'string' ? g.modulo : undefined };
         if (v === 'Corte' && !num(it.corte)) it.corte = centros[0];
         L.vistas.push(it); });
     });
@@ -13498,7 +13513,7 @@ const LAM = (() => {
     const it = { id, vista, hoja: hj, grupo: base ? base.grupo : hs.grupo, cara: base ? base.cara : hs.cara || 0, abiertos: base ? (base.abiertos || []).slice() : [], explotado: base ? base.explotado : false,
       on: true, n: base ? base.n : vista === 'ConjLocal' ? 100 : vista === 'ConjGola' ? 5 : vista === 'Isometrico' ? 50 : 25, x: base && isFinite(base.x) ? base.x + 8 : b0.x0 + 6, y: base && isFinite(base.y) ? base.y + 8 : b0.y0 + 6,
       plano: base ? base.plano : !['Isometrico', 'ConjLocal', 'ConjIso', 'ConjDespiece', 'ConjCajon', 'ConjEspiero'].includes(vista), corte: NaN };
-    if (vista === 'Corte') { const cs = centrosCorte(), usados = L.vistas.filter(q => q.vista === 'Corte').map(q => q.corte);
+    if (vista === 'Corte') { const cs = enCara(it.cara, centrosCorte), usados = L.vistas.filter(q => q.vista === 'Corte' && (q.cara || 0) === (it.cara || 0)).map(q => q.corte);   /* A284: los de su cara */
       it.corte = cs.find(c => !usados.some(u => Math.abs(u - c) < .5)) ?? (base && isFinite(base.corte) ? Math.min(cfg.longitud, base.corte + 20) : cs[0]); }
     const i = base ? L.vistas.indexOf(base) : L.vistas.length - 1;
     L.vistas.splice(i + 1, 0, it);
@@ -13511,19 +13526,42 @@ const LAM = (() => {
     const isla = grupo === 'isla', vi = isla && L.isla && L.isla.on ? planIsla(L.isla.id) : null;
     if (isla ? !vi : !conjuntoDisponible(grupo, cara)) return -1;
     if (isla) cara = 0;
-    let nom = T(GRUPOS[grupo]); try { if (multiCara()) nom += ` · ${T('Cara')} ${letraCara(cara)}`; } catch (e) { /* una sola cara */ }
+    let nom = T(GRUPOS[grupo]); try { if (multiCara()) nom += ' · ' + (grupo === 'esquinero' ? nombreEsquina(cara) : `${T('Cara')} ${letraCara(cara)}`); } catch (e) { /* una sola cara */ }
     L.hojas.push({ nombre: nom, grupo, cara, nuevo: true }); const h = L.hojas.length - 1, stamp = Date.now().toString(36);   /* nuevo: lo acomoda presAcomodarConjunto, no el acomodo automatico */
     const fc = filtroConjunto(grupo, cara), ps = piezasCara(isla ? vi.plan : planCocina(), cara).filter(p => fc(p, cara));
     /* A200: todas las vistas nacen en la misma lamina; presAcomodarConjunto manda a una segunda solo las que no caben (minimo reparto) */
     const base = { planIsla: vi, grupo, cara }, nCaj = (piezasDeCaja(base, 'cajon') || {}).variantes || 0, nEsp = (piezasDeCaja(base, 'especiero') || {}).variantes || 0;
     const tiene = { ConjGola: ps.some(p => p.tipo === 'Gola' || p.tipo === 'Perfil'), ConjHerrajes: ps.some(p => p.rol === 'herraje'), ConjNariz: grupo === 'bajos' && !!cfg.generarCubierta, ConjMoldura: grupo === 'altos' && molduraTs() };
-    const lista = [['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50], ['ConjAlzado', 25], ['ConjInterior', 25]];
+    /* A284: el esquinero lleva su vista general, su isometrico, su despiece y sus herrajes (sus caras no caben en un alzado recto) */
+    const lista = grupo === 'esquinero' ? [['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50]] : [['ConjTitulo', 1], ['ConjLocal', 100], ['ConjDespiece', 25], ['ConjIso', 50], ['ConjAlzado', 25], ['ConjInterior', 25]];
     for (let k = 0; k < nCaj; k++) lista.push(['ConjCajon', 10, k]);
     for (let k = 0; k < nEsp; k++) lista.push(['ConjEspiero', 10, k]);
     lista.push(['ConjGola', 5], ['ConjNariz', 5], ['ConjMoldura', 5], ['ConjHerrajes', 1]);
     lista.filter(([v]) => tiene[v] !== false).forEach(([v, nn, k]) =>
       L.vistas.push({ id: `${v}~${stamp}${k ? '-' + k : ''}`, vista: v, hoja: h, on: true, n: nn, x: NaN, y: NaN, plano: !['ConjLocal', 'ConjIso', 'ConjDespiece', 'ConjCajon', 'ConjEspiero'].includes(v), corte: NaN, grupo, cara, abiertos: [], explotado: false, variante: k || undefined }));   /* con su marca de color */
     return h;
+  }
+  /* A284 (usuario 18/10: «presentar con muebles en L o U genera laminas generales por cara y su subdesglose de planos de bajos y altos, segun
+     la cara y en orden; el mueble esquinero se desglosa aparte, su propio isometrico y su propio despiece»): lamina general de la cara k
+     (alzado con puertas, interiores y un corte, dibujados con esa cara) */
+  function presAgregarGeneralCara(L, k){
+    L.hojas.push({ nombre: `${T('Lámina general')} · ${T('Cara')} ${letraCara(k)}`, general: true, cara: k }); const h = L.hojas.length - 1, stamp = Date.now().toString(36) + h;
+    const n = (L.vistas.find(v => v.hoja === 0 && v.vista === 'AlzadoPuertas') || {}).n || 25;
+    ['AlzadoPuertas', 'AlzadoInterior', 'Corte'].forEach(v => L.vistas.push({ id: `${v}~${stamp}`, vista: v, hoja: h, on: true, n, x: NaN, y: NaN, plano: true, corte: v === 'Corte' ? enCara(k, centrosCorte)[0] : NaN,
+      grupo: undefined, cara: k, abiertos: [], explotado: false }));
+    return h;
+  }
+  /* A284: todas las laminas de una cocina en L o U, en orden: por cada cara su general (la de la cara A es la primera), sus bajos, altos y
+     torres; tras la cara k, el esquinero de la esquina k (bajo y alto) aparte. Quita las demas laminas; devuelve cuantas armo */
+  function presArmarCaras(L){
+    for (let h = L.hojas.length - 1; h >= 1; h--) presQuitarHoja(L, h);
+    const nCaras = multiCara() ? cfg.caras.length : 1;
+    for (let k = 0; k < nCaras; k++) {
+      if (k > 0) presAgregarGeneralCara(L, k);
+      ['bajos', 'altos', 'torres'].concat(k < nCaras - 1 ? ['esquinero'] : []).forEach(g => { const h = presAgregarConjunto(L, g, k); if (h > 0) { presRefrescar(L); presAcomodarConjunto(L, h); } });
+    }
+    presRefrescar(L); L.hoja = 0;
+    return L.hojas.length - 1;
   }
   function presQuitarHoja(L, h){
     if (h <= 0 || h >= L.hojas.length) return;
@@ -13780,7 +13818,7 @@ const LAM = (() => {
         const x = m.x0 + m.kx * c.corte;
         let y0, y1;
         if (m.z0 !== undefined) { y0 = m.z0 + m.kz * m.H - 8; y1 = m.z0 + 12; } else { y0 = m.y0 - 18; y1 = m.y0 + m.fondo * m.ky + 18; }
-        let dir = c.dir || 1; if (!c.dir) { try { dir = miraCorte(c.corte); } catch (e) { dir = 1; } }
+        let dir = c.dir || 1; if (!c.dir) { try { dir = enCara(c.cara || 0, () => miraCorte(c.corte)); } catch (e) { dir = 1; } }   /* A284 */
         out.push({ host: h, corte: c, letra: letraDe(L, c), px: [x, y0, y1], dir, mx: ix + (x - bb.x0) * PX_MM, my0: iy + (y0 - bb.y0) * PX_MM, my1: iy + (y1 - bb.y0) * PX_MM });
       });
     });
@@ -14389,6 +14427,15 @@ const LAM = (() => {
       const ca = capturar('ConjAlzado', { plano: false, cotas: true, proy: true, escalaFija: 25, grupo: 'bajos', cara: 0, cotasSueltas: true });
       ok(ca.dims && ca.dims.length > 3 && sinNaN(JSON.stringify(ca.bb)), 'alzado del conjunto: sus cotas salen sueltas para poder moverlas');
       ok(L0.cotasOn !== false && typeof L0.cotas === 'object', 'Presentar: el indicador de cotas y los ajustes de cada cota son datos distintos');
+      /* A284: cocina en L: general por cara, bajos y altos de cada una y el esquinero aparte; su alzado se dibuja con su cara */
+      { setForma(cfg, 'L'); recalculate(); const L2 = presNueva({ papel: 'A3', vistas: ['AlzadoPuertas', 'AlzadoInterior', 'Planta', 'Corte', 'Isometrico'] }); presArmarCaras(L2);
+        const hs = L2.hojas.map(h => h.general ? 'G' + h.cara : h.grupo ? h.grupo[0] + h.cara : 'G0');
+        ok(hs.includes('G1') && hs.includes('b0') && hs.includes('b1') && hs.includes('a0') && hs.includes('e0') && hs.indexOf('e0') < hs.indexOf('G1'), 'laminas por cara en L: ' + hs.join(','));
+        const fb = filtroConjunto('bajos', 0), fe = filtroConjunto('esquinero', 0), ps = planCocina().piezas, mods = modulosPorId();
+        ok(!ps.some(q => fb(q, 0) && q.modulo && mods[q.modulo] && mods[q.modulo].esquina) && ps.some(q => fe(q, 0)), 'el esquinero no va en los bajos de su cara y tiene su conjunto');
+        const vA = L2.vistas.find(v => v.hoja === 0 && v.vista === 'AlzadoPuertas'), vB = L2.vistas.find(v => v.cara === 1 && v.vista === 'AlzadoPuertas');
+        ok(vA && vB && vA.cap && vB.cap && Math.abs(vA.cap.bb.w - vB.cap.bb.w) > 1, 'el alzado de la cara B no es el de la A');
+        ok(L2.vistas.filter(v => L2.hojas[v.hoja] && L2.hojas[v.hoja].grupo === 'esquinero').some(v => v.vista === 'ConjIso' && v.cap) && L2.vistas.some(v => L2.hojas[v.hoja] && L2.hojas[v.hoja].grupo === 'esquinero' && v.vista === 'ConjDespiece'), 'el esquinero con su isometrico y su despiece'); }
       cfg = previo2; recalculate();
     } catch (e) { fallas.push('A186: ' + e.message); }
     return fallas;
@@ -14399,7 +14446,7 @@ const LAM = (() => {
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
     presHitGlobo, presMoverGlobo, presRestablecer, presAgregar, presQuitar, presInstantanea, presRestaurar, presHitMarca, presMoverMarca, marcasHoja, presAlternarEntre,
-    herrajesSobre, Grabador, presAgregarConjunto, presQuitarHoja, frenteBajo, presAlternarFrente, conjuntoDisponible, GRUPOS, GRUPO_CORTO, ESC_DET, ES_CONJUNTO, enHoja,
+    herrajesSobre, Grabador, presAgregarConjunto, presAgregarGeneralCara, presArmarCaras, presQuitarHoja, frenteBajo, presAlternarFrente, conjuntoDisponible, GRUPOS, GRUPO_CORTO, ESC_DET, ES_CONJUNTO, enHoja,
     detallesDe, fijarLogo, tituloItem, letraDe, centrosCorte, api: LAM_API };
 })();
 const pruebasLaminas = () => LAM.pruebas();
@@ -14456,6 +14503,7 @@ function presAbrir(){
     guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, cotas: g.cotas, detalle: g.detalle, dxf: g.dxf, hojas: g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
     escalaVistas: prefs.lamEscalaVistas, escalaIso: prefs.lamEscalaIso });
   PRES.L.esCloset = !!cfg.closet;   /* A207: la lamina sabe de que producto es (su disposicion se guarda aparte) */
+  if (multiCara() && !cfg.closet && !cfg.isla && !PRES.L.hojas.some(h => h.general || h.grupo === 'esquinero')) { setStatus('Armando las láminas por cara…'); LAM.presArmarCaras(PRES.L); setStatus(''); }   /* A284 */
   Object.assign(PRES, { sel: null, selG: null, selM: null, drag: null, guias: [], pag: 0, hist: [], fut: [], pend: null, abierto: true });
   presEl('presentar').classList.add('open');
   presLado(); presAjustar();
@@ -14480,7 +14528,7 @@ function presDibujar(rapido){
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
   LAM.presPintar(g, L, { Z: PRES.Z, ox: PRES.ox, oy: PRES.oy, dpr, sel: PRES.sel, multi: PRES.multi || [], selG: PRES.selG, selM: PRES.selM, hoverC: PRES.hoverC, guias: PRES.guias, rapido: !!rapido, pag: PRES.pag });
   presEl('presZoom').textContent = Math.round(PRES.Z * 25.4 / 96 * 100) + ' %';
-  presEl('presPagTxt').textContent = PRES.pag < L.hojas.length ? `${PRES.pag === 0 ? 'Lámina' : 'Conjunto'} · ${PRES.pag + 1} de ${tot}` : `Detalle · ${PRES.pag + 1} de ${tot}`;
+  presEl('presPagTxt').textContent = PRES.pag < L.hojas.length ? `${PRES.pag === 0 || L.hojas[PRES.pag].general ? 'Lámina' : 'Conjunto'} · ${PRES.pag + 1} de ${tot}` : `Detalle · ${PRES.pag + 1} de ${tot}`;
   presEl('presDeshacer').disabled = !PRES.hist.length; presEl('presRehacer').disabled = !PRES.fut.length;
   presEl('presPrev').disabled = PRES.pag === 0; presEl('presNext').disabled = PRES.pag >= tot - 1;
 }
@@ -14521,7 +14569,7 @@ function presLado(){
   const chk = (id, t, on) => `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-popt="${id}"${on ? ' checked' : ''}><span>${e2(t)}</span></label>`;
   const hojasHtml = L.hojas.map((h, i) => `<div class="pres-fila${i === L.hoja ? ' sel' : ''}" data-hoja="${i}"${i > 0 ? ' draggable="true" title="Arrastra para cambiar el orden"' : ''}>${i > 0 ? '<span class="pres-asa">&#8942;&#8942;</span>' : ''}<span style="flex:1;min-width:0">${i + 1}. ${e2(h.nombre)}</span>` +
     (i > 0 ? `<button class="btn btn-icon pres-mini" data-phdel="${i}" title="Quitar esta lámina">&#10005;</button>` : '') + '</div>').join('');
-  const grupos = ['bajos', 'altos', 'torres'].filter(gk => LAM.conjuntoDisponible(gk, 0)).concat(L.isla && L.isla.on && LAM.islaGeom(L) ? ['isla'] : []).map(gk => opt(gk, LAM.GRUPOS[gk], false)).join('');   /* A204: sin torres, no hay opcion de torres */
+  const grupos = ['bajos', 'altos', 'torres', 'esquinero'].filter(gk => (multiCara() ? cfg.caras.map((_, k) => k) : [0]).some(k => LAM.conjuntoDisponible(gk, k))).concat(L.isla && L.isla.on && LAM.islaGeom(L) ? ['isla'] : []).map(gk => opt(gk, LAM.GRUPOS[gk], false)).join('');   /* A204: sin torres, no hay opcion de torres */
   let caras = ''; try { if (multiCara()) caras = `<label class="pf"><span>Cara</span><select data-pcara>${cfg.caras.map((_, k) => opt(k, letraCara(k), k === 0)).join('')}</select></label>`; } catch (e) { caras = ''; }
   const guardadas = cfg.isla || cfg.closet ? [] : LAM.islasGuardadas(), is = L.isla;
   const geoI = is && is.on ? LAM.islaGeom(L) : null, gapI = geoI ? is.y - LAM.frenteCocina() : 0;
@@ -14538,7 +14586,8 @@ function presLado(){
   const crear = cfg.closet ? '<h4>Láminas</h4>' + hojasHtml +
     '<button class="btn" id="presCrearModulos" style="margin-top:8px;width:100%" title="Una lámina por módulo del closet: su alzado con frentes y su alzado sin puertas, recortados a su columna, con las luces entre repisas, barras y cajones">Crear una lámina por módulo</button>' : '<h4>Láminas</h4>' + hojasHtml +
     `<div class="pres-linea" style="margin-top:8px"><label class="pf"><span>Conjunto</span><select data-pgrupo>${grupos}</select></label>${caras}</div>` +
-    '<button class="btn" id="presCrearConjunto" style="margin-top:6px;width:100%" title="Cada lámina trae la vista general con el volumen en color, el despiece de frentes, el isométrico del conjunto, el alzado con puertas y cajones, los interiores y, en otra lámina, los detalles y los herrajes">Crear lámina del conjunto</button>';
+    '<button class="btn" id="presCrearConjunto" style="margin-top:6px;width:100%" title="Cada lámina trae la vista general con el volumen en color, el despiece de frentes, el isométrico del conjunto, el alzado con puertas y cajones, los interiores y, en otra lámina, los detalles y los herrajes">Crear lámina del conjunto</button>'
+    + (multiCara() ? '<button class="btn" id="presArmarCaras" style="margin-top:6px;width:100%" title="Por cada cara, en orden: su lámina general (alzados y corte), bajos, altos y torres; cada esquinero aparte con su isométrico y su despiece. Reemplaza las láminas de conjunto">Armar las láminas por cara</button>' : '');   /* A284 */
   /* A204: las vistas que se pueden agregar dependen de la lamina: la general, las generales; la de un conjunto, las de ese conjunto;
      la de detalles, solo detalles (y la vista general, que identifica por color) */
   const hj = L.hojas[L.hoja] || {}, esConj = !!hj.grupo, enLamina = L.vistas.filter(v => v.hoja === L.hoja).map(v => v.vista);
@@ -14744,8 +14793,9 @@ function presCargarLogo(){
       if (t.id === 'presCrearConjunto') {
         const gsel = lado.querySelector('[data-pgrupo]'), csel = lado.querySelector('[data-pcara]'), grupo = gsel ? gsel.value : 'bajos', cara = csel ? +csel.value : 0;
         presAntes(); const h = LAM.presAgregarConjunto(L, grupo, cara);
-        if (h < 0) { PRES.hist.pop(); showDialog('Presentar', `No hay ${LAM.GRUPOS[grupo].toLowerCase()} en esta cara.`); return; }
+        if (h < 0) { PRES.hist.pop(); showDialog('Presentar', grupo === 'esquinero' ? 'No hay esquinero en esa esquina (la cara elegida y la siguiente).' : `No hay ${LAM.GRUPOS[grupo].toLowerCase()} en esta cara.`); return; }
         L.hoja = h; PRES.pag = h; PRES.sel = PRES.selG = PRES.selM = null; setStatus('Preparando la lámina…'); LAM.presRefrescar(L); LAM.presAcomodarConjunto(L, h); presGuardar(); presLado(); presAjustar(); setStatus(''); return; }
+      if (t.id === 'presArmarCaras') { presAntes(); setStatus('Armando las láminas por cara…'); LAM.presArmarCaras(L); PRES.pag = 0; PRES.sel = PRES.selG = PRES.selM = null; presGuardar(); presLado(); presAjustar(); setStatus(''); return; }   /* A284 */
       if (t.id === 'presCrearModulos') { presAntes(); const h0 = LAM.presCrearModulosCloset(L); if (h0 < 0) { PRES.hist.pop(); return; } L.hoja = h0; PRES.pag = h0; PRES.sel = null; presRefrescar(false); return; }
       if (t.dataset.phdel !== undefined) { presAntes(); LAM.presQuitarHoja(L, +t.dataset.phdel); PRES.pag = Math.min(PRES.pag, L.hojas.length - 1); PRES.sel = null; presRefrescar(false); return; }
       if (t.dataset.pabrir !== undefined) { presAntes(); LAM.presAlternarFrente(L.vistas[+t.dataset.pabrir], null, true); presRefrescar(false); return; }
