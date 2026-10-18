@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A277. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «la faja central de entre hornos se sigue haciendo de
+       dos o mas piezas, ocupamos solo una; el snap del micro ya no me deja pegar el horno con el inferior para que queden consecutivos sin
+       que se vea la faja central») Con cualquier separacion del microondas de empotrar la faja entre los equipos es una sola pieza: el
+       relleno de la division del horno cubre division + separacion + patines del microondas (sin tapa Intermedio aparte; la tapa queda solo
+       con el de sobreponer) y toma el material de 'intermedio'. El punto azul del microondas baja hasta la junta de los paneles (media
+       division, con iman en la junta y en el lecho): ahi activa hornosJuntos; al separarlo se desactiva.
    A276. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «los fillers se dibujan en dos piezas cuando estan entre
        hornos, deberia ser una sola que cambia su alto; no se alinean la base del panel superior con el lecho del horno inferior») Con el
        microondas de empotrar pegado al horno, el relleno de la division del horno sube hasta la base del panel del microondas (division +
@@ -3386,10 +3392,16 @@ const hornosJuntos = m => !!m.hornosJuntos && !!m.microondas && !m.microSobrepon
 /* A276 (usuario 18/10: «los fillers se dibujan en dos piezas cuando estan entre hornos, deberia ser una sola que cambia su alto»): con el
    microondas de empotrar pegado al horno, el relleno de la division del horno sube hasta la base del panel del microondas (cubre tambien
    sus patines) y el microondas no lleva tapa propia */
-const rellenoEntreHornos = m => !!m.microondas && !m.microSobreponer && microGap(m) <= 0 ? Math.max(0, m.patinesHorno ?? 2) : null;
+/* A277 (usuario 18/10: «la faja central de entre hornos se sigue haciendo de dos o mas piezas, ocupamos solo una»): con cualquier separacion
+   del microondas de empotrar, el relleno de la division cubre tambien la separacion (antes una tapa Intermedio aparte) y sus patines */
+const rellenoEntreHornos = m => !!m.microondas && !m.microSobreponer ? microGap(m) + Math.max(0, m.patinesHorno ?? 2) : null;
 const microGap = m => m.microondas ? Math.max(0, m.elevacionMicro) : 0;
 const microBottom = m => cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales + microGap(m);
-function setMicroBottom(m, z){ const gap = z - (cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales); m.elevacionMicro = gap < 2.5 ? 0 : rd(Math.max(5, gap)); }
+/* A277 (usuario 18/10: «el snap del micro ya no me deja pegar el horno con el inferior para que queden consecutivos sin que se vea la faja
+   central»): el punto del microondas de empotrar baja hasta la junta de los paneles (media division): ahi activa hornosJuntos */
+const juntaHornos = m => cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales/2;
+function setMicroBottom(m, z){ const gap = z - (cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales);
+  m.hornosJuntos = !m.microSobreponer && gap <= -m.espesorLaterales/4; m.elevacionMicro = gap < 2.5 ? 0 : rd(Math.max(5, gap)); }
 const towerLift = m => isTower(m) && m.torreSuperior === 'Pistón + repisas';
 const towerTopStart = m => cfg.baseBajos + m.baseHorno + m.altoHorno + m.espesorLaterales + (m.microondas ? m.altoMicro + m.espesorLaterales + microGap(m) : 0);
 const towerLiftHeight = m => Math.max(0, Math.min(Math.min(60, Math.max(25, m.altoSuperior)), altoEsp(m) - towerTopStart(m) - 20));
@@ -3438,7 +3450,7 @@ function setSegment(m, name, value){
   else if (name === 'body') m.baseHorno = r2(value);   /* A273 */
   else if (name === 'grille') { const body = bodyH(m); m.altoRejilla = value; m.baseHorno = r2(body + value); }
   else if (name === 'oven') m.altoHorno = value;
-  else if (name === 'gap') m.elevacionMicro = value < 2.5 ? 0 : Math.max(5, value);
+  else if (name === 'gap') { m.elevacionMicro = value < 2.5 ? 0 : Math.max(5, value); if (m.elevacionMicro > 0) m.hornosJuntos = false; }   /* A277 */
   else if (name === 'micro') { if (m.microSobreponer) m.microAlto = r2(value - 5); else m.altoMicro = value; }
   else if (name === 'lift') m.altoSuperior = value;
   else if (name === 'upper') m.topeEspecial = r2(seg[1] + value + (towerLift(m) ? towerLiftHeight(m) : 0));
@@ -4286,7 +4298,7 @@ function planDePiezas(c = cfg){
           if (lift > 0 && rejilla) add({ id: m.id + ':rejilla', rol: 'herraje', modulo: m.id, tipo: 'Rejilla', x: xi0, y: y1, z: zA, ancho: W, fondo: t, alto: lift, material: null, etiqueta: 'herrajes',
             modelo: equipoModelo('rejilla_torre', xi0, xi1, zA, zA + lift, y1 + t) });   /* A253: la rejilla del usuario */
           else if (lift > 0 && !sinTapa) add({ id: m.id + ':' + k + ':tapa', rol: 'tapeta', modulo: m.id, tipo: 'Patines', x: xi0, y: y1, z: zA, ancho: W, fondo: t, alto: lift, material: (m.materialesPaneles || {}).intermedio || mat, etiqueta: 'frentes' });
-          tab(k + ':relleno:sup', 'Relleno', xi0, xi1, y1, yl, zB, zB + e + extra);   /* A275; A276: una pieza hasta la base del panel de arriba */
+          tab(k + ':relleno:sup', 'Relleno', xi0, xi1, y1, yl, zB, zB + e + extra, extra > 0 && (m.materialesPaneles || {}).intermedio || mat);   /* A275; A276: una pieza hasta la base del panel de arriba; A277: material de la faja */
           if (m.mostrarEquipos) equipo(m, k, tipo, px, px + pw, pA, pB, y0 + ef + vH, yl + gP, equipoModelo(archivo, px, px + pw, pA, pB, yl + gP)); };   /* A274: delante de los frentes */
         tab('trasero', 'Trasero', xi0, xi1, y0, y0 + ef, zb, top, matPanel(m, 'inferior', 'fondo', 'Interior'));
         piso('piso', zb); tab('techo', 'Techo', xi0, xi1, y0 + ef + vH, y1, top - e, top);
@@ -4301,8 +4313,8 @@ function planDePiezas(c = cfg){
         z += m.altoHorno; pisoV('division:horno', z); z += e;
         if (m.microondas) {
           const mg = microGap(m);
-          if (mg > 0) {   /* hueco intermedio: tapa al frente y lecho del microondas */
-            add({ id: m.id + ':intermedio', rol: 'tapeta', modulo: m.id, tipo: 'Intermedio', x: xi0, y: y1, z, ancho: xi1 - xi0, fondo: t, alto: mg, material: (m.materialesPaneles || {}).intermedio || mat, etiqueta: 'frentes' });
+          if (mg > 0) {   /* hueco intermedio: tapa al frente (A277: solo con el de sobreponer; con el de empotrar, el relleno) y lecho del microondas */
+            if (m.microSobreponer) add({ id: m.id + ':intermedio', rol: 'tapeta', modulo: m.id, tipo: 'Intermedio', x: xi0, y: y1, z, ancho: xi1 - xi0, fondo: t, alto: mg, material: (m.materialesPaneles || {}).intermedio || mat, etiqueta: 'frentes' });
             z += mg; if (mg > e) pisoV('lecho:micro', z - e);
           }
           const sob = m.microSobreponer, mw = sob ? Math.min(m.microAncho, xi1 - xi0 - 1) : xi1 - xi0, mx = (xi0 + xi1)/2 - mw/2, hM = sob ? 0 : hP;   /* el de sobreponer trae sus patas */
@@ -5200,6 +5212,7 @@ function pruebasPlanMX(){
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
     ['esquinero con materiales propios en el bajo y el alto (A272)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const mb = c.modulos.find(m => m.esquina && !m.upper), mu = c.modulos.find(m => m.esquina && m.upper);
       const ids = (c.catalogo || []).map(q => q.id); if (ids.length > 2) { mb.material = ids[1]; mu.material = ids[2]; mu.materialesPaneles = { 'esquina.fondo': ids[1], 'esquina.repisa.1': ids[2] }; } } finally { cfg = prev; } return c; }],
+    ['torre con el microondas separado 10 del horno (A277)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 60, fijo: true, elevacionMicro: 10, microSobreponer: false }); return c; }],
     ['torre de 76 con horno y microondas juntos (A275)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 76, fijo: true, hornosJuntos: true, rejillaHorno: false }); return c; }],
     ['esquinero plegable con la bisagra oculta Blum (A270)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].bisagraIntermedia = 'oculta'; } finally { cfg = prev; } return c; }],
     ['cocina en L con LED, alto de esquina con tapeta y repiseros (A266)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.led = true; Object.assign(c.esquinas[0], { union: 'tapeta', repiseroA: true, repiseroB: true }); } finally { cfg = prev; } return c; }],
@@ -5428,7 +5441,7 @@ function pruebasPlanMX(){
       const dvh = p.piezas.find(q => q.id === m.id + ':division:horno'), rsup = p.piezas.find(q => q.id === m.id + ':horno:relleno:sup');   /* A275: el canto de la division, cubierto */
       ok(!dvh || (rsup && lat && Math.abs(rsup.z - dvh.z) < .01 && Math.abs(rsup.y + rsup.fondo - (lat.y + lat.fondo)) < .01), nombre + ': la division del horno de ' + m.id + ' sin su relleno al frente');
       const mi = p.piezas.find(q => q.id === m.id + ':micro'), mt = p.piezas.find(q => q.id === m.id + ':micro:tapa');
-      if (rellenoEntreHornos(m) !== null && rsup) { ok(!mt, nombre + ': entre el horno y el microondas de ' + m.id + ' el relleno va en dos piezas');   /* A276 */
+      if (rellenoEntreHornos(m) !== null && rsup) { ok(!mt && !p.piezas.some(q => q.id === m.id + ':intermedio'), nombre + ': entre el horno y el microondas de ' + m.id + ' el relleno va en dos piezas');   /* A276; A277 */
         if (mi && !hornosJuntos(m)) ok(Math.abs(mi.z - (rsup.z + rsup.alto)) < .01, nombre + ': la base del panel del microondas de ' + m.id + ' no alinea con el relleno de abajo'); }
       if (ho && mi && hornosJuntos(m)) ok(Math.abs(mi.z - (ho.z + ho.alto) - sepFrentes()) < .02, nombre + ': el horno y el microondas de ' + m.id + ' no quedan juntos');
       if (ho && lat) ok(Math.abs(ho.ancho - Math.min(m.panelHorno > 0 ? m.panelHorno : reg().horno.panel, W + 2*m.espesorLaterales - 2*holF())) < .02 && Math.abs(ho.y + ho.fondo - (lat.y + lat.fondo + reg().horno.grueso)) < .01,
@@ -8027,12 +8040,12 @@ function drawSpecial(m, x0, RX, Z, post){
     for (const [name, h] of [['Horno', m.altoHorno], ['Micro', m.microondas ? m.altoMicro : 0]]) {
       if (!h) continue;
       const counter = name === 'Micro' && m.microSobreponer;
-      if (name === 'Micro') { const mg = microGap(m); if (mg > 0) { const gq = { x: il, y: Z(start + mg), w: W, h: mg*scale }; panel('intermedio', gq); stroke(); ctx.strokeRect(gq.x, gq.y, gq.w, gq.h); start += mg; } }
+      if (name === 'Micro') { const mg = microGap(m); if (mg > 0) { const gq = { x: il, y: Z(start + mg), w: W, h: mg*scale }; if (counter) { panel('intermedio', gq); stroke(); ctx.strokeRect(gq.x, gq.y, gq.w, gq.h); } start += mg; } }   /* A277: con el de empotrar la separacion va en el relleno del horno */
       const y = Z(start + h), eq = { x: il, y, w: W, h: h*scale }; edgeY(eq.y); edgeY(eq.y + eq.h);
       let pq = eq;
       const rEH = rellenoEntreHornos(m), ext = name === 'Horno' && rEH !== null ? rEH : 0, abajo = name === 'Micro' && rEH !== null ? rEH*scale : 0;   /* A276: entre horno y microondas, una sola pieza */
       const dv = { x: il, y: Z(start + h + m.espesorLaterales + ext), w: W, h: (m.espesorLaterales + ext)*scale };   /* A275: relleno delante de la division */
-      if (!counter) { ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(dv.x, dv.y, dv.w, dv.h); stroke(); ctx.strokeRect(dv.x, dv.y, dv.w, dv.h); }
+      if (!counter) { ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(dv.x, dv.y, dv.w, dv.h); if (ext > 0) panel('intermedio', dv); stroke(); ctx.strokeRect(dv.x, dv.y, dv.w, dv.h); }   /* A277: la faja recibe material */
       if (counter) { ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(eq.x, eq.y, eq.w, eq.h); }
       else {   /* A273: hueco de montaje: tapa o rejilla en el levantamiento, rellenos a los lados y el panel del equipo (sin el, el hueco) */
         const lift = name === 'Horno' ? liftHorno(m) : Math.max(0, m.patinesHorno ?? 2), Wi = W/scale, pw = Math.min(panelHorno(m), Wi + 2*m.espesorLaterales - 2*holF()), nw = Math.min(nichoHorno(m), Wi), fr = Math.max(0, (Wi - nw)/2)*scale;   /* A274: el panel cubre los cantos de los laterales */
@@ -8175,7 +8188,7 @@ function gripZ(m, i){
   if (i < 200) { let z = pantryStart(m); pantryHeights(m).slice(0, i - 100).forEach(h => z += h); return z; }
   if (i === 201) return zb + bodyH(m);
   if (i === 211) return altoEsp(m) - towerLiftHeight(m);
-  if (i === 212) return microBottom(m);
+  if (i === 212) return hornosJuntos(m) ? juntaHornos(m) : microBottom(m);   /* A277 */
   if (i === 301) return topeAltos() - m.altoSuperior;
   if (i === 221) return m.huecoRefri;   /* A160: base del gabinete del refrigerador */
   return zb + m.altoCajonesAlacena;
@@ -8626,6 +8639,7 @@ canvas.addEventListener('mousedown', e => {
   const g = gripHits.find(q => inside(p, q.rect));
   if (g) {   /* el iman toma todos los bordes visibles de los demas modulos y piezas, mas sus niveles (AlignLevels) */
     const snap = [...new Set(edges.filter(q => q.id !== g.id).map(q => Math.round(q.z*100)/100))].concat(magnetLevels(g.id));
+    if (g.i === 212) { const mm = byId(g.id); if (mm && !mm.microSobreponer) snap.unshift(juntaHornos(mm), juntaHornos(mm) + mm.espesorLaterales/2); }   /* A277: la junta y el lecho, primero */
     const hd = doorById(g.id), z0 = hd ? (g.i === 650 ? hdLeafTop(hd) : hdJoints(hd)[g.i - 600]) : gripZ(byId(g.id), g.i);
     drag = { kind: 'split', id: g.id, i: g.i, z: z0, snapped: false, snap }; return;
   }
@@ -8704,6 +8718,7 @@ canvas.addEventListener('mousemove', e => {
     /* iman de 1.5 cm al borde horizontal mas cercano (bordes dibujados + niveles de los demas modulos) */
     let snapped = false;
     let best = prefs.iman ? prefs.imanTol : 0; for (const zz of drag.snap) { const d = Math.abs(zz - z); if (d < best) { best = d; z = Math.round(zz*100)/100; snapped = true; } }
+    if (drag.i === 212) { const mm = byId(drag.id); if (mm && !mm.microSobreponer) z = Math.max(z, juntaHornos(mm)); }   /* A277: no baja de la junta */
     drag.z = z; drag.snapped = snapped; canvas.style.cursor = 'ns-resize'; drawCanvas(); return;
   }
   if (drag && drag.kind === 'esqAncho') {   /* A143 */
@@ -9515,7 +9530,7 @@ const ACT = {
   ventH: v => change(() => partMod().ventilacionHorno = v), patH: v => change(() => partMod().patinesHorno = v),   /* A260 */
   rej: v => change(() => partMod().rejillaHorno = v), micro: v => change(() => partMod().microondas = v),
   microSob: v => change(() => partMod().microSobreponer = v), microAncho: v => change(() => partMod().microAncho = v), microAlto: v => change(() => partMod().microAlto = v),
-  altoMicro: v => change(() => partMod().altoMicro = v), elevMicro: v => change(() => partMod().elevacionMicro = v < 2.5 ? 0 : Math.max(5, v)),
+  altoMicro: v => change(() => partMod().altoMicro = v), elevMicro: v => change(() => { const m = partMod(); m.elevacionMicro = v < 2.5 ? 0 : Math.max(5, v); if (m.elevacionMicro > 0) m.hornosJuntos = false; }),   /* A277 */
   altoRej: v => change(() => partMod().altoRejilla = v),
   editTorre: () => { const id = partMod().id; selectedPart = null; selection = new Set([id]); render(); },
   /* closet */
