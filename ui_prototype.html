@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A290. [Master hecho 18/10; SketchUp: piezas carrusel_poste, carrusel_canasta, magic_corner_poste y magic_corner_charolas (preparar_equipos.py)
+       y abre solo; Revit pendiente] (usuario 18/10: «el canastero debe girar 180 grados e independiente cada uno, superior e inferior; el
+       magic corner no sale correctamente; si es mas ancho deberia calcularse su distancia para que salga bien») Los modelos se parten: el
+       carrusel en su poste (fijo) y dos canastas (la baja y la alta, el mismo archivo) que giran 180 grados cada una con su clic; el magic
+       corner en su mecanismo (poste y base, fijo) y las charolas, que salen deslizandose: pasan el frente y, si hace falta, se corren hacia el
+       lado de la puerta hasta quedar fuera de la otra cara (girando no pasan: 84 de charola por una puerta de 45). abre.solo: solo con su
+       propio clic, no con el del gabinete. parteModelo coloca cada pieza con la colocacion del modelo entero (MODELO_EQUIPOS.*.partes).
    A289. [Master hecho 18/10; SketchUp: abre tipo Giro en interaccion.rb; Revit pendiente] (usuario 18/10: «podrias hacer interactivas
        (independientes de las puertas) los magic corner y lazy susan») El modelo del magic corner (charolas tipo rinon) y el del carrusel
        llevan su propio frente (frente = el poste) y abre { tipo: 'Giro', x, y, grados, independiente }: con su clic giran 90 grados sobre
@@ -4008,8 +4015,15 @@ const MODELO_EQUIPOS = {
     chimenea: { x: [23.2, 55], y: [25.35, 50.15] }, zonas: { x: [[2.8, 10], [18.45, 25.65], [27.6, 35], [43.45, 50.35], [52.3, 60], [68.45, 75.15]], y: [[9.85, 25.3], [25.55, 37.9]] } },
   frigobar_vinos: { medida: [60.96, 73.622, 86.36], minimo: [28.11, 13.27, 27.33], cara: 8.9 },
   lavavajillas: { medida: [59, 60.143, 78], minimo: [42.04, 12.2, 33.84], cara: 0 },
-  magic_corner: { medida: [86.97, 51.692, 76.2], escala: true, poste: [27.5, 7.02] },   /* A289: el eje del poste del modelo (ejes normalizados) */
-  carrusel: { medida: [113.78, 113.78, 75.5], escala: true, poste: [56.89, 56.89], radio: 56.29 },   /* A288: la canasta alta del modelo, centrada sobre el poste */
+  magic_corner: { medida: [86.97, 51.692, 76.2], escala: true, poste: [27.5, 7.02],   /* A289: el eje del poste del modelo (ejes normalizados) */
+    /* A290: partido en el mecanismo (poste y base, fijo) y las charolas (salen): donde cae cada pieza en los ejes del modelo entero y su medida */
+    partes: { poste: { desde: [20.474, 0, 0], medida: [14.06, 14.06, 76.2] }, charolas: { desde: [0, 2.814, .703], medida: [86.97, 48.877, 50.01] } } },
+  carrusel: { medida: [113.78, 113.78, 75.5], escala: true, poste: [56.89, 56.89], radio: 56.29,   /* A288: la canasta alta del modelo, centrada sobre el poste */
+    /* A290: partido en el poste y una canasta (la baja; la alta es la misma a otra altura) */
+    partes: { poste: { desde: [46.89, 46.89, 0], medida: [20, 20, 75.5] }, canasta: { desde: [0, 0, 5.3], alta: 42.43, medida: [113.78, 113.78, 8.6] } } },
+  /* A290: las piezas de los herrajes de esquina (solo se escalan) */
+  carrusel_poste: { medida: [20, 20, 75.5], escala: true }, carrusel_canasta: { medida: [113.78, 113.78, 8.6], escala: true },
+  magic_corner_poste: { medida: [14.06, 14.06, 76.2], escala: true }, magic_corner_charolas: { medida: [86.97, 48.877, 50.01], escala: true },
   /* A253 (usuario 17/10): tarjas (a lo ancho y fondo se escalan; las coladeras van enteras), llave de tarja (base: centro de su base en
      planta, ejes del modelo) y rejilla de la torre (la de 60, cara perforada al frente) */
   tarja_doble: { medida: [84.03, 53.973, 16.535], minimo: [1, 1, 15.05], cara: 0 },
@@ -4031,6 +4045,10 @@ const chimeneaCampana = (m, x, sep = cfg.isla ? 0 : cfg.separacionPosterior || 0
   const mx = mapaEstirar(E.zonas.x, E.medida[0], w), my = mapaEstirar(E.zonas.y, E.medida[1], D);
   return { x0: x + 1 + mx(E.chimenea.x[0]), x1: x + 1 + mx(E.chimenea.x[1]), y1: sep + m.fondoCampana - my(E.chimenea.y[0]) }; };
 const HOLGURA_CHIMENEA = 1;   /* A282: luz alrededor de la chimenea */
+/* A290: una pieza de un herraje partido: su origen y medida en el plan a partir de la colocacion del modelo entero (o, ejes; k = medida en el
+   plan / medida natural, por eje) y de donde cae la pieza en los ejes normalizados del entero (desde) */
+const parteModelo = (archivo, o, ejes, k, desde, nat) => modeloEquipo(archivo, [0, 1, 2].map(i => o[i] + desde[0]*k[0]*ejes[0][i] + desde[1]*k[1]*ejes[1][i] + desde[2]*k[2]*ejes[2][i]), nat.map((v, i) => v*k[i]), ejes);
+const cajaParte = m => cajaEjes([[0, 0, 0], m.medida], m.origen, m.ejes);   /* A290: caja en el plan de un modelo con ejes */
 const equipoModelo = (archivo, a, b, z0, z1, yF, yB = null) => { const E = MODELO_EQUIPOS[archivo], D = yB === null ? E.medida[1] : yF + (E.cara || 0) - yB;
   return modeloEquipo(archivo, [a, yF + (E.cara || 0), z0], [b - a, D, z1 - z0].map((v, k) => Math.max(v, (E.minimo || [0, 0, 0])[k]))); };
 const largoPiston = () => { const M = MODELO_PISTON; return Math.hypot(M.P0[0] - M.A0[0], M.P0[2] - M.A0[2]); };
@@ -5545,8 +5563,13 @@ function pruebasPlanMX(){
     /* A269: las hojas en L del alto de esquina miden al menos hojaMinAlto */
     p.piezas.filter(q => /^esq\d+:alto(:sup)?:hoja:[ab]$/.test(q.id)).forEach(q => ok(Math.max(q.ancho, q.fondo) >= reg().esquina.hojaMinAlto - .05, nombre + ': la hoja ' + q.id + ' mide menos de ' + reg().esquina.hojaMinAlto));
     /* A289: el magic corner y el carrusel giran solos sobre su poste; el magic corner, hacia el frente del gabinete */
-    p.piezas.concat((p.caras || []).flatMap(q => q.piezas)).filter(q => (q.tipo === 'MagicCorner' || q.tipo === 'Carrusel') && /:poste$/.test(q.id) && q.modelo).forEach(q => {
-      const a = q.abre; ok(a && a.tipo === 'Giro' && a.independiente && q.frente === q.id && Math.abs(a.grados) === 90, nombre + ': ' + q.id + ' no gira con su propio clic'); });
+    /* A290: las canastas del carrusel giran 180 cada una; las charolas del magic corner salen delante del gabinete sin entrar a la otra cara */
+    { const tp = p.piezas.concat((p.caras || []).flatMap(q => q.piezas));
+      tp.filter(q => q.modelo && q.modelo.archivo === 'carrusel_canasta').forEach(q => ok(q.abre && q.abre.tipo === 'Giro' && q.abre.grados === 180 && q.abre.solo && q.frente === q.id, nombre + ': la canasta ' + q.id + ' no gira sola 180'));
+      tp.filter(q => q.modelo && q.modelo.archivo === 'magic_corner_charolas').forEach(q => { const a = q.abre, d = a && a.direccion, r = a && a.recorrido;
+        ok(a && a.tipo === 'Cajon' && a.solo && r > 0, nombre + ': las charolas ' + q.id + ' no salen con su propio clic');
+        if (!(a && d && r > 0)) return; const x0 = q.x + d[0]*r, y0 = q.y + d[1]*r, enc = tp.filter(o => o !== q && o.rol === 'panel' && o.modulo && o.x < x0 + q.ancho - .5 && o.x + o.ancho > x0 + .5 && o.y < y0 + q.fondo - .5 && o.y + o.fondo > y0 + .5 && o.z < q.z + q.alto && o.z + o.alto > q.z);
+        ok(!enc.length, nombre + ': abiertas, las charolas ' + q.id + ' cruzan ' + enc.slice(0, 3).map(o => o.id)); }); }
     /* A287: el soporte del piston en la puerta queda dentro de ella, a 1.4 cm o mas de su canto, y no toca repisas */
     p.piezas.filter(q => q.tipo === 'PistonSoportePuerta').forEach(q => { const fs = p.piezas.filter(r => r.rol === 'frente' && (r.id === q.frente || r.id.startsWith(q.frente + ':marco')));
       if (!fs.length) return; const a = Math.min(...fs.map(r => r.x)), b = Math.max(...fs.map(r => r.x + r.ancho));
@@ -7596,21 +7619,28 @@ function esquinerosPlan(add, r2, sep, tf){
     if (herraje) { /* A231: charolas Magic corner (riñon de dos niveles, barandal y poste junto a la puerta) */
       const uE = w - e1 - 3, uB = u0 + e1 + 3, vMax = fOwn - 1, L = Math.max(30, Math.min(84, uE - uB)),   /* A232: el poste del lado ciego */ D = Math.max(20, Math.min(46, vMax - ef - 4)), vc = (ef + vMax)/2;
       const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], contorno = charolaRinon(L, D).map(([x, y]) => pt(uB + x, vc + y)), paso = Math.min(37, (z1 - z0) - 30);
-      /* A289 (usuario 18/10: «hacer interactivas, independientes de las puertas, los magic corner y lazy susan»): las charolas giran 90 grados
-         sobre el poste del modelo hacia el frente del gabinete (el modelo entero gira: el poste es un cilindro en ese eje), con su propio clic */
+      /* A289/A290 (usuario 18/10: «el magic corner no sale correctamente; si es mas ancho deberia calcularse su distancia para que salga bien»):
+         una charola de 84 no pasa girando por una puerta de 45; como el herraje real, las charolas salen del gabinete y quedan delante de el,
+         fuera de la caja y sin entrar a la otra cara (deslizamiento en (u, v): hasta pasar el frente y, si hace falta, hacia el lado de la
+         puerta). El mecanismo (poste y base) se queda. Con su propio clic, sin las puertas (solo) */
       const o9 = pt(uB, vMax), ej9 = duenaA ? [[-1, 0, 0], [0, -1, 0], [0, 0, 1]] : [[0, 1, 0], [1, 0, 0], [0, 0, 1]], MM = MODELO_EQUIPOS.magic_corner.medida;
-      const s9 = Math.min(L/MM[0], (vMax - ef - 1)/MM[1]), PO = MODELO_EQUIPOS.magic_corner.poste, piv = puntoEjes([PO[0]*s9, PO[1]*s9, 0], [o9[0], o9[1], 0], ej9);
-      const cC = pt(uB + L/2, vc), fuera = duenaA ? [0, 1] : [-1, 0], rC = [cC[0] - piv[0], cC[1] - piv[1]], sG = (-rC[1]*fuera[0] + rC[0]*fuera[1]) >= 0 ? 1 : -1;
-      const fid = pre + ':poste', abreMC = { tipo: 'Giro', x: r2(piv[0]), y: r2(sep + piv[1]), grados: 90*sG, independiente: true };
-      const SD = { soloDibujo: true, frente: fid };   /* A252: en el modelo van las charolas del usuario (el modelo del poste) */
+      const s9 = Math.min(L/MM[0], (vMax - ef - 1)/MM[1]), PM = MODELO_EQUIPOS.magic_corner.partes;
+      const dU = duenaA ? [-1, 0] : [0, 1], dV = duenaA ? [0, 1] : [-1, 0], vFr = fF + tf, uRoom = fOtra + tf;
+      const vAtras = vMax - (PM.charolas.desde[1] + PM.charolas.medida[1])*s9, duM = Math.max(0, uRoom + 1 - (uB + PM.charolas.desde[0]*s9)), dvM = vFr + 1 - vAtras;
+      const dM = [duM*dU[0] + dvM*dV[0], duM*dU[1] + dvM*dV[1]], rM = Math.hypot(dM[0], dM[1]);
+      const fid = pre + ':charolas', abreMC = { tipo: 'Cajon', recorrido: r2(rM), direccion: [r3(dM[0]/rM), r3(dM[1]/rM)], independiente: true, solo: true };
+      const SD = { soloDibujo: true, frente: fid };   /* A252: en el modelo van las charolas del usuario */
       [z0 + e1 + 8, z0 + e1 + 8 + paso].forEach((z, i) => { losa(pre + ':charola:' + i, 'herraje', 'MagicCorner', modulo, contorno, z, z + 1.2, null, 'herrajes', SD);
         paredesPoly(contorno, .5).forEach((q, j) => losa(pre + ':charola:' + i + ':borde:' + j, 'herraje', 'MagicCorner', modulo, q, z + 1.2, z + 5, null, 'herrajes', SD)); });
       const [px, py] = pt(uB + 2, vMax - 3), hP = r2(z1 - z0 - 2*e1);
       /* A252: el Magic corner del usuario escalado parejo en planta al largo de las charolas (L) sin pasar del fondo: su largo corre por la
          cara duena desde el lado ciego (u = uB), su frente (el poste) en vMax (o9, ej9, s9 arriba, A289) */
-      add({ id: fid, frente: fid, abre: abreMC, rol: 'herraje', modulo, tipo: 'MagicCorner', x: px - 1.5, y: sep + py - 1.5, z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
+      const oM = [o9[0], sep + o9[1], z0 + e1], kM = [s9, s9, hP/MM[2]];   /* A290: el mecanismo fijo (con la forma del poste para los dibujos) y las charolas */
+      add({ id: pre + ':poste', rol: 'herraje', modulo, tipo: 'MagicCorner', x: px - 1.5, y: sep + py - 1.5, z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
         forma: { tipo: 'cilindro', de: [1.5, 1.5, 0], a: [1.5, 1.5, hP], diametro: 3, lados: 12 },
-        modelo: modeloEquipo('magic_corner', [o9[0], sep + o9[1], z0 + e1], [MM[0]*s9, MM[1]*s9, hP], ej9) }); }
+        modelo: parteModelo('magic_corner_poste', oM, ej9, kM, PM.poste.desde, PM.poste.medida) });
+      const mCh = parteModelo('magic_corner_charolas', oM, ej9, kM, PM.charolas.desde, PM.charolas.medida), bCh = cajaParte(mCh);
+      add(Object.assign({ id: fid, frente: fid, abre: abreMC, rol: 'herraje', modulo, tipo: 'MagicCorner', material: null, etiqueta: 'herrajes', modelo: mCh, soloModelo: true }, bCh)); }
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
   const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false, rep = null, piso = true, fajas = false, led = false, alFrente = false) => {
@@ -7792,13 +7822,17 @@ function esquinerosPlan(add, r2, sep, tf){
     if (e.tipo === 'carrusel' && subE === 'carrusel') {   /* dos charolas de 3/4 de giro (sin el cuarto que mira a la puerta) y su poste */
       const cx = LA - Math.min(wA, wB)/2, cy = Math.min(wA, wB)/2, rr = Math.max(10, Math.min(wA, wB)/2 - ef - 3), arco = [[cx, cy]];
       for (let g = 180; g <= 450; g += 15) arco.push([cx + rr*Math.cos(g*Math.PI/180), cy + rr*Math.sin(g*Math.PI/180)]);
-      const fidC = id + ':poste', abreC = { tipo: 'Giro', x: r2(cx), y: r2(sep + cy), grados: 90, independiente: true };   /* A289: gira sobre su poste, con su propio clic */
-      [zb + e1 + 8, zb + A*.55].forEach((z, i) => losa(id + ':charola:' + i, 'repisa', 'Carrusel', modB, arco, z, z + 1.2, null, 'herrajes', { soloDibujo: true, frente: fidC }));   /* A252 */
+      /* A289/A290 (usuario 18/10: «el canastero debe girar 180 grados e independiente cada uno, superior e inferior»): cada canasta con su clic */
+      const abreK = { tipo: 'Giro', x: r2(cx), y: r2(sep + cy), grados: 180, independiente: true, solo: true };
+      [zb + e1 + 8, zb + A*.55].forEach((z, i) => losa(id + ':charola:' + i, 'repisa', 'Carrusel', modB, arco, z, z + 1.2, null, 'herrajes', { soloDibujo: true, frente: id + ':canasta:' + i }));   /* A252 */
       /* A252: el carrusel del usuario (charolas de 3/4 sin el cuarto de la puerta, como el arco) escalado a su radio y su poste en el centro */
       const MC = MODELO_EQUIPOS.carrusel, sc = rr/MC.radio;
-      add({ id: fidC, frente: fidC, abre: abreC, rol: 'herraje', modulo: modB, tipo: 'Carrusel', x: cx - 1.25, y: sep + cy - 1.25, z: zb + e1, ancho: 2.5, fondo: 2.5, alto: A - 2*e1, material: null, etiqueta: 'herrajes',
+      const oC = [cx - MC.poste[0]*sc, sep + cy + MC.poste[1]*sc, zb + e1], ejC = [[1, 0, 0], [0, -1, 0], [0, 0, 1]], kC = [sc, sc, (A - 2*e1)/MC.medida[2]], PC = MC.partes;
+      add({ id: id + ':poste', rol: 'herraje', modulo: modB, tipo: 'Carrusel', x: cx - 1.25, y: sep + cy - 1.25, z: zb + e1, ancho: 2.5, fondo: 2.5, alto: A - 2*e1, material: null, etiqueta: 'herrajes',
         forma: { tipo: 'cilindro', de: [1.25, 1.25, 0], a: [1.25, 1.25, r2(A - 2*e1)], diametro: 2.5, lados: 10 },
-        modelo: modeloEquipo('carrusel', [cx - MC.poste[0]*sc, sep + cy + MC.poste[1]*sc, zb + e1], [MC.medida[0]*sc, MC.medida[1]*sc, A - 2*e1]) }); }
+        modelo: parteModelo('carrusel_poste', oC, ejC, kC, PC.poste.desde, PC.poste.medida) });
+      [PC.canasta.desde[2], PC.canasta.alta].forEach((zN, i) => { const fK = id + ':canasta:' + i, mK = modeloEquipo('carrusel_canasta', [oC[0], oC[1], zb + e1 + zN*kC[2]], PC.canasta.medida.map(v => v*sc), ejC);
+        add(Object.assign({ id: fK, frente: fK, abre: abreK, rol: 'herraje', modulo: modB, tipo: 'Carrusel', material: null, etiqueta: 'herrajes', modelo: mK, soloModelo: true }, cajaParte(mK))); }); }
   }
   /* alto de la esquina en la misma columna (wA, wB): ciego, L o diagonal de 60 x 60 (US 24 x 24) con tapetas hasta la columna */
   const ta = altoEsquina(e); if (ta === 'ninguno' || !mu) return;
@@ -11923,6 +11957,7 @@ const LAM = (() => {
       if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
       const fs = o.sinCad ? null : simCara(cara);
       if (o.filtro && !o.filtro(p, ci)) return;   /* A177: solo el conjunto pedido */
+      if (p.soloModelo) return;   /* A290: pieza que solo es el modelo (canastas, charolas): en los dibujos van sus charolas de dibujo */
       if (!conPuertas && p.ocultaSinPuertas) return;
       const abierto = !!(conPuertas && p.frente && open.has(p.frente));
       const interior = p.rol === 'caja' || p.rol === 'repisa' || p.rol === 'division' || (p.rol === 'herraje' && INTERIOR.has(p.tipo));
@@ -12183,7 +12218,7 @@ const LAM = (() => {
     const a = abres[h.frente];
     const juntos = a && a.grupo ? Object.keys(abres).filter(k => abres[k].grupo === a.grupo) : a && a.independiente ? [h.frente]
       : a && a.zona ? Object.keys(abres).filter(k => abres[k].zona === a.zona && !abres[k].independiente) : null;
-    const abre = juntos || [...(porModulo[h.modulo] || [h.frente])].filter(f => f in abres && abres[f].tipo !== 'Giro');   /* sin grupo ni zona: todo el gabinete; A289: sin sus herrajes que giran */
+    const abre = juntos || [...(porModulo[h.modulo] || [h.frente])].filter(f => f in abres && !abres[f].solo);   /* sin grupo ni zona: todo el gabinete; A289/A290: sin sus herrajes de clic propio */
     const cierra = juntos ? juntos.concat(Object.keys(abres).filter(k => juntos.includes(abres[k].dentroDe))) : abre;
     if (abre.every(f => abiertos.has(f))) cierra.forEach(f => abiertos.delete(f)); else abre.forEach(f => abiertos.add(f));
     return true;
