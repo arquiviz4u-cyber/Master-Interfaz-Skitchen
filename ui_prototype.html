@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A299. [Master hecho 18/10; SketchUp: sin cambio (sigue abre.pliegue); Revit pendiente] (usuario 18/10: «las puertas plegables abren bien
+       pero la posicion final esta incorrecta, la pieza de una cara queda detras de la otra y deberia ser al reves para que siga la coherencia
+       de apertura») Corrige A271/A291 con la bisagra de libro: los frentes de las hojas forman 90 grados del lado de la cocina y la b se dobla
+       90 cerrando ese angulo hasta quedar frente con frente sobre la a (antes giraba sobre el cruce de las caras posteriores, atravesaba la a
+       y quedaba espalda con espalda del lado de la habitacion). Abierta, la a queda por fuera. Las alas de la bisagra de libro siguen en las
+       caras posteriores y se van con su hoja. Con la b encima, la a abre hasta que el paquete toca el frente de su cara (unos 136 grados en
+       vez de 155): ya no entra al mueble vecino.
    A298. [Master hecho 18/10; SketchUp: sin cambio (el modelo espejado entra por modelo.ejes); Revit pendiente] (usuario 18/10: «el Lazy susan
        sigue estando mal, no gira correctamente (actualmente gira al reves) de como abre; reubicar nuevamente el poste»; aclaro que es el
        magic corner y eligio el poste junto a la parte ciega) Corrige A293: el poste va en el limite de la parte ciega y la puerta, el brazo
@@ -5707,7 +5714,7 @@ function pruebasPlanMX(){
         && ea.length === br.length && ea.every(r => r.estado === 'abierto' && r.frente === q.id) && cz.length === br.length && cz.every(r => r.modelo.archivo === 'bisagra155_cazoleta' && r.frente === q.id),
         nombre + ': la hoja ' + q.id + ' sin su bisagra de 155 completa');
       const pl = p.piezas.filter(r => r.id.startsWith(q.id + ':plegable:brazo:'));   /* A268: la a de la plegable lleva tambien las de la 79T8500 */
-      ok(q.abre && q.abre.grados === MODELO.bisagra155.grados && (q.perforaciones || []).length === br.length + pl.length, nombre + ': la hoja ' + q.id + ' no abre 155 o le falta la perforacion');
+      ok(q.abre && (q.abre.grados === MODELO.bisagra155.grados || q.abre.grupo && q.abre.grados > 90 && q.abre.grados < MODELO.bisagra155.grados) && (q.perforaciones || []).length === br.length + pl.length, nombre + ': la hoja ' + q.id + ' no abre 155 o le falta la perforacion');
       /* A268: la plegable lleva una 79T8500 por bisagra de la a (brazo con la b, cazoleta con la a) y la b se dobla 60 sobre la a */
       const hb = p.piezas.find(r => r.id === q.id.replace(/a$/, 'b') && r.abre && r.abre.grupo);
       if (hb && /:hoja:a$/.test(q.id)) { const sg = r => (r.abre.lado === 'izquierda' ? 1 : -1)*r.abre.grados, ec = c.esquinas[c.cara], oc = intermediaEsq(ec) === 'oculta';   /* A270: la de libro o la Blum */
@@ -7614,11 +7621,21 @@ function aperturasEsquinero(piezas, add){
     /* A268/A270: con la Blum, la b gira 60 hacia plano (al reves del giro de la a) sobre la esquina donde se juntan los frentes. A271: con la
        de libro (por dentro), 90 sobre el cruce de las caras posteriores hasta quedar espalda con espalda con la a (con el giro de la a).
        Con la a abierta, en los dos casos la b queda del lado de la habitacion y no entra al mueble */
-    const oc = intermediaEsq(e) === 'oculta', ga = a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados, Ha = [a.abre.x, a.abre.y];
-    let J = oc ? [b.x, a.y + a.fondo] : [b.x + b.ancho, a.y];
-    if (!oc) {   /* A291: la de libro, canto con canto: el punto P del giro relativo (90 hacia el lado de la a) que lleva Q, el canto posterior de la b en la esquina, a J */
-      const Q = [b.x + b.ancho, b.y], tr = Math.sign(ga)*Math.PI/2, cr = Math.cos(tr), sr = Math.sin(tr), w = [J[0] - (cr*Q[0] - sr*Q[1]), J[1] - (sr*Q[0] + cr*Q[1])], dr = (1 - cr)*(1 - cr) + sr*sr;
+    const oc = intermediaEsq(e) === 'oculta', Ha = [a.abre.x, a.abre.y]; let ga = a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados;
+    /* A299 (usuario 18/10: «las puertas plegables abren bien pero la posicion final esta incorrecta, la pieza de una cara queda detras de la
+       otra y deberia ser al reves»): en la esquina en L los frentes forman 90 grados del lado de la cocina; la b se dobla 90 sobre ellos y
+       queda frente con frente sobre la a (antes cruzaba la a y quedaba espalda con espalda del lado de la habitacion). Con la a abierta, la a
+       queda por fuera y la b entre la a y el mueble de al lado */
+    let J = oc ? [b.x, a.y + a.fondo] : [a.x + a.ancho, a.y + a.fondo];
+    if (!oc) {   /* A291/A299: la de libro, canto con canto: el punto P del giro relativo (90 hacia el lado de la a) que lleva Q, el canto del frente de la b en la esquina, al del frente de la a (J) */
+      const Q = [b.x, b.y], tr = Math.sign(ga)*Math.PI/2, cr = Math.cos(tr), sr = Math.sin(tr), w = [J[0] - (cr*Q[0] - sr*Q[1]), J[1] - (sr*Q[0] + cr*Q[1])], dr = (1 - cr)*(1 - cr) + sr*sr;
       J = [((1 - cr)*w[0] - sr*w[1])/dr, (sr*w[0] + (1 - cr)*w[1])/dr]; }
+    /* A299: con la b doblada sobre su frente, la a abre hasta donde el paquete de las dos hojas toca el frente de su cara (no entra al mueble
+       vecino): el angulo mayor, hasta el de su bisagra, de medio en medio grado */
+    if (!oc) { const yF = a.y + a.fondo, esqH = q => [[q.x, q.y], [q.x + q.ancho, q.y], [q.x + q.ancho, q.y + q.fondo], [q.x, q.y + q.fondo]];
+      const pack = esqH(a).concat(esqH(b).map(P => gira(P, J, Math.sign(ga)*giroIntermedia(e)))); let g = ga;
+      while (Math.abs(g) > 90 && Math.min(...pack.map(P => gira(P, Ha, g)[1])) < yF - .02) g -= Math.sign(ga)*.5;
+      if (g !== ga) { ga = g; a.abre.grados = r(Math.abs(g)); } }
     const gb = ga + (oc ? -1 : 1)*Math.sign(ga)*giroIntermedia(e), J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
     /* centro C: J2 = C + R (J - C)  =>  (I - R) C = J2 - R J */
     const RJ = [co*J[0] - si*J[1], si*J[0] + co*J[1]], v = [J2[0] - RJ[0], J2[1] - RJ[1]], m = [[1 - co, si], [-si, 1 - co]], det = m[0][0]*m[1][1] - m[0][1]*m[1][0];
