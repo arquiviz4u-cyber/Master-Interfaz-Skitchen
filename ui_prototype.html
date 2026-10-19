@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A293. [Master hecho 18/10; SketchUp: piezas magic_corner_charola_baja y _alta; Revit pendiente] (usuario 18/10: «el magic corner sale
+       completo, no gira solo sale fuera; lo que tenias que resolver era la posicion del poste y el giro de las charolas») Corrige A290: el
+       poste va en el limite de la parte ciega y la puerta con el brazo largo hacia lo ciego (modelo espejado) y cada charola gira 90 grados
+       sobre el con su clic, el brazo largo sale por el hueco de la puerta. Se busca la escala mayor y el lugar del poste con los que la
+       charola abierta queda en la caja, cruza el frente por la puerta y no entra a la otra cara (mas ancho el esquinero, charolas mas
+       grandes). El mecanismo (poste y base) no se mueve.
    A292. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «ocurrio un error cuando agregue la alacena oculta en
        esquina, no me dejo meter torre de hornos ni cambiar funcion de gabinetes») Con la alacena oculta (120 cm) los gabinetes de la cara
        quedaban de 44 y la torre (minimo 45) no pasaba la validacion. Al cambiar la funcion, si el modulo queda bajo el minimo de la nueva
@@ -4026,13 +4032,15 @@ const MODELO_EQUIPOS = {
   lavavajillas: { medida: [59, 60.143, 78], minimo: [42.04, 12.2, 33.84], cara: 0 },
   magic_corner: { medida: [86.97, 51.692, 76.2], escala: true, poste: [27.5, 7.02],   /* A289: el eje del poste del modelo (ejes normalizados) */
     /* A290: partido en el mecanismo (poste y base, fijo) y las charolas (salen): donde cae cada pieza en los ejes del modelo entero y su medida */
-    partes: { poste: { desde: [20.474, 0, 0], medida: [14.06, 14.06, 76.2] }, charolas: { desde: [0, 2.814, .703], medida: [86.97, 48.877, 50.01] } } },
+    partes: { poste: { desde: [20.474, 0, 0], medida: [14.06, 14.06, 76.2] }, charolas: { desde: [0, 2.814, .703], medida: [86.97, 48.877, 50.01] },
+      charola_baja: { desde: [0, 2.814, .703], medida: [86.97, 48.877, 11.91] }, charola_alta: { desde: [0, 5.277, 41.615], medida: [86.97, 46.415, 9.099] } } },   /* A293: cada charola */
   carrusel: { medida: [113.78, 113.78, 75.5], escala: true, poste: [56.89, 56.89], radio: 56.29,   /* A288: la canasta alta del modelo, centrada sobre el poste */
     /* A290: partido en el poste y una canasta (la baja; la alta es la misma a otra altura) */
     partes: { poste: { desde: [46.89, 46.89, 0], medida: [20, 20, 75.5] }, canasta: { desde: [0, 0, 5.3], alta: 42.43, medida: [113.78, 113.78, 8.6] } } },
   /* A290: las piezas de los herrajes de esquina (solo se escalan) */
   carrusel_poste: { medida: [20, 20, 75.5], escala: true }, carrusel_canasta: { medida: [113.78, 113.78, 8.6], escala: true },
   magic_corner_poste: { medida: [14.06, 14.06, 76.2], escala: true }, magic_corner_charolas: { medida: [86.97, 48.877, 50.01], escala: true },
+  magic_corner_charola_baja: { medida: [86.97, 48.877, 11.91], escala: true }, magic_corner_charola_alta: { medida: [86.97, 46.415, 9.099], escala: true },
   /* A253 (usuario 17/10): tarjas (a lo ancho y fondo se escalan; las coladeras van enteras), llave de tarja (base: centro de su base en
      planta, ejes del modelo) y rejilla de la torre (la de 60, cara perforada al frente) */
   tarja_doble: { medida: [84.03, 53.973, 16.535], minimo: [1, 1, 15.05], cara: 0 },
@@ -5575,10 +5583,17 @@ function pruebasPlanMX(){
     /* A290: las canastas del carrusel giran 180 cada una; las charolas del magic corner salen delante del gabinete sin entrar a la otra cara */
     { const tp = p.piezas.concat((p.caras || []).flatMap(q => q.piezas));
       tp.filter(q => q.modelo && q.modelo.archivo === 'carrusel_canasta').forEach(q => ok(q.abre && q.abre.tipo === 'Giro' && q.abre.grados === 180 && q.abre.solo && q.frente === q.id, nombre + ': la canasta ' + q.id + ' no gira sola 180'));
-      tp.filter(q => q.modelo && q.modelo.archivo === 'magic_corner_charolas').forEach(q => { const a = q.abre, d = a && a.direccion, r = a && a.recorrido;
-        ok(a && a.tipo === 'Cajon' && a.solo && r > 0, nombre + ': las charolas ' + q.id + ' no salen con su propio clic');
-        if (!(a && d && r > 0)) return; const x0 = q.x + d[0]*r, y0 = q.y + d[1]*r, enc = tp.filter(o => o !== q && o.rol === 'panel' && o.modulo && o.x < x0 + q.ancho - .5 && o.x + o.ancho > x0 + .5 && o.y < y0 + q.fondo - .5 && o.y + o.fondo > y0 + .5 && o.z < q.z + q.alto && o.z + o.alto > q.z);
-        ok(!enc.length, nombre + ': abiertas, las charolas ' + q.id + ' cruzan ' + enc.slice(0, 3).map(o => o.id)); }); }
+      /* A293: cada charola del magic corner gira 90 sobre el poste con su clic y, abierta, su caja no cruza tableros de la cocina */
+      [p.piezas].concat((p.caras || []).map(q => q.piezas)).forEach(cp => cp.filter(q => q.modelo && /^magic_corner_charola_/.test(q.modelo.archivo)).forEach(q => { const a = q.abre;
+        ok(a && a.tipo === 'Giro' && Math.abs(a.grados) === 90 && a.solo && q.frente === q.id, nombre + ': la charola ' + q.id + ' no gira sola sobre el poste');
+        if (!a) return; const g = a.grados*Math.PI/180, rot = ([x, y]) => [a.x + (x - a.x)*Math.cos(g) - (y - a.y)*Math.sin(g), a.y + (x - a.x)*Math.sin(g) + (y - a.y)*Math.cos(g)];
+        const esq = [[q.x + .5, q.y + .5], [q.x + q.ancho - .5, q.y + .5], [q.x + q.ancho - .5, q.y + q.fondo - .5], [q.x + .5, q.y + q.fondo - .5]].map(rot), xs = esq.map(e => e[0]), ys = esq.map(e => e[1]);
+        const bx = { x: Math.min(...xs), y: Math.min(...ys), X: Math.max(...xs), Y: Math.max(...ys) };
+        const enc = cp.filter(o => o.rol === 'panel' && o.modulo && !/MagicCorner/.test(o.tipo) && o.x < bx.X && o.x + o.ancho > bx.x && o.y < bx.Y && o.y + o.fondo > bx.y && o.z < q.z + q.alto && o.z + o.alto > q.z && o.tipo !== 'Trasero');
+        ok(!enc.length, nombre + ': abierta, la charola ' + q.id + ' cruza ' + enc.slice(0, 3).map(o => o.id));
+        const prev = cfg; cfg = c; let fB = 0, LAo = 1e9; try { const mm = todosModulos(c).find(o => o.id === q.modulo), k = mm && mm.esquina ? mm.esquina.k : 0; if (c.esquinas[k] && c.esquinas[k].duena !== 1) { fB = fondoCara(caraDe(k + 1), false) + espFrente(); LAo = caraDe(k).longitud; } } finally { cfg = prev; }   /* con la cara k duena, la otra ocupa x > largo - su fondo */
+        ok(!(bx.X > LAo - fB + .5), nombre + ': abierta, la charola ' + q.id + ' entra a la otra cara'); }));
+      tp.filter(q => q.tipo === 'MagicCorner' && /:poste$/.test(q.id)).forEach(q => ok(!q.noSale, nombre + ': las charolas de ' + q.id + ' no caben girando por la puerta')); }
     /* A287: el soporte del piston en la puerta queda dentro de ella, a 1.4 cm o mas de su canto, y no toca repisas */
     p.piezas.filter(q => q.tipo === 'PistonSoportePuerta').forEach(q => { const fs = p.piezas.filter(r => r.rol === 'frente' && (r.id === q.frente || r.id.startsWith(q.frente + ':marco')));
       if (!fs.length) return; const a = Math.min(...fs.map(r => r.x)), b = Math.max(...fs.map(r => r.x + r.ancho));
@@ -7628,31 +7643,44 @@ function esquinerosPlan(add, r2, sep, tf){
     if (op && P > puertaMaxEsq() + 1e-6) { const g = holF(); bx(':puerta', 'frente', 'Puerta', w - P, w - P/2 - g, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':puerta:2', 'frente', 'Puerta', w - P/2 + g, w, fF, fF + tf, z0, zf, frente, 'frentes'); }   /* A226 */
     else bx(':puerta', 'frente', 'Puerta', w - P, w, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':tapeta', 'tapeta', 'Compensacion', op ? 0 : gola ? fOtra - golaHondo(true) : fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara; A232: con gola llega detras de la tapeta retirada */
     if (gola) { bx(':gola', 'herraje', 'Gola', fOtra + tf, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', fOtra + tf, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
-    if (herraje) { /* A231: charolas Magic corner (riñon de dos niveles, barandal y poste junto a la puerta) */
-      const uE = w - e1 - 3, uB = u0 + e1 + 3, vMax = fOwn - 1, L = Math.max(30, Math.min(84, uE - uB)),   /* A232: el poste del lado ciego */ D = Math.max(20, Math.min(46, vMax - ef - 4)), vc = (ef + vMax)/2;
-      const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], contorno = charolaRinon(L, D).map(([x, y]) => pt(uB + x, vc + y)), paso = Math.min(37, (z1 - z0) - 30);
-      /* A289/A290 (usuario 18/10: «el magic corner no sale correctamente; si es mas ancho deberia calcularse su distancia para que salga bien»):
-         una charola de 84 no pasa girando por una puerta de 45; como el herraje real, las charolas salen del gabinete y quedan delante de el,
-         fuera de la caja y sin entrar a la otra cara (deslizamiento en (u, v): hasta pasar el frente y, si hace falta, hacia el lado de la
-         puerta). El mecanismo (poste y base) se queda. Con su propio clic, sin las puertas (solo) */
-      const o9 = pt(uB, vMax), ej9 = duenaA ? [[-1, 0, 0], [0, -1, 0], [0, 0, 1]] : [[0, 1, 0], [1, 0, 0], [0, 0, 1]], MM = MODELO_EQUIPOS.magic_corner.medida;
-      const s9 = Math.min(L/MM[0], (vMax - ef - 1)/MM[1]), PM = MODELO_EQUIPOS.magic_corner.partes;
-      const dU = duenaA ? [-1, 0] : [0, 1], dV = duenaA ? [0, 1] : [-1, 0], vFr = fF + tf, uRoom = fOtra + tf;
-      const vAtras = vMax - (PM.charolas.desde[1] + PM.charolas.medida[1])*s9, duM = Math.max(0, uRoom + 1 - (uB + PM.charolas.desde[0]*s9)), dvM = vFr + 1 - vAtras;
-      const dM = [duM*dU[0] + dvM*dV[0], duM*dU[1] + dvM*dV[1]], rM = Math.hypot(dM[0], dM[1]);
-      const fid = pre + ':charolas', abreMC = { tipo: 'Cajon', recorrido: r2(rM), direccion: [r3(dM[0]/rM), r3(dM[1]/rM)], independiente: true, solo: true };
-      const SD = { soloDibujo: true, frente: fid };   /* A252: en el modelo van las charolas del usuario */
-      [z0 + e1 + 8, z0 + e1 + 8 + paso].forEach((z, i) => { losa(pre + ':charola:' + i, 'herraje', 'MagicCorner', modulo, contorno, z, z + 1.2, null, 'herrajes', SD);
-        paredesPoly(contorno, .5).forEach((q, j) => losa(pre + ':charola:' + i + ':borde:' + j, 'herraje', 'MagicCorner', modulo, q, z + 1.2, z + 5, null, 'herrajes', SD)); });
-      const [px, py] = pt(uB + 2, vMax - 3), hP = r2(z1 - z0 - 2*e1);
-      /* A252: el Magic corner del usuario escalado parejo en planta al largo de las charolas (L) sin pasar del fondo: su largo corre por la
-         cara duena desde el lado ciego (u = uB), su frente (el poste) en vMax (o9, ej9, s9 arriba, A289) */
-      const oM = [o9[0], sep + o9[1], z0 + e1], kM = [s9, s9, hP/MM[2]];   /* A290: el mecanismo fijo (con la forma del poste para los dibujos) y las charolas */
-      add({ id: pre + ':poste', rol: 'herraje', modulo, tipo: 'MagicCorner', x: px - 1.5, y: sep + py - 1.5, z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
-        forma: { tipo: 'cilindro', de: [1.5, 1.5, 0], a: [1.5, 1.5, hP], diametro: 3, lados: 12 },
+    if (herraje) { /* A231: charolas Magic corner (rinon de dos niveles, barandal y poste junto a la puerta) */
+      /* A293 (usuario 18/10: «el magic corner sale completo, no gira; lo que tenias que resolver era la posicion del poste y el giro de las
+         charolas»): el poste va en el limite de la parte ciega y la puerta, con el brazo largo de las charolas hacia lo ciego (modelo espejado):
+         cada charola gira 90 grados sobre el poste y su brazo largo sale por el hueco de la puerta. Se busca la escala mayor y el lugar del poste
+         con los que, abierta, la charola queda dentro de la caja, cruza el frente solo por el hueco de la puerta y afuera no entra a la otra cara;
+         con un esquinero mas ancho (puerta mas ancha) caben charolas mas grandes. Cada charola con su clic (solo); el mecanismo se queda */
+      const uE = w - e1 - 3, uB = u0 + e1 + 3, vMax = fOwn - 1, paso = Math.min(37, (z1 - z0) - 30);
+      const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], dU = duenaA ? [-1, 0] : [0, 1], dV = duenaA ? [0, 1] : [-1, 0];
+      const MMm = MODELO_EQUIPOS.magic_corner, MM = MMm.medida, PO = MMm.poste, PM = MMm.partes, sMax = Math.min((uE - uB)/MM[0], (vMax - ef - 1)/MM[1]);
+      const vFr = fF + tf, uRoom = fOtra + tf, uLo = w - P + .5, uHi = w - e1 - .5;
+      const dentro = (u, v) => v < ef - .01 ? false : v <= vMax + .5 ? u >= u0 + e1 - .01 && u <= w - e1 + .01 : v <= vFr + .5 ? u >= uLo && u <= uHi : u >= uRoom;
+      /* espejado: el eje X del modelo hacia -u desde uO, el Y hacia -v desde vMax; el poste en (uP, vMax - PO[1] s) con uO = uP + PO[0] s */
+      const prueba = (s9, uP, sg) => { const uO = uP + PO[0]*s9, pv = [uP, vMax - PO[1]*s9], Lm = MM[0]*s9, Dm = MM[1]*s9, pts = [];
+        if (uO - Lm < u0 + e1 - .01 || uO > w - e1 + .01 || Dm > vMax - ef) return false;
+        for (let a = 0; a <= Lm + 1e-9; a += Math.max(1.5, Lm/24)) pts.push([uO - a, vMax], [uO - a, vMax - Dm]);
+        for (let b = 0; b <= Dm + 1e-9; b += Math.max(1.5, Dm/12)) pts.push([uO, vMax - b], [uO - Lm, vMax - b]);
+        const cu = uO - Lm/2 - pv[0], cv = vMax - Dm/2 - pv[1]; if (pv[1] + sg*cu <= vFr) return false;   /* abierta, la charola queda fuera del frente */
+        return pts.every(([u, v]) => { const du = u - pv[0], dv = v - pv[1]; return dentro(pv[0] - sg*dv, pv[1] + sg*du); }); };
+      let mc = null;
+      for (let s9 = r2(sMax); s9 >= .4 && !mc; s9 = r2(s9 - .01)) for (let uP = w - P; uP <= w - e1 + 1e-9 && !mc; uP += .5) for (const sg of [1, -1]) if (!mc && prueba(s9, uP, sg)) mc = { s9, uP, sg };
+      const s9 = mc ? mc.s9 : r2(sMax), uP = mc ? mc.uP : uB + PO[0]*s9, uO = mc ? uP + PO[0]*s9 : uB, Lm = MM[0]*s9, Dm = MM[1]*s9;
+      const map = mc ? (a, b) => [uO - a, vMax - b] : (a, b) => [uO + a, vMax - b];
+      const ej9 = [[(mc ? -1 : 1)*dU[0], (mc ? -1 : 1)*dU[1], 0], [-dV[0], -dV[1], 0], [0, 0, 1]];
+      const o9 = pt(uO, vMax), piv = pt(uP, vMax - PO[1]*s9), hP = r2(z1 - z0 - 2*e1), oM = [o9[0], sep + o9[1], z0 + e1], kM = [s9, s9, hP/MM[2]];
+      /* sentido del giro en la planta: el mismo de la busqueda en (u, v) (la planta de la cara duena puede invertir el sentido) */
+      const sgU = mc ? mc.sg : 1, cU = map(Lm/2, Dm/2), pvU = [uP, vMax - PO[1]*s9], abU = pt(pvU[0] - sgU*(cU[1] - pvU[1]), pvU[1] + sgU*(cU[0] - pvU[0])), cP = pt(cU[0], cU[1]);
+      const rgP = g => [piv[0] + (cP[0] - piv[0])*Math.cos(g) - (cP[1] - piv[1])*Math.sin(g), piv[1] + (cP[0] - piv[0])*Math.sin(g) + (cP[1] - piv[1])*Math.cos(g)];
+      const gP = Math.hypot(rgP(Math.PI/2)[0] - abU[0], rgP(Math.PI/2)[1] - abU[1]) < Math.hypot(rgP(-Math.PI/2)[0] - abU[0], rgP(-Math.PI/2)[1] - abU[1]) ? 90 : -90;
+      const contorno = charolaRinon(Lm, Dm).map(([x, y]) => pt(...map(x, Dm/2 - y)));
+      add({ id: pre + ':poste', rol: 'herraje', modulo, tipo: 'MagicCorner', x: r2(piv[0] - 1.5), y: r2(sep + piv[1] - 1.5), z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
+        forma: { tipo: 'cilindro', de: [1.5, 1.5, 0], a: [1.5, 1.5, hP], diametro: 3, lados: 12 }, noSale: mc ? undefined : true,
         modelo: parteModelo('magic_corner_poste', oM, ej9, kM, PM.poste.desde, PM.poste.medida) });
-      const mCh = parteModelo('magic_corner_charolas', oM, ej9, kM, PM.charolas.desde, PM.charolas.medida), bCh = cajaParte(mCh);
-      add(Object.assign({ id: fid, frente: fid, abre: abreMC, rol: 'herraje', modulo, tipo: 'MagicCorner', material: null, etiqueta: 'herrajes', modelo: mCh, soloModelo: true }, bCh)); }
+      [['baja', PM.charola_baja, z0 + e1 + 8], ['alta', PM.charola_alta, z0 + e1 + 8 + paso]].forEach(([k, pa, zc], i) => {
+        const fid = pre + ':bandeja:' + i, abreMC = { tipo: 'Giro', x: r2(piv[0]), y: r2(sep + piv[1]), grados: gP, independiente: true, solo: true }, SD = { soloDibujo: true, frente: fid };
+        losa(pre + ':charola:' + i, 'herraje', 'MagicCorner', modulo, contorno, zc, zc + 1.2, null, 'herrajes', SD);
+        paredesPoly(contorno, .5).forEach((q, j) => losa(pre + ':charola:' + i + ':borde:' + j, 'herraje', 'MagicCorner', modulo, q, zc + 1.2, zc + 5, null, 'herrajes', SD));
+        const mCh = parteModelo('magic_corner_charola_' + k, oM, ej9, kM, pa.desde, pa.medida);
+        add(Object.assign({ id: fid, frente: fid, abre: abreMC, rol: 'herraje', modulo, tipo: 'MagicCorner', material: null, etiqueta: 'herrajes', modelo: mCh, soloModelo: true }, cajaParte(mCh))); }); }
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
   const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false, rep = null, piso = true, fajas = false, led = false, alFrente = false) => {
