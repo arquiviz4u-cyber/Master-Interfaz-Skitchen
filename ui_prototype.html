@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A291. [Master hecho 18/10; Revit pendiente] Empalme de las hojas plegables con bisagra de libro (18/10, usuario, al probar Revit P12.347:
+       «ajustar el empalme entre puertas que queda medio desfasado»): la b giraba sobre el cruce de las caras posteriores (J), pero su canto
+       de la esquina arranca en la cara vista de la a, un grueso de frente mas alla; al doblarse sobresalia ese grueso del canto de la a. Ahora
+       la b dobla sobre el punto P que lleva su canto posterior de la esquina al de la a (giro relativo de 90 hacia el lado de la a: (I - R) P
+       = J - R Q, Q el canto posterior de la b en la esquina): espalda con espalda y canto con canto. La Blum oculta sigue igual.
    A290. [Master hecho 18/10; SketchUp: piezas carrusel_poste, carrusel_canasta, magic_corner_poste y magic_corner_charolas (preparar_equipos.py)
        y abre solo; Revit pendiente] (usuario 18/10: «el canastero debe girar 180 grados e independiente cada uno, superior e inferior; el
        magic corner no sale correctamente; si es mas ancho deberia calcularse su distancia para que salga bien») Los modelos se parten: el
@@ -7531,7 +7536,10 @@ function aperturasEsquinero(piezas, add){
        de libro (por dentro), 90 sobre el cruce de las caras posteriores hasta quedar espalda con espalda con la a (con el giro de la a).
        Con la a abierta, en los dos casos la b queda del lado de la habitacion y no entra al mueble */
     const oc = intermediaEsq(e) === 'oculta', ga = a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados, Ha = [a.abre.x, a.abre.y];
-    const J = oc ? [b.x, a.y + a.fondo] : [b.x + b.ancho, a.y];
+    let J = oc ? [b.x, a.y + a.fondo] : [b.x + b.ancho, a.y];
+    if (!oc) {   /* A291: la de libro, canto con canto: el punto P del giro relativo (90 hacia el lado de la a) que lleva Q, el canto posterior de la b en la esquina, a J */
+      const Q = [b.x + b.ancho, b.y], tr = Math.sign(ga)*Math.PI/2, cr = Math.cos(tr), sr = Math.sin(tr), w = [J[0] - (cr*Q[0] - sr*Q[1]), J[1] - (sr*Q[0] + cr*Q[1])], dr = (1 - cr)*(1 - cr) + sr*sr;
+      J = [((1 - cr)*w[0] - sr*w[1])/dr, (sr*w[0] + (1 - cr)*w[1])/dr]; }
     const gb = ga + (oc ? -1 : 1)*Math.sign(ga)*giroIntermedia(e), J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
     /* centro C: J2 = C + R (J - C)  =>  (I - R) C = J2 - R J */
     const RJ = [co*J[0] - si*J[1], si*J[0] + co*J[1]], v = [J2[0] - RJ[0], J2[1] - RJ[1]], m = [[1 - co, si], [-si, 1 - co]], det = m[0][0]*m[1][1] - m[0][1]*m[1][0];
