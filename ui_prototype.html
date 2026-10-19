@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A289. [Master hecho 18/10; SketchUp: abre tipo Giro en interaccion.rb; Revit pendiente] (usuario 18/10: «podrias hacer interactivas
+       (independientes de las puertas) los magic corner y lazy susan») El modelo del magic corner (charolas tipo rinon) y el del carrusel
+       llevan su propio frente (frente = el poste) y abre { tipo: 'Giro', x, y, grados, independiente }: con su clic giran 90 grados sobre
+       el eje de su poste, sin las puertas. El magic corner gira sobre el poste del modelo (MODELO_EQUIPOS.magic_corner.poste) hacia el
+       frente del gabinete; el carrusel, sobre su poste. Las charolas de dibujo giran con ellos (isometrico).
    A288. [Master hecho 18/10; SketchUp: carrusel.skp corregido (preparar_equipos.py) y su catalogo; Revit: la sesion de Revit ya lo corrige
        en su OBJ (AJUSTES de skp_a_obj.py), que con el .skp nuevo sobra] (usuario 18/10: «la canasta superior del carrusel en sketchup esta
        fuera del centro del poste») El modelo del usuario trae la canasta alta corrida 4.05 y 1.85 cm del poste: preparar_equipos.py la
@@ -4003,7 +4008,7 @@ const MODELO_EQUIPOS = {
     chimenea: { x: [23.2, 55], y: [25.35, 50.15] }, zonas: { x: [[2.8, 10], [18.45, 25.65], [27.6, 35], [43.45, 50.35], [52.3, 60], [68.45, 75.15]], y: [[9.85, 25.3], [25.55, 37.9]] } },
   frigobar_vinos: { medida: [60.96, 73.622, 86.36], minimo: [28.11, 13.27, 27.33], cara: 8.9 },
   lavavajillas: { medida: [59, 60.143, 78], minimo: [42.04, 12.2, 33.84], cara: 0 },
-  magic_corner: { medida: [86.97, 51.692, 76.2], escala: true },
+  magic_corner: { medida: [86.97, 51.692, 76.2], escala: true, poste: [27.5, 7.02] },   /* A289: el eje del poste del modelo (ejes normalizados) */
   carrusel: { medida: [113.78, 113.78, 75.5], escala: true, poste: [56.89, 56.89], radio: 56.29 },   /* A288: la canasta alta del modelo, centrada sobre el poste */
   /* A253 (usuario 17/10): tarjas (a lo ancho y fondo se escalan; las coladeras van enteras), llave de tarja (base: centro de su base en
      planta, ejes del modelo) y rejilla de la torre (la de 60, cara perforada al frente) */
@@ -5323,6 +5328,7 @@ function pruebasPlanMX(){
       if (h[0]) Object.assign(h[0], { campana: true, soloCampana: true, mostrarCampana: true }); if (h[3]) Object.assign(h[3], { campana: true, soloCampana: true, mostrarCampana: true }); return c; }],
     ['torre con piston arriba y repisas, clasica con tapeta superior cerrada (A278, A279, A281)', c => { const l = c.modulos.filter(m => !m.upper); c.style = 'Clasica'; c.led = true; c.tapetaSuperior = true; c.cerrarMolduraIzq = c.cerrarMolduraDer = true; c.corridaIzq = c.corridaDer = false;
       Object.assign(l[0], { tipo: 'Hornos', ancho: 60, fijo: true, torreSuperior: 'Pistón', repisasSuperior: 2 }); return c; }],
+    ['esquinero ciego con magic corner y carrusel en L (A289)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const e = c.esquinas[0]; Object.assign(e, { tipo: 'ciego', herraje: true }); } finally { cfg = prev; } return c; }],
     ['torre con el microondas separado 10 del horno (A277)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 60, fijo: true, elevacionMicro: 10, microSobreponer: false }); return c; }],
     ['torre de 76 con horno y microondas juntos (A275)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 76, fijo: true, hornosJuntos: true, rejillaHorno: false }); return c; }],
     ['esquinero plegable con la bisagra oculta Blum (A270)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].bisagraIntermedia = 'oculta'; } finally { cfg = prev; } return c; }],
@@ -5538,6 +5544,9 @@ function pruebasPlanMX(){
         const fl = p.piezas.filter(q => /^luz:/.test(q.id)); if (la && fl.length) ok(fl.some(q => Math.abs(q.x + q.ancho - la.x) < .01 && Math.abs(q.y - la.y) < .01), nombre + ': la luz del esquinero no sigue a la de su cara'); } }
     /* A269: las hojas en L del alto de esquina miden al menos hojaMinAlto */
     p.piezas.filter(q => /^esq\d+:alto(:sup)?:hoja:[ab]$/.test(q.id)).forEach(q => ok(Math.max(q.ancho, q.fondo) >= reg().esquina.hojaMinAlto - .05, nombre + ': la hoja ' + q.id + ' mide menos de ' + reg().esquina.hojaMinAlto));
+    /* A289: el magic corner y el carrusel giran solos sobre su poste; el magic corner, hacia el frente del gabinete */
+    p.piezas.concat((p.caras || []).flatMap(q => q.piezas)).filter(q => (q.tipo === 'MagicCorner' || q.tipo === 'Carrusel') && /:poste$/.test(q.id) && q.modelo).forEach(q => {
+      const a = q.abre; ok(a && a.tipo === 'Giro' && a.independiente && q.frente === q.id && Math.abs(a.grados) === 90, nombre + ': ' + q.id + ' no gira con su propio clic'); });
     /* A287: el soporte del piston en la puerta queda dentro de ella, a 1.4 cm o mas de su canto, y no toca repisas */
     p.piezas.filter(q => q.tipo === 'PistonSoportePuerta').forEach(q => { const fs = p.piezas.filter(r => r.rol === 'frente' && (r.id === q.frente || r.id.startsWith(q.frente + ':marco')));
       if (!fs.length) return; const a = Math.min(...fs.map(r => r.x)), b = Math.max(...fs.map(r => r.x + r.ancho));
@@ -7587,15 +7596,19 @@ function esquinerosPlan(add, r2, sep, tf){
     if (herraje) { /* A231: charolas Magic corner (riñon de dos niveles, barandal y poste junto a la puerta) */
       const uE = w - e1 - 3, uB = u0 + e1 + 3, vMax = fOwn - 1, L = Math.max(30, Math.min(84, uE - uB)),   /* A232: el poste del lado ciego */ D = Math.max(20, Math.min(46, vMax - ef - 4)), vc = (ef + vMax)/2;
       const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], contorno = charolaRinon(L, D).map(([x, y]) => pt(uB + x, vc + y)), paso = Math.min(37, (z1 - z0) - 30);
-      const SD = { soloDibujo: true };   /* A252: en el modelo van las charolas del usuario (el modelo del poste) */
+      /* A289 (usuario 18/10: «hacer interactivas, independientes de las puertas, los magic corner y lazy susan»): las charolas giran 90 grados
+         sobre el poste del modelo hacia el frente del gabinete (el modelo entero gira: el poste es un cilindro en ese eje), con su propio clic */
+      const o9 = pt(uB, vMax), ej9 = duenaA ? [[-1, 0, 0], [0, -1, 0], [0, 0, 1]] : [[0, 1, 0], [1, 0, 0], [0, 0, 1]], MM = MODELO_EQUIPOS.magic_corner.medida;
+      const s9 = Math.min(L/MM[0], (vMax - ef - 1)/MM[1]), PO = MODELO_EQUIPOS.magic_corner.poste, piv = puntoEjes([PO[0]*s9, PO[1]*s9, 0], [o9[0], o9[1], 0], ej9);
+      const cC = pt(uB + L/2, vc), fuera = duenaA ? [0, 1] : [-1, 0], rC = [cC[0] - piv[0], cC[1] - piv[1]], sG = (-rC[1]*fuera[0] + rC[0]*fuera[1]) >= 0 ? 1 : -1;
+      const fid = pre + ':poste', abreMC = { tipo: 'Giro', x: r2(piv[0]), y: r2(sep + piv[1]), grados: 90*sG, independiente: true };
+      const SD = { soloDibujo: true, frente: fid };   /* A252: en el modelo van las charolas del usuario (el modelo del poste) */
       [z0 + e1 + 8, z0 + e1 + 8 + paso].forEach((z, i) => { losa(pre + ':charola:' + i, 'herraje', 'MagicCorner', modulo, contorno, z, z + 1.2, null, 'herrajes', SD);
         paredesPoly(contorno, .5).forEach((q, j) => losa(pre + ':charola:' + i + ':borde:' + j, 'herraje', 'MagicCorner', modulo, q, z + 1.2, z + 5, null, 'herrajes', SD)); });
       const [px, py] = pt(uB + 2, vMax - 3), hP = r2(z1 - z0 - 2*e1);
       /* A252: el Magic corner del usuario escalado parejo en planta al largo de las charolas (L) sin pasar del fondo: su largo corre por la
-         cara duena desde el lado ciego (u = uB), su frente (el poste) en vMax */
-      const o9 = pt(uB, vMax), ej9 = duenaA ? [[-1, 0, 0], [0, -1, 0], [0, 0, 1]] : [[0, 1, 0], [1, 0, 0], [0, 0, 1]], MM = MODELO_EQUIPOS.magic_corner.medida;
-      const s9 = Math.min(L/MM[0], (vMax - ef - 1)/MM[1]);
-      add({ id: pre + ':poste', rol: 'herraje', modulo, tipo: 'MagicCorner', x: px - 1.5, y: sep + py - 1.5, z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
+         cara duena desde el lado ciego (u = uB), su frente (el poste) en vMax (o9, ej9, s9 arriba, A289) */
+      add({ id: fid, frente: fid, abre: abreMC, rol: 'herraje', modulo, tipo: 'MagicCorner', x: px - 1.5, y: sep + py - 1.5, z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
         forma: { tipo: 'cilindro', de: [1.5, 1.5, 0], a: [1.5, 1.5, hP], diametro: 3, lados: 12 },
         modelo: modeloEquipo('magic_corner', [o9[0], sep + o9[1], z0 + e1], [MM[0]*s9, MM[1]*s9, hP], ej9) }); }
   };
@@ -7779,10 +7792,11 @@ function esquinerosPlan(add, r2, sep, tf){
     if (e.tipo === 'carrusel' && subE === 'carrusel') {   /* dos charolas de 3/4 de giro (sin el cuarto que mira a la puerta) y su poste */
       const cx = LA - Math.min(wA, wB)/2, cy = Math.min(wA, wB)/2, rr = Math.max(10, Math.min(wA, wB)/2 - ef - 3), arco = [[cx, cy]];
       for (let g = 180; g <= 450; g += 15) arco.push([cx + rr*Math.cos(g*Math.PI/180), cy + rr*Math.sin(g*Math.PI/180)]);
-      [zb + e1 + 8, zb + A*.55].forEach((z, i) => losa(id + ':charola:' + i, 'repisa', 'Carrusel', modB, arco, z, z + 1.2, null, 'herrajes', { soloDibujo: true }));   /* A252 */
+      const fidC = id + ':poste', abreC = { tipo: 'Giro', x: r2(cx), y: r2(sep + cy), grados: 90, independiente: true };   /* A289: gira sobre su poste, con su propio clic */
+      [zb + e1 + 8, zb + A*.55].forEach((z, i) => losa(id + ':charola:' + i, 'repisa', 'Carrusel', modB, arco, z, z + 1.2, null, 'herrajes', { soloDibujo: true, frente: fidC }));   /* A252 */
       /* A252: el carrusel del usuario (charolas de 3/4 sin el cuarto de la puerta, como el arco) escalado a su radio y su poste en el centro */
       const MC = MODELO_EQUIPOS.carrusel, sc = rr/MC.radio;
-      add({ id: id + ':poste', rol: 'herraje', modulo: modB, tipo: 'Carrusel', x: cx - 1.25, y: sep + cy - 1.25, z: zb + e1, ancho: 2.5, fondo: 2.5, alto: A - 2*e1, material: null, etiqueta: 'herrajes',
+      add({ id: fidC, frente: fidC, abre: abreC, rol: 'herraje', modulo: modB, tipo: 'Carrusel', x: cx - 1.25, y: sep + cy - 1.25, z: zb + e1, ancho: 2.5, fondo: 2.5, alto: A - 2*e1, material: null, etiqueta: 'herrajes',
         forma: { tipo: 'cilindro', de: [1.25, 1.25, 0], a: [1.25, 1.25, r2(A - 2*e1)], diametro: 2.5, lados: 10 },
         modelo: modeloEquipo('carrusel', [cx - MC.poste[0]*sc, sep + cy + MC.poste[1]*sc, zb + e1], [MC.medida[0]*sc, MC.medida[1]*sc, A - 2*e1]) }); }
   }
@@ -11813,6 +11827,7 @@ const LAM = (() => {
   /* movimiento de un frente al abrirse, en ejes locales de su cara (la misma regla de Interaccion.movimiento en Ruby) */
   const movimientoDe = a => !a ? null : a.tipo === 'Puerta' ? { gira: [a.x, -a.y, 0], eje: [0, 0, 1], g: (a.lado === 'derecha' ? 1 : -1) * (a.grados || 90) * (a.sentido === 'adentro' ? -1 : 1) }
     : a.tipo === 'Elevable' ? { gira: [0, -a.y, a.z], eje: [1, 0, 0], g: -(a.grados || 90) }   /* A243: con bisagras, su giro real */
+    : a.tipo === 'Giro' ? { gira: [a.x, -a.y, 0], eje: [0, 0, 1], g: -(a.grados || 90) }   /* A289: herraje que gira sobre su poste (grados en la planta, + contra reloj) */
     : a.tipo === 'Cajon' ? { mueve: (d => [d[0]*a.recorrido*(a.fraccion || 1), -d[1]*a.recorrido*(a.fraccion || 1), 0])(a.direccion || [0, 1]) } : null;   /* A246: el del esquinero sale en su direccion */
   const mover = (v, m) => { if (!m) return v; if (m.mueve) return vadd(v, m.mueve);
     const r = vsub(v, m.gira), t = m.g * Math.PI / 180, c = Math.cos(t), s = Math.sin(t), k = m.eje, kr = vcruz(k, r), kd = vpunto(k, r);
@@ -12168,7 +12183,7 @@ const LAM = (() => {
     const a = abres[h.frente];
     const juntos = a && a.grupo ? Object.keys(abres).filter(k => abres[k].grupo === a.grupo) : a && a.independiente ? [h.frente]
       : a && a.zona ? Object.keys(abres).filter(k => abres[k].zona === a.zona && !abres[k].independiente) : null;
-    const abre = juntos || [...(porModulo[h.modulo] || [h.frente])].filter(f => f in abres);   /* sin grupo ni zona: todo el gabinete */
+    const abre = juntos || [...(porModulo[h.modulo] || [h.frente])].filter(f => f in abres && abres[f].tipo !== 'Giro');   /* sin grupo ni zona: todo el gabinete; A289: sin sus herrajes que giran */
     const cierra = juntos ? juntos.concat(Object.keys(abres).filter(k => juntos.includes(abres[k].dentroDe))) : abre;
     if (abre.every(f => abiertos.has(f))) cierra.forEach(f => abiertos.delete(f)); else abre.forEach(f => abiertos.add(f));
     return true;
