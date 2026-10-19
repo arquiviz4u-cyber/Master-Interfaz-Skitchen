@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A298. [Master hecho 18/10; SketchUp: sin cambio (el modelo espejado entra por modelo.ejes); Revit pendiente] (usuario 18/10: «el Lazy susan
+       sigue estando mal, no gira correctamente (actualmente gira al reves) de como abre; reubicar nuevamente el poste»; aclaro que es el
+       magic corner y eligio el poste junto a la parte ciega) Corrige A293: el poste va en el limite de la parte ciega y la puerta, el brazo
+       largo de cada charola hacia la bisagra (detras de la puerta) y el corto hacia lo ciego; gira al reves que la puerta: el brazo largo sale
+       por el hueco y el corto entra a lo ciego. La busqueda revisa todo el giro (cada 6 grados) y no la pose abierta sola; el modelo va en su
+       version espejada (izquierda/derecha del herraje). Autoprueba: la charola gira al reves que su puerta.
    A297. [Master hecho 18/10; SketchUp: Interactuar anima el piston (cuerpo y vastago) con la puerta; Revit: sin cambio] (usuario 18/10:
        «en sketchup las animaciones se ven incongruentes con los herrajes, los pistones se solapan con la animacion y no siguen la apertura
        de la puerta, lo mismo con las bisagras») El cuerpo y el vastago cerrados de cada piston con modelo llevan piston: { parte, ancla, punta }
@@ -5632,6 +5638,8 @@ function pruebasPlanMX(){
     /* A293: cada charola del magic corner gira 90 sobre el poste con su clic y, abierta, su caja no cruza tableros de la cocina */
       [p.piezas].concat((p.caras || []).map(q => q.piezas)).forEach(cp => cp.filter(q => q.modelo && /^magic_corner_charola_/.test(q.modelo.archivo)).forEach(q => { const a = q.abre;
         ok(a && a.tipo === 'Giro' && Math.abs(a.grados) === 90 && a.solo && q.frente === q.id, nombre + ': la charola ' + q.id + ' no gira sola sobre el poste');
+        const pu = tp.find(o => o.id === q.id.replace(/:bandeja:\d+$/, ':puerta') && o.abre);   /* A298: al reves que la puerta del ciego */
+        if (a && pu) ok(Math.sign(a.grados) === (pu.abre.lado === 'izquierda' ? -1 : 1), nombre + ': la charola ' + q.id + ' gira como su puerta (A298)');
         if (!a) return; const g = a.grados*Math.PI/180, rot = ([x, y]) => [a.x + (x - a.x)*Math.cos(g) - (y - a.y)*Math.sin(g), a.y + (x - a.x)*Math.sin(g) + (y - a.y)*Math.cos(g)];
         const esq = [[q.x + .5, q.y + .5], [q.x + q.ancho - .5, q.y + .5], [q.x + q.ancho - .5, q.y + q.fondo - .5], [q.x + .5, q.y + q.fondo - .5]].map(rot), xs = esq.map(e => e[0]), ys = esq.map(e => e[1]);
         const bx = { x: Math.min(...xs), y: Math.min(...ys), X: Math.max(...xs), Y: Math.max(...ys) };
@@ -7743,19 +7751,26 @@ function esquinerosPlan(add, r2, sep, tf){
       const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], dU = duenaA ? [-1, 0] : [0, 1], dV = duenaA ? [0, 1] : [-1, 0];
       const MMm = MODELO_EQUIPOS.magic_corner, MM = MMm.medida, PO = MMm.poste, PM = MMm.partes, sMax = Math.min((uE - uB)/MM[0], (vMax - ef - 1)/MM[1]);
       const vFr = fF + tf, uRoom = fOtra + tf, uLo = w - P + .5, uHi = w - e1 - .5;
-      const dentro = (u, v) => v < ef - .01 ? false : v <= vMax + .5 ? u >= u0 + e1 - .01 && u <= w - e1 + .01 : v <= vFr + .5 ? u >= uLo && u <= uHi : u >= uRoom;
-      /* espejado: el eje X del modelo hacia -u desde uO, el Y hacia -v desde vMax; el poste en (uP, vMax - PO[1] s) con uO = uP + PO[0] s */
-      const prueba = (s9, uP, sg) => { const uO = uP + PO[0]*s9, pv = [uP, vMax - PO[1]*s9], Lm = MM[0]*s9, Dm = MM[1]*s9, pts = [];
-        if (uO - Lm < u0 + e1 - .01 || uO > w - e1 + .01 || Dm > vMax - ef) return false;
-        for (let a = 0; a <= Lm + 1e-9; a += Math.max(1.5, Lm/24)) pts.push([uO - a, vMax], [uO - a, vMax - Dm]);
-        for (let b = 0; b <= Dm + 1e-9; b += Math.max(1.5, Dm/12)) pts.push([uO, vMax - b], [uO - Lm, vMax - b]);
-        const cu = uO - Lm/2 - pv[0], cv = vMax - Dm/2 - pv[1]; if (pv[1] + sg*cu <= vFr) return false;   /* abierta, la charola queda fuera del frente */
-        return pts.every(([u, v]) => { const du = u - pv[0], dv = v - pv[1]; return dentro(pv[0] - sg*dv, pv[1] + sg*du); }); };
-      let mc = null;
-      for (let s9 = r2(sMax); s9 >= .4 && !mc; s9 = r2(s9 - .01)) for (let uP = w - P; uP <= w - e1 + 1e-9 && !mc; uP += .5) for (const sg of [1, -1]) if (!mc && prueba(s9, uP, sg)) mc = { s9, uP, sg };
-      const s9 = mc ? mc.s9 : r2(sMax), uP = mc ? mc.uP : uB + PO[0]*s9, uO = mc ? uP + PO[0]*s9 : uB, Lm = MM[0]*s9, Dm = MM[1]*s9;
-      const map = mc ? (a, b) => [uO - a, vMax - b] : (a, b) => [uO + a, vMax - b];
-      const ej9 = [[(mc ? -1 : 1)*dU[0], (mc ? -1 : 1)*dU[1], 0], [-dV[0], -dV[1], 0], [0, 0, 1]];
+      /* A298 (usuario 18/10: «el lazy susan no gira correctamente, gira al reves de como abre; reubicar nuevamente el poste»; eligio el poste
+         junto a la ciega): el poste va en el limite de la parte ciega y la puerta; el brazo largo de la charola, hacia la bisagra (detras de la
+         puerta) y el corto, hacia lo ciego. Abre al reves que la puerta: el brazo largo sale por el hueco y el corto entra a lo ciego. Se revisa
+         todo el giro (cada 6 grados), no solo la pose abierta: dentro de la caja, por el hueco de la puerta al cruzar el frente y, afuera, sin
+         entrar a la otra cara ni a la puerta abierta. Con el modelo del usuario en su version espejada (X hacia la bisagra) */
+      const dentro = (u, v) => v < ef - .01 ? false : v <= vMax + .5 ? u >= u0 + e1 - .01 && u <= w - e1 + .01 : v <= vFr + .5 ? u >= uLo && u <= uHi : u >= uRoom && u <= w - 4;
+      const sg = 1;   /* en (u, v) contra reloj: +u -> +v (la puerta, con la bisagra en u = w, gira al reves) */
+      const prueba = (s9, uP) => { const uO = uP - PO[0]*s9, pv = [uP, vMax - PO[1]*s9], Lm = MM[0]*s9, Dm = MM[1]*s9, pts = [];
+        if (uO < u0 + e1 - .01 || uO + Lm > w - e1 + .01 || Dm > vMax - ef) return false;
+        for (let a = 0; a <= Lm + 1e-9; a += Math.max(1.5, Lm/24)) pts.push([uO + a, vMax], [uO + a, vMax - Dm]);
+        for (let b = 0; b <= Dm + 1e-9; b += Math.max(1.5, Dm/12)) pts.push([uO, vMax - b], [uO + Lm, vMax - b]);
+        const cu = uO + Lm/2 - pv[0]; if (pv[1] + sg*cu <= vFr) return false;   /* abierta, la charola queda fuera del frente */
+        for (let t = 6; t <= 90; t += 6) { const f = sg*t*Math.PI/180, c = Math.cos(f), sn = Math.sin(f);
+          if (!pts.every(([u, v]) => { const du = u - pv[0], dv = v - pv[1]; return dentro(pv[0] + du*c - dv*sn, pv[1] + du*sn + dv*c); })) return false; }
+        return true; };
+      let mc = null;   /* la escala mayor; con ella, el poste lo mas cerca del limite de la parte ciega */
+      for (let s9 = r2(sMax); s9 >= .3 && !mc; s9 = r2(s9 - .01)) for (let d = 0; d <= 15 && !mc; d += .5) for (const uP of d ? [w - P + d, w - P - d] : [w - P]) if (!mc && prueba(s9, uP)) mc = { s9, uP, sg };
+      const s9 = mc ? mc.s9 : r2(sMax), uP = mc ? mc.uP : uB + PO[0]*s9, uO = uP - PO[0]*s9, Lm = MM[0]*s9, Dm = MM[1]*s9;
+      const map = (a, b) => [uO + a, vMax - b];
+      const ej9 = [[dU[0], dU[1], 0], [-dV[0], -dV[1], 0], [0, 0, 1]];
       const o9 = pt(uO, vMax), piv = pt(uP, vMax - PO[1]*s9), hP = r2(z1 - z0 - 2*e1), oM = [o9[0], sep + o9[1], z0 + e1], kM = [s9, s9, hP/MM[2]];
       /* sentido del giro en la planta: el mismo de la busqueda en (u, v) (la planta de la cara duena puede invertir el sentido) */
       const sgU = mc ? mc.sg : 1, cU = map(Lm/2, Dm/2), pvU = [uP, vMax - PO[1]*s9], abU = pt(pvU[0] - sgU*(cU[1] - pvU[1]), pvU[1] + sgU*(cU[0] - pvU[0])), cP = pt(cU[0], cU[1]);
