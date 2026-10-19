@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A292. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «ocurrio un error cuando agregue la alacena oculta en
+       esquina, no me dejo meter torre de hornos ni cambiar funcion de gabinetes») Con la alacena oculta (120 cm) los gabinetes de la cara
+       quedaban de 44 y la torre (minimo 45) no pasaba la validacion. Al cambiar la funcion, si el modulo queda bajo el minimo de la nueva
+       funcion crece a ese minimo, queda fijo y los demas se reparten.
    A291. [Master hecho 18/10; Revit P12.349] Empalme de las hojas plegables con bisagra de libro (18/10, usuario, al probar Revit P12.347:
        «ajustar el empalme entre puertas que queda medio desfasado»): la b giraba sobre el cruce de las caras posteriores (J), pero su canto
        de la esquina arranca en la cara vista de la a, un grueso de frente mas alla; al doblarse sobresalia ese grueso del canto de la a. Ahora
@@ -5582,7 +5586,7 @@ function pruebasPlanMX(){
       const rp = p.piezas.find(r => r.modulo === q.modulo && r.rol === 'repisa' && r.x < q.x + q.ancho && r.x + r.ancho > q.x && r.y < q.y + q.fondo && r.y + r.fondo > q.y && r.z < q.z + q.alto && r.z + r.alto > q.z);
       ok(!rp, nombre + ': el soporte ' + q.id + ' toca la repisa ' + (rp && rp.id)); });
     /* A282: en el alto con campana nada de su caja cruza la chimenea (con su holgura) */
-    { let xr = ajusteIzq(); c.modulos.filter(m => m.upper).forEach(m => { const x = xr; xr += m.ancho; if (m.reserved || m.esquina || !hasCampana(m) || soloCamp(m)) return;
+    { let xr; { const pr0 = cfg; cfg = c; try { xr = ajusteIzq(); } finally { cfg = pr0; } } c.modulos.filter(m => m.upper).forEach(m => { const x = xr; xr += m.ancho; if (m.reserved || m.esquina || !hasCampana(m) || soloCamp(m)) return;
       const prev = cfg; cfg = c; let ch; try { ch = chimeneaCampana(m, x); } finally { cfg = prev; }
       const hx0 = ch.x0 - HOLGURA_CHIMENEA + .02, hx1 = ch.x1 + HOLGURA_CHIMENEA - .02, hy1 = ch.y1 + HOLGURA_CHIMENEA - .02;
       const dentroPol = (P, u, v) => { let cc = false; for (let i = 0, j = P.length - 1; i < P.length; j = i++) { const [xi, yi] = P[i], [xj, yj] = P[j]; if ((yi > v) !== (yj > v) && u < (xj - xi)*(v - yi)/(yj - yi) + xi) cc = !cc; } return cc; };
@@ -5592,7 +5596,7 @@ function pruebasPlanMX(){
         const choca = P ? [.1, .5, .9].some(fx => [.1, .5, .9].some(fy => dentroPol(P, hx0 + (hx1 - hx0)*fx, q.y + (hy1 - q.y)*fy))) : q.x < hx1 && q.x + q.ancho > hx0;
         ok(!choca, nombre + ': ' + q.id + ' cruza la chimenea de la campana de ' + m.id); }); }); }
     /* A283: con la campana sola la tapeta superior no pasa por su columna y cierra a sus lados; la chimenea llega al tope */
-    { let xr = ajusteIzq(); c.modulos.filter(m => m.upper).forEach(m => { const x = xr; xr += m.ancho; if (m.reserved || !soloCamp(m)) return;
+    { let xr; { const pr0 = cfg; cfg = c; try { xr = ajusteIzq(); } finally { cfg = pr0; } } c.modulos.filter(m => m.upper).forEach(m => { const x = xr; xr += m.ancho; if (m.reserved || !soloCamp(m)) return;
       const ts = p.piezas.filter(q => /^tapeta:superior/.test(q.id) && !q.id.includes(':cierre:') && q.x < x + m.ancho - (q.tipo === 'Moldura' ? q.alto + .05 : .02) && q.x + q.ancho > x + (q.tipo === 'Moldura' ? q.alto + .05 : .02) && q.y + q.fondo > (c.separacionPosterior || 0) + 5);   /* la corona sobresale su vuelo a la vista */
       ok(!c.tapetaSuperior || !ts.length, nombre + ': la tapeta superior pasa sobre la campana sola de ' + m.id + ' (' + ts.map(q => q.id) + ')');
       const eq = p.piezas.find(q => q.modulo === m.id && q.tipo === 'Campana' && q.modelo); const prev = cfg; cfg = c;
@@ -9645,6 +9649,9 @@ const ACT = {
         if (m.superiorRefri && top - m.huecoRefri < 25) { if (top - 25 >= 120) m.huecoRefri = Math.floor(top - 25); else m.superiorRefri = false; } }
       if (cfg.closet && v === 'Repisas' && m.repisasEspecial < 3) m.repisasEspecial = 5;
       if (ANCHO_TIPO[v]) { if (l.length === h.length) h[l.indexOf(m)].fijo = false; m.ancho = ANCHO_TIPO[v](Object.assign({}, m, { tipo: v })); m.fijo = true; }
+      /* A292 (usuario 18/10: con la alacena oculta en la esquina los gabinetes quedaban de 44 y «no me dejo meter torre de hornos ni cambiar
+         funcion de gabinetes»): si la funcion nueva pide mas ancho que el que tiene, el modulo crece a su minimo (y queda fijo) y los demas se reparten */
+      else { const mn = minWidth(m); if (m.ancho < mn - .01) { m.ancho = Math.ceil(mn); m.fijo = true; if (l.length === h.length) h[l.indexOf(m)].fijo = false; } }
       if (v === 'Estufa') { m.parrilla = false; campanaSobre(cfg, m); } else if (eraEstufa && !m.parrilla) campanaFuera(cfg, m); });
     focusPanel = null;
   }),
