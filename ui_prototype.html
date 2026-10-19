@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A295. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «las caras de esquineros no se pueden reducir, al
+       parecer una restriccion de ancho minimo lo impide, quitarla; tambien deberia aparecer linea guia para recorrer esta puerta del
+       ciego») El ciego ya no se queda en su ancho de fabrica como minimo: se angosta hasta que su puerta mide puertaCiegoMin (20 cm, US 8");
+       la parte ciega no cambia (ciegoDueno: wMin, wMax). En el alzado, su cara duena lleva el agarre del ancho como las demas esquinas,
+       con guias al de fabrica y al minimo, iman al de fabrica y la medida de la puerta al arrastrar.
    A294. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «en la alacena oculta, cuando hay barra y cambio la
        puerta de cara, la barra tambien deberia cambiar de posicion; sus cajones y puertas construidos como en el resto, con el estilo; el
        repisero de piso a techo de la cara adyacente condiciona que empiecen desde el lateral de las repisas») La barra en ejes locales (p desde
@@ -3201,9 +3206,13 @@ const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !==
    cara empieza a su fondo (60). Carrusel, diagonal y alacena: 90 x 90 (US 36 x 36); la alacena oculta, 120 en la cara de su puerta */
 /* A221 (usuario 16/10): ancho del ciego en su cara duena: de fabrica w0 (el ciego mas lo que pide la otra cara); se ensancha hasta
    ciegoMax - ciego cm mas (crecen la caja y su puerta); ciegoExtra es lo que se ensancho */
+/* A295 (usuario 18/10: «las caras de esquineros no se pueden reducir, una restriccion de ancho minimo lo impide, quitarla»): tambien se
+   angosta, hasta que su puerta queda de puertaCiegoMin (la parte ciega no cambia); wMin..wMax */
+const puertaCiegoMin = () => cfg.region === 'US' ? inch(8) : 20;
 const ciegoDueno = k => { const e = cfg.esquinas[k], R = reg().esquina, duenaA = e.duena !== 1, fOtra = fondoCara(caraDe(duenaA ? k + 1 : k), false),
   w0 = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)), v = duenaA ? e.anchoA : e.anchoB;
-  return { w0, w: v > 0 ? Math.max(w0, Math.min(w0 + (R.ciegoMax - R.ciego), v)) : w0 }; };
+  const wMin = w0 - Math.max(0, R.ciegoPuerta - puertaCiegoMin()), wMax = w0 + (R.ciegoMax - R.ciego);
+  return { w0, wMin, wMax, w: v > 0 ? Math.max(wMin, Math.min(wMax, v)) : w0 }; };
 const ciegoExtra = k => { const e = cfg.esquinas[k]; if (!e || e.tipo !== 'ciego') return 0; const c = ciegoDueno(k); return Math.round((c.w - c.w0)*1000)/1000; };
 /* A226: alto de la esquina armado con tapeta. Lado s (0: cara k, 1: cara k + 1) con tapeta: el no dueno del ciego; los dos del L y del diagonal */
 /* A227: el alto ciego es siempre recto (armado con tapeta) */
@@ -5381,6 +5390,7 @@ function pruebasPlanMX(){
     ['esquinero diagonal con tarja doble (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].sub = 'tarja'; c.esquinas[0].tarjaTipo = 2; } finally { cfg = prev; } return c; }],
     ['esquinero diagonal con carrusel (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].sub = 'carrusel'; } finally { cfg = prev; } return c; }],
     ['esquinero en L con 2 repisas (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; c.esquinas[0].sub = 'repisas'; c.esquinas[0].repisasL = 2; } finally { cfg = prev; } return c; }],
+    ['esquinero ciego angosto, puerta de 30 (A295)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: false }); anchoEsquina(0, true, ciegoDueno(0).w0 - 15); } finally { cfg = prev; } return c; }],
     ['esquinero ciego con Magic corner (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'ciego'; c.esquinas[0].herraje = true; } finally { cfg = prev; } return c; }],
     ['cocina en L con carrusel y alto con tapeta (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; c.esquinas[0].union = 'tapeta'; } finally { cfg = prev; } return c; }],
     ['cocina en U con ciego y alacena oculta (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'U'); c.esquinas[1].tipo = 'alacena'; c.esquinas[1].alacena = 'oculta'; c.esquinas[0].herraje = true; } finally { cfg = prev; } return c; }],
@@ -5727,7 +5737,8 @@ function pruebasPlanMX(){
       if (e.tipo === 'ciego') ok(!!e.herraje === has(':charola:0') && !has(':repisa'), nombre + ': interior del ciego'); });
     (c.esquinas || []).forEach((e, k) => { const q = e.tipo === 'ciego' && p.piezas.find(r => r.id === 'esq' + k + ':puerta'); if (!q) return;   /* A221 */
       const prev = cfg; cfg = c; let ex; try { ex = reg().esquina.ciegoPuerta + ciegoExtra(k); } finally { cfg = prev; }
-      ok(Math.abs((e.duena !== 1 ? q.ancho : q.fondo) - ex) < .01, nombre + ': la puerta del ciego no sigue su ancho (A221)'); });
+      ok(Math.abs((e.duena !== 1 ? q.ancho : q.fondo) - ex) < .01, nombre + ': la puerta del ciego no sigue su ancho (A221)');
+      if (/A295/.test(nombre)) ok(Math.abs(ex - 30) < .01, nombre + ': el ciego no se angosto (puerta de ' + ex + ')'); });
     ok(!p.piezas.some(q => /:lateral:(izq|der):muesca$/.test(q.id)), nombre + ': lateral partido en dos');
     /* A154: el mueble con especiero anexado es uno: el especiero llega a la base del cuerpo de arriba (o al tope), su lateral exterior
        es de una pieza del zoclo al tope, el cuerpo de arriba lo cubre, su frente abre por su cuenta y no hay division en el cuerpo de arriba */
@@ -8085,13 +8096,14 @@ function drawEsquina(m, x0, RX, X, Z, post){
           post.push(() => { ctx.strokeStyle = C.line; ctx.lineWidth = 1; cuts.forEach(zc => { const rc = cajaZ(fOtra, w, zc, zc); line(rc.x, rc.y, rc.x + rc.w, rc.y); });
             if (sE === 'cajones' && proyOn()) { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing; [zb, ...cuts, zf].forEach((za, i, l) => { if (i === l.length - 1) return; const rq = cajaZ(fOtra, w, za, l[i + 1]); line(rq.x, rq.y, rq.x + rq.w, rq.y + rq.h); line(rq.x + rq.w, rq.y, rq.x, rq.y + rq.h); }); ctx.restore(); } }); } } }   /* A236: X de los cajones */
     /* A143: agarre del ancho en el canto interior de la columna (carrusel, diagonal y alacena): se arrastra con guia e iman */
-    if ((e.tipo !== 'ciego' || !duena) && !exporting) { const xi = der ? x0 : x0 + w,   /* A151: en el ciego, la cara no duena */ gx = frame.X(xi), gy = Z(zb + A/2), r = { x: gx - 4, y: gy - 16, w: 8, h: 32 };
+    /* A295 (usuario 18/10: «tambien deberia aparecer linea guia para recorrer esta puerta del ciego»): tambien en su cara duena */
+    if (!exporting) { const xi = der ? x0 : x0 + w,   /* A151: en el ciego, la cara no duena */ gx = frame.X(xi), gy = Z(zb + A/2), r = { x: gx - 4, y: gy - 16, w: 8, h: 32 };
       esqGripHits.push({ rect: r, m, xi });
       /* A163 (usuario 11/10): agarre y guias ocultos; aparecen semitransparentes al acercar el mouse (y opacos al arrastrar) */
       const arrastra = drag && drag.kind === 'esqAncho' && drag.id === m.id, alfa = arrastra ? 1 : esqCerca.split(',').includes(m.id) ? .45 : 0;
       /* A158 (usuario 11/10): las guias del ancho: el borde de la barra perpendicular (una sola puerta; en el ciego, la tapeta de 5 cm)
          y el ancho de fabrica */
-      if (alfa > 0) { const outer = der ? x0 + w : x0, mnG = fOtra + (esquinaDiag(e) ? 20 : espFrente()), objs = e.tipo === 'ciego' ? [mnG + tapetaCiego()] : esquinaDiag(e) ? [mnG, R.lado] : [mnG, R.lado];
+      if (alfa > 0) { const outer = der ? x0 + w : x0, mnG = fOtra + (esquinaDiag(e) ? 20 : espFrente()), objs = e.tipo === 'ciego' ? (duena ? [ciegoDueno(m.esquina.k).w0, ciegoDueno(m.esquina.k).wMin] : [mnG + tapetaCiego()]) : esquinaDiag(e) ? [mnG, R.lado] : [mnG, R.lado];   /* A295: de fabrica y el minimo */
         objs.filter(v => Math.abs(v - w) > .5).forEach(v => { const gx2 = frame.X(der ? outer - v : outer + v), y0 = Z(zb + A), y1 = Z(zb);
           post.push(() => { ctx.save(); ctx.setLineDash([3, 4]); ctx.strokeStyle = C.accent; ctx.globalAlpha = .7*alfa; ctx.lineWidth = 1; line(gx2, y0, gx2, y1); ctx.restore(); }); }); }
       if (alfa > 0) post.push(() => { ctx.save(); ctx.fillStyle = C.accent; ctx.globalAlpha = .85*alfa; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1; line(gx - 1.5, r.y + 8, gx - 1.5, r.y + r.h - 8); line(gx + 1.5, r.y + 8, gx + 1.5, r.y + r.h - 8); ctx.restore(); }); }
@@ -8918,6 +8930,8 @@ canvas.addEventListener('mousedown', e => {
       : { kind: 'esqCierre', id: m.id, k, der, outer, base: eg.u - cierreAlto(k), v: cierreAlto(k), mn: Math.min(tapetaCiego(), cierreDef(k)), mx: cierreDef(k) }; return; }
   if (eg) { e.preventDefault(); const m = eg.m, ee = esquinaDe(m), der = m.esquina.lado === 'der', k = m.esquina.k, fO = fondoCara(caraDe(der ? k + 1 : k), false), mn = fO + (esquinaDiag(ee) ? 20 : espFrente());
     const cg = ee.tipo === 'ciego';   /* A151: en el ciego el iman va a la tapeta de 5 cm y se puede bajar hasta 0 */
+    if (cg && (ee.duena === 1 ? 1 : 0) === (der ? 0 : 1)) { const cd = ciegoDueno(k);   /* A295: la cara duena del ciego: recorre su puerta, iman al de fabrica */
+      drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn: cd.wMin, mx: cd.wMax, snaps: [cd.w0], una: null, cg: false, puertaCiego: reg().esquina.ciegoPuerta - cd.w0, snapped: false }; return; }
     drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn, snaps: cg ? [mn + tapetaCiego()] : [mn, reg().esquina.lado], una: !cg && !esquinaDiag(ee) ? mn : null, cg, snapped: false }; return; }
   const pc = planCaraHits.find(q => inside(p, q.rect)); if (pc) { e.preventDefault(); ACT.cara(String(pc.k)); selection = new Set([pc.id]); selectedPart = null; render(); return; }   /* A140 */
   const d = dimHits.find(q => inside(p, q.rect)); if (d) { e.preventDefault(); beginDimension(d.key, d.rect); return; }
@@ -9009,9 +9023,9 @@ canvas.addEventListener('mousemove', e => {
   if (drag && drag.kind === 'esqAncho') {   /* A143 */
     const xc = (p.x - frame.ox)/frame.scale; let w = Math.round((drag.der ? drag.outer - xc : xc - drag.outer)*2)/2, snapped = false;
     const tol = prefs.iman ? Math.max(prefs.imanTol || 1.5, 8/frame.scale) : 0; for (const sv of drag.snaps) if (Math.abs(sv - w) <= tol) { w = sv; snapped = true; }
-    drag.w = Math.max(drag.mn, Math.min(200, w)); drag.snapped = snapped || !drag.cg && drag.w === drag.mn; canvas.style.cursor = 'ew-resize'; drawCanvas();
+    drag.w = Math.max(drag.mn, Math.min(drag.mx || 200, w)); drag.snapped = snapped || !drag.cg && drag.w === drag.mn; canvas.style.cursor = 'ew-resize'; drawCanvas();   /* A295: con su maximo */
     const gx = frame.X(drag.der ? drag.outer - drag.w : drag.outer + drag.w); ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = drag.snapped ? C.accent : C.muted; ctx.lineWidth = 1.5; line(gx, frame.Z(cfg.alturaMuro), gx, frame.Z(0)); ctx.restore();
-    label((drag.una !== null && Math.abs(drag.w - drag.una) < .01 ? 'Una sola puerta · ' : '') + (drag.cg ? 'Tapeta ' + fmt(Math.max(0, drag.w - drag.mn)) + uS() + ' · ' : '') + fmt(drag.w) + uS(), gx + 10, p.y - 16, C.ink); return; }
+    label((drag.una !== null && Math.abs(drag.w - drag.una) < .01 ? 'Una sola puerta · ' : '') + (drag.cg ? 'Tapeta ' + fmt(Math.max(0, drag.w - drag.mn)) + uS() + ' · ' : '') + (drag.puertaCiego !== undefined ? 'Puerta ' + fmt(drag.w + drag.puertaCiego) + uS() + ' · ' : '') + fmt(drag.w) + uS(), gx + 10, p.y - 16, C.ink); return; }
   if (drag && (drag.kind === 'esqAlto' || drag.kind === 'esqCierre')) {   /* A226 */
     const xc = (p.x - frame.ox)/frame.scale, u = Math.round((drag.der ? drag.outer - xc : xc - drag.outer)*2)/2;
     if (drag.kind === 'esqAlto') drag.w = Math.max(drag.mn, Math.min(drag.mx, u)); else drag.v = Math.max(drag.mn, Math.min(drag.mx, u - drag.base));
@@ -9347,8 +9361,8 @@ function esquinaPanel(m){
       + (e.tipo === 'diagonal' && sE === 'tarja' ? `<div style="margin-top:10px">${radios('esqTarjaTipo', [['1', 'Sencilla'], ['2', 'Doble']], String(e.tarjaTipo === 2 ? 2 : 1))}</div><div class="note-sm">La tarja de la cocina va en la cubierta diamante; abajo, frente fijo y puerta a 45°.</div>` : '')
       + (e.tipo === 'ciego' ? `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()}; el lado ciego va en la cara elegida y en la otra queda una tapeta de ajuste de ${fmt(R.tapeta)}${uS()}.</div>` : '')); }
   if (e.tipo === 'ciego' && (e.duena === 1 ? 1 : 0) === sq) { const cd = ciegoDueno(k), dA = e.duena !== 1, R9 = reg().esquina;   /* A221: ancho del ciego en su cara duena */
-    html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.w0, cd.w0 + R9.ciegoMax - R9.ciego)}</div>`
-      + `<div class="note-sm">De ${medida(cd.w0)} a ${medida(cd.w0 + R9.ciegoMax - R9.ciego)}: crecen la caja y su puerta; la parte ciega queda igual.</div>`
+    html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.wMin, cd.wMax)}</div>`
+      + `<div class="note-sm">De ${medida(cd.wMin)} a ${medida(cd.wMax)} (de fábrica ${medida(cd.w0)}): cambian la caja y su puerta; la parte ciega queda igual. También se arrastra en el alzado.</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   if (e.tipo === 'carrusel') html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 155°']], puertasL(e))) + bisIntHTML(e);   /* A270 */
   return html; }
