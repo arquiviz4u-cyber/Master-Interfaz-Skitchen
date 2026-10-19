@@ -303,6 +303,15 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A302. [Master hecho 19/10; SketchUp: sin cambio; Revit pendiente] (usuario 19/10: «el ancho minimo por default en ciego que sea de 95 cm»;
+       «magic corner se escala y se hace mas pequeno si se amplia la puerta, deberia haber una medida minima (no absoluta) para que al abrir
+       la puerta abra correctamente y salga sin solapes; haz la prueba a profundidad»; eligio «charola minima, el ciego crece») Corrige A300:
+       el ciego baja hasta 95 cm (US 37 1/2"). Con magic corner la charola no baja de 45 cm de largo (US 18") y el minimo del ciego ya no es
+       una puerta fija: es el ancho con el que esa charola gira entera sin solapes (buscaMagic, la busqueda de A298/A300 sacada de ciego(),
+       con memo; magicAnchoMin por biseccion). Si el ancho guardado es menor, el ciego crece solo. Mas ancho, charola mas grande.
+   A301. [Master hecho 19/10; SketchUp: sin cambio (sigue abre.pliegue); Revit pendiente] (usuario 19/10: «las puertas plegables ya abren bien
+       pero la posicion de la bisagra de libro ya no coincide, por lo tanto deberian abrir como la oculta de Blum») Con la bisagra de libro la
+       hoja b abre igual que con la Blum oculta (60 hacia plano sobre la esquina de los frentes, la a 155); deja sin efecto el doblez de A299.
    A300. [Master hecho 18/10; SketchUp: sin cambio; Revit pendiente] (usuario 18/10: «el lazy susan se escala y se hace mas pequeno si se
        amplia la puerta, deberia haber una medida minima para que al abrir la puerta abra correctamente y salga sin solapes; haz la prueba a
        profundidad») Con la puerta angosta las charolas no cabian girando, quedaban grandes y quietas (noSale) y al ampliar la puerta pasaban a
@@ -3238,14 +3247,49 @@ const altoEsquina = e => e.tipo === 'alacena' ? 'ninguno' : e.alto && e.alto !==
 /* A295 (usuario 18/10: «las caras de esquineros no se pueden reducir, una restriccion de ancho minimo lo impide, quitarla»): tambien se
    angosta, hasta que su puerta queda de puertaCiegoMin (la parte ciega no cambia); wMin..wMax */
 const puertaCiegoMin = () => cfg.region === 'US' ? inch(8) : 20;
-/* A300 (usuario 18/10: «el lazy susan se escala y se hace mas pequeno si se amplia la puerta; deberia haber una medida minima para que al
-   abrir la puerta abra correctamente y salga sin solapes»): con magic corner la puerta del ciego no baja de 45 cm (US 18", la minima del
-   herraje); el ciego no se angosta de ahi y, si su puerta de fabrica es menor (US 15"), crece lo que falte */
-const puertaMagicMin = () => cfg.region === 'US' ? inch(18) : 45;
+/* A302 (usuario 19/10: «el ancho minimo por default en ciego que sea de 95 cm»; «magic corner: deberia haber una medida minima (no absoluta)
+   para que al abrir la puerta abra correctamente y salga sin solapes»; eligio «charola minima, el ciego crece»): el ciego baja hasta 95 cm
+   (US 37 1/2"). Con magic corner la charola no baja de charolaMagicMin de largo (45 cm, US 18") y el minimo del ciego es el ancho con el que
+   esa charola gira entera sin solapes (buscaMagic): no es una medida fija, depende de los fondos y del frente */
+const anchoCiegoMin = () => cfg.region === 'US' ? inch(37.5) : 95;
+const charolaMagicMin = () => cfg.region === 'US' ? inch(18) : 45;
 const ciegoDueno = k => { const e = cfg.esquinas[k], R = reg().esquina, duenaA = e.duena !== 1, fOtra = fondoCara(caraDe(duenaA ? k + 1 : k), false),
   w0 = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)), v = duenaA ? e.anchoA : e.anchoB;
-  const pMin = e.herraje ? puertaMagicMin() : puertaCiegoMin(), wMin = w0 - (R.ciegoPuerta - pMin), wMax = Math.max(wMin, w0 + (R.ciegoMax - R.ciego));
+  const wTope = w0 + (R.ciegoMax - R.ciego), wBase = Math.min(w0, Math.max(anchoCiegoMin(), w0 - (R.ciegoPuerta - puertaCiegoMin())));
+  const wMin = e.herraje ? Math.min(wTope, magicAnchoMin(fondoCara(caraDe(duenaA ? k : k + 1), false), fOtra, w0, wBase, wTope)) : wBase, wMax = Math.max(wMin, wTope);
   return { w0, wMin, wMax, w: Math.max(wMin, v > 0 ? Math.min(wMax, v) : w0) }; };
+/* A302: la busqueda del magic corner del ciego en sus ejes locales (u desde la esquina por la cara duena, v desde su muro), sin piezas:
+   la escala mayor (hasta sMin) y el lugar del poste con los que la charola gira entera sin solapes (ver A298, A300). w ancho del ciego, P su
+   puerta, fF el plano de los frentes de su cara, fOtra el fondo de la otra cara. Memo por medidas */
+const MAGIC_MEMO = new Map();
+function buscaMagic(w, P, fF, fOtra, sMin = .3){
+  const tf = espFrente(), ef = cuerpoFondo(), e1 = PLAN_CUERPO.lateral, u0 = 0, key = [w, P, fF, fOtra, tf, ef, e1, sMin].map(v => Math.round(v*100)).join(',');
+  if (MAGIC_MEMO.has(key)) return MAGIC_MEMO.get(key);
+  const MMm = MODELO_EQUIPOS.magic_corner, MM = MMm.medida, PO = MMm.poste, fOwn = fF - PLAN_HOLGURA_PUERTA, vMax = fOwn - 1;
+  const uE = w - e1 - 3, uB = u0 + e1 + 3, sMax = Math.min((uE - uB)/MM[0], (vMax - ef - 1)/MM[1]);
+  const vFr = fF + tf, uRoom = fOtra + tf, uLo = w - P + .5, uHi = w - e1 - .5;
+  const dentro = (u, v) => v < ef - .01 ? false : u > w - e1 - 4.1 && v > fF - 7.5 ? false   /* A300: la bisagra de la puerta (brazo cerrado y abierto) */
+    : v <= vMax + .5 ? u >= u0 + e1 - .01 && u <= w - e1 + .01 : v <= vFr + .5 ? u >= uLo && u <= uHi : u >= uRoom && u <= w - 4;
+  const sg = 1;   /* en (u, v) contra reloj: +u -> +v (la puerta, con la bisagra en u = w, gira al reves) */
+  const prueba = (s9, uP) => { const uO = uP - PO[0]*s9, pv = [uP, vMax - PO[1]*s9], Lm = MM[0]*s9, Dm = MM[1]*s9, pts = [];
+    if (uO < u0 + e1 - .01 || uO + Lm > w - e1 + .01 || Dm > vMax - ef) return false;
+    for (let a = 0; a <= Lm + 1e-9; a += Math.max(1.5, Lm/24)) pts.push([uO + a, vMax], [uO + a, vMax - Dm]);
+    for (let b = 0; b <= Dm + 1e-9; b += Math.max(1.5, Dm/12)) pts.push([uO, vMax - b], [uO + Lm, vMax - b]);
+    const cu = uO + Lm/2 - pv[0]; if (pv[1] + sg*cu <= vFr) return false;   /* abierta, la charola queda fuera del frente */
+    for (const t of [90, 45, 24, 66, 6, 12, 18, 30, 36, 42, 48, 54, 60, 72, 78, 84]) { const f = sg*t*Math.PI/180, c = Math.cos(f), sn = Math.sin(f);   /* primero las que mas descartan */
+      if (!pts.every(([u, v]) => { const du = u - pv[0], dv = v - pv[1]; return dentro(pv[0] + du*c - dv*sn, pv[1] + du*sn + dv*c); })) return false; }
+    return true; };
+  let mc = null;   /* la escala mayor; con ella, el poste lo mas cerca del limite de la parte ciega */
+  for (let s9 = Math.floor(sMax*100)/100; s9 >= sMin - 1e-9 && !mc; s9 = Math.round((s9 - .01)*100)/100) for (let d = 0; d <= 15 && !mc; d += .5) for (const uP of d ? [w - P + d, w - P - d] : [w - P]) if (!mc && prueba(s9, uP)) mc = { s9, uP, sg };
+  MAGIC_MEMO.set(key, mc); return mc;
+}
+/* A302: el ancho minimo del ciego con magic corner: el menor (de medio en medio cm, entre wBase y wTope) con el que la charola minima gira
+   entera; si ni el maximo alcanza, el maximo */
+function magicAnchoMin(fF, fOtra, w0, wBase, wTope){ const R = reg().esquina, sMin = charolaMagicMin()/MODELO_EQUIPOS.magic_corner.medida[0];
+  const cabe = w => !!buscaMagic(w, R.ciegoPuerta + (w - w0), fF, fOtra, sMin);
+  if (cabe(wBase)) return wBase; if (!cabe(wTope)) return wTope;
+  let lo = wBase, hi = wTope; while (hi - lo > .5) { const m = Math.round((lo + hi)/2*2)/2; if (m <= lo || m >= hi) break; if (cabe(m)) hi = m; else lo = m; }
+  return hi; }
 const ciegoExtra = k => { const e = cfg.esquinas[k]; if (!e || e.tipo !== 'ciego') return 0; const c = ciegoDueno(k); return Math.round((c.w - c.w0)*1000)/1000; };
 /* A226: alto de la esquina armado con tapeta. Lado s (0: cara k, 1: cara k + 1) con tapeta: el no dueno del ciego; los dos del L y del diagonal */
 /* A227: el alto ciego es siempre recto (armado con tapeta) */
@@ -5741,8 +5785,8 @@ function pruebasPlanMX(){
       if (hb && /:hoja:a$/.test(q.id)) { const sg = r => (r.abre.lado === 'izquierda' ? 1 : -1)*r.abre.grados, ec = c.esquinas[c.cara], oc = intermediaEsq(ec) === 'oculta';   /* A270: la de libro o la Blum */
         const ia = p.piezas.filter(r => r.id.startsWith(q.id + (oc ? ':plegable:cazoleta:' : ':plegable:libroA:'))), ib = p.piezas.filter(r => r.id.startsWith(q.id + (oc ? ':plegable:brazo:' : ':plegable:libroB:')));
         ok(ib.length === br.length && ia.length === br.length && ib.every(r => r.frente === hb.id) && ia.every(r => r.frente === q.id), nombre + ': la plegable ' + q.id + ' sin sus bisagras intermedias');
-        const gI = oc ? MODELO.bisagraPlegable.grados : MODELO.bisagraLibro.grados, dg = ((sg(hb) - sg(q)) % 360 + 540) % 360 - 180;
-        ok(Math.abs(dg - (oc ? -1 : 1)*Math.sign(sg(q))*gI) < .05, nombre + ': la hoja b de ' + q.id + ' no se dobla ' + gI + ' sobre la a');   /* A271 */
+        const gI = MODELO.bisagraPlegable.grados, dg = ((sg(hb) - sg(q)) % 360 + 540) % 360 - 180;   /* A301: la de libro abre como la Blum */
+        ok(Math.abs(dg + Math.sign(sg(q))*gI) < .05, nombre + ': la hoja b de ' + q.id + ' no se dobla ' + gI + ' sobre la a');   /* A271 */
         /* A270: abiertas, ninguna hoja queda detras del frente de la cara (no entran al mueble vecino) */
         const abierto = (r, P) => { const a = sg(r)*Math.PI/180, cx = r.abre.x, cy = r.abre.y; return [cx + (P[0] - cx)*Math.cos(a) - (P[1] - cy)*Math.sin(a), cy + (P[0] - cx)*Math.sin(a) + (P[1] - cy)*Math.cos(a)]; };
         const esq = r => [[r.x, r.y], [r.x + r.ancho, r.y], [r.x + r.ancho, r.y + r.fondo], [r.x, r.y + r.fondo]], yF = q.y + q.fondo;
@@ -7642,22 +7686,11 @@ function aperturasEsquinero(piezas, add){
     /* A268/A270: con la Blum, la b gira 60 hacia plano (al reves del giro de la a) sobre la esquina donde se juntan los frentes. A271: con la
        de libro (por dentro), 90 sobre el cruce de las caras posteriores hasta quedar espalda con espalda con la a (con el giro de la a).
        Con la a abierta, en los dos casos la b queda del lado de la habitacion y no entra al mueble */
-    const oc = intermediaEsq(e) === 'oculta', Ha = [a.abre.x, a.abre.y]; let ga = a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados;
-    /* A299 (usuario 18/10: «las puertas plegables abren bien pero la posicion final esta incorrecta, la pieza de una cara queda detras de la
-       otra y deberia ser al reves»): en la esquina en L los frentes forman 90 grados del lado de la cocina; la b se dobla 90 sobre ellos y
-       queda frente con frente sobre la a (antes cruzaba la a y quedaba espalda con espalda del lado de la habitacion). Con la a abierta, la a
-       queda por fuera y la b entre la a y el mueble de al lado */
-    let J = oc ? [b.x, a.y + a.fondo] : [a.x + a.ancho, a.y + a.fondo];
-    if (!oc) {   /* A291/A299: la de libro, canto con canto: el punto P del giro relativo (90 hacia el lado de la a) que lleva Q, el canto del frente de la b en la esquina, al del frente de la a (J) */
-      const Q = [b.x, b.y], tr = Math.sign(ga)*Math.PI/2, cr = Math.cos(tr), sr = Math.sin(tr), w = [J[0] - (cr*Q[0] - sr*Q[1]), J[1] - (sr*Q[0] + cr*Q[1])], dr = (1 - cr)*(1 - cr) + sr*sr;
-      J = [((1 - cr)*w[0] - sr*w[1])/dr, (sr*w[0] + (1 - cr)*w[1])/dr]; }
-    /* A299: con la b doblada sobre su frente, la a abre hasta donde el paquete de las dos hojas toca el frente de su cara (no entra al mueble
-       vecino): el angulo mayor, hasta el de su bisagra, de medio en medio grado */
-    if (!oc) { const yF = a.y + a.fondo, esqH = q => [[q.x, q.y], [q.x + q.ancho, q.y], [q.x + q.ancho, q.y + q.fondo], [q.x, q.y + q.fondo]];
-      const pack = esqH(a).concat(esqH(b).map(P => gira(P, J, Math.sign(ga)*giroIntermedia(e)))); let g = ga;
-      while (Math.abs(g) > 90 && Math.min(...pack.map(P => gira(P, Ha, g)[1])) < yF - .02) g -= Math.sign(ga)*.5;
-      if (g !== ga) { ga = g; a.abre.grados = r(Math.abs(g)); } }
-    const gb = ga + (oc ? -1 : 1)*Math.sign(ga)*giroIntermedia(e), J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
+    /* A301 (usuario 19/10: «las puertas plegables ya abren bien pero la posicion de la bisagra de libro ya no coincide, por lo tanto deberian
+       abrir como la oculta de Blum»): las dos abren con el giro de la Blum (la b 60 hacia plano sobre la esquina de los frentes) */
+    const Ha = [a.abre.x, a.abre.y], ga = a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados;
+    const J = [b.x, a.y + a.fondo];   /* A301: la esquina donde se juntan los frentes (la de la Blum) */
+    const gb = ga - Math.sign(ga)*MODELO.bisagraPlegable.grados, J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
     /* centro C: J2 = C + R (J - C)  =>  (I - R) C = J2 - R J */
     const RJ = [co*J[0] - si*J[1], si*J[0] + co*J[1]], v = [J2[0] - RJ[0], J2[1] - RJ[1]], m = [[1 - co, si], [-si, 1 - co]], det = m[0][0]*m[1][1] - m[0][1]*m[1][0];
     const C = [(v[0]*m[1][1] - m[0][1]*v[1])/det, (m[0][0]*v[1] - v[0]*m[1][0])/det], g1 = Math.abs(gb) > 180 ? gb - Math.sign(gb)*360 : gb;
@@ -7788,25 +7821,10 @@ function esquinerosPlan(add, r2, sep, tf){
       const uE = w - e1 - 3, uB = u0 + e1 + 3, vMax = fOwn - 1, paso = Math.min(37, (z1 - z0) - 30);
       const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], dU = duenaA ? [-1, 0] : [0, 1], dV = duenaA ? [0, 1] : [-1, 0];
       const MMm = MODELO_EQUIPOS.magic_corner, MM = MMm.medida, PO = MMm.poste, PM = MMm.partes, sMax = Math.min((uE - uB)/MM[0], (vMax - ef - 1)/MM[1]);
-      const vFr = fF + tf, uRoom = fOtra + tf, uLo = w - P + .5, uHi = w - e1 - .5;
-      /* A298 (usuario 18/10: «el lazy susan no gira correctamente, gira al reves de como abre; reubicar nuevamente el poste»; eligio el poste
-         junto a la ciega): el poste va en el limite de la parte ciega y la puerta; el brazo largo de la charola, hacia la bisagra (detras de la
-         puerta) y el corto, hacia lo ciego. Abre al reves que la puerta: el brazo largo sale por el hueco y el corto entra a lo ciego. Se revisa
-         todo el giro (cada 6 grados), no solo la pose abierta: dentro de la caja, por el hueco de la puerta al cruzar el frente y, afuera, sin
-         entrar a la otra cara ni a la puerta abierta. Con el modelo del usuario en su version espejada (X hacia la bisagra) */
-      const dentro = (u, v) => v < ef - .01 ? false : u > w - e1 - 4.1 && v > fF - 7.5 ? false   /* A300: la bisagra de la puerta (brazo cerrado y abierto) */
-        : v <= vMax + .5 ? u >= u0 + e1 - .01 && u <= w - e1 + .01 : v <= vFr + .5 ? u >= uLo && u <= uHi : u >= uRoom && u <= w - 4;
-      const sg = 1;   /* en (u, v) contra reloj: +u -> +v (la puerta, con la bisagra en u = w, gira al reves) */
-      const prueba = (s9, uP) => { const uO = uP - PO[0]*s9, pv = [uP, vMax - PO[1]*s9], Lm = MM[0]*s9, Dm = MM[1]*s9, pts = [];
-        if (uO < u0 + e1 - .01 || uO + Lm > w - e1 + .01 || Dm > vMax - ef) return false;
-        for (let a = 0; a <= Lm + 1e-9; a += Math.max(1.5, Lm/24)) pts.push([uO + a, vMax], [uO + a, vMax - Dm]);
-        for (let b = 0; b <= Dm + 1e-9; b += Math.max(1.5, Dm/12)) pts.push([uO, vMax - b], [uO + Lm, vMax - b]);
-        const cu = uO + Lm/2 - pv[0]; if (pv[1] + sg*cu <= vFr) return false;   /* abierta, la charola queda fuera del frente */
-        for (let t = 6; t <= 90; t += 6) { const f = sg*t*Math.PI/180, c = Math.cos(f), sn = Math.sin(f);
-          if (!pts.every(([u, v]) => { const du = u - pv[0], dv = v - pv[1]; return dentro(pv[0] + du*c - dv*sn, pv[1] + du*sn + dv*c); })) return false; }
-        return true; };
-      let mc = null;   /* la escala mayor; con ella, el poste lo mas cerca del limite de la parte ciega */
-      for (let s9 = r2(sMax); s9 >= .3 && !mc; s9 = r2(s9 - .01)) for (let d = 0; d <= 15 && !mc; d += .5) for (const uP of d ? [w - P + d, w - P - d] : [w - P]) if (!mc && prueba(s9, uP)) mc = { s9, uP, sg };
+      /* A298/A300/A302: el poste junto a la parte ciega, el brazo largo hacia la bisagra, gira al reves que la puerta; buscaMagic revisa el giro
+         entero (dentro de la caja, por el hueco de la puerta, sin la bisagra ni la otra cara); la charola no baja de charolaMagicMin (el ciego
+         ya crecio lo necesario en ciegoDueno) */
+      const mc = buscaMagic(w, P, fF, fOtra, charolaMagicMin()/MM[0]) || buscaMagic(w, P, fF, fOtra);
       const s9 = mc ? mc.s9 : r2(sMax), uP = mc ? mc.uP : uB + PO[0]*s9, uO = uP - PO[0]*s9, Lm = MM[0]*s9, Dm = MM[1]*s9;
       const map = (a, b) => [uO + a, vMax - b];
       const ej9 = [[dU[0], dU[1], 0], [-dV[0], -dV[1], 0], [0, 0, 1]];
@@ -9444,7 +9462,7 @@ function esquinaPanel(m){
       + (e.tipo === 'ciego' ? `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()}; el lado ciego va en la cara elegida y en la otra queda una tapeta de ajuste de ${fmt(R.tapeta)}${uS()}.</div>` : '')); }
   if (e.tipo === 'ciego' && (e.duena === 1 ? 1 : 0) === sq) { const cd = ciegoDueno(k), dA = e.duena !== 1, R9 = reg().esquina;   /* A221: ancho del ciego en su cara duena */
     html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.wMin, cd.wMax)}</div>`
-      + `<div class="note-sm">De ${medida(cd.wMin)} a ${medida(cd.wMax)} (de fábrica ${medida(cd.w0)}): cambian la caja y su puerta; la parte ciega queda igual. También se arrastra en el alzado.</div>`
+      + `<div class="note-sm">De ${medida(cd.wMin)} a ${medida(cd.wMax)} (de fábrica ${medida(cd.w0)}): cambian la caja y su puerta; la parte ciega queda igual. También se arrastra en el alzado.${e.herraje ? ` Con Magic corner el mínimo es el ancho con el que su charola (de ${medida(charolaMagicMin())} o más) gira sin solapes.` : ''}</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   if (e.tipo === 'carrusel') html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 155°']], puertasL(e))) + bisIntHTML(e);   /* A270 */
   return html; }
