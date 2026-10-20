@@ -303,6 +303,9 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A304. [Master hecho 19/10; SketchUp: Dialogo manda sketchupBeta(true) al cargar; Revit: sin beta por ahora] (usuario 19/10, beta
+       privada en Gumroad): sketchupBeta(v) marca la version beta y las laminas de Presentar llevan «Versión beta: verifique medidas antes de fabricar.» antes de
+       la nota de medidas (rotulo y bloque NOTA; con su traduccion al ingles).
    A303. [Master hecho 19/10; SketchUp: sin cambio (construye el modelo de la campana entero); Revit pendiente si su isometrico dibuja
        la campana como caja] (usuario 19/10, al preparar la portada de Gumroad: «no se representa el cuerpo de la campana completo» y
        «que el patron de cubierta y backsplash sea visible»): 1) en el isometrico, la campana sola (sin gabinete alto encima) lleva su
@@ -11082,6 +11085,7 @@ const EN = {
   'Generando láminas…': 'Generating sheets…', 'Archivos generados:': 'Generated files:', 'No se generó ningún archivo.': 'No file was generated.',
   'Longitud': 'Length', 'Altura de muro': 'Wall height', 'Escala': 'Scale', 'no disponible en closet': 'not available for closets',
   'Medidas de referencia para fabricación, generadas con {0}. Verifique en obra antes de cortar.': 'Reference measurements for manufacturing, generated with {0}. Verify on site before cutting.',
+  'Versión beta: verifique medidas antes de fabricar.': 'Beta version: verify measurements before manufacturing.',
   'No sustituye la toma de medidas ni el despiece del taller. Reporte cualquier diferencia en la hoja de diferencias.': "It does not replace on-site measuring or the shop's cut list. Report any difference on the differences sheet.",
   'Notas': 'Notes', 'Restablecer globos': 'Reset balloons',
   'Arrastra la línea de una cota para correrla (en perpendicular; las del isométrico, en libre) o su número para moverlo aparte; Supr la quita. Doble clic en un módulo del isométrico abre o cierra sus puertas y cajones.': 'Drag a dimension line to move it (perpendicular; isometric ones freely) or its number to move it apart; Del removes it. Double-click a module in the isometric to open or close its doors and drawers.',
@@ -11681,6 +11685,10 @@ function sketchupAbrir(crear, error, estado){
   selection = new Set(row(false).length ? [row(false)[0].id] : []); selectedPart = null; focusPanel = null; upperFocus = null; pieces.clear();
   syncCommandUI(); render(); setStatus(estado); liveUI();
 }
+/* A304 (usuario 19/10, beta privada): SketchUp avisa que es una version beta y las laminas llevan la leyenda antes de la nota */
+let versionBeta = false;
+const NOTA_BETA = 'Versión beta: verifique medidas antes de fabricar.';
+function sketchupBeta(v){ versionBeta = !!v; }
 function sketchupCargar(texto){
   liveDisponible = true; enVivo = true;   /* B22: ya esta generada en el modelo */
   /* B20: una cocina guardada con un master anterior no trae las opciones nuevas: se completan con las de fabrica de su tipo (sin
@@ -13568,7 +13576,7 @@ const LAM = (() => {
     if (d.notas && d.notas.length && titulo('NOTAS')) d.notas.forEach(q => {
       parrafo(`${q.n}. ${q.texto}`, ancho, 2.3 * k).forEach(l => { if (y + 3.5 * k > fin) return; t(l, x0 + pad, y + 2.5 * k, 2.3 * k, false, '#222222'); y += 3.5 * k; });
       y += 1.1 * k; });
-    if (titulo('NOTA')) parrafo(`${T(NOTA[0]).replace('{0}', prodNombre() + ' by Drawlibri')} ${T(NOTA[1])}`, ancho, 2.1 * k).forEach(l => { if (y + 3.2 * k > fin) return; t(l, x0 + pad, y + 2.4 * k, 2.1 * k, false, '#333333'); y += 3.2 * k; });
+    if (titulo('NOTA')) parrafo(`${versionBeta ? T(NOTA_BETA) + ' ' : ''}${T(NOTA[0]).replace('{0}', prodNombre() + ' by Drawlibri')} ${T(NOTA[1])}`, ancho, 2.1 * k).forEach(l => { if (y + 3.2 * k > fin) return; t(l, x0 + pad, y + 2.4 * k, 2.1 * k, false, '#333333'); y += 3.2 * k; });
     ln(x0, fin, x0 + w, fin, .3);
     t(T('HOJA'), x0 + pad, fin + 6 * k, 2.2 * k, false, '#6B7680'); t(d.hoja, x0 + pad, fin + 15.5 * k, 9.5 * k, true);
   }
@@ -14587,7 +14595,7 @@ const LAM = (() => {
     return [{ s: `${prodNombre()} · by Drawlibri`, tam: 4.2, neg: true },
       { s: `${T(NOMBRES[cap.vista])} · ${cap.plano ? T('Plano') : T('Color')} · ${T('Escala')} 1:${cap.n}`, tam: 3.2 },
       { s: `${dims}${dims ? ' · ' : ''}${dd}`, tam: 2.6 },
-      { s: T(NOTA[0]).replace('{0}', prodNombre() + ' by Drawlibri'), tam: 2.2 }, { s: T(NOTA[1]), tam: 2.2 }];
+      ...(versionBeta ? [{ s: T(NOTA_BETA), tam: 2.2 }] : []), { s: T(NOTA[0]).replace('{0}', prodNombre() + ' by Drawlibri'), tam: 2.2 }, { s: T(NOTA[1]), tam: 2.2 }];
   }
   function pagina(cap){
     const L = libre(), b = cap.bb;   /* la tinta centrada en la hoja */
