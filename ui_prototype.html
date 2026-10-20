@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A303. [Master hecho 19/10; SketchUp: sin cambio (construye el modelo de la campana entero); Revit pendiente si su isometrico dibuja
+       la campana como caja] (usuario 19/10, al preparar la portada de Gumroad: «no se representa el cuerpo de la campana completo» y
+       «que el patron de cubierta y backsplash sea visible»): 1) en el isometrico, la campana sola (sin gabinete alto encima) lleva su
+       chimenea: la zona chimenea del modelo, estirada con mapaEstirar como en Skitchen, del techo de la visera al tope del modelo; 2) la
+       trama del material tambien se dibuja en la cara con huecos (la cubierta con tarja y parrilla), recortada sin los huecos (evenodd),
+       y en las caras de malla (el backsplash recortado alrededor de los gabinetes), a escuadra con la pared (patMalla).
    A302. [Master hecho 19/10; SketchUp: sin cambio; Revit pendiente] (usuario 19/10: «el ancho minimo por default en ciego que sea de 95 cm»;
        «magic corner se escala y se hace mas pequeno si se amplia la puerta, deberia haber una medida minima (no absoluta) para que al abrir
        la puerta abra correctamente y salga sin solapes; haz la prueba a profundidad»; eligio «charola minima, el ciego crece») Corrige A300:
@@ -12160,7 +12166,16 @@ const LAM = (() => {
     const simCara = cara => { const ex = cara.ex, ey = cara.ey, vy = SX * ey[0] - ey[1], a = SX * ey[0] + ey[1], sx = SX * ex[0] - ex[1];
       return Math.abs(vy + 1) < .01 && Math.abs(Math.abs(a) - 1) < .01 && Math.abs(Math.abs(sx) - 1) < .01 ? { sx: Math.round(sx), f: Math.round(a) } : null; };
     const trocear = (piezas, ci) => !o.recorte || ci !== 0 ? piezas : piezas.flatMap(p => p.modulo || !['zoclo', 'cubierta', 'backsplash'].includes(p.rol) ? [p] : trocearEn(p, p.rol === 'backsplash' ? o.recorte.mod : o.recorte.todo));
-    caras.forEach((cara, ci) => trocear(cara.piezas, ci).forEach(p0 => {
+    /* A303 (usuario 19/10: «no se representa el cuerpo de la campana completo»): la campana con modelo lleva su chimenea (zona del modelo
+       estirada como en Skitchen) del techo de la visera al tope del modelo, si ninguna pieza de su modulo ocupa ese espacio (campana sola) */
+    const conChimenea = piezas => piezas.flatMap(p => {
+      if (p.tipo !== 'Campana' || !p.modelo || !p.modelo.medida) return [p];
+      const E = MODELO_EQUIPOS.campana, M = p.modelo, O = M.origen, z0 = p.z + p.alto, z1 = O[2] + M.medida[2];
+      if (z1 - z0 < 1 || piezas.some(q => q !== p && q.modulo === p.modulo && q.rol !== 'luz' && q.z + q.alto > z0 + .5 && q.z < z1 - .5)) return [p];
+      const mx = mapaEstirar(E.zonas.x, E.medida[0], M.medida[0]), my = mapaEstirar(E.zonas.y, E.medida[1], M.medida[1]);
+      const x0 = O[0] + mx(E.chimenea.x[0]), x1 = O[0] + mx(E.chimenea.x[1]), y0 = O[1] - my(E.chimenea.y[1]), y1 = O[1] - my(E.chimenea.y[0]);
+      return [p, Object.assign({}, p, { id: p.id + ':chimenea', x: x0, ancho: x1 - x0, y: Math.max(0, y0), fondo: y1 - Math.max(0, y0), z: z0, alto: z1 - z0, modelo: undefined })]; });
+    caras.forEach((cara, ci) => conChimenea(trocear(cara.piezas, ci)).forEach(p0 => {
       let p = p0;
       if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
       const fs = o.sinCad ? null : simCara(cara);
@@ -12296,11 +12311,21 @@ const LAM = (() => {
       const arriba = fi === 1;   /* [4,5,6,7]: la cara superior lleva los huecos */
       const t = { t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(n, luz)), q, holes: arriba ? q.huecos.map(h => h.arriba.map(proy)) : null };
       /* A187: patron del material sobre la cara: el parallelogramo (O, u, v) de la pieza en cm del modelo y en pantalla */
-      const mt = q.p.material && !(arriba && q.huecos.length) ? mat(q.p.material) : null;
+      const mt = q.p.material ? mat(q.p.material) : null;   /* A303: tambien la cara con huecos (la cubierta con tarja y parrilla) */
       if (mt && mt.categoria !== 'Color' && patternOf(mt.patron)) { const u3 = vsub(pts[1], pts[0]), v3 = vsub(pts[3], pts[0]), lu = Math.hypot(...u3), lv = Math.hypot(...v3);
         if (lu * lv > 120) t.pat = { spec: patternOf(mt.patron), k: mt.escala || 1, color: lineColorOf(mt), P0: proy(pts[0]), Pu: [pr[1][0] - pr[0][0], pr[1][1] - pr[0][1]], Pv: [pr[3][0] - pr[0][0], pr[3][1] - pr[0][1]], lu, lv }; }
       tri.push(t);
     });
+    /* A303: trama del material en una cara de malla (el backsplash recortado alrededor de los gabinetes es un perfil): el rectangulo que
+       envuelve la cara en sus ejes (horizontal y vertical si es una pared; x, y si es un tablero), para que la trama quede a escuadra */
+    const patMalla = (q, c) => {
+      const mt = q.p.material ? mat(q.p.material) : null; if (!mt || mt.categoria === 'Color' || !patternOf(mt.patron) || c.pts.length < 3) return undefined;
+      const n = vunit(c.n), u = Math.abs(n[2]) > .9 ? [1, 0, 0] : vunit(vcruz([0, 0, 1], n)), v = Math.abs(n[2]) > .9 ? vunit(vcruz(n, u)) : [0, 0, 1];
+      const o0 = c.pts[0], us = c.pts.map(P => vpunto(vsub(P, o0), u)), vs = c.pts.map(P => vpunto(vsub(P, o0), v));
+      const u0 = Math.min(...us), u1 = Math.max(...us), v0 = Math.min(...vs), v1 = Math.max(...vs), lu = u1 - u0, lv = v1 - v0;
+      if (lu * lv <= 120) return undefined;
+      const A = vadd(o0, vadd(vmul(u, u0), vmul(v, v0))), pA = proy(A), pB = proy(vadd(A, vmul(u, lu))), pD = proy(vadd(A, vmul(v, lv)));
+      return { spec: patternOf(mt.patron), k: mt.escala || 1, color: lineColorOf(mt), P0: pA, Pu: [pB[0] - pA[0], pB[1] - pA[1]], Pv: [pD[0] - pA[0], pD[1] - pA[1]], lu, lv }; };
     const emitExtras = q => {
       q.huecos.forEach(h => h.arriba.forEach((a, i) => { const b = h.arriba[(i + 1) % 4], c = h.abajo[(i + 1) % 4], d = h.abajo[i], pts = [a, b, c, d];
         const cen = [0, 1, 2].map(k => (h.arriba[0][k] + h.arriba[2][k]) / 2);
@@ -12317,7 +12342,7 @@ const LAM = (() => {
       else if (q.alambre) { const segs = q.alambre.map(([a, b, g]) => [proy(a), proy(b), g]); segs.forEach(sg => cuenta([sg[0], sg[1]]));
         tri.push({ t: 'alambre', segs, q }); }
       else if (q.malla) { q.malla.forEach(c => { if (vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);
-          tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null }); }); }
+          tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null, pat: patMalla(q, c) }); }); }
       else if (!contiene.has(q)) { emitCaras(q); emitExtras(q); }
       if (q.deco) q.deco.forEach(d => { const pr = d.pts.map(proy); cuenta(pr); tri.push({ t: 'cara', pr, k: 1, q, color: d.color, holes: null }); });
       trasPuerta();
@@ -12391,13 +12416,16 @@ const LAM = (() => {
       if (t.pat && !plano && !tn) {   /* A187: trama del material (madera, piedra...) recortada a la cara */
         const { spec, k, P0, Pu, Pv, lu, lv } = t.pat, tw = spec.w * k, th = spec.h * k, cols = Math.ceil(lu / tw) + 1, rows = Math.ceil(lv / th) + 1;
         if (tw * s >= 1.5 && th * s >= 1.5 && cols * rows * spec.trazos.length <= 5000) {
-          g.save(); g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.clip();
+          g.save(); g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
+          (t.holes || []).forEach(h0 => { h0.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath(); });
+          g.clip('evenodd');   /* A303: la trama no entra en los huecos */
           g.strokeStyle = t.pat.color; g.lineWidth = .7; g.beginPath();
           const sx = (a, b) => [ox + (P0[0] - bb.x0 + (a / lu) * Pu[0] + (b / lv) * Pv[0]) * s, oy + (P0[1] - bb.y0 + (a / lu) * Pu[1] + (b / lv) * Pv[1]) * s];
           for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) for (const tr of spec.trazos) {
             const A = sx(i * tw + tr[0] * k, j * th + tr[1] * k), B = sx(i * tw + tr[2] * k, j * th + tr[3] * k); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); }
           g.stroke(); g.restore();
-          g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); }   /* el contorno de la cara, otra vez: el trazo de la trama lo reemplazo */
+          g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
+          (t.holes || []).forEach(h0 => { h0.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath(); }); }   /* el contorno de la cara, otra vez: el trazo de la trama lo reemplazo */
       }
       g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
       if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && t.q.p.frente) isoHits.push({ pr, frente: t.q.p.frente, modulo: t.q.p.modulo });
