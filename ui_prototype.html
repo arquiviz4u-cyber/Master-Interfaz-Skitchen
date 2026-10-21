@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A311. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente (LayoutState: Compensacion/Reparto)] (usuario 20/10: «el
+       reparto de los anchos de columnas no tienen que variar por cm; esos sobrantes o faltantes los absorben o ceden las tapetas respetando
+       su propio ancho minimo; muy importante porque ayudara a optimizar el despiece si los anchos son los mismos») Con tapetas los anchos
+       automaticos quedan todos iguales: el sobrante (pasos que no se reparten parejo) lo toman las tapetas o, si no caben
+       bajo su tope, ceden lo que falta para darle un paso mas a cada gabinete (compReparto negativo), sin bajar de reg().tapetaMin (MX 2 cm,
+       US 1/2"). Si ninguna cabe, crecen aunque pasen el tope.
    A310. [Master hecho 20/10; SketchUp: nombres Tapeta Regreso y Tapeta Cierre (nombres.rb); Revit pendiente] (usuario 20/10: «las tapetas se
        construyen en sketchup como piezas independientes y no como un solido y por lo tanto la opcion de cerrar extremo aparecera en estas si
        se llega a necesitar, investiga como se construyen y los espesores») Las tapetas laterales (bajo, alto o de piso a techo) ya no son un
@@ -3167,7 +3173,7 @@ const altoAltos = () => topeAltos() - baseAltos();
 const compIzq = () => cfg.region === 'US' && cfg.tapetaIzq && cfg.tapetaDer ? Math.floor((cfg.compensacion || 0)/2/DIECISEISAVO + 1e-6)*DIECISEISAVO : 0;
 /* A87 (usuario, 08/10): en metrico los gabinetes automaticos quedan iguales; el centimetro (paso) que no se reparte parejo lo absorben
    las tapetas (compReparto), mitad y mitad si estan las dos. Antes iba al primer gabinete (59, 58, 58, 58) */
-const repartoTapeta = izq => !(cfg.compReparto > 0) ? 0 : cfg.tapetaIzq && cfg.tapetaDer ? cfg.compReparto/2 : (izq ? cfg.tapetaIzq : cfg.tapetaDer) ? cfg.compReparto : 0;
+const repartoTapeta = izq => !cfg.compReparto ? 0 : cfg.tapetaIzq && cfg.tapetaDer ? cfg.compReparto/2 : (izq ? cfg.tapetaIzq : cfg.tapetaDer) ? cfg.compReparto : 0;   /* A311: negativo si ceden */
 const ajusteIzq = () => cfg.tapetaIzq ? cfg.reservaIzq + (!cfg.tapetaDer ? cfg.compensacion || 0 : compIzq()) + repartoTapeta(true) : 0;
 const ajusteDer = () => cfg.tapetaDer ? cfg.reservaDer + (cfg.compensacion || 0) - compIzq() + repartoTapeta(false) : 0;
 /* medidas en la unidad de Ajustes (el modelo siempre en cm): fmt da el numero y uS() el sufijo */
@@ -4837,7 +4843,7 @@ function planDePiezas(c = cfg){
         if (larguero) add({ id: 'zoclo:' + k + ':larguero', rol: 'zoclo', tipo: 'Larguero', x: ci ? a + t : a, y: yAtras, z: 0, ancho: b - a - (ci ? t : 0) - (cd ? t : 0), fondo: t, alto: zb, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
         if (!ci) trav('izq', a);
         if (!cd) trav('der', b - t);
-        juntas.filter(j => j > a + t + .01 && j < b - t - .01).forEach((j, n) => trav(n + 1, j - t/2));
+        juntas.filter(j => j > a + 1.5*t - .01 && j < b - 1.5*t + .01).forEach((j, n) => trav(n + 1, j - t/2));   /* A311: el de la junta no se monta en el del extremo (pieza de ajuste angosta) */
       });
     };
     /* largo de la cubierta de isla: entre cascadas o con el vuelo; una cascada propia de la barra la recorta por ese lado */
@@ -6137,11 +6143,16 @@ function recalcularCara(){
     /* A87: con tapetas y reparto parejo (no adaptado) en metrico, los pasos que sobran al dividir entre los automaticos van a las tapetas */
     const flexB = base.filter(m => !m.fijo), pasos = Math.round((raw - cfg.compensacion)/u);
     const resto = cfg.region !== 'US' && cfg.repartoAdaptado !== 'plantilla' && (cfg.tapetaIzq || cfg.tapetaDer) && flexB.length > 1 ? pasos % flexB.length : 0;
-    /* A89 (usuario, 08/10): las tapetas no pasan de su tope (cfg.topeTapeta): solo los pasos que caben bajo el tope van a ellas */
+    /* A89 (usuario, 08/10): las tapetas no pasan de su tope (cfg.topeTapeta).
+       A311 (usuario 20/10: «el reparto de los anchos no tiene que variar por cm; esos sobrantes o faltantes los absorben o ceden las tapetas
+       respetando su propio ancho minimo; ayudara a optimizar el despiece»): los automaticos quedan todos iguales. Los pasos que sobran los
+       toman las tapetas (crecen) o, si no caben bajo su tope, las tapetas ceden lo que falta para que cada gabinete
+       tenga un paso mas (compReparto negativo), sin bajar de reg().tapetaMin. Si ninguna de las dos cabe, crecen (el minimo manda) */
     cfg.compReparto = 0;
-    const lados = [cfg.tapetaIzq && ajusteIzq(), cfg.tapetaDer && ajusteDer()].filter(w => w !== false);
-    const cabe = Math.max(0, Math.min(...lados.map(w => (cfg.topeTapeta || Infinity) - w)))*lados.length;
-    cfg.compReparto = Math.min(resto, Math.floor(cabe/u + 1e-6))*u; }
+    if (resto) { const lados = [cfg.tapetaIzq && ajusteIzq(), cfg.tapetaDer && ajusteDer()].filter(w => w !== false), k = lados.length || 1;
+      const crece = resto*u, cede = (flexB.length - resto)*u, tope = cfg.topeTapeta || Infinity, mn = reg().tapetaMin;
+      const okCrece = lados.every(w => w + crece/k <= tope + 1e-6), okCede = lados.every(w => w - cede/k >= mn - 1e-6);
+      cfg.compReparto = okCrece ? crece : okCede ? -cede : crece; } }
   /* A225: las tapetas son de las dos filas: la primera que las mueve se queda con ellas; la otra reparte en sus columnas */
   let tapetasMovidas = false; const absorbeFila = v => { if (tapetasMovidas) return v; const resto = absorbInFillers(v); if (Math.abs(resto - v) > 1e-9) tapetasMovidas = true; return resto; };
   for (const upper of [false, true]) {
@@ -9935,7 +9946,7 @@ function partPanel(key){
       + `<div class="note-sm">El sobrante decimal se absorbe en las tapetas activas. Se arma con la tira al paño de los frentes (${fmt(espFrente())}${uS()}) y un regreso de ${fmt(reg().tapetaRegreso)}${uS()} detrás, atornillado al gabinete; «Cerrar extremo» agrega el costado cuando el extremo queda libre (sin muro).</div>`);
     /* A89: base y tope de las dos tapetas (por cocina) */
     if (!cfg.isla) html += section('Las dos tapetas', `<div class="grid-2">${num('tapBase', 'Ancho base', Math.min(cfg.reservaIzq, cfg.reservaDer), 'cm', 1, 15)}${num('tapTope', 'Ancho máximo', cfg.topeTapeta || reg().tapetaMax, 'cm', 1, 20)}</div>`
-      + '<div class="note-sm">Gabinetes iguales en cm enteros; lo que sobra va a las tapetas (hasta su máximo) o, si no cabe, a algunos gabinetes, 1 cm más.</div>');
+      + `<div class="note-sm">Gabinetes automáticos iguales, en cm enteros: lo que sobra o falta lo toman o lo ceden las piezas de ajuste (hasta su máximo y sin bajar de ${medida(reg().tapetaMin)}).</div>`);   /* A311 */
   } else if (key === 'fillerTop') {
     html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`
       + (cfg.tapetaSuperior && cfg.style === 'Clasica' ? chk('tapSMol', molduraTs(), 'Moldura (corona)') : '')
