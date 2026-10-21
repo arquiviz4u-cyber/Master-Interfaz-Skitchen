@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A341. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «al seleccionar 2 o
+       mas gabinetes se pueden editar sus opciones y funciones compartidas») Con varios gabinetes elegidos de la misma fila y la misma
+       funcion, el panel muestra las opciones del primero y cada cambio se aplica a todos (multiAplica: la accion corre para cada uno como si
+       fuera el unico elegido; un solo paso de deshacer). Con funciones distintas sale solo Funcion (cambiarla los iguala) y una nota.
    A340. [Master hecho 21/10; SketchUp: no aplica (se elige en el modelo); Revit pendiente (isometrico del editor)] (usuario 21/10:
        «elementos se seleccionan y se pueden editar en el isometrico») En la vista Isometrico un clic elige el gabinete de la cara que
        queda encima (isoModulo: caras de cada modulo registradas al pintar, isoModHits), Ctrl + clic suma o quita, clic en vacio limpia; el
@@ -9766,7 +9770,13 @@ function renderSide(){
     } else if (!m) {
       const mods = ids.map(byId), sameRow = mods.every(x => x.upper === mods[0].upper);
       html += head(`${ids.length} módulos seleccionados`, `${fmt(mods.reduce((s, x) => s + x.ancho, 0))}${uS()}`);
-      if (sameRow) html += section('Función', tiles('tipo', mods[0].upper ? TIPOS_ALTO : cfg.closet ? CLOSET_TIPOS : tilesBajo(), tileTipo(mods[0].tipo)), 'plegable');
+      /* A341 (usuario 21/10: «al seleccionar 2 o mas gabinetes se pueden editar sus opciones y funciones compartidas»): con la misma funcion
+         (y la misma fila) sale el panel del primero y cada cambio se aplica a todos (multiAplica); con funciones distintas, solo Funcion */
+      const mismo = sameRow && mods.every(x => x.tipo === mods[0].tipo && !x.esquina && !isSpecial(x) === !isSpecial(mods[0]));
+      if (mismo && !mods[0].reserved && !mods[0].esquina) html += `<div class="note-sm" style="margin:0 16px 6px">Los cambios se aplican a los ${ids.length} gabinetes elegidos.</div>`
+        + modulePanel(mods[0]).replace(/^<div class="p-section"><div class="m-head">[\s\S]*?<\/div><\/div>/, '');
+      else if (sameRow) html += section('Función', tiles('tipo', mods[0].upper ? TIPOS_ALTO : cfg.closet ? CLOSET_TIPOS : tilesBajo(), tileTipo(mods[0].tipo)), 'plegable')
+        + `<div class="note-sm" style="margin:0 16px 6px">Con la misma función se editan también sus opciones juntas.</div>`;
     } else if (!m.reserved) html += modulePanel(m);
     if (ids.length) html += `<div class="p-foot"><button class="btn btn-danger btn-block" data-act="delSel">Eliminar selección</button></div>`;
   }
@@ -10423,7 +10433,15 @@ function onSideAction(e){
   if ((el.dataset.len || el.type === 'number') && isNaN(v)) { render(); return; }
   if (el.dataset.len && el.dataset.min !== undefined) v = Math.max(+el.dataset.min, Math.min(+el.dataset.max, v));   /* limites en cm */
   if (el.dataset.len && cfg.region === 'US') v = rd(v);   /* E5: 1/16" */
+  if (selection.size > 1 && !selectedBox() && !selectedPart && !MULTI_NO.has(el.dataset.act)) { multiAplica(act, v); return; }   /* A341 */
   act(v, selection.size === 1 ? byId([...selection][0]) : null);
+}
+/* A341: una accion del panel aplicada a cada gabinete elegido (como si fuera el unico) y un solo paso de deshacer */
+const MULTI_NO = new Set(['tipo', 'addBajo', 'addAlto', 'addCol', 'delSel', 'closePart']);
+function multiAplica(act, v){
+  const ids = [...selection], before = JSON.stringify(cfg), n0 = undoStack.length;
+  try { ids.forEach(id => { const m = byId(id); if (!m) return; selection = new Set([id]); act(v, m); }); }
+  finally { selection = new Set(ids.filter(id => byId(id))); undoStack.length = Math.min(undoStack.length, n0); if (JSON.stringify(cfg) !== before) { undoStack.push(before); redoStack = []; } render(); }
 }
 side.addEventListener('change', onSideAction);
 side.addEventListener('click', onSideAction);
