@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A312. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente] (usuario 20/10: «el piston unido y segmentado en puertas
+       iguales deberia colocar automaticamente la division vertical interna para que tengan de donde apoyarse el par de pistones que tiene
+       cada seccion; en la vista sin puertas tambien debe aparecer; la opcion deberia activarse en automatico al igual que su distribucion»)
+       Con hojas (A308) el modulo superior enciende solo «Division vertical interna» con una division por junta (divisionAuto; el panel lo
+       dice en lugar de la casilla) y se ve en el alzado sin puertas; al volver a una hoja o a otro tipo se apaga la que se puso sola.
    A311. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente (LayoutState: Compensacion/Reparto)] (usuario 20/10: «el
        reparto de los anchos de columnas no tienen que variar por cm; esos sobrantes o faltantes los absorben o ceden las tapetas respetando
        su propio ancho minimo; muy importante porque ayudara a optimizar el despiece si los anchos son los mismos») Con tapetas los anchos
@@ -6114,7 +6119,14 @@ function recalcularCara(){
     up.forEach((q, k) => { if (q.unirCuerpo && !(isBox(q) && isBox(up[k + 1]) && Math.abs(sup(q) - sup(up[k + 1])) < .01)) q.unirCuerpo = false; }); }
   /* A82 (usuario, 06/10): el modulo superior tiene su fondo; al volverse doble arranca con el del alto y despues ninguno depende del otro */
   for (const m of cfg.modulos) if (isDoble(m) && !(m.fondoSuperior > 0)) m.fondoSuperior = m.fondo;
-  capGroups().forEach(g => g.members.slice(1).forEach(f => { f.fondoSuperior = g.lead.fondoSuperior; f.altoSuperior = g.lead.altoSuperior; f.tipoSuperior = g.lead.tipoSuperior; f.bisagraDerechaSuperior = g.lead.bisagraDerechaSuperior; f.repisasSuperior = g.lead.repisasSuperior; f.divisionSuperior = g.lead.divisionSuperior; f.divisionesSuperior = g.lead.divisionesSuperior; f.materialSuperior = g.lead.materialSuperior; f.mostrarPuertaSuperior = g.lead.mostrarPuertaSuperior; }));
+  capGroups().forEach(g => g.members.slice(1).forEach(f => { f.fondoSuperior = g.lead.fondoSuperior; f.altoSuperior = g.lead.altoSuperior; f.tipoSuperior = g.lead.tipoSuperior; f.bisagraDerechaSuperior = g.lead.bisagraDerechaSuperior; f.repisasSuperior = g.lead.repisasSuperior; f.divisionSuperior = g.lead.divisionSuperior; f.divisionesSuperior = g.lead.divisionesSuperior; f.materialSuperior = g.lead.materialSuperior; f.mostrarPuertaSuperior = g.lead.mostrarPuertaSuperior; f.partesSuperior = g.lead.partesSuperior; }));
+  /* A312 (usuario 20/10: «el piston unido y segmentado en puertas iguales deberia colocar automaticamente la division vertical interna para que
+     tengan de donde apoyarse el par de pistones de cada seccion; en la vista sin puertas tambien; la opcion se activa sola, igual que su numero»):
+     con hojas, una division en cada junta (divisionAuto); al volver a una hoja (o a otro tipo) se quita la que se puso sola */
+  capGroups().forEach(g => { const L = g.lead, n = partesPiston(g);
+    if (L.tipoSuperior === 'Piston' && n > 1) { L.divisionSuperior = true; L.divisionesSuperior = n - 1; L.divisionAuto = true; }
+    else if (L.divisionAuto) { L.divisionSuperior = false; L.divisionesSuperior = 1; L.divisionAuto = false; }
+    g.members.slice(1).forEach(f => { f.divisionSuperior = L.divisionSuperior; f.divisionesSuperior = L.divisionesSuperior; f.divisionAuto = L.divisionAuto; }); });
   /* cuerpos de altos abiertos unidos: la caja la manda el primero (repisas, division y material) */
   bodyGroups().forEach(g => g.members.slice(1).forEach(f => { f.repisas = g.members[0].repisas; f.division = g.members[0].division; f.material = g.members[0].material; }));
   if (!cfg.generarCubierta || !cfg.modulos.some(m => m.id === cfg.moduloTarja && !m.upper)) { cfg.tipoTarja = 0; cfg.moduloTarja = null; }
@@ -9796,7 +9808,8 @@ function capPanel(id){
     + (m.tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('capBisDer', !!m.bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : ''));
   html += section('Opciones', `<div class="grid-2">${num('capRep', 'Repisas internas', m.repisasSuperior, 'u', 0, MAX_REPISAS, 1)}${num('capAlto', 'Alto', m.altoSuperior, 'cm', DOBLE_MIN, Math.min(DOBLE_MAX, altoAltos() - DOBLE_MIN))}${num('capFondo', 'Fondo', m.fondoSuperior > 0 ? m.fondoSuperior : m.fondo, 'cm', 25, 70)}</div><div class="note-sm">Su fondo no depende del alto de abajo.</div>` + avisoDoble(m)
     + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; con pistón, a ${medida(reg().ancho.piston)}; la caja abierta, a 3 columnas.</div>`
-    + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
+    + (m.divisionAuto ? `<div class="note-sm">División vertical interna: ${m.divisionesSuperior} automática${m.divisionesSuperior > 1 ? 's' : ''}, una en cada junta de las hojas (ahí apoyan sus pistones).</div>`   /* A312 */
+      : chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : ''))
     + (m.tipoSuperior === 'Piston' ? chk('capMostrar', m.mostrarPuertaSuperior, 'Mostrar puerta elevable') : ''));
   if (m.tipoSuperior === 'Piston' && g.members.length > 1) { const nP = partesPiston(g), mnP = partesPistonMin(g);   /* A308 */
     html += section('Puerta elevable', `<div class="grid-2">${num('capPartes', 'Hojas iguales', nP, 'u', mnP, Math.max(mnP, PARTES_PISTON_MAX), 1)}</div><div class="note-sm">${nP > 1 ? `${nP} hojas de ${medida(Math.round(g.width/nP*10)/10)}, cada una con sus pistones y una división detrás de cada junta.` : 'Una sola hoja a todo el ancho.'}${mnP > 1 ? ` Con ${medida(g.width)} pide al menos ${mnP} (hasta ${medida(reg().ancho.piston)} por hoja).` : ''}</div>`); }
