@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A340. [Master hecho 21/10; SketchUp: no aplica (se elige en el modelo); Revit pendiente (isometrico del editor)] (usuario 21/10:
+       «elementos se seleccionan y se pueden editar en el isometrico») En la vista Isometrico un clic elige el gabinete de la cara que
+       queda encima (isoModulo: caras de cada modulo registradas al pintar, isoModHits), Ctrl + clic suma o quita, clic en vacio limpia; el
+       panel derecho muestra y edita lo elegido como en el alzado. Los elegidos se resaltan con un velo del color de seleccion
+       (isoResaltar). El doble clic sigue abriendo o cerrando el frente.
    A339. [Master hecho 21/10; SketchUp hecho 21/10 (Interaccion.apertura); Revit pendiente (InteractiveOpenings)] (usuario 21/10: «al abrir
        puertas en isometrico la de piston se abre junto con el inferior, pasa lo mismo cuando estan unidas las columnas; el abrir puertas
        deberia ser por panel independiente (aun si el piston unido se subdivide en puertas)») El clic (doble clic en el isometrico) abre o
@@ -9338,7 +9343,7 @@ const ISLA_HINTS = {
 };
 function updateHint(){
   if (matDrag) return;
-  let t = view === 'Isometrico' ? 'Isométrico · doble clic en una puerta o un cajón para abrirlo o cerrarlo · Mayús + doble clic: abrir o cerrar todo · rueda: acercar o alejar · botón central: desplazar · Puertas: ver el interior · Medir: cotas.' : cfg.isla ? ISLA_HINTS[view] : view === 'Planta' ? HINTS.plan : cfg.closet ? 'Closet · clic en una pieza para editarla · las puertas se eligen en Estilo · arrastra en vacío para elegir varias.' : HINTS.def;
+  let t = view === 'Isometrico' ? 'Isométrico · clic: elegir el gabinete y editarlo (Ctrl: varios) · doble clic en una puerta o un cajón: abrirlo o cerrarlo · Mayús + doble clic: todo · rueda: acercar o alejar · botón central: desplazar.' : cfg.isla ? ISLA_HINTS[view] : view === 'Planta' ? HINTS.plan : cfg.closet ? 'Closet · clic en una pieza para editarla · las puertas se eligen en Estilo · arrastra en vacío para elegir varias.' : HINTS.def;
   if (hover) {
     const [kind, key] = [hover.slice(0, hover.indexOf(':')), hover.slice(hover.indexOf(':') + 1)];
     if (kind === 'dim') t = HINTS.dim; else if (kind === 'grip') t = HINTS.grip;
@@ -9356,7 +9361,13 @@ canvas.addEventListener('mousedown', e => {
   if (e.button !== 0) return;   /* el canvas ignora todo boton que no sea el izquierdo */
   const p = pt(e), dbl = e.detail >= 2;   /* e.detail: Clicks del real (2 = doble clic) */
   canvas.focus();
-  if (view === 'Isometrico') { e.preventDefault(); if (dbl && LAM.isoClick(p, e.shiftKey)) render(); return; }   /* A170: doble clic (A183) abre o cierra los frentes del modulo */
+  if (view === 'Isometrico') { e.preventDefault();   /* A170: doble clic (A183) abre o cierra los frentes; A339: cada frente */
+    if (dbl) { if (LAM.isoClick(p, e.shiftKey)) render(); return; }
+    /* A340: un clic elige el gabinete (Ctrl: varios) y su panel se edita como en el alzado; en vacio, nada elegido */
+    const id = LAM.isoModulo(p), m = id && byId(id);
+    if (m) { if (e.ctrlKey || e.metaKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); } else selection = new Set([id]); }
+    else if (!e.ctrlKey) selection = new Set();
+    selectedPart = null; focusPanel = null; render(); return; }
   /* A45: sin preventDefault el clic termina dando el foco al lienzo, el campo pierde el foco (blur) y se cierra al instante */
   const mh = miraHits.find(q => inside(p, q.rect)); if (mh) { e.preventDefault(); const mm = moduloEn(false, mh.xc) || moduloEn(true, mh.xc); seccionMira = mm ? { id: mm.id, dir: -miraCorte(mh.xc) } : null; render(); return; }   /* A159 */
   const tb = tabHits.find(q => inside(p, q.rect)); if (tb) { e.preventDefault(); ACT.cara(String(tb.k)); return; }   /* A135 */
@@ -9446,7 +9457,7 @@ canvas.addEventListener('mousedown', e => {
 });
 canvas.addEventListener('mousemove', e => {
   const p = pt(e);
-  if (view === 'Isometrico') { canvas.style.cursor = LAM.isoHit(p) ? 'pointer' : 'default'; return; }   /* A170 */
+  if (view === 'Isometrico') { canvas.style.cursor = LAM.isoHit(p) || LAM.isoModulo(p) ? 'pointer' : 'default'; return; }   /* A170; A340 */
   if (drag && drag.kind === 'module') {
     const h = hits.find(h => h.module.id !== drag.id && inside(p, h.rect)), next = h ? columnaPar(drag.id, h.module.id) : null;   /* A160: por columna */
     drag.x = p.x; drag.y = p.y; canvas.style.cursor = 'grabbing';
@@ -11508,7 +11519,7 @@ const EN = {
   'PROYECTO': 'PROJECT', 'CLIENTE': 'CLIENT', 'ESTUDIO': 'STUDIO', 'AUTOR': 'AUTHOR', 'FECHA DE EMISIÓN': 'ISSUE DATE', 'DIBUJO': 'DRAWING', 'ESCALA': 'SCALE', 'REVISIÓN': 'REVISION',
   'MATERIALES': 'MATERIALS', 'HERRAJES': 'HARDWARE', 'NOTA': 'NOTE', 'HOJA': 'SHEET', 'Bisagras': 'Hinges', 'Correderas (juegos)': 'Slides (sets)', 'Jaladeras': 'Pulls', 'Pistones': 'Lift pistons', 'Taquetes': 'Anchors',
   'Cocina': 'Kitchen', 'Isla': 'Island', 'Closet': 'Closet',
-  'ISOMÉTRICO': 'ISOMETRIC', 'Isométrico · doble clic en una puerta o un cajón para abrirlo o cerrarlo · Mayús + doble clic: abrir o cerrar todo · rueda: acercar o alejar · botón central: desplazar · Puertas: ver el interior · Medir: cotas.': 'Isometric · double-click a door or drawer to open or close it · Shift + double-click: open or close all · wheel: zoom in or out · middle button: pan · Doors: see the interior · Measure: dimensions.',
+  'ISOMÉTRICO': 'ISOMETRIC', 'Isométrico · clic: elegir el gabinete y editarlo (Ctrl: varios) · doble clic en una puerta o un cajón: abrirlo o cerrarlo · Mayús + doble clic: todo · rueda: acercar o alejar · botón central: desplazar.': 'Isometric · click: select the cabinet and edit it (Ctrl: several) · double-click a door or drawer: open or close it · Shift + double-click: all · wheel: zoom in or out · middle button: pan.',
   'El isométrico sale con todo cerrado; en la vista Isométrico puedes abrir las puertas y cajones que quieras mostrar.': 'The isometric comes out fully closed; in the Isometric view you can open the doors and drawers you want to show.'
 };
 const EN_T = [
@@ -12441,7 +12452,7 @@ const LAM = (() => {
      Todo sale del plan: cada pieza es una caja; los frentes llevan `frente` (id) y uno de ellos `abre` (puerta con eje y grados, elevable,
      cajon con recorrido), igual que Interactuar en SketchUp. Ejes locales de la cara: X = x, Y = -y (el cuarto hacia -Y), Z = z. */
   const abiertos = new Set();   /* frentes abiertos en el preview del editor: vive en la sesion, no en la configuracion */
-  const isoHits = [];
+  const isoHits = [], isoModHits = [];   /* A340: caras de cada modulo (elegir en el isometrico) */
   const INTERIOR = new Set(['Bisagra', 'CalzaBisagra', 'Cazoleta', 'Corredera', 'CorrederaMedia', 'CorrederaMovil', 'Taquete', 'Piston', 'Vastago', 'PistonSoporte', 'PistonSoportePuerta', 'PistonCalza', 'Condimentero', 'Bote']);   /* A324: los soportes y la calza del piston tambien quedan tras la puerta cerrada */
   const C30 = Math.cos(Math.PI / 6), S30 = .5, AZUL = '#266096';
   const vadd = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], vsub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], vmul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
@@ -12779,7 +12790,7 @@ const LAM = (() => {
     const base = p => { const m = p.material ? mat(p.material) : null; if (m) return rgbOf(m); const e = p.etiqueta;
       return e === 'frentes' ? C.front : e === 'cubierta' ? '#C8B99F' : e === 'zoclo' ? '#4A4F55' : e === 'backsplash' ? C.backsplash : e === 'herrajes' ? C.metal : e === 'equipos' ? '#B7BEC5' : C.board; };
     const sombra = (c, k) => { const q = rgbDe(c); return '#' + [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round(q[i] * k))).toString(16).padStart(2, '0')).join(''); };
-    if (o.hits) isoHits.length = 0;
+    if (o.hits) { isoHits.length = 0; isoModHits.length = 0; }
     g.save(); g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = 1;
     esc.tri.forEach(t => {
       if (t.t === 'sim') { const pr0 = esc.proy(t.O); dibujarSim(g, t.id, t.flip, X(pr0[0]), Y(pr0[1]), s, plano); return; }
@@ -12812,6 +12823,7 @@ const LAM = (() => {
       }
       g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
       if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && t.q.p.frente) isoHits.push({ pr, frente: t.q.p.frente, modulo: t.q.p.modulo });
+      if (o.hits && t.t === 'cara' && t.q && t.q.p.modulo && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo });   /* A340 */
     });
     (esc.herr || []).forEach(h => { const pr = esc.proy(h.O); dibujarSim(g, h.id, h.flip, X(pr[0]), Y(pr[1]), s, plano); });
     if (o.cotas !== false) esc.cotas.forEach(c => {
@@ -12828,6 +12840,12 @@ const LAM = (() => {
     g.restore();
   }
   function isoHit(p){ for (let i = isoHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoHits[i].pr)) return isoHits[i]; return null; }
+  /* A340 (usuario 21/10: «elementos se seleccionan y se pueden editar en el isometrico»): el modulo de la cara de encima en el punto, y el
+     resalte de los elegidos (sus caras visibles con un velo del color de seleccion, en una sola pasada para que no se oscurezca) */
+  function isoModulo(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].modulo; return null; }
+  function isoResaltar(g, ids, color){ const set = new Set(ids), hs = isoModHits.filter(h => set.has(h.modulo)); if (!hs.length) return;
+    g.save(); g.beginPath(); hs.forEach(h => { h.pr.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); });
+    g.globalAlpha = .22; g.fillStyle = color; g.fill('nonzero'); g.restore(); }
   /* clic en el preview: abre o cierra el frente (y los que se mueven con el, como Interactuar); Mayus: todos. true si cambio algo */
   function isoClick(p, todos){
     const plan = planCocina(), piezas = plan.piezas.concat((plan.caras || []).flatMap(c => c.piezas)), abres = {}, porModulo = {};
@@ -15395,7 +15413,7 @@ const LAM = (() => {
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
-    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos, cotasManualDe,
+    abiertos, isoEscena, isoPintar, isoClick, isoHit, isoModulo, isoResaltar, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos, cotasManualDe,
     presNueva, presRefrescar, presReacomodar, presCrearModulosCloset, presAcomodarConjunto, presMoverHoja, presReordenarHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
@@ -15419,6 +15437,7 @@ function drawIsometrico(){
   const ox = L + 15 + (aw - w*s)/2 + (exporting ? 0 : isoZoom.dx), oy = T + 15 + (ah - h*s)/2 + (exporting ? 0 : isoZoom.dy);
   if (!exporting) isoZoom.base = { L, T, aw, ah, w, h, fit };   /* A338 */
   LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true });
+  if (!exporting && selection.size) LAM.isoResaltar(ctx, [...selection], C.accent);   /* A340 */
   frame = { scale: s, ox, ground: oy + h*s, X: x => ox + x*s, Z: z => oy + h*s - z*s, W: w };
 }
 /* dialogo y entrega de las laminas (A169): en SketchUp Ruby pide la carpeta y guarda los bytes (como Exportar vistas); en el navegador se descargan */
