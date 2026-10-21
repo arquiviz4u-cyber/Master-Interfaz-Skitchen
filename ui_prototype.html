@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A336. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 21/10: «¿sabes por que las cotas automaticas no
+       coinciden con las cotas hechas en la lamina? estoy comenzando a percibir que el dibujo no esta dibujado con precision; ademas el acotado
+       directo sobre las laminas deberia seguir el movimiento y la posicion de la misma lamina») El dibujo es exacto: los alzados y el conjunto
+       salen a la escala del papel con las medidas del plan (escala real / nominal = 1.0000). La diferencia (28.3 / 28.8 / 28.2 contra 28.7)
+       venia de la cota a mano: guardaba sus puntos redondeados a 0.1 mm de papel (±0.25 cm por extremo a 1:25) y, sin iman, del clic. Ahora
+       guarda los puntos sin redondear y anclados a la vista donde empieza (vista, ra, rb desde el origen de su tinta, n0): si la vista se
+       mueve o cambia de escala la cota la sigue, y la medida sale con la escala actual. Si la vista se apaga, su cota no se dibuja.
    A335. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «herramienta acotar agregarle icono y en
        cada vista aparece una regilla/snap que identifica los bordes/esquinas de los objetos en vistas») El boton Acotar lleva su icono (cota
        con flechas). Con la herramienta activa, la vista bajo el puntero muestra su rejilla de iman (las esquinas de lo dibujado, puntos azules)
@@ -14016,7 +14023,18 @@ const LAM = (() => {
       const w = anchoHelv(G.texto, t), mx = (G.p1[0] + G.p2[0]) / 2, my = (G.p1[1] + G.p2[1]) / 2;
       if (G.h) S.t(G.texto, mx - w / 2, my - .9 * k, t, false, AZ); else if (S.tv) S.tv(G.texto, mx - .9 * k, my + w / 2, t, false, AZ); else S.t(G.texto, mx + .9 * k, my, t, false, AZ); });
   }
-  const cotasManualDe = (L, h) => ((L.cotas && L.cotas.__manual) || []).filter(c => c.hoja === h);
+  /* A336 (usuario 21/10: «¿sabes por que las cotas automaticas no coinciden con las hechas en la lamina? ... el acotado directo sobre las laminas
+     deberia seguir el movimiento y la posicion de la misma lamina»): el dibujo es exacto (el conjunto y los alzados salen a la escala del papel
+     con las medidas del plan); la cota a mano guardaba sus puntos redondeados a 0.1 mm de papel, ±0.25 cm por extremo a 1:25. Ahora guarda los
+     puntos sin redondear y anclados a su vista (vista, ra/rb en mm desde el origen de su tinta, n0 su escala): si la vista se mueve o cambia
+     de escala, la cota la sigue; la medida sale con la escala actual de la vista. Las de antes (sin vista) se quedan en la hoja */
+  const cotaManualAbs = (L, c) => { if (!c.vista) anclarCota(L, c); if (!c.vista) return c; const it = L.vistas.find(v => v.id === c.vista && v.on && v.cap); if (!it) return null;
+    return conHoja(L, () => { const { ix, iy } = tintaDe(it), f = (c.n0 || it.n) / (it.n || c.n0 || 1), P = r => [ix + r[0] * f, iy + r[1] * f];
+      return Object.assign({}, c, { a: P(c.ra), b: P(c.rb), off: (c.off || 0) * f, n: it.n, f, src: c }); }); };
+  /* las de antes de A336 (sin vista) se anclan una vez a la vista donde empiezan, en su sitio de ahora */
+  const anclarCota = (L, c) => { if (c.vista || c.sinVista || c.hoja !== L.hoja) return; const it = presHit(L, c.a[0], c.a[1]); if (!it || !it.cap) { c.sinVista = true; return; }
+    conHoja(L, () => { const { ix, iy } = tintaDe(it), r4 = v => Math.round(v * 1e4) / 1e4; Object.assign(c, { vista: it.id, n0: it.n, ra: [r4(c.a[0] - ix), r4(c.a[1] - iy)], rb: [r4(c.b[0] - ix), r4(c.b[1] - iy)] }); }); };
+  const cotasManualDe = (L, h) => ((L.cotas && L.cotas.__manual) || []).filter(c => c.hoja === h).map(c => cotaManualAbs(L, c)).filter(Boolean);
   /* A335 (usuario 20/10: «herramienta acotar: agregarle icono y en cada vista aparece una rejilla/snap que identifica los bordes/esquinas de
      los objetos en vistas»): el iman sale de los trazos grabados de la vista (sus vertices son las esquinas y sus segmentos, los bordes; los
      textos, simbolos y cotas no cuentan). Se guarda con la captura; en mm de hoja con la misma cuenta que pinta la vista (tintaDe) */
@@ -14048,9 +14066,12 @@ const LAM = (() => {
       const u = Math.max(0, Math.min(1, ((mx - x1) * dx + (my - y1) * dy) / L2)); return Math.hypot(mx - (x1 + u * dx), my - (y1 + u * dy)) <= tol + .8; }) || null; }
   function presAgregarCotaManual(L, a, b){
     const dx = b[0] - a[0], dy = b[1] - a[1], dir = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'; if ((dir === 'h' ? Math.abs(dx) : Math.abs(dy)) < 1) return null;
-    const it = presHit(L, a[0], a[1]), c = { id: 'cm' + Date.now().toString(36), hoja: L.hoja, a: a.map(v => Math.round(v * 10) / 10), b: b.map(v => Math.round(v * 10) / 10), dir, off: -6 * HOJA.k, n: it && it.n ? it.n : null };
+    const it = presHit(L, a[0], a[1]), r4 = v => Math.round(v * 1e4) / 1e4;   /* A336: sin redondear a 0.1 mm */
+    const c = { id: 'cm' + Date.now().toString(36), hoja: L.hoja, a: a.map(r4), b: b.map(r4), dir, off: -6 * HOJA.k, n: it && it.n ? it.n : null };
+    if (it && it.cap) conHoja(L, () => { const { ix, iy } = tintaDe(it); Object.assign(c, { vista: it.id, n0: it.n, ra: [r4(a[0] - ix), r4(a[1] - iy)], rb: [r4(b[0] - ix), r4(b[1] - iy)] }); });
     if (!L.cotas) L.cotas = {}; L.cotas.__manual = (L.cotas.__manual || []).concat([c]); return c; }
-  function presMoverCotaManual(L, id, mx, my){ const c = cotasManualDe(L, L.hoja).find(q => q.id === id); if (!c) return; c.off = Math.round((c.dir === 'v' ? mx - c.a[0] : my - c.a[1]) * 10) / 10; }
+  function presMoverCotaManual(L, id, mx, my){ const c = cotasManualDe(L, L.hoja).find(q => q.id === id); if (!c) return; const o = c.src || c;
+    o.off = Math.round((c.dir === 'v' ? mx - c.a[0] : my - c.a[1]) / (c.f || 1) * 100) / 100; }
   function presQuitarCotaManual(L, id){ if (L.cotas && L.cotas.__manual) L.cotas.__manual = L.cotas.__manual.filter(c => c.id !== id); }
   /* A318: los pies 'vertical' y 'horizontal'. Mismos datos que la franja clasica: logo (movible, A317), campos editables, herrajes, notas
      numeradas, nota general y clave de la hoja */
@@ -15337,7 +15358,7 @@ const LAM = (() => {
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
-    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos,
+    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos, cotasManualDe,
     presNueva, presRefrescar, presReacomodar, presCrearModulosCloset, presAcomodarConjunto, presMoverHoja, presReordenarHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
@@ -15426,7 +15447,7 @@ function presDibujar(rapido){
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
   LAM.presPintar(g, L, { Z: PRES.Z, ox: PRES.ox, oy: PRES.oy, dpr, sel: PRES.sel, multi: PRES.multi || [], selG: PRES.selG, selM: PRES.selM, hoverC: PRES.hoverC, guias: PRES.guias, rapido: !!rapido, pag: PRES.pag });
   /* A325: la cota elegida y la que se esta trazando */
-  const cmSel = PRES.selCM && ((L.cotas && L.cotas.__manual) || []).find(c => c.id === PRES.selCM && c.hoja === PRES.pag);
+  const cmSel = PRES.selCM && LAM.cotasManualDe(L, PRES.pag).find(c => c.id === PRES.selCM);   /* A336: donde esta su vista */
   const trazo = PRES.modo === 'acotar' && PRES.cotaA && PRES.cotaB ? (() => { const dx = PRES.cotaB[0] - PRES.cotaA[0], dy = PRES.cotaB[1] - PRES.cotaA[1], dir = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
     return { a: PRES.cotaA, b: PRES.cotaB, dir, off: 0, n: (LAM.presHit(L, PRES.cotaA[0], PRES.cotaA[1]) || {}).n || null }; })() : null;
   /* A335: la rejilla del iman (esquinas de la vista bajo el puntero) y el punto donde se pega: cuadro en esquina, rombo en borde */
