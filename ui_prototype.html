@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A323. [Master hecho 20/10; SketchUp: sin cambio (construye la forma perfil eje x); Revit pendiente (sigue por tramos)] (usuario 20/10: «el
+       lateral de los cajones cuando no se muestra la tapeta se ve seccionado cuando deberia ser una sola pieza») El lateral con muescas de
+       gola ya no se parte en tramos (uno por muesca, que el isometrico y SketchUp dibujaban como piezas encimadas): es una sola pieza a todo
+       fondo con forma perfil eje x y las muescas recortadas en su canto de frente.
    A322. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «el alzado en bajos y altos la tapeta se
        acota raro, como que se encima sobre otra cota la cual no se cual es») Desde A310 la pieza de ajuste lleva un regreso de 1.8 detras: el
        alzado del conjunto le ponia su propia cota encima de la de la tira. El alzado y el despiece de frentes toman solo la tira
@@ -5515,7 +5519,12 @@ function planDePiezas(c = cfg){
       qs.forEach(q => { const a = Math.max(p.z, q.z0), b = Math.min(p.z + p.alto, q.z1);
         if (a > z + .01) tramos.push([z, a, p.fondo]); tramos.push([a, b, r2(q.y0 - p.y)]); z = b; });
       if (p.z + p.alto > z + .01) tramos.push([z, p.z + p.alto, p.fondo]);
-      piezas.splice(i, 1, ...tramos.map(([a, b, f], k) => Object.assign({}, p, { id: k ? p.id + ':' + k : p.id, z: r2(a), alto: r2(r2(b) - r2(a)), fondo: f })));
+      /* A323 (usuario 20/10: «el lateral de los cajones cuando no se muestra la tapeta se ve seccionado cuando deberia ser una sola pieza»):
+         una pieza con las muescas en su canto de frente (perfil a lo largo de su grueso, como el lateral del alto, A149), no un tramo por muesca */
+      const pts = [[0, 0]]; tramos.forEach(([a, b, f]) => { pts.push([r2(f), r2(a - p.z)], [r2(f), r2(b - p.z)]); }); pts.push([0, r2(p.alto)]);
+      const limpio = pts.filter((v, j, A) => { const w = A[(j + A.length - 1) % A.length]; return Math.abs(v[0] - w[0]) + Math.abs(v[1] - w[1]) > .01; })
+        .filter((v, j, A) => { const a2 = A[(j + A.length - 1) % A.length], c2 = A[(j + 1) % A.length]; return !((Math.abs(a2[0] - v[0]) < .01 && Math.abs(c2[0] - v[0]) < .01) || (Math.abs(a2[1] - v[1]) < .01 && Math.abs(c2[1] - v[1]) < .01)); });
+      p.forma = { tipo: 'perfil', eje: 'x', puntos: limpio };
     }
     /* B24 (solo SketchUp): con LiveSync, apagar «Puertas» oculta tambien en el modelo los frentes y lo que va sobre ellos (jaladeras,
        cazoletas, juntas y el zoclo de la puerta oculta), como el boton en el 2D; el interior queda a la vista */
@@ -5705,7 +5714,13 @@ function pruebasPlanMX(){
       return [Object.assign({}, r, { ancho: cx0 - r.x }), Object.assign({}, r, { x: cx1, ancho: r.x + r.ancho - cx1 }),
         Object.assign({}, r, { x: cx0, ancho: cx1 - cx0, fondo: Math.max(0, y0 - r.y) }), Object.assign({}, r, { x: cx0, ancho: cx1 - cx0, y: Math.min(r.y + r.fondo, y1), fondo: Math.max(0, r.y + r.fondo - y1) })];
     }), [q]).filter(r => r.ancho > .01 && r.fondo > .01);
-    const solidos = q => q.hueco ? solidosHueco(q) : !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
+    /* A323: un perfil a lo largo de x (lateral con muescas, A149) se compara por sus franjas horizontales macizas */
+    const solidosPerfilX = q => { const P = q.forma.puntos, n = P.length, zs = [...new Set(P.map(v => v[1]))].sort((a, b) => a - b), out = [];
+      for (let k = 0; k + 1 < zs.length; k++) { const zm = (zs[k] + zs[k + 1]) / 2, ys = [];
+        for (let j = 0; j < n; j++) { const a = P[j], b = P[(j + 1) % n]; if (Math.abs(a[0] - b[0]) < 1e-6 && Math.min(a[1], b[1]) < zm && Math.max(a[1], b[1]) > zm) ys.push(a[0]); }
+        if (ys.length >= 2) out.push(Object.assign({}, q, { y: q.y + Math.min(...ys), fondo: Math.max(...ys) - Math.min(...ys), z: q.z + zs[k], alto: zs[k + 1] - zs[k] })); }
+      return out.length ? out : [q]; };
+    const solidos = q => q.hueco ? solidosHueco(q) : q.forma && q.forma.tipo === 'perfil' && q.forma.eje === 'x' && q.tipo === 'Lateral' ? solidosPerfilX(q) : !q.ranura ? [q] : [Object.assign({}, q, { fondo: q.ranura.y }),
       Object.assign({}, q, { y: q.y + q.ranura.y, fondo: q.ranura.ancho, z: q.z + q.ranura.hondo, alto: q.alto - q.ranura.hondo }),
       Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
     const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && a.rol !== 'luz' && b.rol !== 'luz' && !a.modelo && !b.modelo && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado; A138: un herraje tal cual no es su caja */
