@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A309. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (editor)] (usuario 20/10: «las cajas cuando estan unidas por columna se
+       seleccionan independiente con doble click para manejar sus opciones») Un clic sobre una caja de repisas corrida sigue eligiendo la caja
+       completa; el doble clic elige solo la columna tocada (en el alto doble, su modulo inferior) y el panel muestra las opciones de ese
+       gabinete; otro doble clic sobre ella ya elige sus repisas o su fondo, como antes.
    A308. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente] (usuario 20/10: «una puerta de piston unida en 3 o mas
        columnas se puede subdividir partes equidistantes; al cambiar la puerta piston de tipo a repisas abiertas, por default con 0 repisas;
        ademas, siendo piston unido en columnas, deberia desaparecer») 1) El modulo superior de piston unido en varias columnas lleva
@@ -9154,7 +9158,9 @@ canvas.addEventListener('mousedown', e => {
     if (pc && e.ctrlKey && pieceMode) { if (pieces.has(pc.key)) pieces.delete(pc.key); else pieces.add(pc.key); selectedPart = pieces.has(pc.key) ? pc.key : [...pieces][0] || null; selection.clear(); render(); return; }
     /* sobre un modulo superior el doble clic elige primero el modulo; con el ya elegido, sus piezas */
     const capUnder = partHits.find(q => q.key.startsWith('ucap:') && inside(p, q.rect));
-    if (pc && dbl && (!capUnder || selectedPart === capUnder.key || pieceMode)) { pieces = new Set([pc.key]); selectPart(pc.key); return; }
+    /* A309: en una caja corrida el doble clic elige primero la columna; con ella ya elegida, sus piezas */
+    const hm = (hits.find(q => inside(p, q.rect)) || {}).module, colPrimero = !pieceMode && hm && bodyGroupOf(hm) && !(selection.size === 1 && selection.has(hm.id) || upperFocus === hm.id);
+    if (pc && dbl && !colPrimero && (!capUnder || selectedPart === capUnder.key || pieceMode)) { pieces = new Set([pc.key]); selectPart(pc.key); return; }
     /* horno, microondas y rejilla con un clic; el modulo superior solo con doble clic (un clic elige la columna completa) */
     const eq = topmost(partHits.filter(q => EQUIPOS.test(q.key) || dbl && q.key.startsWith('ucap:')), p);
     if (eq) { selectPart(eq.key); return; }
@@ -9186,12 +9192,14 @@ canvas.addEventListener('mousedown', e => {
     }
     /* doble clic en un alto doble unido en caja corrida: la caja como elemento propio (A37) */
     /* (A38) un clic sobre el gabinete inferior unido elige la caja completa; la franja del superior sigue eligiendo la columna */
-    if (h.body && isDoble(m) && !e.ctrlKey) { const g = bodyGroupOf(m); if (g) { selectPart('box:' + g.members[0].id); return; } }
+    /* A309 (usuario 20/10: «las cajas cuando estan unidas por columna se seleccionan independiente con doble click para manejar sus opciones»):
+       el doble clic elige solo esa columna (en el alto doble, su modulo inferior) */
+    if (h.body && isDoble(m) && !e.ctrlKey && !dbl) { const g = bodyGroupOf(m); if (g) { selectPart('box:' + g.members[0].id); return; } }
     upperFocus = dbl && isDoble(m) ? id : null;   /* doble clic en un alto doble: su modulo inferior */
     esqFoco = m.esquina ? id : null;   /* A237; A272: un clic basta para sus opciones */
     if (e.ctrlKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); }
-    else { const bx = byId(id) && byId(id).upper && !isDoble(byId(id)) ? bodyGroups().find(g => g.members.some(q => q.id === id)) : null;   /* un clic sobre una caja corrida abierta la selecciona completa; en el alto doble, solo su columna (A37) */
-      if (bx) selection = new Set(bx.members.map(q => q.id)); else if (!selection.has(id)) selection = new Set([id]); drag = { kind: 'module', id, over: null, x: p.x, y: p.y }; }
+    else { const bx = !dbl && byId(id) && byId(id).upper && !isDoble(byId(id)) ? bodyGroups().find(g => g.members.some(q => q.id === id)) : null;   /* un clic sobre una caja corrida abierta la selecciona completa; en el alto doble, solo su columna (A37); A309: doble clic, solo la columna */
+      if (bx) selection = new Set(bx.members.map(q => q.id)); else if (!selection.has(id) || dbl && bodyGroupOf(byId(id))) selection = new Set([id]); drag = { kind: 'module', id, over: null, x: p.x, y: p.y }; }
     render(); return;
   }
   /* vacio: sin Ctrl selecciona el muro; arrastrando, recuadro de seleccion */
