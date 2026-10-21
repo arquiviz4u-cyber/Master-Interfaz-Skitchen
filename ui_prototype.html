@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A352. [Master hecho 21/10; SketchUp: construye el elevable del plan; Revit pendiente] (usuario 21/10: «las puertas de los inferiores
+       tambien se pueden convertir en elevables (mostrar boton en opciones)») En el alto inferior + superior, Opciones lleva el interruptor
+       «Inferior elevable» (m.inferiorElevable): el modulo inferior pasa a un frente elevable de piston a todo su ancho, con sus pistones y
+       bisagras en su techo, como el alto de piston (sin «Dos puertas»). No aplica con «Inferior con repisas» ni con campana.
    A351. [Master hecho 21/10; SketchUp: construye las golas del plan; Revit pendiente] (usuario 21/10: «las puertas en hornos no muestran la
        gola para abrirlas en estilo moderno») En moderno la torre de hornos lleva gola en sus puertas: sobre las de abajo (bajo los hornos,
        perfil superior) y bajo las de arriba (sobre los hornos, perfil C); la elevable de piston abre por su canto, sin gola. Los frentes se acortan lo que mide la gola
@@ -3979,7 +3983,7 @@ function fronts(m){
   };
   if (sinPuertas(m)) return r;
   if (m.upper) { if (soloCamp(m)) return r; const z0 = baseAltos() + huecoAlto(m), z1 = baseAltos() + bodyH(m) - hol;
-    if (m.tipo === 'Piston') r.push({ kind: 'Elevable', x0: hol, x1: m.ancho - hol, z0, z1 });   /* A103: un frente elevable de piston a todo el cuerpo */
+    if (m.tipo === 'Piston' || isDoble(m) && m.inferiorElevable && !m.inferiorAbierto) r.push({ kind: 'Elevable', x0: hol, x1: m.ancho - hol, z0, z1 });   /* A103: un frente elevable de piston a todo el cuerpo; A352: tambien el inferior del inferior + superior */
     else door(hol, m.ancho-hol, z0, z1, m.dosPuertas, m.invertir); return r; }
   const ins = isTower(m) ? m.espesorLaterales : 0;   /* la torre lleva sus frentes entre laterales */
   const drawers = () => {
@@ -9979,10 +9983,12 @@ function modulePanel(m){
     + (view === 'Alzado' ? `<button class="btn btn-block" style="margin-top:10px" data-act="centrar">Centrar en la isla</button>` : ''));
   let opts = anchoFijo(m.fijo, 'fijoLibre');
   /* (A60) campana extractora y dos puertas: interruptores con icono, como las tarjetas de Funcion */
-  const twoVis = !sinPuertas(m) && !soloCamp(m) && m.tipo !== 'Piston' && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
+  const twoVis = !sinPuertas(m) && !soloCamp(m) && m.tipo !== 'Piston' && !(isDoble(m) && m.inferiorElevable) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
   if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);
   if (twoVis) sw.push(['tgDos', m.dosPuertas, 'Dos puertas', FI.DosPuertas]);
-  if (isDoble(m) && !hasCampana(m)) sw.push(['tgInfAb', m.inferiorAbierto, 'Inferior con repisas', FI.InfRepisas]);   /* A307 (usuario 20/10: «agregar icono de inferior con repisas para que sea mas visible»; A261) */
+  if (isDoble(m) && !hasCampana(m)) sw.push(['tgInfAb', m.inferiorAbierto, 'Inferior con repisas', FI.InfRepisas]);
+  /* A352 (usuario 21/10: «las puertas de los inferiores tambien se pueden convertir en elevables (mostrar boton en opciones)») */
+  if (isDoble(m) && !hasCampana(m) && !m.inferiorAbierto) sw.push(['tgInfElev', !!m.inferiorElevable, 'Inferior elevable', FI.Piston]);   /* A307 (usuario 20/10: «agregar icono de inferior con repisas para que sea mas visible»; A261) */
   if (sw.length) opts += toggles(sw);
   if (twoVis && m.dosPuertasTarja && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas por la tarja doble.</div>`;   /* A128 */
   else if (twoVis && cfg.dosPuertasDesde > 0 && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas en más de ${medida(cfg.dosPuertasDesde)} de ancho.</div>`;
@@ -10465,6 +10471,7 @@ const ACT = {
   pzReset: () => deletePart(selectedPart),
   pzEditar: () => { const id = selectedPart.split(':')[1]; selectedPart = null; pieces.clear(); selection = new Set([id]); render(); },
   fijo: (v, m) => setFixed(m.id, v), fijoLibre: (v, m) => setFixed(m.id, false),
+  tgInfElev: (v, m) => change(() => { const t = byId(m.id); t.inferiorElevable = !t.inferiorElevable; if (t.inferiorElevable) t.dosPuertas = false; }),   /* A352 */
   dos: (v, m) => change(() => { const t = byId(m.id); t.dosPuertas = v; t.dosPuertasManual = true; }),   /* E12: elegido a mano */ tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m), tgInfAb: (v, m) => ACT.infAb(!m.inferiorAbierto, m),   /* A307 */
   supInv: (v, m) => change(() => { capLead(byId(m.id)).bisagraDerechaSuperior = v; }),
   supTipo: (v, m) => change(() => { const l = capLead(byId(m.id)); l.tipoSuperior = v; }),   /* A308: sin repisas de fabrica */
