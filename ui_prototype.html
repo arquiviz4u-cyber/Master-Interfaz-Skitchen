@@ -306,6 +306,11 @@
    A374. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «hay que ponerle un
        icono a la opcion de tarja y parrilla para identificarlo mas rapido») «Preparado para tarja» y «Parrilla de induccion encima» son
        interruptores con icono, como «Dos puertas»: la tarja con su tina y su llave; la parrilla vista de arriba con sus zonas.
+   A375. [Master hecho 21/10; SketchUp y Revit: leen la posicion de las bisagras del plan; Revit pendiente] (usuario 21/10: «el 10 cm entre cajones es regla: el usuario no cae en cuenta, solo el que fabrica»)
+       Detras de una puerta con cajas de cajon, la placa de la bisagra pide una ventana de 10 cm (PLAN_BISAGRA.ventana) libre de cajas alrededor de su eje, no solo que no choque
+       (antes, solo que no cruzara). Se prueba sobre la serie del Sistema 32 y, si ninguna posicion tiene la ventana, se cae a la regla de antes para no dejar la puerta sin
+       bisagra. No cambia la separacion de los cajones ni los frentes: mueve la bisagra. Quedan fuera los esquineros (sus bisagras siguen otra rutina). Pendiente de decidir: que el
+       master reduzca los cajones para abrir la ventana cuando no exista.
    A373. [Master hecho 21/10; SketchUp: caja en U del plan (trasera partida y piso con forma perfil eje z); Revit pendiente] (usuario 21/10: «preparar la construccion de ese cajon en 3D, isometrico y despiece»)
        Mueble de la tarja con cajones: la tarja ya se puede poner en un bajo de «Cajones» (antes solo Puertas y Cajon y puerta). El primer frente queda fijo sobre la tina
        (sin caja; su alto minimo cubre lo que baja la tina mas 3 cm: tarjaFijoMin) y los demas cajones llevan la caja en U (PLAN_CAJA_U): la trasera se parte en dos
@@ -4560,7 +4565,7 @@ function repisasS32(Hint, n, e){
 }
 const nBisagras = h => h <= 90 ? 2 : h <= 150 ? 3 : 4;   /* A371 (usuario 21/10, manual «El Cocinator»): 2 hasta 90 cm, 3 hasta 150, 4 arriba (antes 3 hasta 160, 4 hasta 200, 5) */
 const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 2.25,                       /* E15: cazoleta de 35 mm con su centro a 22.5 mm del canto (perforacion de 5 mm; Blum pide 3-8 mm). Antes 1.8 */
-  brazo: 4.5, brazoAlto: 1.6, brazoPaso: .6, placa: 3, placaAlto: 4, placaGrueso: .8 };   /* B19: brazo y placa en el lateral */
+  brazo: 4.5, brazoAlto: 1.6, brazoPaso: .6, placa: 3, placaAlto: 4, placaGrueso: .8, ventana: 10 };   /* B19: brazo y placa en el lateral */
 const PLAN_CORREDERA = { fija: .6, movil: .5, alto: 4.5, centro: 2.6, pared: .15 };   /* B19: en la holgura de la caja (PLAN_CAJA.holgura) */
 const PLAN_PISTON = { cuerpo: 1.8, vastago: .8, largoCuerpo: .6 };
 /* A248 (usuario 17/10: piston.skp en G:/Sketchup/Kitchen; herramientas/preparar_piston.py lo parte en piston_cuerpo, piston_vastago, piston_soporte y
@@ -5665,10 +5670,11 @@ function planDePiezas(c = cfg){
       const cajas = z => [{ x: bx[0], y: yb - B9.brazo, z: z - B9.brazoAlto/2, ancho: bx[1] - bx[0], fondo: B9.brazo, alto: B9.brazoAlto },
                           { x: px[0], y: yb - largo, z: z - B9.placaAlto/2, ancho: px[1] - px[0], fondo: B9.placa, alto: B9.placaAlto }];
       const estorban = piezas.filter(r => r.modulo === q.modulo && ['repisa', 'panel', 'division', 'caja'].includes(r.rol));
-      /* A374 (usuario 21/10, manual «El Cocinator»): detras de una puerta con cajones, la bisagra pide hueco entre las cajas: la placa (4 cm) con AIRE_BISAGRA a cada lado, es decir 10 cm
-         libres entre dos cajas (8 con la de 155 grados no se usa aqui) */
-      const aire = (b, r) => r.rol === 'caja' ? Object.assign({}, b, { z: b.z - PLAN_BISAGRA.aireCaja, alto: b.alto + 2*PLAN_BISAGRA.aireCaja }) : b;
-      const libre = z => z - B9.placaAlto/2 >= f0 - .01 && z + B9.placaAlto/2 <= f1 + .01 && cajas(z).every(b => estorban.every(r => !seCruzan(aire(b, r), r)));
+      /* A375 (usuario 21/10, manual «El Cocinator»): detras de una puerta con cajones, la bisagra pide una ventana de PLAN_BISAGRA.ventana (10 cm) libre de cajas alrededor de su eje,
+         no solo que no choque: es el hueco entre frentes de cajon que el taller necesita para la placa y el brazo */
+      let vent = PLAN_BISAGRA.ventana;   /* si ninguna posicion tiene la ventana, se cae a que no choque (vent = 0) para no dejar la puerta sin bisagra */
+      const aire = (b, r, z) => { if (r.rol !== 'caja' || vent <= 0) return b; const a = Math.min(b.z, z - vent/2), t = Math.max(b.z + b.alto, z + vent/2); return Object.assign({}, b, { z: a, alto: t - a }); };
+      const libre = z => z - B9.placaAlto/2 >= f0 - .01 && z + B9.placaAlto/2 <= f1 + .01 && cajas(z).every(b => estorban.every(r => !seCruzan(aire(b, r, z), r)));
       /* A138: la bisagra del usuario tal cual (cerrada y abierta, una por estado), con su placa en la cara del lateral y la cazoleta en
          la puerta; la puerta gira sobre el eje que lleva la cazoleta de cerrada a abierta. La puerta oculta que abre hacia adentro sigue
          con brazo y placa */
@@ -5684,12 +5690,13 @@ function planDePiezas(c = cfg){
       const cuerpo = zc => { const k = cajaModelo(MB.cerrada, marco(zc)), xa = der ? k.x : Math.max(k.x, cara), xb = der ? Math.min(k.x + k.ancho, cara) : k.x + k.ancho;
         return [{ x: xa, ancho: xb - xa, y: k.y, fondo: yb - k.y, z: k.z, alto: k.alto }]; };   /* con la calza: hasta el lateral */   /* lo que queda detras de la puerta, hasta el lateral */
       const hz = tal ? (MB.cerrada[1][2] - MB.cerrada[0][2])/2 : B9.placaAlto/2;
-      const libre2 = z => tal ? z - hz >= f0 - .01 && z + hz <= f1 + .01 && cuerpo(z).every(b => estorban.every(r => !seCruzan(b, r))) : libre(z);
+      const libre2 = z => tal ? z - hz >= f0 - .01 && z + hz <= f1 + .01 && cuerpo(z).every(b => estorban.every(r => !seCruzan(aire(b, r, z), r))) : libre(z);
       /* A372: Sistema 32: la placa se atornilla en un agujero de la serie del lateral (desde su canto superior); se toma el mas cercano a la posicion repartida que
          libre la placa y el brazo, y solo si no hay ninguno se busca como antes */
       const latS = piezas.find(r => r.modulo === q.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && Math.abs((der ? r.x : r.x + r.ancho) - cara) < .01 && r.z < z0 && r.z + r.alto > z0);
       const huecos = latS ? Array.from({ length: Math.max(0, Math.floor((latS.alto - 2*PLAN_S32.inicio)/PLAN_S32.paso) + 1) }, (_, k) => r2(latS.z + latS.alto - PLAN_S32.inicio - PLAN_S32.paso*k)).sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0)) : [];
-      const z = [...huecos, ...[z0, ...estorban.flatMap(r => [r.z + r.alto + hz + .1, r.z - hz - .1])].sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0))].find(libre2);
+      const busca = () => [...huecos, ...[z0, ...estorban.flatMap(r => [r.z + r.alto + hz + .1, r.z - hz - .1])].sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0))].find(libre2);
+      let z = busca(); if (z === undefined) { vent = 0; z = busca(); }
       if (z === undefined || bx[1] - bx[0] < .1) return;
       q.z = r2(q.z + z - z0);
       if (tal) {
