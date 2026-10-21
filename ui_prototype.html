@@ -303,6 +303,20 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A359. [Master hecho 21/10; SketchUp: no aplica (recibe el plan); Revit pendiente (LayoutState: Change)] (usuario 21/10: «si quiero hacer
+       mas grande una torre o agregar un especiero no me deja (por la regla de anchos equidistantes o similares); no se si deberia existir
+       una regla de ancho minimo y maximo para determinar si el ensanchamiento de columnas hara que se eliminen otras columnas; investiga
+       a profundidad anchos minimos de puertas individuales/cajones y ancho maximo de muebles para hacer ese calculo e integrarlo») Medidas
+       que gobiernan el calculo (ya eran las de reg().ancho y minWidth, ahora documentadas con su fuente): gabinete de 30 a 120 cm (US 12" a
+       48"; los catalogos van en pasos de 3" y 9" es solo relleno); una puerta hasta 60 cm (Blum la apoya a unos 600-650 mm, mas ancho van
+       dos puertas: dosPuertasDesde); cajonera de 25 a 120 cm (Blum TANDEMBOX: gabinete de 250 a 1200 mm, con estabilizador desde 900);
+       torre, alacena y refrigerador desde reg().especialMin mas su especiero; estufa, lavavajillas, frigobar y esquinas con su ancho
+       propio. Cuando ensanchar una columna (cota, especiero anexado, cambio de funcion) no cabe aunque las demas cedan hasta su minimo, ya
+       no se rechaza: 1) se liberan los anchos fijos de las demas columnas (EQ, cotas) y, si asi cabe, se aplica con un aviso; 2) si no, se
+       calculan las columnas que sobran (las mas cercanas a la que crece; nunca esquinas, especiales ni equipos de ancho propio) y un aviso
+       dice cuales se quitarian, con «Quitar y aplicar» o «Cancelar» (un solo paso de deshacer). Si el reparto solo recorto el ancho
+       pedido (la torre pedida de 120 quedaba de 96 sin avisar), queda lo que cabe y el aviso ofrece quitar columnas para darle el ancho
+       pedido, o «Dejar así». resolverAnchos y anchosPedidos en change().
    A358. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (isometrico del editor)] (usuario 21/10: «el estilo oscuro en isometrico
        pinta los componentes a oscuro») En el tema oscuro el isometrico pinta el mueble con la paleta clara (sus colores y materiales
        reales); solo el fondo, los textos y la seleccion siguen el tema.
@@ -6578,9 +6592,50 @@ function validate(){
 let undoStack = [], redoStack = [];
 function change(fn, errorTitle = 'Revisar distribución'){
   const before = JSON.stringify(cfg);
-  try { fn(cfg); recalculate(); validate(); if (JSON.stringify(cfg) !== before) { undoStack.push(before); if (undoStack.length > 80) undoStack.shift(); redoStack = []; } }
-  catch (err) { cfg = JSON.parse(before); showDialog(errorTitle, err.message); }
+  try { fn(cfg); const pedidos = anchosPedidos(before); recalculate(); validate();
+    if (JSON.stringify(cfg) !== before) { undoStack.push(before); if (undoStack.length > 80) undoStack.shift(); redoStack = []; }
+    /* A359: un ancho pedido que el reparto recorto (las demas ya estaban en su minimo): queda lo que cabe y se ofrece quitar columnas */
+    const corto = pedidos.map(([id, w]) => [byId(id), w]).find(([q, w]) => q && q.ancho < w - .5);
+    if (corto) { const [q, w] = corto; resolverAnchos(fn, before, new Error(`${nombreModulo(q)} quedó de ${fmt(q.ancho)}${uS()}: no caben los ${fmt(w)}${uS()} pedidos sin bajar a las demás de su mínimo.`), errorTitle, pedidos, true); } }
+  catch (err) { cfg = JSON.parse(before); if (!(ERR_ANCHO.test(err.message) && resolverAnchos(fn, before, err, errorTitle))) showDialog(errorTitle, err.message); }
   render();
+}
+/* A359: anchos que fn fijo a mano (cambiaron y quedaron con ancho fijo): [id, ancho] */
+const anchosPedidos = before => { const c0 = JSON.parse(before); return cfg.modulos.filter(m => { const o = c0.modulos.find(q => q.id === m.id); return m.fijo && !m.reserved && !m.esquina && (!o || Math.abs(o.ancho - m.ancho) > .01) && (!o || m.ancho > o.ancho); }).map(m => [m.id, m.ancho]); };
+/* A359 (usuario 21/10: «si quiero hacer mas grande una torre o agregar un especiero no me deja (por la regla de anchos equidistantes o
+   similares); investiga anchos minimos de puertas y cajones y el ancho maximo de muebles para determinar si el ensanchamiento hara que se
+   eliminen otras columnas, e integrarlo»). Medidas (reg().ancho, minWidth): gabinete de 30 a 120 cm (US 12" a 48": catalogos en pasos de
+   3", 9" solo relleno); una puerta hasta 60 cm (Blum la apoya a unos 600-650 mm; mas ancho, dos puertas); cajonera de 25 a 120 cm
+   (Blum TANDEMBOX: gabinete de 250 a 1200 mm, estabilizador desde 900); torre o alacena desde reg().especialMin (45) mas su especiero.
+   Cuando un cambio de ancho no cabe aunque todas cedan hasta su minimo (repartirJerarquia: «No cabe»), en lugar de rechazarlo:
+   1) se liberan los anchos fijos de las demas columnas (un EQ o una cota los fija) y, si asi cabe, se aplica;
+   2) si no, se calcula cuantas columnas hay que quitar (las mas cercanas a la que crece; nunca esquinas ni especiales de ancho propio) y
+      se pregunta antes de aplicarlo, con un solo paso de deshacer */
+const ERR_ANCHO = /No cabe: faltan|anchos mínimos|el mínimo es|no completa la longitud|No se pudo adaptar el ancho/;
+function resolverAnchos(fn, before, err, titulo, pedidos = null, yaAplicado = false){
+  const c0 = JSON.parse(before), firma = m => [m.ancho, m.tipo, JSON.stringify(m.anexo || null)].join('|'), actual = JSON.stringify(cfg);
+  const cumple = () => !pedidos || pedidos.every(([id, w]) => { const q = byId(id); return !q || q.ancho >= w - .5; });
+  let despues; try { cfg = JSON.parse(before); fn(cfg); despues = JSON.stringify(cfg); } catch (e) { cfg = JSON.parse(before); return false; }
+  const tocados = new Set(cfg.modulos.filter(m => { const o = c0.modulos.find(q => q.id === m.id); return !o || firma(o) !== firma(m); }).map(m => m.id));
+  if (!tocados.size) { cfg = yaAplicado ? JSON.parse(actual) : JSON.parse(before); return false; }
+  const probar = quitar => { cfg = JSON.parse(despues); const l = row(false), h = row(true), base = l.length ? l : h, otra = l.length ? h : l, par = l.length === h.length;
+    const fuera = new Set(); quitar.forEach(id => { const i = base.findIndex(q => q.id === id); if (i < 0) return; fuera.add(base[i].id); if (par && otra[i]) fuera.add(otra[i].id); });
+    cfg.modulos = cfg.modulos.filter(m => !fuera.has(m.id));
+    cfg.modulos.forEach(m => { if (!tocados.has(m.id) && !m.esquina && !m.reserved && nivelAncho(m) !== 0) m.fijo = false; });
+    try { recalculate(); validate(); return cumple() ? JSON.stringify(cfg) : null; } catch (e) { return null; } };
+  const aplicar = (txt, nota) => { if (!yaAplicado || undoStack[undoStack.length - 1] !== before) { undoStack.push(before); if (undoStack.length > 80) undoStack.shift(); } redoStack = []; cfg = JSON.parse(txt); cleanSelection(); render(); if (nota) setStatus(nota); };
+  const libre = probar([]);
+  if (libre) { aplicar(libre, 'Se liberaron los anchos fijos de las demás columnas para que quepa.'); return true; }
+  cfg = JSON.parse(despues); const l = row(false), h = row(true), base = l.length ? l : h, idx = base.map((m, i) => tocados.has(m.id) || (l.length === h.length && h[i] && tocados.has(h[i].id)) ? i : -1).filter(i => i >= 0);
+  const cand = base.map((m, i) => ({ m, i, d: Math.min(...idx.map(j => Math.abs(i - j))) })).filter(q => !idx.includes(q.i) && !q.m.esquina && !q.m.reserved && !isSpecial(q.m) && nivelAncho(q.m) !== 0)
+    .sort((a, b) => a.d - b.d || b.i - a.i);
+  for (let n = 1; n <= cand.length; n++) { const q = cand.slice(0, n), ok = probar(q.map(c => c.m.id)); if (!ok) continue;
+    cfg = yaAplicado ? JSON.parse(actual) : JSON.parse(before);
+    const lista = q.slice().sort((a, b) => a.i - b.i).map(c => `Col. ${c.i + 1} (${esc(nombreModulo(c.m))}, ${fmt(c.m.ancho)}${uS()})`).join(', ');
+    showDialog(titulo, `${esc(err.message)}<div class="note" style="margin-top:10px">Para que quepa hay que quitar ${n === 1 ? 'la columna' : n + ' columnas'} ${lista}; las demás se reparten de nuevo (sus anchos fijos se liberan).</div>`,
+      [{ text: n === 1 ? 'Quitar la columna y aplicar' : `Quitar ${n} columnas y aplicar`, primary: true, action: () => aplicar(ok, '') }, { text: yaAplicado ? 'Dejar así' : 'Cancelar', cancel: true }], 'info');
+    return true; }
+  cfg = yaAplicado ? JSON.parse(actual) : JSON.parse(before); return false;
 }
 function undo(){ if (!undoStack.length) return; redoStack.push(JSON.stringify(cfg)); cfg = JSON.parse(undoStack.pop()); cleanSelection(); render(); }
 function redo(){ if (!redoStack.length) return; undoStack.push(JSON.stringify(cfg)); cfg = JSON.parse(redoStack.pop()); cleanSelection(); render(); }
