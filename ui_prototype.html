@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A368. [Master hecho 21/10; SketchUp y Revit: no aplica (solo texto del panel)] (usuario 21/10, manual «El Cocinator», ANALISIS_EL_COCINATOR.md)
+       Seccion «Consejos» informativa en el panel del refrigerador, de la torre, del esquinero y de la estufa o gabinete con parrilla: ubicacion,
+       ventilacion, alturas del microondas y del horno, altura maxima de torre (244 cm), tira de relleno, jaladera a 5 cm de la esquina, ventana y cubertero
+       metalico junto a la estufa, tapa de cristal contra la campana. No avisan ni cambian medidas. Fuera de esta entrega (decision del usuario): el aviso del
+       mueble de la tarja con cajon en vez de puerta (en EE. UU. es comun el cajon en U alrededor del sifon).
    A367. [Master hecho 21/10; SketchUp: construye el potfiller del plan; Revit pendiente] (usuario 21/10: «pot filler en estufa y parrilla»)
        El potfiller va sobre la estufa o, si no hay estufa, sobre el gabinete con parrilla (estufaRango toma la columna de coccion). En el
        panel de la estufa y en el de un gabinete con parrilla sale su casilla, ademas de la del backsplash.
@@ -8141,6 +8146,31 @@ function avisoCoccion(m){
   return `<div class="note-sm" style="color:#C2410C;margin-top:0">${campana ? 'La campana queda' : 'El gabinete alto queda'} a ${medida(libre)} de la ${bajo.tipo === 'Estufa' ? 'estufa' : 'parrilla'}; se recomiendan al menos ${medida(pide)} (${campana ? 'campana' : 'gabinete sin campana'}, NKBA).</div>`
 ;   /* A123 (usuario, 09/10): sin boton para subir el alto; el alto se sube con su campo «Subido» o con la cota */
 }
+/* A368 (usuario 21/10, manual «El Cocinator»): consejos de ubicacion y seguridad del refrigerador, la torre, el esquinero y la estufa.
+   Solo texto informativo en el panel (el libro es practica de taller, no norma): no avisan ni cambian medidas ni el plan de piezas.
+   Cada consejo va en su propia linea para que la traduccion lo encuentre entero (EN_T) */
+const consejosHtml = lineas => section('Consejos', lineas.map(t => `<div class="note-sm" style="margin-top:6px">${t}</div>`).join(''));
+const consejosRefri = () => consejosHtml([
+  `No va en la esquina interna de una L o U: si su puerta abre hacia ella, déjale al menos ${medida(45)} de la pared perpendicular.`,
+  `Déjale al menos ${medida(15)} a una ventana (el sol lo calienta) y ${medida(30)} a la estufa si son contiguos.`,
+  `Necesita aire: de ${medida(5)} a ${medida(10)} atrás y ${medida(5)} arriba, salvo que la ficha del fabricante pida otra cosa.`,
+  `Deja ${medida(90)} libres al frente para abrir la puerta y tomar cosas sin estorbar.`]);
+const consejosTorre = () => consejosHtml([
+  `Una torre mide como máximo ${medida(244)} (el largo del tablero estándar); si necesitas más, se parte en dos muebles superpuestos.`,
+  `Microondas: su centro a ${medida(150)} del piso (entre ${medida(140)} y ${medida(160)}).`,
+  `Horno: su rejilla central a ${medida(110)} del piso (entre ${medida(90)} y ${medida(120)}).`,
+  `Horno y microondas piden ventilación; para el microondas, de ${medida(3)} a ${medida(5)} a los lados y arriba. Manda la ficha del fabricante.`]);
+const consejosEsquina = () => consejosHtml([
+  `La puerta del esquinero debe medir al menos ${medida(30)} para que pase la mano con carga.`,
+  `Deja ${medida(90)} libres al frente; si hay menos, un esquinero ciego suele convenir más.`,
+  `Entre el esquinero y el mueble vecino conviene una tira de relleno de ${medida(5)} a ${medida(8)} para ajustar en obra.`,
+  `Jaladeras junto a la esquina: ${medida(5)} entre su centro y el costado del mueble vecino, para que la puerta perpendicular no choque.`]);
+const consejosEstufa = () => consejosHtml([
+  `Si es de gas, evita una ventana abierta detrás o junto a ella: la corriente apaga la llama y el gas sigue saliendo.`,
+  `Deja ${medida(30)} de cubierta a cada lado para apoyar ollas calientes, y ${medida(60)} o más hasta la tarja.`,
+  `Debajo no pongas un cubertero metálico: se calienta por radiación; usa material aislante o deja aire.`,
+  `Si tiene una tapa de cristal que se levanta, comprueba que no choque con la campana ni con el mueble alto al abrirla.`]);
+const consejosDe = m => isRefri(m) ? consejosRefri() : isTower(m) ? consejosTorre() : (m.tipo === 'Estufa' || !m.upper && !esAparato(m) && m.parrilla) ? consejosEstufa() : '';
 /* A134: esquineros en el plan de piezas. Cada esquina k se arma en la cara k (la de su izquierda; la esquina en su extremo derecho,
    x = LA) en ejes de esa cara (y desde el muro). La cara de la derecha recorta su zoclo, su cubierta y su backsplash al llegar a la
    esquina (los pone la cara k). Medio detalle (B19): tableros, puertas, charolas y repisas; sin herrajes de catalogo */
@@ -10053,6 +10083,7 @@ function esquinaPanel(m){
   const e = esquinaDe(m), k = m.esquina.k, R = reg().esquina, h = huellaEsquina(k), alacena = e.tipo === 'alacena';
   let html = head('Esquinero', `Caras ${letraCara(k)} y ${letraCara(k + 1)} · ${fmt(h[0])} / ${fmt(h[1])}${uS()}`);
   html += section('Tipo', radios('esqTipo', ESQ_TIPOS, e.tipo));
+  html += consejosEsquina();   /* A368 */
   if (e.tipo === 'ciego' || alacena && e.alacena === 'oculta') html += section(e.tipo === 'ciego' ? 'Gabinete ciego en' : 'Puerta en', radios('esqDuena', [['0', `Cara ${letraCara(k)}`], ['1', `Cara ${letraCara(k + 1)}`]], String(e.duena === 1 ? 1 : 0)));
   /* A237: las demas opciones, con doble clic en el bajo o en el alto de esta cara */
   const sq = m.esquina.lado === 'der' ? 0 : 1;
@@ -10194,7 +10225,7 @@ function modulePanel(m){
     + `<div class="note-sm">Arrastra los puntos azules o haz clic en su cota.</div>`
     + ((m.frentes || []).some(v => v > 0) ? `<button class="btn btn-block" style="margin-top:10px" data-act="repartir">Repartir alturas de nuevo</button>` : ''));
   else if (drawerType(m)) html += section('Cajón', `<div class="note-sm" style="margin-top:0">Arrastra el punto azul o haz clic en su cota.</div>`);
-  return html;
+  return html + consejosDe(m);   /* A368 */
 }
 /* especial elegido: torre de hornos, alacena o especiero torre; con un cuerpo en foco, su propio panel */
 function specialPanel(m){
@@ -10226,7 +10257,7 @@ function specialPanel(m){
     + (m.extraible && m.especieroHerraje !== 'Condimentero' ? `<div class="grid-2" style="margin-top:8px">${num('espJuegos', 'Juegos de correderas', juegosEspeciero(m), 'u', 1, 4, 1)}</div>` : '')   /* A347 */
     + `<div style="margin-top:8px">${chk('espPiso', !!m.especieroAlPiso, 'Frente hasta el piso (oculta el zoclo)')}</div>`);   /* A150; A152 */   /* A144 */
   if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules o haz clic en su cota.</div>`);
-  return html;
+  return html + consejosDe(m);   /* A368 */
 }
 /* A144; A154: el especiero anexado es parte del mueble. A156: tambien en su propio panel (doble clic en el) */
 function anexoOpciones(m){ const a = m.anexo;
@@ -10842,6 +10873,7 @@ function renderStyle(){
  * TOOLBAR / PESTANAS / ESTADO
  * ======================================================================= */
 const EN = {
+  'Consejos': 'Tips',
   "PLANTA GENERAL": "OVERALL PLAN", "Especiero anexado": "Attached spice rack", "Sin especiero": "No spice rack", "A la izquierda": "On the left", "A la derecha": "On the right", "Ancho del especiero": "Spice rack width", "Ancho de la alacena": "Pantry width", "Volver al de fábrica": "Back to factory size", "1 cara": "1 face", "2 caras (L)": "2 faces (L)", "3 caras (U)": "3 faces (U)", "Todas las puertas de bajos": "All base doors", "Todas las puertas de altos": "All wall doors", "Todos los cajones": "All drawers",
   "Armado del alto": "Wall cabinet build", "Unido en L, un solo gabinete": "Joined in L, one cabinet", "Dos gabinetes con tapeta": "Two cabinets with filler",
   "Junto a la esquina": "Next to the corner", "Gabinete con puerta": "Cabinet with door", "Repisas abiertas": "Open shelves",
@@ -11801,6 +11833,22 @@ const EN = {
   'El isométrico sale con todo cerrado; en la vista Isométrico puedes abrir las puertas y cajones que quieras mostrar.': 'The isometric comes out fully closed; in the Isometric view you can open the doors and drawers you want to show.'
 };
 const EN_T = [
+  ["No va en la esquina interna de una L o U: si su puerta abre hacia ella, déjale al menos {0} de la pared perpendicular.", "Keep it out of the inside corner of an L or U: if its door swings toward it, leave at least {0} from the perpendicular wall."],
+  ["Déjale al menos {0} a una ventana (el sol lo calienta) y {1} a la estufa si son contiguos.", "Leave at least {0} to a window (the sun warms it) and {1} to the range if they are side by side."],
+  ["Necesita aire: de {0} a {1} atrás y {2} arriba, salvo que la ficha del fabricante pida otra cosa.", "It needs air: {0} to {1} behind and {2} above, unless the manufacturer’s spec sheet says otherwise."],
+  ["Deja {0} libres al frente para abrir la puerta y tomar cosas sin estorbar.", "Leave {0} clear in front to open the door and take things out without being in the way."],
+  ["Una torre mide como máximo {0} (el largo del tablero estándar); si necesitas más, se parte en dos muebles superpuestos.", "A tower is at most {0} tall (the length of a standard board); if you need more, split it into two stacked cabinets."],
+  ["Microondas: su centro a {0} del piso (entre {1} y {2}).", "Microwave: its center at {0} from the floor (between {1} and {2})."],
+  ["Horno: su rejilla central a {0} del piso (entre {1} y {2}).", "Oven: its middle rack at {0} from the floor (between {1} and {2})."],
+  ["Horno y microondas piden ventilación; para el microondas, de {0} a {1} a los lados y arriba. Manda la ficha del fabricante.", "The oven and microwave need ventilation; for the microwave, {0} to {1} at the sides and above. The manufacturer’s spec sheet rules."],
+  ["La puerta del esquinero debe medir al menos {0} para que pase la mano con carga.", "The corner cabinet door should be at least {0} wide so a loaded hand fits through."],
+  ["Deja {0} libres al frente; si hay menos, un esquinero ciego suele convenir más.", "Leave {0} clear in front; with less, a blind corner is usually the better choice."],
+  ["Entre el esquinero y el mueble vecino conviene una tira de relleno de {0} a {1} para ajustar en obra.", "Between the corner cabinet and its neighbor, a filler strip of {0} to {1} makes the on-site fit easy."],
+  ["Jaladeras junto a la esquina: {0} entre su centro y el costado del mueble vecino, para que la puerta perpendicular no choque.", "Pulls next to the corner: {0} between their center and the side of the neighboring cabinet, so the perpendicular door does not hit."],
+  ["Si es de gas, evita una ventana abierta detrás o junto a ella: la corriente apaga la llama y el gas sigue saliendo.", "If it is gas, avoid an open window behind or beside it: the draft puts out the flame and the gas keeps flowing."],
+  ["Deja {0} de cubierta a cada lado para apoyar ollas calientes, y {1} o más hasta la tarja.", "Leave {0} of countertop on each side for hot pots, and {1} or more to the sink."],
+  ["Debajo no pongas un cubertero metálico: se calienta por radiación; usa material aislante o deja aire.", "Do not put a metal cutlery tray below it: it heats up by radiation; use insulating material or leave air."],
+  ["Si tiene una tapa de cristal que se levanta, comprueba que no choque con la campana ni con el mueble alto al abrirla.", "If it has a glass lid that lifts, check that it does not hit the hood or the wall cabinet when opened."],
   ["La columna lleva solo la campana: sin el gabinete alto{0}; la chimenea llega al tope.", "This column has the range hood only: no wall cabinet{0}; the chimney runs to the top."],
   ["Compacto ({0})", "Compact ({0})"],
   ["Hueco de {0} del piso a la cubierta; trae su propio zoclo.", "{0} opening from the floor to the countertop; the appliance has its own toe kick, so the cabinet toe kick stops."],
