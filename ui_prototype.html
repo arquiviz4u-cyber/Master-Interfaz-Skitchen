@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A314. [Master hecho 20/10; SketchUp: los componentes siguen como DLB_Tapeta (nombre interno); Revit pendiente (textos del editor)] (usuario
+       20/10: «la tapeta la llamaremos "pieza de ajuste" lateral derecho/izquierdo/superior») En el editor, los avisos, el panel, los
+       materiales y el despiece la tapeta se llama «pieza de ajuste» (izquierda, derecha, superior; «Las dos piezas de ajuste»); las claves
+       internas (tapetaIzq, rol tapeta, grupo de material Tapetas) no cambian.
    A313. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente] (usuario 20/10: «los gabinetes altos al cambiar su funcion de
        inferior+superior deberian cambiar el numero de repisas internas en automatico a 1 sola; manten las 2 repisas inicial como esta») Al
        elegir «Inferior + superior» el gabinete inferior queda con 1 repisa; el alto de fabrica sigue con 2.
@@ -9093,9 +9097,9 @@ const HINTS = {
   plinth: 'Zoclo · clic: altura, retiro y extremos.',
   backsplash: 'Backsplash · clic: altura, espesor y LED.',
   gola: 'Gola · clic: perfil · suelta un material para su acabado.',
-  fillerI: 'Tapeta · clic: activarla y su ancho.',
-  fillerD: 'Tapeta · clic: activarla y su ancho.',
-  fillerTop: 'Tapeta superior · clic: activarla y su altura · doble clic: quitarla.',
+  fillerI: 'Pieza de ajuste izquierda · clic: activarla y su ancho.',
+  fillerD: 'Pieza de ajuste derecha · clic: activarla y su ancho.',
+  fillerTop: 'Pieza de ajuste superior · clic: activarla y su altura · doble clic: quitarla.',   /* A314 */
   wall: 'Muro · clic: altura total y colocación.',
   ucap: 'Módulo superior · clic: la columna · doble clic: tipo, alto, repisas y unir columnas · Supr lo quita.',
   oven: 'Horno · clic: alto, rejilla y microondas.',
@@ -9273,13 +9277,13 @@ canvas.addEventListener('mousemove', e => {
     const tol = prefs.iman ? Math.max(prefs.imanTol || 1.5, 8/frame.scale) : 0; for (const sv of drag.snaps) if (Math.abs(sv - w) <= tol) { w = sv; snapped = true; }
     drag.w = Math.max(drag.mn, Math.min(drag.mx || 200, w)); drag.snapped = snapped || !drag.cg && drag.w === drag.mn; canvas.style.cursor = 'ew-resize'; drawCanvas();   /* A295: con su maximo */
     const gx = frame.X(drag.der ? drag.outer - drag.w : drag.outer + drag.w); ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = drag.snapped ? C.accent : C.muted; ctx.lineWidth = 1.5; line(gx, frame.Z(cfg.alturaMuro), gx, frame.Z(0)); ctx.restore();
-    label((drag.una !== null && Math.abs(drag.w - drag.una) < .01 ? 'Una sola puerta · ' : '') + (drag.cg ? 'Tapeta ' + fmt(Math.max(0, drag.w - drag.mn)) + uS() + ' · ' : '') + (drag.puertaCiego !== undefined ? 'Puerta ' + fmt(drag.w + drag.puertaCiego) + uS() + ' · ' : '') + fmt(drag.w) + uS(), gx + 10, p.y - 16, C.ink); return; }
+    label((drag.una !== null && Math.abs(drag.w - drag.una) < .01 ? 'Una sola puerta · ' : '') + (drag.cg ? 'Pieza de ajuste ' + fmt(Math.max(0, drag.w - drag.mn)) + uS() + ' · ' : '') + (drag.puertaCiego !== undefined ? 'Puerta ' + fmt(drag.w + drag.puertaCiego) + uS() + ' · ' : '') + fmt(drag.w) + uS(), gx + 10, p.y - 16, C.ink); return; }
   if (drag && (drag.kind === 'esqAlto' || drag.kind === 'esqCierre')) {   /* A226 */
     const xc = (p.x - frame.ox)/frame.scale, u = Math.round((drag.der ? drag.outer - xc : xc - drag.outer)*2)/2;
     if (drag.kind === 'esqAlto') drag.w = Math.max(drag.mn, Math.min(drag.mx, u)); else drag.v = Math.max(drag.mn, Math.min(drag.mx, u - drag.base));
     const uu = drag.kind === 'esqAlto' ? drag.w : drag.base + drag.v; canvas.style.cursor = 'ew-resize'; drawCanvas();
     const gx = frame.X(drag.der ? drag.outer - uu : drag.outer + uu); ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = C.accent; ctx.lineWidth = 1.5; line(gx, frame.Z(cfg.alturaMuro), gx, frame.Z(0)); ctx.restore();
-    label(drag.kind === 'esqAlto' ? (drag.rep ? 'Repisero ' + fmt(drag.w - drag.r0) + uS() : 'Alto de la esquina ' + fmt(drag.w) + uS()) : (drag.tapRep ? 'Tapeta ' : 'Cierre ') + fmt(drag.v) + uS(), gx + 10, p.y - 16, C.ink); return; }
+    label(drag.kind === 'esqAlto' ? (drag.rep ? 'Repisero ' + fmt(drag.w - drag.r0) + uS() : 'Alto de la esquina ' + fmt(drag.w) + uS()) : (drag.tapRep ? 'Pieza de ajuste ' : 'Cierre ') + fmt(drag.v) + uS(), gx + 10, p.y - 16, C.ink); return; }
   if (drag && drag.kind === 'box') { drag.x1 = p.x; drag.y1 = p.y; drawCanvas(); return; }
   if (drag && drag.kind === 'guide') {   /* ContextMouseMove de las guias de la isla */
     const k = drag.key, A = cfg.islaAncho, xf = (p.x - frame.X(0))/frame.scale, dist = A - xf;
@@ -9635,7 +9639,7 @@ function esquinaPanel(m){
       h2 += `<div class="note-sm" style="margin-top:8px"><b>Cara ${letraCara(k + s)}${cg ? ', lado ciego' : ''}</b></div>`
         + (cg ? radios('esqLadoCiego', [['repisero', 'Repisero abierto'], ['tapa', 'Tapa ciega']], e.ladoCiego === 'tapa' ? 'tapa' : 'repisero')
           : radios(s ? 'esqRepB' : 'esqRepA', [['tapa', 'Tapa ciega'], ['repisero', 'Repisero abierto']], repiseroEsq(e, s) ? 'repisero' : 'tapa'))
-        + `<div class="grid-2" style="margin-top:6px">${repiseroCiego(e, s) ? num('esqTapRep', 'Tapeta de ajuste', tapetaRepisero(e), 'cm', cfg.region === 'US' ? inch(1) : 2.5, cfg.region === 'US' ? inch(2) : 5) : num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
+        + `<div class="grid-2" style="margin-top:6px">${repiseroCiego(e, s) ? num('esqTapRep', 'Pieza de ajuste', tapetaRepisero(e), 'cm', cfg.region === 'US' ? inch(1) : 2.5, cfg.region === 'US' ? inch(2) : 5) : num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
         + (!cg && repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : ''); });
     if (cg) h2 = `<div class="note-sm">El alto ciego es un gabinete recto en su cara, hasta el muro. El lado ciego cierra con un repisero (tapeta de ajuste junto al frente y el repisero hasta el borde de la columna del bajo) o con una tapa.</div>` + h2;
     if (cg && (e.duena === 1 ? 1 : 0) === sq) { const s = e.duena === 1 ? 1 : 0, d = cierreDef(k);
@@ -9925,7 +9929,7 @@ function partPanel(key){
   if (key.startsWith('backpanel:')) return backPanelHtml(key.slice(10));
   if (EQUIPOS.test(key)) return equipPanel(key);
   if (cfg.isla && (key === 'wall' || key === 'cascada' || key === 'raisedbar' || key === 'cover' || key === 'sink' || key === 'tap')) { const ih = islaPartPanel(key); if (ih) return ih; }
-  const T = { wall: 'Muro y colocación', cover: 'Cubierta', sink: 'Tarja', tap: 'Tarja',   /* A90: la cubierta se titula solo «Cubierta» */ plinth: 'Zoclos', backsplash: 'Backsplash', fillerI: 'Tapeta izquierda', fillerD: 'Tapeta derecha', fillerTop: 'Tapeta superior', gola: 'Franja gola' };
+  const T = { wall: 'Muro y colocación', cover: 'Cubierta', sink: 'Tarja', tap: 'Tarja',   /* A90: la cubierta se titula solo «Cubierta» */ plinth: 'Zoclos', backsplash: 'Backsplash', fillerI: 'Pieza de ajuste izquierda', fillerD: 'Pieza de ajuste derecha', fillerTop: 'Pieza de ajuste superior', gola: 'Franja gola' };
   let html = head(T[key], null);
   if (key === 'wall') {
     if (cfg.closet) html += section('Iluminación', chk('closetLed', !!cfg.closetLed, 'LED bajo las repisas') + (cfg.closetLed ? posicionLedHTML('mueble') + tonoLuzHTML() : '')
@@ -9955,16 +9959,16 @@ function partPanel(key){
     html += section('Iluminación', chk('led', cfg.led, 'Iluminación LED bajo gabinetes altos') + (cfg.led ? posicionLedHTML('gabinete') + tonoLuzHTML() : ''));
   } else if (key === 'fillerI' || key === 'fillerD') {
     const L = key === 'fillerI', on = L ? cfg.tapetaIzq : cfg.tapetaDer, w = L ? ajusteIzq() : ajusteDer();
-    html += section('Tapeta', chk(L ? 'tapI' : 'tapD', on, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num(L ? 'tapIW' : 'tapDW', 'Ancho', Math.max(1, w), 'cm', 1, 35)}</div>`
+    html += section('Pieza de ajuste', chk(L ? 'tapI' : 'tapD', on, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num(L ? 'tapIW' : 'tapDW', 'Ancho', Math.max(1, w), 'cm', 1, 35)}</div>`
       + `<div class="info-card" style="margin-top:10px"><div class="info-row">Ancho final <b>${fmt(w)}${uS()}</b></div></div>`
       + (cfg.closet ? '' : chk('corridas', L ? cfg.corridaIzq : cfg.corridaDer, 'Lateral piso a techo'))
       + chk('tapCerr', L ? !!cfg.cerrarTapetaIzq : !!cfg.cerrarTapetaDer, 'Cerrar extremo')   /* A310 */
       + `<div class="note-sm">El sobrante decimal se absorbe en las tapetas activas. Se arma con la tira al paño de los frentes (${fmt(espFrente())}${uS()}) y un regreso de ${fmt(reg().tapetaRegreso)}${uS()} detrás, atornillado al gabinete; «Cerrar extremo» agrega el costado cuando el extremo queda libre (sin muro).</div>`);
     /* A89: base y tope de las dos tapetas (por cocina) */
-    if (!cfg.isla) html += section('Las dos tapetas', `<div class="grid-2">${num('tapBase', 'Ancho base', Math.min(cfg.reservaIzq, cfg.reservaDer), 'cm', 1, 15)}${num('tapTope', 'Ancho máximo', cfg.topeTapeta || reg().tapetaMax, 'cm', 1, 20)}</div>`
+    if (!cfg.isla) html += section('Las dos piezas de ajuste', `<div class="grid-2">${num('tapBase', 'Ancho base', Math.min(cfg.reservaIzq, cfg.reservaDer), 'cm', 1, 15)}${num('tapTope', 'Ancho máximo', cfg.topeTapeta || reg().tapetaMax, 'cm', 1, 20)}</div>`
       + `<div class="note-sm">Gabinetes automáticos iguales, en cm enteros: lo que sobra o falta lo toman o lo ceden las piezas de ajuste (hasta su máximo y sin bajar de ${medida(reg().tapetaMin)}).</div>`);   /* A311 */
   } else if (key === 'fillerTop') {
-    html += section('Tapeta', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`
+    html += section('Pieza de ajuste', chk('tapS', cfg.tapetaSuperior, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num('tapSH', 'Altura', cfg.alturaTapetaSuperior, 'cm', 2, 30)}</div>`
       + (cfg.tapetaSuperior && cfg.style === 'Clasica' ? chk('tapSMol', molduraTs(), 'Moldura (corona)') : '')
       + (molduraTs() ? chk('tapSLis', cfg.listonTapeta, 'Listón de fijación 1x2') : '')
       + (cfg.tapetaSuperior ? chk('tapSCI', cfg.cerrarMolduraIzq, 'Cerrar el lateral izquierdo (hasta el muro)') + chk('tapSCD', cfg.cerrarMolduraDer, 'Cerrar el lateral derecho (hasta el muro)') : '')   /* A254: toda tapeta superior */
@@ -11101,7 +11105,7 @@ const EN = {
   'Muro y colocación': 'Wall and placement',
   'Cubierta y tarja': 'Countertop and sink',
   'Zoclos': 'Toe kicks',
-  'Tapeta izquierda': 'Left filler',
+  'Tapeta izquierda': 'Left filler', 'Pieza de ajuste izquierda': 'Left filler', 'Pieza de ajuste derecha': 'Right filler', 'Pieza de ajuste superior': 'Top filler', 'Pieza de ajuste': 'Filler', 'Piezas de ajuste': 'Fillers', 'Piezas de ajuste laterales': 'Side fillers', 'Las dos piezas de ajuste': 'Both fillers',
   'Tapeta derecha': 'Right filler',
   'Franja gola': 'Gola strip',
   'Base altos': 'Wall cabinet bottom',
@@ -11726,7 +11730,7 @@ function renderPrefs(){
       + `<div class="grid-2" style="margin-top:10px">${select('cotaTexto', [[10, 'Pequeño'], [11.5, 'Normal'], [13, 'Grande']], P.cotaTexto, 'Tamaño del texto')}${select('cotaUnidad', [['totales', 'Solo en las totales'], ['todas', 'En todas'], ['ninguna', 'En ninguna']], P.cotaUnidad, 'Unidad en las cotas')}</div>`
       + `<label class="field" style="margin-top:10px"><span>Color</span></label>` + radio('cotaColor', [['producto', 'Color del producto'], ['negro', 'Negro']], P.cotaColor))}
     ${section('Valores de inicio', `<div class="note-sm" style="margin-top:0;margin-bottom:8px">Cada cocina, isla o closet nuevo arranca con estas medidas.</div>`
-      + `<div class="grid-2">${len('inicio.alturaMuro', 'Altura de muro', I.alturaMuro)}${len('inicio.baseBajos', 'Zoclo', I.baseBajos)}${len('inicio.altoBajos', 'Alto de bajos', I.altoBajos)}${len('inicio.espesorCubierta', 'Espesor de cubierta', I.espesorCubierta)}${len('inicio.separacionAltos', 'Libre sobre cubierta', I.separacionAltos)}${len('inicio.tapeta', 'Tapetas laterales', I.tapeta)}${len('inicio.fondoBajos', 'Fondo de bajos', I.fondoBajos)}${len('inicio.fondoAltos', 'Fondo de altos', I.fondoAltos)}${len('inicio.separacionFrentes', 'Separación entre frentes', I.separacionFrentes)}${len('inicio.espesorFrente', 'Espesor de frentes', I.espesorFrente)}${len('inicio.espesorFondo', 'Espesor de fondos', I.espesorFondo > 0 ? I.espesorFondo : P.region === 'US' ? inch(.5) : PLAN_CUERPO.fondo)}</div>`
+      + `<div class="grid-2">${len('inicio.alturaMuro', 'Altura de muro', I.alturaMuro)}${len('inicio.baseBajos', 'Zoclo', I.baseBajos)}${len('inicio.altoBajos', 'Alto de bajos', I.altoBajos)}${len('inicio.espesorCubierta', 'Espesor de cubierta', I.espesorCubierta)}${len('inicio.separacionAltos', 'Libre sobre cubierta', I.separacionAltos)}${len('inicio.tapeta', 'Piezas de ajuste laterales', I.tapeta)}${len('inicio.fondoBajos', 'Fondo de bajos', I.fondoBajos)}${len('inicio.fondoAltos', 'Fondo de altos', I.fondoAltos)}${len('inicio.separacionFrentes', 'Separación entre frentes', I.separacionFrentes)}${len('inicio.espesorFrente', 'Espesor de frentes', I.espesorFrente)}${len('inicio.espesorFondo', 'Espesor de fondos', I.espesorFondo > 0 ? I.espesorFondo : P.region === 'US' ? inch(.5) : PLAN_CUERPO.fondo)}</div>`
       + `<div class="note-sm">Fondos (traseras) de los gabinetes, de 3 a 19 mm. Con «Taquetes por el fondo» los altos llevan su fondo de 18 mm.</div>`
       + `<div class="grid-2" style="margin-top:10px">${select('inicio.fijacionAltos', FIJACIONES, I.fijacionAltos || 'taquetes', 'Fijación de los altos')}</div>`
       + `<div class="grid-2" style="margin-top:10px">${select('inicio.style', [['Moderna', 'Moderna'], ['Clasica', 'Clásica'], ['Simple', 'Simple']], I.style, 'Estilo de frentes')}${select('inicio.materialGeneral', mats, I.materialGeneral || '', 'Material general')}</div>`
@@ -12621,7 +12625,7 @@ const LAM = (() => {
     const info = id => { const m = (pl.materiales || []).find(q => q.id === id); if (m) return { nombre: m.nombre, rgb: m.rgb };
       const d = typeof PREDETERMINADOS === 'object' && PREDETERMINADOS[id]; return d ? { nombre: d.nombre, rgb: d.rgb } : { nombre: id, rgb: [200, 200, 200] }; };
     /* A186: cada muestra lleva el elemento y el material aplicado («Frente · Roble claro»); con el material por defecto, solo el elemento */
-    const ELEM = { gabinetes: 'Cuerpo', frentes: 'Frente', zoclo: 'Zoclo', cubierta: 'Cubierta', backsplash: 'Backsplash', tapetas: 'Tapeta', tapeta: 'Tapeta' }, ORDEN = ['Cuerpo', 'Frente', 'Gola', 'Zoclo', 'Cubierta', 'Backsplash', 'Tapeta'];
+    const ELEM = { gabinetes: 'Cuerpo', frentes: 'Frente', zoclo: 'Zoclo', cubierta: 'Cubierta', backsplash: 'Backsplash', tapetas: 'Pieza de ajuste', tapeta: 'Pieza de ajuste' }, ORDEN = ['Cuerpo', 'Frente', 'Gola', 'Zoclo', 'Cubierta', 'Backsplash', 'Pieza de ajuste'];   /* A314 */
     const vistos = new Map();
     piezas.forEach(p => { if (!p.material) return; const el = ELEM[p.etiqueta] || (/^DEF_GOLA$/.test(p.material) || p.tipo === 'Gola' || p.tipo === 'Perfil' ? 'Gola' : null); if (!el) return;
       const k = el + '|' + p.material; if (!vistos.has(k)) vistos.set(k, { el, id: p.material }); });
@@ -12929,7 +12933,7 @@ const LAM = (() => {
   function agruparDespiece(fr, tap){
     const gr = new Map();
     fr.forEach(p => { const k = `f${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = gr.get(k) || { p, w: p.ancho, h: p.alto, e: p.fondo, n: 0, ps: [] }; q.n++; q.ps.push(p); gr.set(k, q); });
-    tap.forEach(p => { const k = `t${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}x${Math.round(p.fondo * 10)}`; const q = gr.get(k) || { p, w: p.ancho, h: p.alto, e: p.fondo, n: 0, nom: T('Tapeta'), ps: [] }; q.n++; q.ps.push(p); gr.set(k, q); });
+    tap.forEach(p => { const k = `t${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}x${Math.round(p.fondo * 10)}`; const q = gr.get(k) || { p, w: p.ancho, h: p.alto, e: p.fondo, n: 0, nom: T('Pieza de ajuste'), ps: [] }; q.n++; q.ps.push(p); gr.set(k, q); });
     return [...gr.values()].sort((a, b) => b.h - a.h || b.w - a.w);
   }
   function mapaTonos(o){
@@ -14514,8 +14518,8 @@ const LAM = (() => {
   /* ---- hojas de detalle por unidad (A176): cada gabinete distinto con sus piezas, medida de corte, espesor y cantidad ---- */
   const NOM_PIEZA = { PotFiller: 'Potfiller', Liston: 'Listón de fijación 1x2', Moldura: 'Moldura (corona)', Lateral: 'Lateral', Trasero: 'Trasera', Piso: 'Piso', Techo: 'Techo', Faja: 'Faja', FajaAnclaje: 'Faja de anclaje', Repisa: 'Repisa', Cama: 'Cama',
     CamaInterior: 'Cama interior', Puerta: 'Frente de puerta', Cajon: 'Frente de cajón', Losa: 'Cubierta', Frente: 'Zoclo (frente)', Larguero: 'Zoclo (larguero)',
-    Travesano: 'Zoclo (travesaño)', Division: 'División', Backsplash: 'Backsplash', Tapeta: 'Tapeta' };
-  const NOM_ROL = { backsplash: 'Backsplash', tapeta: 'Tapeta', zoclo: 'Zoclo', cubierta: 'Cubierta', panel: 'Panel', frente: 'Frente', repisa: 'Repisa', division: 'División' };
+    Travesano: 'Zoclo (travesaño)', Division: 'División', Backsplash: 'Backsplash', Tapeta: 'Pieza de ajuste' };
+  const NOM_ROL = { backsplash: 'Backsplash', tapeta: 'Pieza de ajuste', zoclo: 'Zoclo', cubierta: 'Cubierta', panel: 'Panel', frente: 'Frente', repisa: 'Repisa', division: 'División' };
   const NOM_HERRAJE = { Bisagra: 'Bisagras', Corredera: 'Correderas (juegos)', Jaladera: 'Jaladeras', Boton: 'Botones', Piston: 'Pistones', Gola: 'Perfil de gola', Perfil: 'Perfil de gola' };
   function detalleUnidades(L){
     let pl; try { pl = planCocina(); } catch (e) { return []; }
@@ -15400,7 +15404,7 @@ function promptLineas(){
     `Largo del tramo: ${fmt(cfg.longitud)}${uS()}; altura del muro: ${fmt(cfg.alturaMuro)}${uS()}.`, `Estilo de frentes: ${estilo}.`];
   if (prefs.exportPrompt.trim()) lines.splice(0, 1, prefs.exportPrompt.trim());   /* texto base propio (Ajustes) */
   if (cfg.materialGeneral) lines.push(`Gabinetes: ${nm(cfg.materialGeneral)}.`);
-  [['Cubierta', 'Cubierta'], ['Backsplash', 'Backsplash'], ['Zoclo', 'Zoclo'], ['Tapetas', 'Tapetas'], ['Repisas', 'Repisas'], ['Interior', 'Interior de gabinetes abiertos']]
+  [['Cubierta', 'Cubierta'], ['Backsplash', 'Backsplash'], ['Zoclo', 'Zoclo'], ['Tapetas', 'Piezas de ajuste'], ['Repisas', 'Repisas'], ['Interior', 'Interior de gabinetes abiertos']]
     .forEach(([k, t]) => { if (cfg.materiales[k]) lines.push(`${t}: ${nm(cfg.materiales[k])}.`); });
   if (cfg.modulos.some(m => m.material)) lines.push('Algunos gabinetes llevan un material distinto: respeta los colores del dibujo.');
   return lines;
