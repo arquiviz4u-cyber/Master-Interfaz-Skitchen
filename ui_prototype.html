@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A318. [Master hecho 20/10; SketchUp: sin cambio (Presentar es del master); Revit pendiente (Presentar)] (usuario 20/10: «¿podriamos tener
+       otras dos opciones de marco en hojas? adjunto captura del otro estilo de pie de plano: puede ser en formato vertical y horizontal»)
+       «Estilo del pie» en «Pie de lamina» (rotulo.estiloPie, vale para todas): Franja a la derecha (la de siempre); Franja vertical gris (como
+       la captura: logo en un circulo, el proyecto en grande girado, los datos en columna, herrajes, notas numeradas, nota general y la clave
+       abajo); Banda horizontal abajo (logo | notas y herrajes | datos en 4 x 2 | clave). hojaDe(papel, estilo) da franja y pie, y celdas,
+       empaque y limitesHoja usan el area que queda; los datos siguen editables con clic y el logo se arrastra (A317).
    A317. [Master hecho 20/10; SketchUp: sin cambio (Presentar es del master); Revit pendiente (Presentar)] (usuario 20/10: «las notas que
        aparecen en el pie de plano deberian distinguirse visualmente para que no se sientan como un texto generico; opcion de cambiar la clave
        de plano y estas se actualicen automaticamente con la logica de la clave; opcion de reacomodar logo en pie de plano (se actualiza en
@@ -11984,8 +11990,14 @@ const LAM = (() => {
   /* papel (A172, apaisado, mm): serie ISO y los de uso en EE. UU. (Tabloide y ARCH D). k escala margen, franja y texto respecto de A3 */
   const PAPELES = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594], Tabloid: [431.8, 279.4], ArchD: [914.4, 609.6] };
   const PAPEL_TXT = { A4: 'A4 (297 × 210 mm)', A3: 'A3 (420 × 297 mm)', A2: 'A2 (594 × 420 mm)', A1: 'A1 (841 × 594 mm)', Tabloid: 'Tabloide 11 × 17 in', ArchD: 'ARCH D 24 × 36 in' };
-  const hojaDe = nombre => { const ok = nombre in PAPELES, [w, h] = PAPELES[ok ? nombre : 'A3'], k = Math.max(.75, Math.min(2, Math.sqrt(w * h / (420 * 297))));
-    return { nombre: ok ? nombre : 'A3', ancho: w, alto: h, k, margen: Math.round(10 * Math.max(.8, Math.min(1.5, k))), rotulo: Math.round(28 * k), franja: Math.round(54 * k) }; };
+  /* A318 (usuario 20/10: «¿podriamos tener otras dos opciones de marco en hojas? otro estilo de pie de plano (captura): puede ser en formato
+     vertical y horizontal»): estilo 'clasico' (la franja de siempre), 'vertical' (franja gris angosta: logo en circulo, proyecto en grande
+     girado, datos y hoja) u 'horizontal' (banda abajo a todo el ancho). franja: ancho del pie a la derecha; pie: alto del pie abajo */
+  const ESTILOS_PIE = [['clasico', 'Franja a la derecha'], ['vertical', 'Franja vertical gris (proyecto girado)'], ['horizontal', 'Banda horizontal abajo']];
+  const hojaDe = (nombre, estilo = 'clasico') => { const ok = nombre in PAPELES, [w, h] = PAPELES[ok ? nombre : 'A3'], k = Math.max(.75, Math.min(2, Math.sqrt(w * h / (420 * 297))));
+    const es = ['vertical', 'horizontal'].includes(estilo) ? estilo : 'clasico';
+    return { nombre: ok ? nombre : 'A3', ancho: w, alto: h, k, margen: Math.round(10 * Math.max(.8, Math.min(1.5, k))), rotulo: Math.round(28 * k), estilo: es,
+      franja: es === 'horizontal' ? 0 : Math.round((es === 'vertical' ? 44 : 54) * k), pie: es === 'horizontal' ? Math.round(32 * k) : 0 }; };
   let HOJA = hojaDe('A3');   /* la hoja en uso: generar() la cambia mientras arma los archivos */
   const VISTAS = [['AlzadoPuertas', 'Alzado con frentes'], ['AlzadoInterior', 'Alzado sin puertas'], ['Planta', 'Planta'], ['Corte', 'Corte'], ['Isometrico', 'Isométrico']];
   const NOTA = ['Medidas de referencia para fabricación, generadas con {0}. Verifique en obra antes de cortar.',
@@ -13514,7 +13526,7 @@ const LAM = (() => {
   const cuadricula = nv => nv <= 1 ? [1, 1] : nv === 2 ? [2, 1] : nv <= 4 ? [2, 2] : [3, 2];
   function celdas(nv){
     const H = HOJA, [cols, filas] = cuadricula(nv), m = H.margen, g = 4 * H.k, tit = 9 * H.k, pad = 3 * H.k;
-    const w = H.ancho - 2 * m - H.franja - g, h = H.alto - 2 * m, cw = (w - (cols - 1) * g) / cols, ch = (h - (filas - 1) * g) / filas;
+    const w = H.ancho - 2 * m - (H.franja ? H.franja + g : 0), h = H.alto - 2 * m - (H.pie ? H.pie + g : 0), cw = (w - (cols - 1) * g) / cols, ch = (h - (filas - 1) * g) / filas;   /* A318 */
     const libres = cols * filas - nv;   /* celdas sin vista al final: las ocupa la ultima vista (el isometrico crece) */
     return Array.from({ length: nv > 0 ? nv : 1 }, (_, i) => { const c = i % cols, f = Math.floor(i / cols), extra = i === nv - 1 ? libres : 0, w2 = cw + extra * (cw + g);
       return { x: m + c * (cw + g), y: m + f * (ch + g), w: w2, h: ch, tit, pad, caja: { w: w2 - 2 * pad, h: ch - 2 * pad - tit } }; });
@@ -13680,7 +13692,7 @@ const LAM = (() => {
   /* A194: acomodo por columnas (de arriba hacia abajo); sirve cuando las filas dejan demasiado hueco */
   function empacarCols(items){
     const H = HOJA, k = H.k, m = H.margen, g = 3 * k, tit = 8.4 * k, pad = 2.2 * k;
-    const W = H.ancho - 2 * m - H.franja - g, Hh = H.alto - 2 * m;
+    const W = H.ancho - 2 * m - (H.franja ? H.franja + g : 0), Hh = H.alto - 2 * m - (H.pie ? H.pie + g : 0);   /* A318 */
     const cs = items.map(it => { const bb = it.bbEf || (it.it && it.it.bbEf) || it.cap.bb, vv = it.it ? it.it.vista : it.vista, mw = (vv && ES_CONJUNTO(vv) && vv !== 'ConjTitulo' ? 64 : 50) * k;
       return { it, w: Math.max(mw, bb.w * PX_MM + 2 * pad), h: bb.h * PX_MM + 2 * pad + tit }; });
     if (cs.some(c => c.w > W + .01 || c.h > Hh + .01)) return null;
@@ -13697,7 +13709,7 @@ const LAM = (() => {
   }
   function empacar(items){
     const H = HOJA, k = H.k, m = H.margen, g = 3 * k, tit = 8.4 * k, pad = 2.2 * k;   /* A192: marcos al minimo legible */
-    const W = H.ancho - 2 * m - H.franja - g, Hh = H.alto - 2 * m;
+    const W = H.ancho - 2 * m - (H.franja ? H.franja + g : 0), Hh = H.alto - 2 * m - (H.pie ? H.pie + g : 0);   /* A318 */
     const cs = items.map(it => { const bb = it.bbEf || (it.it && it.it.bbEf) || it.cap.bb, vv = it.it ? it.it.vista : it.vista, mw = (vv && ES_CONJUNTO(vv) && vv !== 'ConjTitulo' ? 64 : 50) * k;   /* A194: el ancho minimo es el mismo que usa medirItem (antes las vistas de conjunto se solapaban) */
       return { it, w: Math.max(mw, bb.w * PX_MM + 2 * pad), h: bb.h * PX_MM + 2 * pad + tit }; });   /* A178: con la isla de la planta */
     if (cs.some(c => c.w > W + .01 || c.h > Hh + .01)) return null;
@@ -13751,6 +13763,7 @@ const LAM = (() => {
       if (esc2) t(esc2, c.x + c.w - c.pad - anchoHelv(esc2, 2.6 * k) + te.dx, yT + te.dy, 2.6 * k, false, '#555555');
 
     });
+    if (H.estilo === 'vertical' || H.estilo === 'horizontal') { pieNuevo(S, d, H, corta, parrafo); return; }   /* A318 */
     /* marco y franja de rotulo */
     const x0 = H.ancho - H.margen - H.franja, y0 = H.margen, w = H.franja, h = H.alto - 2 * H.margen, pad = 3.6 * k, ancho = w - 2 * pad;
     S.rc(H.margen, H.margen, H.ancho - 2 * H.margen, h, .5, null);
@@ -13791,6 +13804,56 @@ const LAM = (() => {
     t(T(d.hojaDe ? 'CLAVE' : 'HOJA'), x0 + pad, fin + 6 * k, 2.2 * k, false, '#6B7680'); if (d.hojaDe) t(d.hojaDe, x0 + w - pad - anchoHelv(d.hojaDe, 2.2 * k), fin + 6 * k, 2.2 * k, false, '#6B7680');   /* A317 */
     t(corta(d.hoja, ancho, 9.5 * k, true), x0 + pad, fin + 15.5 * k, 9.5 * k, true); if (S.campo) S.campo('clave', x0, fin, w, 21 * k, d.hoja);
   }
+  /* A318: los pies 'vertical' y 'horizontal'. Mismos datos que la franja clasica: logo (movible, A317), campos editables, herrajes, notas
+     numeradas, nota general y clave de la hoja */
+  function pieNuevo(S, d, H, corta, parrafo){
+    const k = H.k, t = S.t, ln = S.ln, m = H.margen, campo = (c, x, y, w, h, v) => { if (S.campo) S.campo(c, x, y, w, h, v); };
+    const val = c => ((d.campos.find(q => q[2] === c) || [])[1]) || '';
+    const notaGeneral = `${versionBeta ? T(NOTA_BETA) + ' ' : ''}${T(NOTA[0]).replace('{0}', prodNombre() + ' by Drawlibri')} ${T(NOTA[1])}`;
+    const marca = () => { const nom = prodNombre(), cut = /^drawdrobe$/i.test(nom) ? 4 : Math.min(4, nom.length); return { a: nom.slice(0, cut), b: nom.slice(cut), col: /^drawdrobe$/i.test(nom) ? '#5B3FA0' : '#266096' }; };
+    const logoEn = (cx, cy, wMax, hMax) => { if (d.logo && S.img) { const lp = d.logoPos || { dx: 0, dy: 0, esc: 1 }, r = Math.min(wMax / d.logo.w, hMax / d.logo.h) * lp.esc, lw = d.logo.w * r, lh = d.logo.h * r, lx = cx - lw / 2 + lp.dx, ly = cy - lh / 2 + lp.dy;
+        S.img(d.logo, lx, ly, lw, lh); if (S.logo) S.logo(lx, ly, lw, lh); return; }
+      const mk = marca(), tam = Math.min(6.4 * k, hMax * .5), wa = anchoHelv(mk.a, tam, true), wb = anchoHelv(mk.b, tam, false), x = cx - (wa + wb) / 2;
+      t(mk.a, x, cy + tam * .2, tam, true, mk.col); t(mk.b, x + wa, cy + tam * .2, tam, false, '#13212B'); const by = 'by Drawlibri'; t(by, cx - anchoHelv(by, 2.4 * k) / 2, cy + tam * .2 + 3.6 * k, 2.4 * k, false, '#6B7680'); };
+    const notas = (x, y, ancho, fin, tam) => { if (!(d.notas && d.notas.length)) return y; t(T('NOTAS DEL PROYECTO'), x, y + tam * 1.4, tam * .95, true, '#444444'); y += tam * 2.6;
+      d.notas.forEach(q => { if (y + tam * 1.5 > fin) return; const rN = tam * .78, ns = String(q.n);
+        if (S.circ) { S.circ(x + rN, y + rN, rN, '#266096'); t(ns, x + rN - anchoHelv(ns, tam * .9, true) / 2, y + rN + tam * .32, tam * .9, true, '#FFFFFF'); }
+        parrafo(q.texto, ancho - rN * 2 - tam * .8, tam).forEach(l => { if (y + tam * 1.5 > fin) return; t(l, x + rN * 2 + tam * .8, y + tam * 1.1, tam, false, '#13212B'); y += tam * 1.5; }); y += tam * .6; });
+      return y; };
+    const herrajes = (x, y, ancho, fin, tam) => { if (!d.herrajes.length) return y; t(T('HERRAJES'), x, y + tam * 1.4, tam * .95, true, '#444444'); y += tam * 2.4;
+      d.herrajes.forEach(([nom, c]) => { if (y + tam * 1.6 > fin) return; t(corta(T(nom), ancho - 6 * k, tam, false), x, y + tam, tam, false); const q = String(c); t(q, x + ancho - anchoHelv(q, tam, true), y + tam, tam, true); y += tam * 1.6; }); return y; };
+    const general = (x, y, ancho, fin, tam) => { const ls = parrafo(notaGeneral, ancho - 2 * k, tam), hB = tam * 3 + ls.length * tam * 1.4; if (y + hB > fin) return y;
+      S.rc(x - k, y, ancho + 2 * k, hB, 0, '#FFFFFF'); t(T('NOTA GENERAL'), x, y + tam * 1.7, tam * .95, true, '#6B7680'); let yy = y + tam * 2.7; ls.forEach(l => { t(l, x, yy + tam * .3, tam, false, '#6B7680'); yy += tam * 1.4; }); return y + hB; };
+    S.rc(m, m, H.ancho - 2 * m, H.alto - 2 * m, .5, null);   /* el marco */
+    if (H.estilo === 'vertical') {
+      const x0 = H.ancho - m - H.franja, y0 = m, w = H.franja, h = H.alto - 2 * m, pad = 3 * k, ancho = w - 2 * pad, cx = x0 + w / 2;
+      S.rc(x0, y0, w, h, 0, '#ECEEF0'); ln(x0, y0, x0, y0 + h, .35);
+      const R = Math.min(ancho / 2, 15 * k), cy = y0 + pad + R; if (S.circ) S.circ(cx, cy, R, '#FFFFFF', '#9AA3AB', .3); logoEn(cx, cy, R * 1.45, R * 1.05);
+      let y = cy + R + 4 * k; const hT = Math.min(72 * k, h * .3);
+      if (S.tv) { S.tv(T('PROYECTO'), x0 + pad + 2.4 * k, y + hT, 2.2 * k, true, '#6B7680'); S.tv(corta(val('proyecto') || '—', hT, 7.2 * k, false), x0 + pad + 11 * k, y + hT, 7.2 * k, false, val('proyecto') ? '#13212B' : '#9AA3AB'); }
+      campo('proyecto', x0, y, w, hT); y += hT + 3 * k; ln(x0 + pad, y, x0 + w - pad, y, .25, '#9AA3AB'); y += 1.5 * k;
+      d.campos.filter(c => c[2] !== 'proyecto').forEach(([etq, v, clave]) => { campo(clave, x0, y, w, 9 * k); t(T(etq), x0 + pad, y + 3.4 * k, 1.8 * k, true, '#6B7680');
+        t(corta(v || '—', ancho, 2.8 * k, false), x0 + pad, y + 7.4 * k, 2.8 * k, false, v ? '#000000' : '#9AA3AB'); y += 9.2 * k; });
+      const fin = y0 + h - 24 * k; y += 2 * k; y = herrajes(x0 + pad, y, ancho, fin, 2.1 * k); y = notas(x0 + pad, y + 1.5 * k, ancho, fin, 2.1 * k); general(x0 + pad, y + 1.5 * k, ancho, fin, 1.8 * k);
+      ln(x0 + pad, fin, x0 + w - pad, fin, .3); t(T(d.hojaDe ? 'CLAVE' : 'HOJA'), x0 + pad, fin + 5.6 * k, 2 * k, true, '#6B7680'); if (d.hojaDe) t(d.hojaDe, x0 + w - pad - anchoHelv(d.hojaDe, 2 * k), fin + 5.6 * k, 2 * k, false, '#6B7680');
+      t(corta(d.hoja, ancho, 9.5 * k, true), x0 + pad, fin + 17 * k, 9.5 * k, true); campo('clave', x0, fin, w, 24 * k, d.hoja); return; }
+    /* horizontal: [logo | notas y herrajes | 4 x 2 datos | hoja] */
+    const xL = m, hB = H.pie, yB = H.alto - m - hB, W = H.ancho - 2 * m, pad = 2.6 * k, cLogo = 46 * k, cHoja = 36 * k, cDat = Math.min(150 * k, W * .42), cNot = W - cLogo - cHoja - cDat;
+    S.rc(xL, yB, W, hB, 0, '#F4F5F7'); ln(xL, yB, xL + W, yB, .35);
+    const xN = xL + cLogo, xD = xN + cNot, xH = xD + cDat; [xN, xD, xH].forEach(x => ln(x, yB, x, yB + hB, .25, '#9AA3AB'));
+    logoEn(xL + cLogo / 2, yB + hB / 2, cLogo - 2 * pad, hB - 2 * pad);
+    { const conH = d.herrajes.length > 0, wN = conH ? cNot * .62 : cNot - 2 * pad, fin = yB + hB - pad;
+      let y = notas(xN + pad, yB + pad * .6, wN - pad, fin, 1.9 * k); if (!conH) general(xN + pad, y + k, wN - pad, fin, 1.7 * k);
+      if (conH) { const xh = xN + cNot * .62; ln(xh, yB + pad, xh, yB + hB - pad, .15, '#C5CBD1'); const yy = herrajes(xh + pad, yB + pad * .6, cNot * .38 - 2 * pad, fin, 1.9 * k); general(xh + pad, yy + k, cNot * .38 - 2 * pad, fin, 1.6 * k); } }
+    const celdasD = [['proyecto', 2], ['cliente', 1], ['autor', 1], ['fecha', 1], ['dibujo', 1], ['escala', 1], ['revision', 1]], cw = cDat / 4, rh = hB / 2;
+    let col = 0, fila = 0; celdasD.forEach(([clave, span]) => { if (col + span > 4) { col = 0; fila++; } const c = d.campos.find(q => q[2] === clave) || ['', '', clave];
+      const x = xD + col * cw, y = yB + fila * rh, ww = cw * span; if (col > 0) ln(x, y + 1.5 * k, x, y + rh - 1.5 * k, .12, '#C5CBD1');
+      campo(clave, x, y, ww, rh); t(T(c[0]), x + pad, y + 4.2 * k, 1.8 * k, true, '#6B7680'); t(corta(c[1] || '—', ww - 2 * pad, clave === 'proyecto' ? 4 * k : 2.9 * k, clave === 'proyecto'), x + pad, y + rh - 3.6 * k, clave === 'proyecto' ? 4 * k : 2.9 * k, clave === 'proyecto', c[1] ? '#000000' : '#9AA3AB');
+      col += span; });
+    ln(xD + pad, yB + rh, xD + cDat - pad, yB + rh, .12, '#C5CBD1');
+    t(T(d.hojaDe ? 'CLAVE' : 'HOJA'), xH + pad, yB + 5 * k, 2 * k, true, '#6B7680'); if (d.hojaDe) t(d.hojaDe, xH + pad, yB + hB - 3 * k, 2 * k, false, '#6B7680');
+    t(corta(d.hoja, cHoja - 2 * pad, 9 * k, true), xH + pad, yB + hB / 2 + 4.6 * k, 9 * k, true); campo('clave', xH, yB, cHoja, hB, d.hoja);
+  }
   function paginaComposicionPdf(pag, alfas){
     const Hh = HOJA.alto, out = [];
     const S = {
@@ -13801,8 +13864,9 @@ const LAM = (() => {
         if (relleno) out.push(`q ${col(relleno, 'rg')} ${f2(x)} ${f2(yb)} ${f2(w)} ${f2(h)} re f Q`);
         if (lw > .02) out.push(`q ${f2(lw)} w 0 G ${f2(x)} ${f2(yb)} ${f2(w)} ${f2(h)} re S Q`); },
       img: (lg, x, y, w, h) => out.push(`q ${f2(w)} 0 0 ${f2(h)} ${f2(x)} ${f2(Hh - (y + h))} cm /Im1 Do Q`),
-      circ: (cx, cy, r, relleno) => { const c = .5523 * r, X0 = cx, Y0 = Hh - cy;   /* A317: circulo con cuatro curvas */
-        out.push(`q ${col(relleno, 'rg')} ${f2(X0 + r)} ${f2(Y0)} m ${f2(X0 + r)} ${f2(Y0 + c)} ${f2(X0 + c)} ${f2(Y0 + r)} ${f2(X0)} ${f2(Y0 + r)} c ${f2(X0 - c)} ${f2(Y0 + r)} ${f2(X0 - r)} ${f2(Y0 + c)} ${f2(X0 - r)} ${f2(Y0)} c ${f2(X0 - r)} ${f2(Y0 - c)} ${f2(X0 - c)} ${f2(Y0 - r)} ${f2(X0)} ${f2(Y0 - r)} c ${f2(X0 + c)} ${f2(Y0 - r)} ${f2(X0 + r)} ${f2(Y0 - c)} ${f2(X0 + r)} ${f2(Y0)} c f Q`); }
+      tv: (s2, x, y, tam, neg, color = '#000000') => out.push(`q ${col(color, 'rg')} BT /${neg ? 'F2' : 'F1'} ${f2(tam)} Tf 0 1 -1 0 ${f2(x)} ${f2(Hh - y)} Tm (${lit(s2)}) Tj ET Q`),   /* A318: texto girado 90 grados (de abajo arriba) */
+      circ: (cx, cy, r, relleno, borde, lw = .3) => { const c = .5523 * r, X0 = cx, Y0 = Hh - cy;   /* A317: circulo con cuatro curvas; A318: con borde */
+        out.push(`q ${col(relleno, 'rg')} ${borde ? col(borde, 'RG') + ' ' + f2(lw) + ' w ' : ''}${f2(X0 + r)} ${f2(Y0)} m ${f2(X0 + r)} ${f2(Y0 + c)} ${f2(X0 + c)} ${f2(Y0 + r)} ${f2(X0)} ${f2(Y0 + r)} c ${f2(X0 - c)} ${f2(Y0 + r)} ${f2(X0 - r)} ${f2(Y0 + c)} ${f2(X0 - r)} ${f2(Y0)} c ${f2(X0 - r)} ${f2(Y0 - c)} ${f2(X0 - c)} ${f2(Y0 - r)} ${f2(X0)} ${f2(Y0 - r)} c ${f2(X0 + c)} ${f2(Y0 - r)} ${f2(X0 + r)} ${f2(Y0 - c)} ${f2(X0 + r)} ${f2(Y0)} c ${borde ? 'B' : 'f'} Q`); }
     };
     dibujarHojaBase(S, pag);
     if (pag.tipo === 'detalle') dibujarDetalle(S, pag);
@@ -13812,7 +13876,7 @@ const LAM = (() => {
 
   /* ---- Presentar (A174-A176): editor de lamina. La disposicion (posicion en mm, escala, modo y corte de cada vista) es dato del usuario ---- */
   let uidCap = 0;
-  const conHoja = (papel, f) => { const p = HOJA; HOJA = hojaDe(papel); try { return f(); } finally { HOJA = p; } };
+  const conHoja = (L, f) => { const p = HOJA; HOJA = typeof L === 'string' ? hojaDe(L) : hojaDe(L.papel, L.rotulo && L.rotulo.estiloPie); try { return f(); } finally { HOJA = p; } };   /* A318: con su estilo de pie */
   const capCache = new Map();
   const letraDe = (L, it) => String.fromCharCode(65 + Math.max(0, L.vistas.filter(v => v.vista === 'Corte').indexOf(it)));
   const enHoja = (L, h = L.hoja) => L.vistas.filter(it => it.hoja === h);   /* las vistas de una lamina (A177: hay varias) */
@@ -13833,7 +13897,7 @@ const LAM = (() => {
     if (!c) { if (capCache.size > 60) capCache.clear(); c = capturar(it.vista, Object.assign(opcCap(L, it), { escalaFija: it.n })); c.uid = ++uidCap; capCache.set(k, c); }
     return c;
   }
-  const limitesHoja = () => ({ x0: HOJA.margen, y0: HOJA.margen, x1: HOJA.ancho - HOJA.margen - HOJA.franja, y1: HOJA.alto - HOJA.margen });
+  const limitesHoja = () => ({ x0: HOJA.margen, y0: HOJA.margen, x1: HOJA.ancho - HOJA.margen - HOJA.franja, y1: HOJA.alto - HOJA.margen - HOJA.pie });   /* A318 */
   /* tamano de la celda de una vista: su tinta mas el margen y la tira del titulo (igual que el empacado automatico) */
   function medirItem(it, cap, L){
     const k = HOJA.k, pad = 2.2 * k, tit = 8.4 * k, minW = (ES_CONJUNTO(it.vista) && it.vista !== 'ConjTitulo' ? 64 : 50) * k;
@@ -13858,7 +13922,7 @@ const LAM = (() => {
   }
   function presRefrescar(L){
     try { sincronizarConjuntos(L); } catch (e) { /* sin cambios */ }
-    conHoja(L.papel, () => {
+    conHoja(L, () => {
       L.notasLista = L.notas ? notasFinales(L.notasEd || {}) : []; L.datos = null; L.detalles = null;
       L.vistas.forEach(it => { it.error = null; it.cap = null; it.fuera = false;
         if (!it.on) return;
@@ -13873,7 +13937,7 @@ const LAM = (() => {
   function presReacomodar(L, h = L.hoja, avanzar = false){
     let res = null;
     const LIBRE = ['Isometrico', 'ConjIso'], ALZ = ['ConjAlzado', 'ConjInterior', 'AlzadoPuertas', 'AlzadoInterior'];
-    conHoja(L.papel, () => {
+    conHoja(L, () => {
       const ok = enHoja(L, h).filter(it => it.on && it.cap);
       if (!ok.length) return;
       let its = ok.map(it => ({ it, cap: it.cap }));
@@ -13987,7 +14051,7 @@ const LAM = (() => {
   /* A200: reparto minimo: todo en una lamina a sus escalas de fabrica; mientras no quepa, el detalle mas grande pasa a la lamina de detalles
      (que repite la vista general para identificar el conjunto). Solo entonces se sube de escala como antes */
   function cabeEnHoja(L, h){
-    return conHoja(L.papel, () => { const its = enHoja(L, h).filter(it => it.on && it.cap).map(it => ({ it, cap: it.cap })); return !its.length || !!empacarMejor(its); });
+    return conHoja(L, () => { const its = enHoja(L, h).filter(it => it.on && it.cap).map(it => ({ it, cap: it.cap })); return !its.length || !!empacarMejor(its); });
   }
   function presAcomodarConjunto(L, h){
     const DET = ['ConjCajon', 'ConjEspiero', 'ConjNariz', 'ConjMoldura', 'ConjGola'], propia = L.hojas[h];   /* A203: el conteo de herrajes siempre se queda en la primera lamina */
@@ -13998,7 +14062,7 @@ const LAM = (() => {
     const PASOS = [['ConjHerrajes', [1, 1.25, 1.5]], ['ConjNariz', [5, 10]], ['ConjMoldura', [5, 10]], ['ConjGola', [5, 10]]];
     const bajar = () => { for (const [vista, esc] of PASOS) { const v = L.vistas.find(q => q.hoja === h && q.on && q.cap && q.vista === vista); if (!v) continue;
         const k = esc.indexOf(v.n); if (k < 0 || k >= esc.length - 1) continue;
-        v.n = esc[k + 1]; try { conHoja(L.papel, () => medirItem(v, capPres(L, v), L)); } catch (e) { v.n = esc[k]; continue; } return true; } return false; };
+        v.n = esc[k + 1]; try { conHoja(L, () => medirItem(v, capPres(L, v), L)); } catch (e) { v.n = esc[k]; continue; } return true; } return false; };
     let guardia = 24;
     while (guardia-- > 0 && !cabeEnHoja(L, h)) {
       if (bajar()) continue;
@@ -14049,7 +14113,7 @@ const LAM = (() => {
   /* agrega una vista (o la duplica): copia escala y modo; un corte nuevo cae en el siguiente gabinete; queda junto a la original */
   function presAgregar(L, vista, base){
     const ids = new Set(L.vistas.map(q => q.id)); let k = 1, id = vista; while (ids.has(id)) id = `${vista}#${++k}`;
-    const b0 = conHoja(L.papel, limitesHoja);
+    const b0 = conHoja(L, limitesHoja);
     const hj = base ? base.hoja : L.hoja, hs = L.hojas[hj] || {};
     const it = { id, vista, hoja: hj, grupo: base ? base.grupo : hs.grupo, cara: base ? base.cara : hs.cara || 0, abiertos: base ? (base.abiertos || []).slice() : [], explotado: base ? base.explotado : false,
       on: true, n: base ? base.n : vista === 'ConjLocal' ? 100 : vista === 'ConjGola' ? 5 : vista === 'Isometrico' ? 50 : 25, x: base && isFinite(base.x) ? base.x + 8 : b0.x0 + 6, y: base && isFinite(base.y) ? base.y + 8 : b0.y0 + 6,
@@ -14112,14 +14176,14 @@ const LAM = (() => {
   /* abrir o cerrar un frente del isometrico de un conjunto con un doble clic sobre el (Mayus: todos); misma regla que Interactuar */
   function frenteBajo(L, it, mx, my){
     if ((it.vista !== 'ConjIso' && it.vista !== 'Isometrico') || !it.cap || !it.cap.hits) return null;
-    const cap = it.cap, { ix, iy } = conHoja(L.papel, () => tintaDe(it)), p = { x: (mx - ix) / PX_MM + cap.bb.x0, y: (my - iy) / PX_MM + cap.bb.y0 };
+    const cap = it.cap, { ix, iy } = conHoja(L, () => tintaDe(it)), p = { x: (mx - ix) / PX_MM + cap.bb.x0, y: (my - iy) / PX_MM + cap.bb.y0 };
     for (let i = cap.hits.length - 1; i >= 0; i--) if (dentroPoli(p, cap.hits[i].pr)) return cap.hits[i];
     return null;
   }
   /* A192: doble clic sobre el fondo de un gabinete en la vista de interiores: activa o quita sus cotas de entrepanos */
   function presAlternarEntre(L, it, mx, my){
     if (!it.cap || (it.vista !== 'ConjInterior' && it.vista !== 'AlzadoInterior')) return false;
-    const cap = it.cap, { ix, iy } = conHoja(L.papel, () => tintaDe(it)), p = { x: (mx - ix) / PX_MM + cap.bb.x0, y: (my - iy) / PX_MM + cap.bb.y0 };
+    const cap = it.cap, { ix, iy } = conHoja(L, () => tintaDe(it)), p = { x: (mx - ix) / PX_MM + cap.bb.x0, y: (my - iy) / PX_MM + cap.bb.y0 };
     let xc, piezas;
     if (it.vista === 'ConjInterior') {
       if (!cap.zonas || !cap.xmap) return false;
@@ -14167,7 +14231,7 @@ const LAM = (() => {
   }
   /* mueve una vista imantando sus bordes a los margenes y a los de las otras; devuelve las guias [{eje, v}] para dibujarlas */
   function presMover(L, it, x, y){
-    return conHoja(L.papel, () => {
+    return conHoja(L, () => {
       const tol = 2.2, g = 4 * HOJA.k, b = limitesHoja(), otros = enHoja(L, it.hoja).filter(q => q !== it && q.on && q.cap), guias = [];
       const mejor = (v, cands) => { let m = null; cands.forEach(([c, ref]) => { const d = Math.abs(c - v); if (d <= tol && (!m || d < m.d)) m = { d, c, ref }; }); return m; };
       const cx = [[b.x0, b.x0], [b.x1 - it.w, b.x1]], cy = [[b.y0, b.y0], [b.y1 - it.h, b.y1]];
@@ -14199,7 +14263,7 @@ const LAM = (() => {
   }
   /* A189: varias vistas seleccionadas se mueven juntas: el desplazamiento de la vista tomada, limitado para que todas queden en la hoja */
   function presMoverGrupo(L, grupo, it, x, y){
-    return conHoja(L.papel, () => {
+    return conHoja(L, () => {
       const b = limitesHoja();
       let dx = x - it.x, dy = y - it.y;
       dx = Math.max(b.x0 - Math.min(...grupo.map(q => q.x)), Math.min(b.x1 - Math.max(...grupo.map(q => q.x + q.w)), dx));
@@ -14303,9 +14367,9 @@ const LAM = (() => {
   }
   function presHitIsla(L, mx, my){
     for (const it of enHoja(L).filter(q => q.on && q.cap && q.vista === 'Planta').reverse()) {
-      const r = conHoja(L.papel, () => islaRectMm(L, it));
+      const r = conHoja(L, () => islaRectMm(L, it));
       if (r && mx >= Math.min(r.x0, r.x1) && mx <= Math.max(r.x0, r.x1) && my >= Math.min(r.y0, r.y1) && my <= Math.max(r.y0, r.y1)) {
-        const m = it.cap.marco, { ix, iy } = conHoja(L.papel, () => tintaDe(it)), bb = it.cap.bb;
+        const m = it.cap.marco, { ix, iy } = conHoja(L, () => tintaDe(it)), bb = it.cap.bb;
         const X = ((mx - ix) / PX_MM + bb.x0 - m.x0) / m.kx, D = ((my - iy) / PX_MM + bb.y0 - m.y0) / m.ky;
         return { it, off: { x: X - L.isla.x, y: D - L.isla.y } };
       }
@@ -14422,7 +14486,7 @@ const LAM = (() => {
   }
   /* la cota de la hoja mas cercana al punto (mm): { it, id, parte: 'texto' | 'linea', tipo, o } */
   function presHitCota(L, mx, my, tol){
-    return conHoja(L.papel, () => {
+    return conHoja(L, () => {
       let mejor = null;
       enHoja(L).filter(it => it.on && it.cap && (it.cap.dims || it.cap.dimsIso)).forEach(it => geomCotas(L, it).forEach(g => {
         if (Math.abs(mx - g.txt[0]) <= g.tw / 2 + 1 + tol * .3 && Math.abs(my - g.txt[1]) <= g.th / 2 + 1 + tol * .3) { if (!mejor || mejor.d > 0) mejor = { d: 0, it, id: g.id, parte: 'linea', tipo: g.tipo, o: g.o, u: g.u }; return; }
@@ -14436,7 +14500,7 @@ const LAM = (() => {
   /* A186: las cotas de una misma columna (o fila) se mueven juntas aunque no esten pegadas (entre repisas, por ejemplo), y la linea se
      imanta a otras columnas; h.grupo = [{ id, base }], h.imanes = posiciones de las otras lineas (mm de hoja) */
   function presGrupoCota(L, h){
-    conHoja(L.papel, () => {
+    conHoja(L, () => {
       h.grupo = null; h.imanes = [];
       if (h.parte === 'texto' || (h.tipo !== 'v' && h.tipo !== 'h')) return;
       const gs = geomCotas(L, h.it), ref = gs.find(g => g.id === h.id); if (!ref) return;
@@ -14512,7 +14576,7 @@ const LAM = (() => {
       g.beginPath(); g.moveTo(PX(A[0]), PY(A[1])); g.lineTo(PX(B[0]), PY(B[1])); g.stroke(); g.restore(); });
   }
   function presHitGlobo(L, mx, my, tol){
-    return conHoja(L.papel, () => {
+    return conHoja(L, () => {
       const gs = globosHoja(L).reverse(), r = R_GLOBO * PX_MM;
       for (const g of gs) if (Math.hypot(mx - g.bx, my - g.by) <= r + tol * .5) return { g, parte: 'globo' };
       for (const g of gs) if (Math.hypot(mx - g.ax, my - g.ay) <= 1 + tol * .5) return { g, parte: 'ancla' };
@@ -14521,7 +14585,7 @@ const LAM = (() => {
   }
   /* la flecha ⇄ del corte: aparece solo con el puntero sobre la vista, arriba a la derecha; un clic gira hacia donde mira */
   const flechaCorte = it => { const k = HOJA.k; return { x: it.x + it.w - 14 * k, y: it.y + 2 * k, w: 11 * k, h: 7.5 * k }; };
-  const presHitFlecha = (L, it, mx, my) => conHoja(L.papel, () => { const r = flechaCorte(it); return mx >= r.x - 1 && mx <= r.x + r.w + 1 && my >= r.y - 1 && my <= r.y + r.h + 1; });
+  const presHitFlecha = (L, it, mx, my) => conHoja(L, () => { const r = flechaCorte(it); return mx >= r.x - 1 && mx <= r.x + r.w + 1 && my >= r.y - 1 && my <= r.y + r.h + 1; });
   const dirCorte = it => it.dir || (() => { try { return miraCorte(it.corte); } catch (e) { return 1; } })();
   /* rectangulos (mm de hoja) del titulo y de la escala de una vista, con su desplazamiento */
   function cajasTexto(L, it){
@@ -14534,7 +14598,7 @@ const LAM = (() => {
     if (esc2) { const w2 = anchoHelv(esc2, 2.6 * k); out.push({ k: 'te', it, x: c.x + c.w - c.pad - w2 + te.dx, y: yT + te.dy - 3 * k, w: w2, h: 3.8 * k }); }
     return out;
   }
-  const presHitTexto = (L, mx, my, tol) => conHoja(L.papel, () => { let r = null;
+  const presHitTexto = (L, mx, my, tol) => conHoja(L, () => { let r = null;
     enHoja(L).filter(it => it.on && it.cap).forEach(it => cajasTexto(L, it).forEach(b => { if (mx >= b.x - tol * .3 && mx <= b.x + b.w + tol * .3 && my >= b.y - tol * .3 && my <= b.y + b.h + tol * .3) r = b; }));
     return r; });
   function presMoverTexto(L, h, mx, my){
@@ -14554,7 +14618,7 @@ const LAM = (() => {
     const { ix, iy } = tintaDe(it), d = it.ley || { dx: 0, dy: 0 }, lg = leyendaMats(cap.ley.mats, cap.anchoLey, it.leyCol !== undefined ? !!it.leyCol : !!L.matCol);
     return { it, x: ix + (cap.ley.x - cap.bb.x0) * PX_MM + d.dx, y: iy + (cap.ley.y - cap.bb.y0) * PX_MM + d.dy, w: lg.w * PX_MM, h: lg.h * PX_MM };
   }
-  const presHitLey = (L, mx, my, tol) => conHoja(L.papel, () => { let r = null;
+  const presHitLey = (L, mx, my, tol) => conHoja(L, () => { let r = null;
     enHoja(L).filter(it => it.on && it.cap).forEach(it => { const b = cajaLeyenda(L, it); if (b && mx >= b.x - tol * .3 && mx <= b.x + b.w + tol * .3 && my >= b.y - tol * .3 && my <= b.y + b.h + tol * .3) r = b; });
     return r; });
   function presMoverLey(L, h, mx, my){
@@ -14562,10 +14626,10 @@ const LAM = (() => {
     h.it.ley = q.dx || q.dy ? q : undefined;
   }
   const presAlternarLey = (L, it) => { it.leyCol = !(it.leyCol !== undefined ? it.leyCol : !!L.matCol); };
-  const presHitMarca = (L, mx, my, tol) => conHoja(L.papel, () => marcasHoja(L).reverse().find(m => Math.abs(mx - m.mx) <= 1.2 + tol * .5 && my >= m.my0 - 2 && my <= m.my1 + 2) || null);
+  const presHitMarca = (L, mx, my, tol) => conHoja(L, () => marcasHoja(L).reverse().find(m => Math.abs(mx - m.mx) <= 1.2 + tol * .5 && my >= m.my0 - 2 && my <= m.my1 + 2) || null);
   /* arrastra la marca de un corte a lo largo del alzado o de la planta (cm desde el extremo izquierdo, a 0.5 cm) */
   function presMoverMarca(L, m, mx){
-    const cap = m.host.cap, { ix } = conHoja(L.papel, () => tintaDe(m.host)), px = (mx - ix) / PX_MM + cap.bb.x0, xc = (px - cap.marco.x0) / cap.marco.kx;
+    const cap = m.host.cap, { ix } = conHoja(L, () => tintaDe(m.host)), px = (mx - ix) / PX_MM + cap.bb.x0, xc = (px - cap.marco.x0) / cap.marco.kx;
     if (isFinite(xc)) m.corte.corte = Math.round(Math.max(0, Math.min(cfg.longitud, xc)) * 2) / 2;
   }
   /* arrastra el globo (cambia su separacion del ancla) o el ancla (el globo se queda donde esta) */
@@ -14624,7 +14688,7 @@ const LAM = (() => {
   }
   /* paginas de detalle: una por unidad y, si la tabla no cabe, las que hagan falta */
   function paginasDetalle(L){
-    return conHoja(L.papel, () => {
+    return conHoja(L, () => {
       const H = HOJA, k = H.k, m = H.margen, fila = 6.4 * k, y0 = m + 36 * k, maxFilas = Math.max(6, Math.floor((H.alto - m - 16 * k - (y0 + 8 * k)) / fila));
       const pags = [], us = detalleUnidades(L);
       us.forEach((u, i) => {
@@ -14704,7 +14768,7 @@ const LAM = (() => {
   let logoImg = null, logoUrl = '';
   const imagenLogo = lg => { if (logoUrl !== lg.url) { logoUrl = lg.url; logoImg = new Image(); logoImg.onload = () => { if (LAM_API.alCargarLogo) LAM_API.alCargarLogo(); }; logoImg.src = lg.url; } return logoImg; };
   function presPintar(g, L, v){
-    conHoja(L.papel, () => {
+    conHoja(L, () => {
       const H = HOJA, Z = v.Z, X = x => v.ox + x * Z, Y = y => v.oy + y * Z, dpr = v.dpr || 1, pag = v.pag || 0, nH = L.hojas.length;
       if (pag < nH) L.hoja = pag;
       const hoverC = v.hoverC || null;
@@ -14718,7 +14782,8 @@ const LAM = (() => {
         rc: (x, y, w, h, lw, relleno) => { if (relleno) { g.fillStyle = relleno; g.fillRect(X(x), Y(y), w * Z, h * Z); }
           if (lw > .02) { g.strokeStyle = '#000000'; g.lineWidth = Math.max(.6, lw * Z); g.setLineDash([]); g.strokeRect(X(x), Y(y), w * Z, h * Z); } },
         img: (lg, x, y, w, h) => { const im = imagenLogo(lg); if (im && im.complete && im.naturalWidth) g.drawImage(im, X(x), Y(y), w * Z, h * Z); },
-        circ: (cx, cy, r, relleno) => { g.fillStyle = relleno; g.beginPath(); g.arc(X(cx), Y(cy), r * Z, 0, Math.PI * 2); g.fill(); },   /* A317 */
+        circ: (cx, cy, r, relleno, borde, lw = .3) => { g.fillStyle = relleno; g.beginPath(); g.arc(X(cx), Y(cy), r * Z, 0, Math.PI * 2); g.fill(); if (borde) { g.strokeStyle = borde; g.lineWidth = Math.max(.6, lw * Z); g.setLineDash([]); g.stroke(); } },   /* A317, A318 */
+        tv: (s2, x, y, tam, neg, color = '#000000') => { g.save(); g.fillStyle = color; g.font = fuente(tam, neg); g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.translate(X(x), Y(y)); g.rotate(-Math.PI / 2); g.fillText(s2, 0, 0); g.restore(); },   /* A318 */
         logo: (x, y, w, h) => { L.logoRect = { x, y, w, h }; },   /* A317: el logo se arrastra */
         campo: (clave, x, y, w, h, valor) => campos.push({ clave, x, y, w, h, valor })
       };
@@ -14766,7 +14831,7 @@ const LAM = (() => {
   /* campos del pie de la lamina actual: el nombre de la lamina del conjunto es su «dibujo» salvo que el usuario escriba otro */
   const datosRotulo = L => Object.assign({}, L.rotulo || {}, { dibujo: (L.rotulo && L.rotulo.dibujo) || (L.hoja > 0 && L.hojas[L.hoja] ? L.hojas[L.hoja].nombre : '') });
   function presArchivos(L, prefijo, sello, dxf){
-    return conHoja(L.papel, () => {
+    return conHoja(L, () => {
       const files = [], omitidas = [], b64 = s2 => btoa(s2), previa = L.hoja, paginas = [], todos = [];
       const detalles = L.detalle ? detallesDe(L) : [], nH = L.hojas.length;
       const total = nH + detalles.length, hoja = i => claveHoja(L.rotulo, i - 1, total).hoja, hojaDe = i => claveHoja(L.rotulo, i - 1, total).de;   /* A317 */
@@ -14986,7 +15051,7 @@ const LAM = (() => {
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
-    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde,
+    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE,
     presNueva, presRefrescar, presReacomodar, presCrearModulosCloset, presAcomodarConjunto, presMoverHoja, presReordenarHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
@@ -15022,7 +15087,7 @@ function entregarLaminas(r){
    al archivo del proyecto). Ctrl+Z deshace y Ctrl+Y rehace las ediciones de la lamina. */
 const PRES = { abierto: false, L: null, Z: 1, ox: 0, oy: 0, sel: null, selG: null, selM: null, selC: null, hoverC: null, drag: null, guias: [], tmr: 0, pag: 0, hist: [], fut: [], pend: null, edita: null };
 const presEl = id => document.getElementById(id);
-const PRES_CAMPOS = ['proyecto', 'cliente', 'autor', 'fecha', 'dibujo', 'escala', 'revision', 'clave', 'logoDx', 'logoDy', 'logoEsc'];   /* A317 */
+const PRES_CAMPOS = ['proyecto', 'cliente', 'autor', 'fecha', 'dibujo', 'escala', 'revision', 'clave', 'logoDx', 'logoDy', 'logoEsc', 'estiloPie'];   /* A317; A318 */
 const presPref = k => 'lam' + k[0].toUpperCase() + k.slice(1);
 function presGuardar(){
   const L = PRES.L; if (!L) return;
@@ -15158,7 +15223,8 @@ function presLado(){
   const notasHtml = (notas || '<div class="note-sm">Sin notas todavía.</div>') +
     '<div class="pres-linea" style="margin-top:6px"><button class="btn" id="presRestGlobos" title="Regresa los globos al reparto automático">Restablecer globos</button><button class="btn" id="presRestCotas" title="Arrastra la línea de una cota para correrla o su número para moverlo aparte; Supr la quita">Restablecer cotas</button></div>';
   const lgEsc = Math.round((+L.rotulo.logoEsc || 1) * 100), lgCtl = prefs.lamLogo ? `<label style="display:flex;gap:8px;align-items:center;margin-top:8px"><span style="flex:none">Tamaño del logo</span><input type="range" min="40" max="250" step="5" value="${lgEsc}" data-plogo="1" style="flex:1"><span style="flex:none;width:38px;text-align:right">${lgEsc} %</span></label><div class="note-sm">Arrastra el logo sobre la hoja para acomodarlo; vale para todas las láminas. <a href="#" id="presLogoCentrar">Regresarlo a su lugar</a></div>` : '';   /* A317 */
-  const pie = campos + lgCtl + `<div class="note-sm" style="margin-top:8px">Clave de plano: haz clic en la hoja (abajo del pie) y escribe la clave de esa lámina, p. ej. «MB-01»; las demás se numeran solas.</div>` + `<div style="display:flex;gap:6px;margin-top:6px"><button class="btn" id="presLogo" title="Sin logo, el pie lleva el nombre del producto. También puedes hacer clic en un dato del pie, sobre la hoja, para editarlo.">${prefs.lamLogo ? 'Cambiar logo…' : 'Cargar logo…'}</button>${prefs.lamLogo ? '<button class="btn" id="presLogoQuitar">Quitar logo</button>' : ''}</div>`;
+  const estPie = `<label style="display:block;margin:2px 0 8px"><span class="note-sm" style="display:block;margin:0 0 4px">Estilo del pie</span><select data-ppie="1" style="width:100%">${LAM.ESTILOS_PIE.map(([v, tx]) => `<option value="${v}"${(L.rotulo.estiloPie || 'clasico') === v ? ' selected' : ''}>${e2(tx)}</option>`).join('')}</select></label>`;   /* A318 */
+  const pie = estPie + campos + lgCtl + `<div class="note-sm" style="margin-top:8px">Clave de plano: haz clic en la hoja (abajo del pie) y escribe la clave de esa lámina, p. ej. «MB-01»; las demás se numeran solas.</div>` + `<div style="display:flex;gap:6px;margin-top:6px"><button class="btn" id="presLogo" title="Sin logo, el pie lleva el nombre del producto. También puedes hacer clic en un dato del pie, sobre la hoja, para editarlo.">${prefs.lamLogo ? 'Cambiar logo…' : 'Cargar logo…'}</button>${prefs.lamLogo ? '<button class="btn" id="presLogoQuitar">Quitar logo</button>' : ''}</div>`;
   const entrega = chk('detalle', 'Hojas de detalle por unidad', L.detalle) + chk('dxf', 'Un DXF por vista', L.dxf);
   const hayIsla = !(cfg.isla || cfg.closet) && (guardadas.length || (is && is.id));
   presEl('presLado').innerHTML = crear + '<h4>Vistas de esta lámina</h4>' + filas + agregar +
@@ -15386,6 +15452,7 @@ function presCargarLogo(){
     const t = e.target, L = PRES.L, d = t.dataset;
     if (d.pnv) { const inp = lado.querySelector(`[data-pnt="${d.pnv}"]`); editaNota(d.pnv, t.checked, inp ? inp.value : ''); return; }
     if (d.pnt) { const c = lado.querySelector(`[data-pnv="${d.pnt}"]`); editaNota(d.pnt, c ? c.checked : true, t.value); return; }
+    if (d.ppie) { presAntes(); LAM.presRotulo(L, 'estiloPie', t.value === 'clasico' ? '' : t.value); presGuardar(); LAM.presReacomodar ? presRefrescar(true) : presRefrescar(false); return; }   /* A318: cambia el area de las vistas: se reacomodan */
     if (d.plogo) { presAntes(); LAM.presRotulo(L, 'logoEsc', String((+t.value || 100) / 100)); presGuardar(); presLado(); presDibujar(); return; }   /* A317 */
     if (d.pxt) { const x = (L.notasEd.__extra || []).find(q => q.id === d.pxt); if (x && x.texto !== t.value) { presAntes(); x.texto = t.value; presRefrescar(false); } return; }   /* A316 */
     if (d.pon !== undefined) { presAntes(); const it = L.vistas[+d.pon]; it.on = t.checked; presRefrescar(it.on && !isFinite(it.x)); return; }
