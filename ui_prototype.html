@@ -344,6 +344,16 @@
    A376. [Master hecho 21/10; SketchUp: el clic en una pieza sin frente ya abre todo su gabinete; Revit pendiente] (usuario 21/10: «los
        cajones con tarja no abren») En el mueble de la tarja con cajones (A373) el primero es un falso frente fijo; el clic en el no hacia
        nada en el isometrico. Ahora un clic en el falso frente abre (o cierra) los cajones de su mueble.
+   A389. [Master hecho 21/10; SketchUp: construye el plan; Revit pendiente] (usuario 21/10, lista de la peninsula, resto de A388) La barra
+       elevada solo cubre el vuelo para bancos (del canto al panel, sin peralte) y al activarla toma 30 cm de vuelo (US 12") si estaba en 0.
+       El alzado de la peninsula es siempre doble (sin «vista simple»); en ella, al hacer clic en vacio sus opciones salen primero (sin el
+       resumen del tramo). El posterior lleva zoclo (peninsula:zoclo, tipo Posterior) y los paneles arrancan sobre el. El panel posterior ya
+       no es opcion: va siempre con gabinetes y nunca sin ellos. Cota y campo «Largo desde el frente» (del paño de los frentes de la cara
+       del muro al extremo libre; penLargo). La peninsula se elige en el isometrico (sus piezas abren sus opciones) y sus gabinetes tambien
+       (moduloOtraCara). Ctrl + arrastre de material: toda la fila (sin especiales); Mayus: toda la columna (antes Ctrl daba todas las
+       puertas de una clase). Planta en L/U con la cubierta (del plan) y los bajos punteados en proyeccion. Iconos en sacar y quitar
+       peninsula. Sin gabinetes: el ciego no lleva tapeta de ajuste del lado de la peninsula, la peninsula no lleva zoclo y el de la cara
+       del muro corre hasta el extremo con su cierre.
    A388. [Master hecho 21/10 (parcial); SketchUp: no aplica; Revit pendiente] (usuario 21/10, lista de la peninsula) Hecho: la peninsula se
        nombra «Península» y no cuenta como cara (letraCara: A, B, C solo para las de muro; «Cara Península» en el ciego); sin botones + de
        puertas ocultas en la peninsula; vuelo para bancos de fabrica en 0; la pieza de ajuste del esquinero no se elige en el isometrico.
@@ -3860,7 +3870,9 @@ function aplicarEsquinas(){
   cfg.modulos.forEach(m => { if (!m.penEsq || !cfg.esquinas[m.penEsq.k]) return; const h = huellaEsquina(m.penEsq.k); m.ancho = m.penEsq.lado === 'der' ? h[0] : h[1]; m.fijo = true; });
   cfg.esquinas.forEach(e => { if (e.alto === 'ciego') e.alto = 'auto'; });   /* A222; A223: el ciego (bajo) vuelve */
   cfg.modulos.forEach(m => { if (!m.esquina) return; const h = m.upper ? huellaAlto(m.esquina.k) : huellaEsquina(m.esquina.k); m.tipo = 'Esquina'; m.ancho = m.esquina.lado === 'der' ? h[0] : h[1]; m.fijo = true;   /* A226: el alto, su ancho */ m.dosPuertas = false; m.parrilla = false;
-    if (m.esquina.lado === 'der') { cfg.tapetaDer = false; cfg.corridaDer = false; cfg.cerrarZocloDer = false; cfg.cerrarMolduraDer = false; } else { cfg.tapetaIzq = false; cfg.corridaIzq = false; cfg.cerrarZocloIzq = false; cfg.cerrarMolduraIzq = false; } });
+    if (m.esquina.lado === 'der') { cfg.tapetaDer = false; cfg.corridaDer = false; cfg.cerrarZocloDer = false; cfg.cerrarMolduraDer = false; } else { cfg.tapetaIzq = false; cfg.corridaIzq = false; cfg.cerrarZocloIzq = false; cfg.cerrarMolduraIzq = false; }
+    /* A389: junto a una peninsula sin gabinetes, el zoclo de esta cara llega al extremo y cierra */
+    if (!m.upper) { const q = caraDe(m.esquina.lado === 'der' ? m.esquina.k + 1 : m.esquina.k); if (q && q !== cfg && q.peninsula && q.penSinGabinetes) cfg['cerrarZoclo' + (m.esquina.lado === 'der' ? 'Der' : 'Izq')] = true; } });
 }
 /* cambia la forma: recta (una cara), L (dos) o U (tres); las caras nuevas salen como una cocina de muro de 240 (US 96") con su esquina */
 /* A251: largos = longitud de cada cara (las que SketchUp mide en el modelo); sin ellos, las caras nuevas salen del largo de fabrica */
@@ -3913,7 +3925,23 @@ function penGeo(){
    (penDoble, en el Alzado de su cara): arriba el frente con sus gabinetes (se editan como siempre) y abajo el posterior con los paneles, que
    tienen su propio reparto como los de la isla (penPaneles: ancho fijo o automatico, anadir y quitar, material por panel) */
 let penDoble = false;
-const penVistaDoble = () => penDoble && view === 'Alzado' && multiCara() && !!cfg.peninsula && !exporting;
+/* A389 (usuario 21/10: «por defecto el alzado se muestra frontal y posterior de la misma, quitar la opcion de vista simple»): siempre doble */
+const penVistaDoble = () => view === 'Alzado' && multiCara() && !!cfg.peninsula && !exporting;
+/* A389 (usuario 21/10: «una cota editable del largo a partir del paño de los frentes del resto de la cocina»): distancia del muro de la
+   peninsula (x local del lado de la esquina) al paño de los frentes de la cara del muro */
+const penOff = () => (cfg.separacionPosterior || 0) + fondoCara(caraDe(1 - cfg.cara), false) + espFrente();
+const penLargoLibre = () => cfg.longitud - penOff();
+/* A389: iconos de sacar y quitar la peninsula (una L y una L con menos) */
+const ICO_PEN = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" style="flex:none"><path d="M2 3h12v4H6v6H2z"/></svg>`;
+const ICO_PEN_QUITAR = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" style="flex:none"><path d="M2 3h12v4H6v6H2z" opacity=".45"/><path d="M9 12h6"/></svg>`;
+const conIco = (ico, t) => `<span style="display:inline-flex;align-items:center;justify-content:center;gap:6px">${ico}${t}</span>`;
+/* A389 (usuario 21/10: «la peninsula se puede seleccionar en el isometrico para editar sus opciones»): activa su cara y muestra sus opciones */
+function penSeleccionar(){ const k = cfg.caras.findIndex((q, i) => caraDe(i).peninsula); if (k < 0) return;
+  if (k !== cfg.cara) { guardarCara(); cargarCara(cfg, k); cleanSelection(); }
+  selection.clear(); pieces.clear(); selectedPart = 'peninsula'; focusPanel = null; render(); }
+/* A389: un modulo de otra cara (isometrico): activa esa cara y lo devuelve */
+function moduloOtraCara(id){ if (!multiCara()) return null; const k = cfg.caras.findIndex((q, i) => i !== cfg.cara && (q.modulos || []).some(x => x.id === id)); if (k < 0) return null;
+  guardarCara(); cargarCara(cfg, k); cleanSelection(); return byId(id); }
 function penAbrir(){ const k = cfg.caras.findIndex((q, i) => caraDe(i).peninsula); if (k < 0) return;
   if (k !== cfg.cara) { guardarCara(); cargarCara(cfg, k); cleanSelection(); }
   selection.clear(); selectedPart = null; penDoble = true; if (view !== 'Alzado') setView('Alzado'); else render(); }
@@ -3976,7 +4004,7 @@ const parrillaEn = m => {
 };
 /* E6: aparatos bajo cubierta sin carcasa: estufa, frigobar y lavavajillas (este lleva su propio zoclo: el del mueble se corta) */
 const esAparato = m => !m.upper && (m.tipo === 'Estufa' || m.tipo === 'Frigobar' || m.tipo === 'Lavavajillas');
-const cortaZoclo = m => !m.upper && m.reserved || isRefri(m) || m.tipo === 'Estufa' || m.tipo === 'Lavavajillas' || m.tipo === 'Frigobar' && m.altoFrigobar > cfg.altoBajos + .01
+const cortaZoclo = m => !m.upper && (m.reserved || !!(m.esquina && cfg.peninsula && cfg.penSinGabinetes)) || isRefri(m) || m.tipo === 'Estufa' || m.tipo === 'Lavavajillas' || m.tipo === 'Frigobar' && m.altoFrigobar > cfg.altoBajos + .01
   || !!(m.esquina && cfg.esquinas && cfg.esquinas[m.esquina.k] && cfg.esquinas[m.esquina.k].tipo === 'alacena' && cfg.esquinas[m.esquina.k].alacena === 'oculta');   /* A134: la puerta de la alacena oculta llega al piso */
 /* altos: DobleAlto (modulo superior propio), Campana (hueco libre al pie) y SinPuertas (abierto / modulo inferior de repisas) */
 const isDoble = m => m.upper && m.tipo === 'Doble';
@@ -5582,20 +5610,21 @@ function planDePiezas(c = cfg){
     /* A383: peninsula: panel posterior del lado de los bancos (tableros de unos 60 cm, del piso a la cubierta, cara vista hacia afuera; en
        clasica con su marco) y cascada del piso a la cubierta en el extremo libre, a todo el fondo con el vuelo */
     if (pen && lows.length) {
-      const wL = pg.wL, p0 = penCasc && libreIzq ? wL : 0, p1 = penCasc && !libreIzq ? W - wL : W, be = pg.be, zt = pg.zt, Dc = dBajo + vueloEf(), yB = sepMuro + be;
+      const wL = pg.wL, p0 = penCasc && libreIzq ? wL : 0, p1 = penCasc && !libreIzq ? W - wL : W, be = pg.be, zt = pg.zt, Dc = dBajo + vueloEf(), yB = sepMuro;   /* A389: la barra llega al panel (solo sobre el vuelo) */
       const mB = groupMaterial('BarraElevada') || null, mP = groupMaterial('BarraPeralte') || null, mC = groupMaterial('Cubierta') || null;
       const caja = (id, tipo, x0, x1, y0, y1, z0, z1, material) => add({ id: 'peninsula:' + id, rol: 'cubierta', tipo, x: x0, y: y0, z: z0, ancho: x1 - x0, fondo: y1 - y0, alto: z1 - z0, material, etiqueta: 'cubierta' });
-      if (cfg.penPanel !== false && p1 - p0 > 1) { const zP = penBar ? zt - be : zBar - pq;   /* A385: con barra, hasta ella */
+      const zP0 = cfg.generarZoclos && zb > 0 ? zb : 0;   /* A389: los paneles arrancan del zoclo posterior */
+      if (!penSG && zP0 > 0 && p1 - p0 > 1) add({ id: 'peninsula:zoclo', rol: 'zoclo', tipo: 'Posterior', x: p0, y: sepMuro - t, z: 0, ancho: p1 - p0, fondo: t, alto: zP0, material: groupMaterial('Zoclo'), etiqueta: 'zoclo' });
+      if (!penSG && p1 - p0 > 1) { const zP = penBar ? zt - be : zBar - pq;   /* A385: con barra, hasta ella; A389: siempre con gabinetes */
         const P = Array.isArray(cfg.penPaneles) && cfg.penPaneles.length ? cfg.penPaneles : null;   /* A386: con su reparto y su material */
-        if (P) { let px = p0; P.forEach((q, k) => { const x1 = k === P.length - 1 ? p1 : px + q.ancho; tablero(null, 'peninsula:respaldo:' + k, 'Respaldo', px, x1, 0, zP, sepMuro - t, q.material || cfg.materialGeneral || null, false, false, true); px = x1; }); }
+        if (P) { let px = p0; P.forEach((q, k) => { const x1 = k === P.length - 1 ? p1 : px + q.ancho; tablero(null, 'peninsula:respaldo:' + k, 'Respaldo', px, x1, zP0, zP, sepMuro - t, q.material || cfg.materialGeneral || null, false, false, true); px = x1; }); }
         else { const n = Math.max(1, Math.round((p1 - p0)/60)), pw = (p1 - p0)/n;
-          for (let k = 0; k < n; k++) tablero(null, 'peninsula:respaldo:' + k, 'Respaldo', p0 + k*pw, p0 + (k + 1)*pw, 0, zP, sepMuro - t, cfg.materialGeneral || null, false, false, true); } }
+          for (let k = 0; k < n; k++) tablero(null, 'peninsula:respaldo:' + k, 'Respaldo', p0 + k*pw, p0 + (k + 1)*pw, zP0, zP, sepMuro - t, cfg.materialGeneral || null, false, false, true); } }
       /* A385: barra elevada: losa del canto de los bancos al frente del peralte (y = sep + grueso) y peralte sobre la cubierta, detras de ella.
          Sin gabinetes: ese tramo angosto solo sobre el esquinero; fuera de el, la barra a todo el fondo y un remate sobre el canto de la cubierta */
       if (penBar && cfg.generarCubierta) {
-        const [n0, n1] = penSG ? (libreIzq ? [pg.ec0, pg.bx1] : [pg.bx0, pg.ec1]) : [pg.bx0, pg.bx1];
-        caja('barra', 'Barra', n0, n1, -penSale, yB, zt - be, zt, mB);
-        caja('barra:peralte', 'Peralte', penSG ? n0 : Math.max(n0, p0), penSG ? n1 : Math.min(n1, p1), sepMuro, yB, zBar, zt - be, mP);
+        /* A389 (usuario 21/10: «la barra elevada solo se aplica en el vuelo para bancos»): del canto de los bancos al panel, sin peralte */
+        if (!penSG) caja('barra', 'Barra', pg.bx0, pg.bx1, -penSale, yB, zt - be, zt, mB);
         if (penSG) { const [f0, f1] = libreIzq ? [pg.bx0, pg.ec0] : [pg.ec1, pg.bx1], r0 = libreIzq ? pg.ec0 : pg.ec1 - be;
           caja('barra:completa', 'Barra', f0, f1, -penSale, Dc, zt - be, zt, mB);
           caja('barra:remate', 'Peralte', r0, r0 + be, yB, Dc, zBar, zt - be, mP); }
@@ -6247,7 +6276,7 @@ function pruebasPlanMX(){
     if (c.generarZoclos && c.baseBajos > 0) { const patas = p.piezas.filter(q => q.tipo === 'Pata' && q.id.endsWith(':placa'));
       if (c.tipoZoclo === 'patas') c.modulos.filter(m => !m.upper && !m.reserved && p.piezas.some(q => q.id === m.id + ':cuerpo:lateral:izq')).forEach(m =>
         ok(patas.filter(q => q.modulo === m.id).length === (m.ancho > PLAN_PATA.seisDesde ? 6 : 4), nombre + ': el bajo ' + m.id + ' no lleva sus patas'));
-      else ok(!patas.length && (c.isla || p.piezas.some(q => q.tipo === 'Larguero')), nombre + ': la estructura de madera no lleva larguero o lleva patas'); }
+      else ok(!patas.length && (c.isla || c.peninsula && c.penSinGabinetes || p.piezas.some(q => q.tipo === 'Larguero')), nombre + ': la estructura de madera no lleva larguero o lleva patas'); }   /* A389: la peninsula sin gabinetes no lleva zoclo */
     /* B5: cada material con patron lleva su mosaico (PNG y medida en cm); los colores lisos, no */
     p.materiales.forEach(q => { const cat = c.catalogo.find(m => m.id === q.id); if (!cat) { ok(q.id.startsWith(PLAN_LUZ.id) ? !!q.textura : (q.id === PLAN_TIRA.id || !!PREDETERMINADOS[q.id]) && !q.textura, nombre + ': material fuera del catalogo ' + q.id); return; } const conPatron = cat.categoria !== 'Color' && !!patternOf(cat.patron);
       ok(conPatron === !!q.textura, nombre + ': textura que no corresponde en ' + q.id);
@@ -6766,9 +6795,13 @@ function recalcularCara(){
   if (multiCara() && cfg.peninsula) { const L = cfg.cara === 0 ? 'Izq' : 'Der'; cfg.puertasOcultas = []; cfg['corrida' + L] = false;
     /* A385: sin gabinetes, los bajos de la peninsula (salvo el esquinero) quedan reservados y el esquinero es ciego con la puerta en el muro */
     row(false).forEach(m => { if (!m.esquina) { m.reserved = !!cfg.penSinGabinetes; if (m.reserved) m.parrilla = false; } });
-    if (cfg.penSinGabinetes) { const e = cfg.esquinas[0]; e.tipo = 'ciego'; e.duena = cfg.cara === 0 ? 1 : 0; if (byId(cfg.moduloTarja)) { cfg.moduloTarja = null; cfg.tipoTarja = 0; } }
-    if (cfg.penCascada) { cfg['tapeta' + L] = true; cfg['reserva' + L] = Math.ceil(espesorCascada()); cfg['cerrarTapeta' + L] = false; cfg['cerrarZoclo' + L] = !!cfg.penSinGabinetes; }
-    if (cfg.penPanel !== false) penPanelsRecalc(); }   /* A386 */   /* A385: sin gabinetes, el zoclo del esquinero cierra hacia el hueco */
+    /* A389 (usuario 21/10: «el esquinero deberia convertirse en ciego el lado de la cara principal (ya no llevaria piezas de ajuste)»): del lado
+       de la peninsula el ciego mide justo el fondo del muro con su frente (sin la tapeta de ajuste); la peninsula no lleva zoclo y la cara del
+       muro corre el suyo hasta el extremo con su cierre (aplicarEsquinas, esquinerosPlan, cortaZoclo) */
+    if (cfg.penSinGabinetes) { const e = cfg.esquinas[0]; e.tipo = 'ciego'; e.duena = cfg.cara === 0 ? 1 : 0; e[e.duena === 0 ? 'anchoB' : 'anchoA'] = fondoCara(caraDe(1 - cfg.cara), false) + espFrente();
+      cfg['cerrarZoclo' + L] = false; if (byId(cfg.moduloTarja)) { cfg.moduloTarja = null; cfg.tipoTarja = 0; } }
+    if (cfg.penCascada) { cfg['tapeta' + L] = true; cfg['reserva' + L] = Math.ceil(espesorCascada()); cfg['cerrarTapeta' + L] = false; cfg['cerrarZoclo' + L] = false; }
+    if (!cfg.penSinGabinetes) penPanelsRecalc(); }   /* A389: panel posterior siempre que haya gabinetes */   /* A386 */   /* A385: sin gabinetes, el zoclo del esquinero cierra hacia el hueco */
   /* A154: un especiero de torre guardado como modulo aparte (A144-A152) pasa a ser el anexo de su torre; sin torre, la torre pierde el anexo */
   for (let vuelta = 0; vuelta < 20; vuelta++) { const l = row(false), h = row(true), i = l.findIndex(q => q.tipo === 'EspecieroTorre' && !q.anexo); if (i < 0) break;
     const e = l[i], t = torreAnexable(l[i - 1]) && !l[i - 1].anexo ? l[i - 1] : torreAnexable(l[i + 1]) && !l[i + 1].anexo ? l[i + 1] : null;
@@ -7470,10 +7503,10 @@ function drawCaraTabs(){
 }
 function drawElevation(){
   const pd = penVistaDoble();   /* A386: frente arriba y posterior abajo */
-  title(pd ? 'PENÍNSULA' : 'ALZADO', pd ? '· arriba el frente (lado de la cocina) · abajo el posterior (lado de los bancos) · doble clic en vacío: vista simple' : ''); drawCaraTabs();
+  title(pd ? 'PENÍNSULA' : 'ALZADO', pd ? '· arriba el frente (lado de la cocina) · abajo el posterior (lado de los bancos) · clic en vacío: sus opciones' : ''); drawCaraTabs();
   const W = cfg.longitud, H = pd ? (cfg.penBarra ? altoBarra() + penElev() : altoBarra()) + 12 : cfg.alturaMuro, highs = row(true), lows = row(false);
   const hA = pd ? Math.round(cssH*.56) : cssH;
-  const L = 74, R = 112, T = multiCara() && !exporting ? 122 : 96, B = pd ? 44 : 66;   /* A135: lugar para las pestanas de las caras */
+  const L = 74, R = 112, T = multiCara() && !exporting ? 122 : 96, B = pd ? 74 : 66;   /* A135: lugar para las pestanas de las caras */
   const eL = hdExtra(false), eR = hdExtra(true), Wt = W + eL + eR;   /* las puertas ocultas quedan fuera de la cota del muro */
   const sec = !pd && seccionVisible(), Ds = sec ? fondoSeccion() : 0, Rs = sec ? R - 12 + SEC_HUECO + SEC_DER : R;   /* A115: la seccion ocupa la derecha */
   const scale = Math.min((cssW-L-Rs)/(Wt + Ds), (hA-T-B)/H);
@@ -7515,13 +7548,14 @@ function drawElevation(){
   if (penA && cfg.penCascada) { const izqL = cfg.cara === 0, w = izqL ? ajusteIzq() : ajusteDer(), r = RX(izqL ? 0 : W - w, izqL ? w : W, 0, zBar);   /* A383: cascada del extremo libre */
     post.push(() => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Cubierta'), C.planCover); outline(r, C.line, 1); }); }
   /* A385: barra elevada de la peninsula vista desde la cocina: peralte sobre la cubierta y canto de la barra (sin gabinetes, tambien el remate y la cascada alta) */
-  if (penA && cfg.penBarra) { const g = penGeo(), sg = !!cfg.penSinGabinetes, [n0, n1] = sg ? (g.izq ? [g.ec0, g.bx1] : [g.bx0, g.ec1]) : [g.bx0, g.bx1];
+  if (penA && cfg.penBarra) { const g = penGeo(), sg = !!cfg.penSinGabinetes;
     const p0 = cfg.penCascada && g.izq ? g.wL : 0, p1 = cfg.penCascada && !g.izq ? W - g.wL : W;
     const caja = (x0, x1, z0, z1, mat, col) => { if (x1 - x0 < .01) return; const r = RX(x0, x1, z0, z1); post.push(() => { fillMat(r.x, r.y, r.w, r.h, mat, col); outline(r, C.line, 1); }); };
-    caja(sg ? n0 : Math.max(n0, p0), sg ? n1 : Math.min(n1, p1), zBar, g.zt - g.be, groupMaterial('BarraPeralte'), C.backsplash);
-    if (sg) { const r0 = g.izq ? g.ec0 : g.ec1 - g.be; caja(r0, r0 + g.be, zBar, g.zt - g.be, groupMaterial('BarraPeralte'), C.backsplash); }
+    if (!sg) caja(Math.max(g.bx0, p0), Math.min(g.bx1, p1), zBar, g.zt - g.be, cfg.materialGeneral, C.front);   /* A389: el panel posterior sube detras de la cubierta */
+    else { const r0 = g.izq ? g.ec0 : g.ec1 - g.be; caja(r0, r0 + g.be, zBar, g.zt - g.be, groupMaterial('BarraPeralte'), C.backsplash); }
     if (cfg.penCascada) { const x0 = g.izq ? 0 : W - g.wL; caja(x0, x0 + g.wL, sg ? 0 : zBar, g.zt - g.be, groupMaterial('BarraElevada'), C.planCover); }
-    caja(g.bx0, g.bx1, g.zt - g.be, g.zt, groupMaterial('BarraElevada'), C.planCover); }
+    const [b0, b1] = sg ? (g.izq ? [g.bx0, g.ec0] : [g.ec1, g.bx1]) : [g.bx0, g.bx1];
+    caja(b0, b1, g.zt - g.be, g.zt, groupMaterial('BarraElevada'), C.planCover); }
   /* tapeta superior bajo el techo, a todo el largo de los altos */
   /* A214 (usuario): la moldura se ve en el alzado: sus cambios de plano como lineas y los cierres de extremo */
   const tapetaTopPaint = r => { tapetaPaint(r);
@@ -7600,7 +7634,8 @@ function drawElevation(){
   dim(X(0), ground + 36, X(W), ground + 36, fmt(W) + uS(), 'length');
   if (measure) drawMeasure(X, Z);
   if (sec) { const xc = guideVal('corteA', corteX()); marcaCorte(X(xc), top - 8, ground + 12, 'corteA', miraCorte(xc)); seccionCocina(X(W + eR) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
-  if (pd) drawPenPosterior(hA, scale);   /* A386 */
+  if (pd) { const off = penOff(), a = cfg.cara === 0 ? 0 : off, b = cfg.cara === 0 ? W - off : W;   /* A389: largo desde el paño de los frentes de la cocina */
+    dim(X(a), ground + 60, X(b), ground + 60, fmt(b - a) + uS() + ' desde el frente', 'penLargo'); drawPenPosterior(hA, scale); }   /* A386 */
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
 }
 
@@ -7614,19 +7649,20 @@ function drawPenPosterior(y0, s0){
   ctx.save(); ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = C.accent; ctx.font = "600 12px 'Inter'"; ctx.fillText('POSTERIOR', 22, y0 + 10);
   ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.fillText('lado de los bancos · el extremo izquierdo del frente queda a la derecha · clic en un panel para editarlo', 104, y0 + 11); ctx.restore();
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(X(W) - 20, ground, X(Math.min(0, g.bx0)) + 20, ground);
-  const wL = g.wL, p0 = casc && g.izq ? wL : 0, p1 = casc && !g.izq ? W - wL : W, zP = bar ? g.zt - g.be : zBar - pq, chainY = Z(zTop) - 22, sobre = [];
-  if (cfg.penPanel !== false) { let px = p0; const P = cfg.penPaneles || [];
-    P.forEach((q, k) => { const x1 = k === P.length - 1 ? p1 : px + q.ancho, r = RX(px, x1, 0, zP), key = 'penpanel:' + q.id;
+  const wL = g.wL, p0 = casc && g.izq ? wL : 0, p1 = casc && !g.izq ? W - wL : W, zP = bar ? g.zt - g.be : zBar - pq, chainY = Z(zTop) - 22, sobre = [], sg = !!cfg.penSinGabinetes;
+  const zP0 = cfg.generarZoclos && cfg.baseBajos > 0 ? cfg.baseBajos : 0;   /* A389: zoclo posterior */
+  if (!sg && zP0 > 0) { const r = RX(p0, p1, 0, zP0); fillMat(r.x, r.y, r.w, r.h, groupMaterial('Zoclo'), C.zocalo); outline(r, C.line, 1); }
+  if (!sg) { let px = p0; const P = cfg.penPaneles || [];
+    P.forEach((q, k) => { const x1 = k === P.length - 1 ? p1 : px + q.ancho, r = RX(px, x1, zP0, zP), key = 'penpanel:' + q.id;
       fillMat(r.x, r.y, r.w, r.h, q.material || cfg.materialGeneral, C.front); outline(r, C.line, 1);
-      if (cfg.style === 'Clasica') { const fw = marcoShaker(x1 - px, zP)*s; ctx.strokeStyle = C.shaker; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
+      if (cfg.style === 'Clasica') { const fw = marcoShaker(x1 - px, zP - zP0)*s; ctx.strokeStyle = C.shaker; ctx.strokeRect(r.x + fw, r.y + fw, r.w - 2*fw, r.h - 2*fw); }
       materialHits.push({ rect: r, key }); partHits.push({ rect: r, key, active: true });
       if (selectedPart === key) sobre.push(() => outline(r, C.select, 2)); else if (hover === 'part:' + key) sobre.push(() => outline(r, C.hoverPart, 1.5));
       dim(X(px), chainY, X(x1), chainY, fmt(x1 - px) + (q.fijo ? ' ·' : ''), 'ppw:' + q.id);
       px = x1; }); }
-  else outline(RX(0, W, cfg.baseBajos, zBar - pq), C.inactive, 1, [4, 3]);
   const losa = (x0, x1, z0, z1, mat) => { const r = RX(x0, x1, z0, z1); fillMat(r.x, r.y, r.w, r.h, mat, C.cubierta); outline(r, C.line, 1); };
   if (cfg.generarCubierta) {
-    if (bar) losa(g.bx0, g.bx1, g.zt - g.be, g.zt, groupMaterial('BarraElevada'));
+    if (bar) { const [b0, b1] = sg ? (g.izq ? [g.bx0, g.ec0] : [g.ec1, g.bx1]) : [g.bx0, g.bx1]; losa(b0, b1, g.zt - g.be, g.zt, groupMaterial('BarraElevada')); }
     else losa(g.izq ? (casc ? wL : -vueloLat()) : 0, g.izq ? W : casc ? W - wL : W + vueloLat(), zBar - pq, zBar, groupMaterial('Cubierta'));
     if (casc) { const x0 = g.izq ? 0 : W - wL; losa(x0, x0 + wL, 0, bar ? g.zt - g.be : zBar, groupMaterial(bar ? 'BarraElevada' : 'Cubierta')); } }
   sobre.forEach(f => f());
@@ -8682,13 +8718,13 @@ function esquinerosPlan(add, r2, sep, tf){
     /* A139: con esquinero diagonal la cubierta empieza al final de su huella (ahi va la pieza diamante) y el zoclo donde llega el de 45 */
     const dgp = ep.tipo === 'diagonal' || ep.tipo === 'alacena' && ep.alacena === 'diagonal', cubFrente = ep.tipo === 'diagonal' ? hp : fA + tf + (cfg.cubiertaAPano ? 0 : cfg.vuelo || 0), zocFin = esquinaOculta(ep) ? hp : dgp ? hp - ret*(Math.SQRT2 - 1) : fA - ret;   /* A155 */
     const corta = (p, x0) => { if (p.x >= x0 - .01 || p.x + p.ancho <= x0) return; const dx = x0 - p.x; p.x = r2(x0); p.ancho = r2(p.ancho - dx); if (p.hueco) p.hueco.x = r2(p.hueco.x - dx); };
-    cfg.__piezas.forEach(p => { if (p.rol === 'cubierta' && !(p.forma && p.forma.eje !== 'x') && !/^peninsula:/.test(p.id)) corta(p, cubFrente);   /* A385: la barra de la peninsula sigue hasta el muro */ else if (p.rol === 'zoclo' && p.tipo === 'Frente') corta(p, zocFin);
-      else if (p.rol === 'zoclo' && p.tipo === 'Larguero') corta(p, PLAN_CUERPO.lateral); else if (p.rol === 'backsplash' && !p.forma) corta(p, cfg.espesorBacksplash || 1); }); }
+    cfg.__piezas.forEach(p => { if (p.rol === 'cubierta' && !(p.forma && p.forma.eje !== 'x') && !/^peninsula:/.test(p.id)) corta(p, cubFrente);   /* A385: la barra de la peninsula sigue hasta el muro */ else if (p.rol === 'zoclo' && p.tipo === 'Frente' && !(qa.peninsula && qa.penSinGabinetes)) corta(p, zocFin);
+      else if (p.rol === 'zoclo' && p.tipo === 'Larguero' && !(qa.peninsula && qa.penSinGabinetes)) corta(p, PLAN_CUERPO.lateral); else if (p.rol === 'backsplash' && !p.forma) corta(p, cfg.espesorBacksplash || 1); }); }
   if (k0 >= cfg.esquinas.length) return;
   /* la esquina k0: zoclo de esta cara hasta la cara del zoclo de la otra */
-  const k = k0, e = cfg.esquinas[k], LA = cfg.longitud, qb = caraDe(k + 1), fA = fondoCara(cfg, false), fB = fondoCara(qb, false), [wA, wB] = huellaEsquina(k);
+  const k = k0, penSGk = [caraDe(k), caraDe(k + 1)].some(q => q && q.peninsula && q.penSinGabinetes), e = cfg.esquinas[k], LA = cfg.longitud, qb = caraDe(k + 1), fA = fondoCara(cfg, false), fB = fondoCara(qb, false), [wA, wB] = huellaEsquina(k);
   { const dgk = e.tipo === 'diagonal' || e.tipo === 'alacena' && e.alacena === 'diagonal', xz = esquinaOculta(e) ? LA - wA : dgk ? LA - wA + cfg.retiroZoclo*(Math.SQRT2 - 1) : LA - fB + cfg.retiroZoclo;   /* A139; A155 */
-    cfg.__piezas.forEach(p => { if (p.rol === 'zoclo' && p.tipo === 'Frente' && p.x + p.ancho > xz) p.ancho = r2(Math.max(.1, xz - p.x));
+    cfg.__piezas.forEach(p => { if (p.rol === 'zoclo' && p.tipo === 'Frente' && p.x + p.ancho > xz && !(qb.peninsula && qb.penSinGabinetes)) p.ancho = r2(Math.max(.1, xz - p.x));
       else if (e.tipo === 'diagonal' && p.rol === 'cubierta' && !(p.forma && p.forma.eje !== 'x') && !/^peninsula:/.test(p.id) && p.x + p.ancho > LA - wA) p.ancho = r2(Math.max(.1, LA - wA - p.x)); }); }
   const mb = cfg.modulos.find(m => m.esquina && m.esquina.k === k && !m.upper), mu = cfg.modulos.find(m => m.esquina && m.esquina.k === k && m.upper);
   /* A272 (usuario 18/10: «modulos de esquinero seleccionables: opciones particulares y materiales independientes con la misma logica que el
@@ -8780,8 +8816,8 @@ function esquinerosPlan(add, r2, sep, tf){
     if (fajas) { const F = reg().fajas.ancho; bx(':faja:atras', 'panel', 'Faja', u0 + e1, w - e1, ef, ef + F, z1 - e1, z1, mat, et); bx(':faja:frente', 'panel', 'Faja', u0 + e1, w - e1, yT - F, yT, z1 - e1, z1, mat, et); }
     else bx(':techo', 'panel', 'Techo', u0 + e1, w - e1, ef, yT, z1 - e1, z1, mat, et); /* A223: sin herraje, el ciego queda sin nada */
     if (op && P > puertaMaxEsq() + 1e-6) { const g = holF(); bx(':puerta', 'frente', 'Puerta', w - P, w - P/2 - g, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':puerta:2', 'frente', 'Puerta', w - P/2 + g, w, fF, fF + tf, z0, zf, frente, 'frentes'); }   /* A226 */
-    else bx(':puerta', 'frente', 'Puerta', w - P, w, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':tapeta', 'tapeta', 'Compensacion', op ? 0 : gola ? fOtra - golaHondo(true) : fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara; A232: con gola llega detras de la tapeta retirada */
-    if (gola) { bx(':gola', 'herraje', 'Gola', fOtra + tf, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', fOtra + tf, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
+    else bx(':puerta', 'frente', 'Puerta', w - P, w, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':tapeta', 'tapeta', 'Compensacion', op || penSGk ? 0 : gola ? fOtra - golaHondo(true) : fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara; A232: con gola llega detras de la tapeta retirada */
+    if (gola) { const ug = penSGk ? e1 : fOtra + tf; bx(':gola', 'herraje', 'Gola', ug, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', ug, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
     if (herraje) { /* A231: charolas Magic corner (rinon de dos niveles, barandal y poste junto a la puerta) */
       /* A293 (usuario 18/10: «el magic corner sale completo, no gira; lo que tenias que resolver era la posicion del poste y el giro de las
          charolas»): el poste va en el limite de la parte ciega y la puerta, con el brazo largo de las charolas hacia lo ciego (modelo espejado):
@@ -9153,7 +9189,7 @@ function drawEsquina(m, x0, RX, X, Z, post){
     if (alfa > 0) post.push(() => { ctx.save(); ctx.fillStyle = C.accent; ctx.globalAlpha = .85*alfa; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.globalAlpha = 1; ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1; line(gx - 1.5, r.y + 8, gx - 1.5, r.y + r.h - 8); line(gx + 1.5, r.y + 8, gx + 1.5, r.y + r.h - 8); ctx.restore(); }); };
   if (!m.upper) {
     const gE = golaEsquina(e);
-    if (e.tipo === 'ciego') { const Pc = R.ciegoPuerta + ciegoExtra(m.esquina.k);   /* A221 */ if (duena) { perfil(0, fOtra); tapeta(fOtra, w - Pc); puerta(w - Pc, w, e.herraje ? 'Ciego · Magic corner' : 'Ciego', false, 'ext'); if (gE) golaZ(fOtra, w); } else { perfil(0, fOtra); tapeta(fOtra + espFrente(), w); } }   /* A151: tapeta de ajuste */
+    if (e.tipo === 'ciego') { const Pc = R.ciegoPuerta + ciegoExtra(m.esquina.k);   /* A221 */ if (duena) { if (otra.peninsula && otra.penSinGabinetes) tapeta(0, w - Pc); else { perfil(0, fOtra); tapeta(fOtra, w - Pc); } puerta(w - Pc, w, e.herraje ? 'Ciego · Magic corner' : 'Ciego', false, 'ext'); if (gE) golaZ(fOtra, w); } else { perfil(0, fOtra); tapeta(fOtra + espFrente(), w); } }   /* A151: tapeta de ajuste */
     else if (oculta) { if (duena) { perfil(0, fOtra); puerta(fOtra, w, 'Alacena oculta', false, 'ext');
       if (showDoors) { const ua = fOtra + espFrente(), wd = w - ua;   /* A234: marco y jaladera */
         if (cfg.style === 'Clasica') { const fw = marcoShaker(wd, z1 - z0), ri = cajaZ(ua + fw, w - fw, z0 + fw, z1 - fw); post.push(() => outline(ri, C.line, 1)); }
@@ -9730,7 +9766,13 @@ function drawPlanCocina(){
   /* A383: la peninsula no tiene muro (linea punteada) y su cubierta vuela detras para los bancos (contorno punteado) */
   const vuelos = marcos.map((f, k) => { const q = caraDe(k); if (!q.peninsula) return null; const sv = espFrente() - (cfg.separacionPosterior || 0) + penVuelo(q);
     return [[0, 0], [q.longitud, 0], [q.longitud, -sv], [0, -sv]].map(([a, b]) => enMarco(f, a, b)); }).filter(Boolean);
-  const muros = marcos.map((f, k) => [f.O, enMarco(f, caraDe(k).longitud, 0)]), pts = bajos.concat(altos, esq).flatMap(q => q.p).concat(muros.flat(), vuelos.flat());
+  /* A389 (usuario 21/10: «en planta no se ve la cubierta, esto hara que los gabinetes bajos se vean en proyeccion»): la cubierta de cada cara
+     sale de su plan de piezas (losas, barras y cascadas, con la forma en L o diamante de la esquina) y los bajos van punteados debajo */
+  const cubPlanta = []; try { const pl = planCocina(); [pl.piezas].concat((pl.caras || []).map(c => c.piezas)).forEach((ps, k) => ps.forEach(p => {
+    if (p.rol !== 'cubierta' || !['Losa', 'Barra', 'Cascada'].includes(p.tipo) || p.soloDibujo || !marcos[k]) return;
+    const pts = p.forma && p.forma.tipo === 'perfil' && p.forma.eje === 'z' ? p.forma.puntos.map(([u, v]) => [p.x + u, p.y + v]) : [[p.x, p.y], [p.x + p.ancho, p.y], [p.x + p.ancho, p.y + p.fondo], [p.x, p.y + p.fondo]];
+    cubPlanta.push(pts.map(([a, b]) => enMarco(marcos[k], a, b))); })); } catch (e) { /* sin plan: solo los gabinetes */ }
+  const muros = marcos.map((f, k) => [f.O, enMarco(f, caraDe(k).longitud, 0)]), pts = bajos.concat(altos, esq).flatMap(q => q.p).concat(muros.flat(), vuelos.flat(), cubPlanta.flat());
   const x0 = Math.min(...pts.map(p => p[0])), x1 = Math.max(...pts.map(p => p[0])), y0 = Math.min(...pts.map(p => p[1])), y1 = Math.max(...pts.map(p => p[1]));
   const L = 80, R = 80, T = 110, B = 70, sc = Math.min((cssW - L - R)/(x1 - x0 || 1), (cssH - T - B)/(y1 - y0 || 1), 7);
   const ox = L + ((cssW - L - R) - (x1 - x0)*sc)/2, oy = T + ((cssH - T - B) - (y1 - y0)*sc)/2, P = ([x, y]) => [ox + (x - x0)*sc, oy + (y - y0)*sc];
@@ -9738,12 +9780,12 @@ function drawPlanCocina(){
   const poly = (p, fill, stroke, w = 1, dash) => { ctx.save(); ctx.beginPath(); p.map(P).forEach(([a, b], i) => i ? ctx.lineTo(a, b) : ctx.moveTo(a, b)); ctx.closePath();
     if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (dash) ctx.setLineDash(dash); ctx.strokeStyle = stroke; ctx.lineWidth = w; ctx.stroke(); ctx.restore(); };
   const caja = p => { const q = p.map(P), xs = q.map(v => v[0]), ys = q.map(v => v[1]); return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }; };
+  cubPlanta.forEach(p => poly(p, flat ? C.flat : C.planCover, C.line, 1));   /* A389 */
   bajos.forEach(q => { const act = q.k === cfg.cara, sel = act && selection.has(q.m.id);
-    poly(q.p, flat ? C.flat : sel ? C.selFill : act && !exporting ? C.planSel : ((dark && !exporting) ? '#2C3036' : '#F2F3F4'), sel ? C.select : C.line, sel ? 2 : 1);   /* A169: lo exportado no lleva resalte de la cara activa */
+    poly(q.p, sel ? C.selFill : null, sel ? C.select : C.line, sel ? 2 : 1, sel ? null : [5, 3]);   /* A389: en proyeccion bajo la cubierta */   /* A169: lo exportado no lleva resalte de la cara activa */
     const r = caja(q.p); if (act) hits.push({ rect: r, module: q.m }); else planCaraHits.push({ rect: r, k: q.k, id: q.m.id }); });
-  esq.forEach(q => poly(q.p, flat ? C.flat : (dark && !exporting) ? '#5A5040' : '#E8D9B8', C.line));
+  esq.forEach(q => poly(q.p, null, C.line, 1, [5, 3]));   /* A389 */
   altos.forEach(q => poly(q.p, null, C.muted, 1, [4, 3]));
-  vuelos.forEach(p => poly(p, null, C.muted, 1, [6, 4]));   /* A383 */
   if (altos.length && exporting && proyOn()) { const r0 = caja(altos[0].p); ctx.save(); ctx.fillStyle = C.muted; ctx.font = "400 10px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('Gabinetes altos (proyección)', r0.x + 4, r0.y + r0.h - 4); ctx.restore(); }
   muros.forEach(([a, b], k) => { const f = marcos[k], act = k === cfg.cara; ctx.save(); ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = act ? C.accent : C.wallLine; ctx.lineWidth = act ? 4 : 3; if (caraDe(k).peninsula) { ctx.setLineDash([6, 4]); ctx.lineWidth = act ? 2 : 1.5; } ctx.stroke(); ctx.restore();   /* A383 */
     /* largo de cada cara por detras de su muro; la activa se edita */
@@ -9860,6 +9902,10 @@ function planGeneral(){
 }
 
 /* arrastre de material: destino resaltado y rotulo «Material → destino» (MaterialTab.DrawMaterialDrag) */
+/* A389: la fila de un modulo (sin especiales ni reservados) o su columna (el y el de la otra fila) */
+function filaColumna(m, col){ const r = row(m.upper), i = r.indexOf(m);
+  if (col) { const o = row(!m.upper), ids = [m.id].concat(r.length === o.length && o[i] && !o[i].reserved ? [o[i].id] : []); return { key: 'columna:' + ids.join(','), ids }; }
+  const ids = r.filter(q => !q.reserved && !isSpecial(q)).map(q => q.id); return { key: 'fila:' + (m.upper ? 'altos' : 'bajos'), ids }; }
 function materialTarget(p){
   /* A365 (usuario 21/10: «para evitar errores de arrastre de materiales, el material de cubiertas y backsplash se arrastra a su categoria,
      incluso arrastrandose al espacio en blanco»): un material de Cubiertas va a la cubierta y uno de Backsplash al backsplash, caiga donde
@@ -9867,12 +9913,15 @@ function materialTarget(p){
   { const sw = p && p.id ? mat(p.id) : null, gr = sw && sw.categoria === 'Cubiertas' ? ['Cubierta', 'cover'] : sw && sw.categoria === 'Backsplash' ? ['Backsplash', 'backsplash'] : null;
     if (gr) return { key: gr[0], rects: view === 'Isometrico' ? [] : partHits.filter(h => h.key === gr[1]).map(h => h.rect), iso: view === 'Isometrico' ? (h => parteIso(h.p) === gr[1]) : null }; }
   /* A355: en el isometrico, la pieza de encima: una parte (su grupo de material) o su gabinete; en vacio, nada */
+  if (view === 'Isometrico' && (p.ctrl || p.shift)) { const pc = LAM.isoPieza(p); if (pc && pc.modulo && byId(pc.modulo)) { const r = filaColumna(byId(pc.modulo), !p.ctrl); return { key: r.key, multi: true, count: r.ids.length, rects: [], iso: r.ids }; } }   /* A389 */
   if (view === 'Isometrico') { const pc = LAM.isoPieza(p), parte = parteIso(pc);
     if (parte) return { key: GRUPO_PARTE[parte], rects: [], iso: h => parteIso(h.p) === parte };
     if (pc && pc.modulo && byId(pc.modulo)) { const multi = selection.has(pc.modulo), ids = multi ? [...selection] : [pc.modulo]; return { key: 'mod:' + pc.modulo, multi, count: ids.length, rects: [], iso: ids }; }
     return { key: null, rects: [] }; }   /* A361: en vacio, toda la cocina, como en el alzado */
   /* A137 (usuario 11/10): Ctrl + soltar sobre una puerta de bajos, de altos o un cajon: todas las de su clase, en todas las caras */
-  if (p.ctrl) { const fh = frontHits.find(h => inside(p, h.rect)); if (fh) { const cl = claseFrente(fh); return { key: 'frentes:' + cl, rects: frontHits.filter(h => claseFrente(h) === cl).map(h => h.rect) }; } }
+  /* A389 (usuario 21/10: «arrastre de material + Ctrl = aplicacion a toda la fila (excluye torres); + Shift = aplicacion a toda la columna») */
+  if (p.ctrl || p.shift) { const hm = (hits.find(h => inside(p, h.rect)) || frontHits.find(h => inside(p, h.rect)) || {}).module;
+    if (hm && byId(hm.id)) { const r = filaColumna(hm, !p.ctrl); return { key: r.key, multi: true, count: r.ids.length, rects: hits.filter(h => h.module && r.ids.includes(h.module.id)).map(h => h.rect) }; } }
   const onMod = view === 'Planta' && hits.find(h => inside(p, h.rect));
   const ph = onMod ? null : PART_ORDER.map(k => partHits.find(h => h.key === k && inside(p, h.rect))).find(Boolean);
   if (ph) { const map = { cover:'Cubierta', sink:'Cubierta', tap:'Cubierta', plinth:'Zoclo', backsplash:'Backsplash', gola:'Gola', fillerI: cfg.isla ? 'Cubierta' : 'Tapetas', fillerD: cfg.isla ? 'Cubierta' : 'Tapetas', fillerTop:'Tapetas', raisedbar:'BarraElevada', riser:'BarraPeralte' }; return { key: map[ph.key], rects: partHits.filter(h => h.key === ph.key).map(h => h.rect) }; }
@@ -9891,7 +9940,7 @@ const panelLabel = z => z.includes('.repisa.') ? 'Repisa ' + z.slice(z.indexOf('
   : z === 'piston' ? 'Gabinete de pistón' : z === 'cap' ? 'Gabinete superior' : z === 'inferior' ? 'Gabinete inferior' : z === 'superior' ? 'Gabinete superior'
   : z === 'cajones' ? 'Cajonera' : z.startsWith('cuerpo') ? 'Cuerpo ' + z.slice(6) : z;
 const pieceName = key => { const pk = key.split(':')[2], rest = pk.slice(pk.indexOf('.') + 1); return rest === 'fondo' ? 'Fondo interior' : rest === 'division' ? 'División vertical' : 'Repisa ' + rest.slice(7); };
-const etiqueta = key => !key ? 'Todo el mueble' : key.startsWith('mod:') ? 'Gabinete' : key.startsWith('cap:') ? 'Gabinete superior'
+const etiqueta = key => !key ? 'Todo el mueble' : key === 'fila:bajos' ? 'Toda la fila de bajos' : key === 'fila:altos' ? 'Toda la fila de altos' : key.startsWith('columna:') ? 'Toda la columna' : key.startsWith('mod:') ? 'Gabinete' : key.startsWith('cap:') ? 'Gabinete superior'
   : key === 'frentes:bajos' ? 'Todas las puertas de bajos' : key === 'frentes:altos' ? 'Todas las puertas de altos' : key === 'frentes:cajones' ? 'Todos los cajones'
   : key.startsWith('backpanel:') || key.startsWith('penpanel:') ? 'Panel posterior' : key === 'mods:all' ? 'Todos los gabinetes' : key === 'BarraElevada' ? 'Barra elevada' : key === 'BarraPeralte' ? 'Peralte de la barra'
   : key.startsWith('doorcap:') ? 'Gabinete de pistón de la puerta oculta' : key.startsWith('doorleaf:') ? 'Puerta oculta' : key.startsWith('doorjoint:') ? 'Juntas de la puerta oculta' : key.startsWith('panel:') ? panelLabel(key.split(':')[2]) : key;
@@ -9918,6 +9967,9 @@ function applyMaterial(id, key){
       doors().concat(multiCara(c) ? c.caras.filter((q, k) => k !== c.cara).flatMap(q => q.puertasOcultas || []) : []).forEach(d => { d.material = d.materialJuntas = d.materialPiston = null; }); (c.islaPaneles || []).forEach(q => q.material = null); } }
     else if (key.startsWith('frentes:')) { const cl = key.slice(8);   /* A137: Ctrl + soltar: todas las puertas de bajos, de altos o todos los cajones */
       todosModulos(c).forEach(m => { if (cl === 'cajones') m.materialCajones = value; else if ((cl === 'altos') === !!m.upper) m.materialPuertas = value; }); }
+    else if (key.startsWith('fila:') || key.startsWith('columna:')) {   /* A389 */
+      const ids = key.startsWith('fila:') ? c.modulos.filter(m => !!m.upper === (key === 'fila:altos') && !m.reserved && !isSpecial(m)).map(m => m.id) : key.slice(8).split(',');
+      c.modulos.forEach(m => { if (ids.includes(m.id)) { m.material = value; m.materialPuertas = m.materialCajones = null; } }); }
     else if (key.startsWith('mod:')) { const target = key.slice(4); const ids = selection.has(target) ? [...selection] : [target]; c.modulos.forEach(m => { if (ids.includes(m.id)) { m.material = value; m.materialPuertas = m.materialCajones = null; } }); }
     else if (key.startsWith('cap:')) { const m = c.modulos.find(q => q.id === key.slice(4)); if (m) m.materialSuperior = value; }
     else if (key.startsWith('backpanel:')) { const q = (c.islaPaneles || []).find(q => q.id === key.slice(10)); if (q) q.material = value; }
@@ -10025,9 +10077,10 @@ canvas.addEventListener('mousedown', e => {
   if (view === 'Isometrico') { e.preventDefault();   /* A170: doble clic (A183) abre o cierra los frentes; A339: cada frente */
     if (dbl) { if (LAM.isoClick(p, e.shiftKey)) render(); return; }
     /* A355: una pieza de ajuste, la cubierta, el zoclo, el backsplash o la gola se eligen como en el alzado */
+    { const hc = LAM.isoPiezaCara(p); if (hc && !hc.p.modulo && multiCara() && cfg.caras[hc.ci] && caraDe(hc.ci).peninsula && !e.ctrlKey) { penSeleccionar(); return; } }   /* A389: cualquier pieza suelta de la peninsula (cubierta, panel, zoclo, barra, cascada) abre sus opciones */
     const parte = parteIso(LAM.isoPieza(p)); if (parte && !e.ctrlKey) { selection = new Set(); selectedPart = parte; focusPanel = null; render(); return; }
     /* A340: un clic elige el gabinete (Ctrl: varios) y su panel se edita como en el alzado; en vacio, nada elegido */
-    const id = LAM.isoModulo(p), m = id && byId(id);
+    const id = LAM.isoModulo(p), m = id && (byId(id) || moduloOtraCara(id));   /* A389: tambien los de otra cara (la peninsula) */
     if (m) { if (e.ctrlKey || e.metaKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); } else { selection = new Set([id]); drag = { kind: 'module', id, over: null, x: p.x, y: p.y, x0: p.x, y0: p.y, iso: true }; } }   /* A362: arrastrar intercambia */
     else if (!e.ctrlKey) selection = new Set();
     selectedPart = null; focusPanel = null; render(); return; }
@@ -10115,7 +10168,6 @@ canvas.addEventListener('mousedown', e => {
   }
   /* vacio: sin Ctrl selecciona el muro; arrastrando, recuadro de seleccion */
   focusPanel = null; upperFocus = null; esqFoco = null;
-  if (dbl && view === 'Alzado' && multiCara() && cfg.peninsula) { penDoble = !penDoble; selection.clear(); selectedPart = null; render(); return; }   /* A386: doble clic en vacio */
   if (!e.ctrlKey) { selection.clear(); pieces.clear(); selectedPart = view === 'Alzado' ? 'wall' : null; }   /* SelectPart("wall") en cualquier vacio del lienzo */
   drag = { kind: 'box', x0: p.x, y0: p.y, x1: p.x, y1: p.y, ctrl: e.ctrlKey };
   render();
@@ -10228,11 +10280,11 @@ document.addEventListener('keydown', e => {
 });
 
 /* soltar una muestra sobre el canvas (canvas.DragDrop + ApplyMaterial) */
-canvas.addEventListener('dragover', e => { if (!matDrag) return; e.preventDefault(); if (matDrag.x === e.offsetX && matDrag.y === e.offsetY && matDrag.ctrl === e.ctrlKey) return; matDrag.x = e.offsetX; matDrag.y = e.offsetY; matDrag.ctrl = e.ctrlKey; pedirDibujo(); });   /* A364 */
+canvas.addEventListener('dragover', e => { if (!matDrag) return; e.preventDefault(); if (matDrag.x === e.offsetX && matDrag.y === e.offsetY && matDrag.ctrl === e.ctrlKey && matDrag.shift === e.shiftKey) return; matDrag.x = e.offsetX; matDrag.y = e.offsetY; matDrag.ctrl = e.ctrlKey; matDrag.shift = e.shiftKey; pedirDibujo(); });   /* A364 */
 canvas.addEventListener('dragleave', () => { if (matDrag) { matDrag = null; drawCanvas(); } });
 canvas.addEventListener('drop', e => {
   e.preventDefault();
-  const id = e.dataTransfer.getData('text/swatch'), q = pt(e); q.ctrl = e.ctrlKey; q.id = id; const t = materialTarget(q); matDrag = null;   /* A137; A365: con su categoria */
+  const id = e.dataTransfer.getData('text/swatch'), q = pt(e); q.ctrl = e.ctrlKey; q.shift = e.shiftKey; q.id = id; const t = materialTarget(q); matDrag = null;   /* A137; A365: con su categoria */
   if (id && !t.nada) applyMaterial(id, t.key); else drawCanvas();   /* A355: en el isometrico, en vacio no pinta toda la cocina */
 });
 
@@ -10251,6 +10303,7 @@ function dimSpec(key){
     case 'closetAlto': return { v: cfg.baseBajos + cfg.altoBajos, min: cfg.baseBajos + 150, max: cfg.baseBajos + 300 };
     case 'bpw': return { v: (cfg.islaPaneles.find(q => q.id === id) || {}).ancho, min: 10, max: 600 };
     case 'ppw': return { v: ((cfg.penPaneles || []).find(q => q.id === id) || {}).ancho, min: 10, max: 600 };   /* A386 */
+    case 'penLargo': return { v: penLargoLibre(), min: 20, max: 400 };   /* A389 */
     case 'islaW': return { v: cfg.islaAncho, min: 40, max: 250 };
     case 'islaV': return { v: islaEspEf(), min: Math.min(0, islaEspMax()), max: 150 };
     case 'islaZ': return { v: Math.max(0, islaZocloCara() - islaEspEf()), min: 0, max: 60 };
@@ -10309,6 +10362,7 @@ function commitDimension(){
     else if (k === 'closetAlto') c.alturaMuro = v + (c.tapetaSuperior ? c.alturaTapetaSuperior : 0);
     else if (k === 'bpw') { const q = c.islaPaneles.find(q => q.id === id); q.ancho = v; q.fijo = true; }
     else if (k === 'ppw') { const q = c.penPaneles.find(q => q.id === id); q.ancho = v; q.fijo = true; }   /* A386 */
+    else if (k === 'penLargo') c.longitud = Math.round((v + penOff())*100)/100;   /* A389 */
     else if (k === 'islaW') c.islaAncho = v; else if (k === 'islaV') c.islaEspacioBancos = v; else if (k === 'islaZ') c.islaRetiroZocloPosterior = v;
     else if (k === 'islaBar') c.islaBarraAncho = v - espesorBarra(); else if (k === 'barraElev') c.islaBarraElevacion = v; else if (k === 'barraAlto') c.islaBarraElevacion = v - altoBarra();
     else if (k === 'doorw') { const d = doorById(id); d.ancho = anchoEscrito(v - (d.tapetaLateral ? d.anchoTapeta : 0)); }
@@ -10428,7 +10482,10 @@ const head = (titleText, chip) => `<div class="p-section"><div class="m-head"><d
 
 function renderSide(){
   const box = selectedBox(), ids = [...selection], m = ids.length === 1 ? byId(ids[0]) : box ? byId(box.members[0].id) : null;   /* caja corrida: un solo elemento */
-  let html = cfg.isla ? section('Isla', `<div class="info-card">
+  /* A389 (usuario 21/10: «si estamos dentro de la vista de alzado en peninsula deberia ser lo primero que vea al hacer click fuera o en vacio»):
+     en la cara peninsula no sale el resumen del tramo; sus opciones van primero */
+  const penAct = multiCara() && !!cfg.peninsula && !cfg.isla && !cfg.closet;
+  let html = penAct ? '' : cfg.isla ? section('Isla', `<div class="info-card">
       <div class="info-row">Isla <b>${fmt(cfg.longitud)} × ${fmt(cfg.islaAncho)}${uS()}</b></div>
       <div class="info-row">Espacio para bancos <b>${fmt(islaEspEf())}${uS()}</b></div>
       <div class="info-row">Cascadas <b>${cfg.cascadaIzq ? 'izq.' : '—'} / ${cfg.cascadaDer ? 'der.' : '—'}</b></div></div>`)
@@ -10441,7 +10498,7 @@ function renderSide(){
       <div class="info-row">Libre sobre cubierta <b>${fmt(cfg.separacionAltos)}${uS()}</b></div>
       <div class="info-row">Tapetas <b>${fmt(ajusteIzq())} / ${fmt(ajusteDer())}${uS()}</b></div></div>`
       /* A140 (usuario 11/10): sin Recta / En L / En U; las caras salen de Wall-kitchen (1, 2 o 3 caras de muro) */
-      + (multiCara() ? `<div class="note">Las caras ${cfg.caras.map((q, k) => letraCara(k)).join(', ')} se eligen en las pestañas del alzado${cfg.caras.length > 2 ? '; B es la de enmedio' : ''}.</div>` : ''));   /* A135 */
+      + (multiCara() ? `<div class="note">${cfg.caras.some((q, k) => caraDe(k).peninsula) ? 'La cara A y la península' : `Las caras ${cfg.caras.map((q, k) => letraCara(k)).join(', ')}`} se eligen en las pestañas del alzado${cfg.caras.length > 2 ? '; B es la de enmedio' : ''}.</div>` : ''));   /* A389 */   /* A135 */
   if (selectedPart && selectedPart.startsWith('piece:') && !pieces.has(selectedPart)) selectedPart = [...pieces][0] || null;
   if (selectedPart) html += partPanel(selectedPart);
   if (!selectedPart || selectedPart === 'wall') {
@@ -10449,7 +10506,7 @@ function renderSide(){
       const addBtns = cfg.closet ? `<button class="btn btn-block" data-act="addBajo">+ Añadir módulo</button>` : !cfg.isla ? `<button class="btn btn-block" data-act="addCol">+ Añadir columna</button>`   /* A305 */
         : view === 'Alzado' ? `<button class="btn btn-block" data-act="addBajo">+ Añadir bajo</button>` : view === 'Posterior' ? `<button class="btn btn-block" data-act="addPanel">+ Añadir panel posterior</button>` : '';
       html += section('', `<div class="empty" style="padding:6px 0 12px">${cfg.isla ? 'Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo.' : cfg.closet ? 'Haz clic en un módulo, el zoclo, una tapeta o una cota para editarlo.' : 'Haz clic en un gabinete, la cubierta, el zoclo o una cota para editarlo.'}</div>${addBtns}`);
-      if (!cfg.isla && !cfg.closet) html += penPanelHTML();   /* A383 */
+      if (penAct) html = penPanelHTML() + html; else if (!cfg.isla && !cfg.closet) html += penPanelHTML();   /* A383; A389: en la peninsula, arriba */
     } else if (!m) {
       const mods = ids.map(byId), sameRow = mods.every(x => x.upper === mods[0].upper);
       html += head(`${ids.length} módulos seleccionados`, `${fmt(mods.reduce((s, x) => s + x.ancho, 0))}${uS()}`);
@@ -10558,17 +10615,17 @@ function esquinaPanel(m){
 }
 /* A383: opciones de la peninsula (sin seleccion): crearla en una cocina recta; en su cara, vuelo, panel posterior y cascada */
 function penPanelHTML(){
-  if (!multiCara()) return section('Península', `<div class="grid-2"><button class="btn btn-sm" data-act="penIzq">Desde el extremo izquierdo</button><button class="btn btn-sm" data-act="penDer">Desde el extremo derecho</button></div>`
+  if (!multiCara()) return section('Península', `<div class="grid-2"><button class="btn btn-sm" data-act="penIzq">${conIco(ICO_PEN, 'Extremo izquierdo')}</button><button class="btn btn-sm" data-act="penDer">${conIco(ICO_PEN, 'Extremo derecho')}</button></div>`
     + `<div class="note-sm">La península sale del extremo de la fila con sus frentes hacia la cocina; el último bajo de ese lado pasa a ser el esquinero.</div>`);
   const kP = cfg.caras.findIndex((q, k) => caraDe(k).peninsula); if (kP < 0) return '';
-  const quitar = `<button class="btn btn-sm btn-block" data-act="penQuitar" style="margin-top:8px">Quitar la península</button>`;
-  if (cfg.cara !== kP) return section('Península', `<div class="note-sm">La península es la cara ${letraCara(kP)}: elige su pestaña para sus opciones.</div>` + quitar);
-  return section('Península', `<button class="btn btn-sm btn-block" data-act="penVer" style="margin-bottom:10px">${penVistaDoble() ? 'Vista simple' : 'Ver frente y posterior'}</button>`   /* A386 */
-    + `<div class="grid-2">${num('penVuelo', 'Vuelo para bancos', penVuelo(), 'cm', 0, 60)}</div>`
-    + chk('penPanel', cfg.penPanel !== false, 'Panel posterior (lado de los bancos)') + chk('penCasc', !!cfg.penCascada, 'Cascada en el extremo libre')
+  const quitar = `<button class="btn btn-sm btn-block" data-act="penQuitar" style="margin-top:8px">${conIco(ICO_PEN_QUITAR, 'Quitar la península')}</button>`;   /* A389: con icono */
+  if (cfg.cara !== kP) return section('Península', `<div class="note-sm">Sus opciones están en la pestaña «Península» o con un clic en ella en el isométrico.</div>` + quitar);
+  return section('Península', (view !== 'Alzado' ? `<button class="btn btn-sm btn-block" data-act="penVer" style="margin-bottom:10px">Ver frente y posterior</button>` : '')   /* A386; A389: el alzado ya es doble */
+    + `<div class="grid-2">${num('penLargo', 'Largo desde el frente', penLargoLibre(), 'cm', 20, 400)}${num('penVuelo', 'Vuelo para bancos', penVuelo(), 'cm', 0, 60)}</div>`   /* A389 */
+    + chk('penCasc', !!cfg.penCascada, 'Cascada en el extremo libre')
     + chk('penBarra', !!cfg.penBarra, 'Barra elevada') + (cfg.penBarra ? `<div class="grid-2" style="margin-top:6px">${num('penBarraElev', 'Elevación sobre la cubierta', penElev(), 'cm', 5, 40)}</div><div class="note-sm">El vuelo para bancos pasa a la barra y el panel posterior sube hasta ella.</div>` : '')   /* A385 */
-    + chk('penSinGab', !!cfg.penSinGabinetes, 'Sin gabinetes (solo barra)') + (cfg.penSinGabinetes ? `<div class="note-sm">Los gabinetes de la península no se construyen; el esquinero queda ciego con su puerta en la cara del muro y el extremo libre lleva cascada.</div>` : '')
-    + `<div class="note-sm">Sin muro detrás: no lleva altos, backsplash ni potfiller. La cubierta corre en L desde la cara del muro y vuela detrás del panel.</div>` + quitar);
+    + chk('penSinGab', !!cfg.penSinGabinetes, 'Sin gabinetes (solo barra)') + (cfg.penSinGabinetes ? `<div class="note-sm">Los gabinetes y los paneles posteriores no se construyen; el esquinero queda ciego del lado de la cara del muro, sin piezas de ajuste, y el extremo libre lleva cascada.</div>` : '')
+    + `<div class="note-sm">Sin muro detrás: no lleva altos, backsplash ni potfiller. Con gabinetes lleva panel posterior sobre su zoclo. La cubierta corre en L desde la cara del muro.</div>` + quitar);
 }
 function modulePanel(m){
   if (m.esquina) return esquinaPanel(m);   /* A134 */
@@ -10656,7 +10713,7 @@ function modulePanel(m){
   else if (drawerType(m)) html += section('Cajón', `<div class="note-sm" style="margin-top:0">Arrastra el punto azul o haz clic en su cota.</div>`);
   /* A383: en una cocina recta, el primer y el ultimo bajo pueden volverse la esquina de una peninsula */
   if (!m.upper && !cfg.isla && !cfg.closet && !multiCara() && selection.size === 1) { const l = row(false), i = l.indexOf(m);
-    if (i === 0 || i === l.length - 1) html += section('Península', `<button class="btn btn-block" data-act="${i === 0 ? 'penIzq' : 'penDer'}">Sacar una península desde aquí</button>`
+    if (i === 0 || i === l.length - 1) html += section('Península', `<button class="btn btn-block" data-act="${i === 0 ? 'penIzq' : 'penDer'}">${conIco(ICO_PEN, 'Sacar una península desde aquí')}</button>`
       + `<div class="note-sm">Este bajo pasa a ser el esquinero y la península sale hacia la cocina, con la cubierta corrida en L.</div>`); }
   return html + consejosDe(m);   /* A368 */
 }
@@ -10870,6 +10927,7 @@ function boxPanel(){
   return html + `<div class="p-foot"><button class="btn btn-block" data-act="closePart">Volver a las columnas</button></div>`;
 }
 function partPanel(key){
+  if (key === 'peninsula') return penPanelHTML();   /* A389: elegida en el isometrico */
   if (key.startsWith('box:')) return boxPanel();
   if (key.startsWith('piece:')) return pieces.size ? piecePanel() : '';
   if (key.startsWith('ucap:')) return capPanel(key.slice(5));
@@ -11163,13 +11221,16 @@ const ACT = {
   penDer: () => { change(c => crearPeninsula(c, 'der')); if (multiCara()) { selection.clear(); selectedPart = null; render(); } },
   penQuitar: () => { change(c => quitarPeninsula(c)); selection.clear(); selectedPart = null; render(); },
   penVuelo: v => change(c => c.penVuelo = Math.max(0, Math.min(60, v))), penPanel: v => change(c => c.penPanel = v),
-  penVer: () => { if (penVistaDoble()) { penDoble = false; render(); } else penAbrir(); },   /* A386 */
+  penVer: () => penAbrir(),   /* A386; A389: siempre doble */
+  penLargo: v => change(c => c.longitud = Math.round((v + penOff())*100)/100),   /* A389 */
   ppAncho: v => change(c => { const q = c.penPaneles.find(q => q.id === selectedPart.slice(9)); q.ancho = v; q.fijo = true; }),
   ppLibre: () => change(c => c.penPaneles.find(q => q.id === selectedPart.slice(9)).fijo = false),
   ppAdd: () => { const id = selectedPart.slice(9), nq = newPanel(); change(c => { const i = c.penPaneles.findIndex(q => q.id === id); nq.material = c.penPaneles[i].material; c.penPaneles.splice(i + 1, 0, nq); c.penPaneles.forEach(q => q.fijo = false); }); selectPart('penpanel:' + nq.id); },
   ppDel: () => deletePart(selectedPart),
-  penBarra: v => change(c => c.penBarra = v), penBarraElev: v => change(c => c.penBarraElev = Math.max(5, Math.min(40, v))),   /* A385 */
-  penSinGab: v => change(c => { c.penSinGabinetes = v; if (v) { const e = c.esquinas[0]; e.tipo = 'ciego'; e.duena = c.cara === 0 ? 1 : 0; c.penCascada = true; } }),
+  penBarra: v => change(c => { c.penBarra = v; if (v && !(penVuelo() > 0)) c.penVuelo = c.region === 'US' ? inch(12) : 30; }),   /* A389: la barra lleva vuelo para bancos */ penBarraElev: v => change(c => c.penBarraElev = Math.max(5, Math.min(40, v))),   /* A385 */
+  penSinGab: v => change(c => { c.penSinGabinetes = v; const e = c.esquinas[0], L = c.cara === 0 ? 'Izq' : 'Der';
+    if (v) { e.tipo = 'ciego'; e.duena = c.cara === 0 ? 1 : 0; c.penCascada = true; }
+    else { e[e.duena === 0 ? 'anchoB' : 'anchoA'] = null; c['cerrarZoclo' + L] = !c.penCascada; } }),   /* A389: al volver, el ancho de fabrica del ciego */
   penCasc: v => change(c => { c.penCascada = v; if (!v) { const L = c.cara === 0 ? 'Izq' : 'Der'; c['reserva' + L] = prefs.inicio.tapeta || 3; c['cerrarTapeta' + L] = true; c['cerrarZoclo' + L] = true; } }),
   closePart: () => { selectedPart = null; render(); },
 };
@@ -11203,7 +11264,7 @@ function renderGallery(){
   const el = document.getElementById('gallery');
   const cats = CATEGORIES.filter(cat => !cfg.closet || cat !== 'Backsplash');
   let html = `<div class="mat-agregar"><span class="t">Agregar</span>${cats.map(cat => `<button type="button" data-addcat="${cat}">+ ${cat}</button>`).join('')}</div>`
-    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
+    + `<div class="p-section"><div class="hint-box"><b>Arrastra</b> una muestra sobre una pieza del dibujo para aplicarla; sobre el fondo pinta todo el mueble. Con <b>Ctrl</b>, a toda la fila (sin torres); con <b>Mayús</b>, a toda la columna. <b>Clic</b> para editarla (otro clic la cierra); los cambios se aplican al momento.</div></div>`;
   /* A79 (usuario, 04/10): Material de jaladeras, solo con jaladeras (estilos clasico y simple, o el vanity del closet): los metales se
      eligen con un clic y se aplican a todas las jaladeras; no se arrastran a otras piezas */
   if (cfg.style !== 'Moderna' || cfg.closet) { const actual = cfg.materiales.Jaladeras;
@@ -13633,7 +13694,7 @@ const LAM = (() => {
       }
       g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
       if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && (t.q.p.frente || t.q.p.fijo)) isoHits.push({ pr, frente: t.q.p.frente || null, modulo: t.q.p.modulo });   /* A376: el falso frente tambien */
-      if (o.hits && t.t === 'cara' && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null, p: t.q.p });   /* A355: y su pieza */   /* A340; A353: todas, en orden de pintado (cubierta, zoclo: sin modulo) */
+      if (o.hits && t.t === 'cara' && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null, p: t.q.p, ci: t.q.ci });   /* A389: y su cara */   /* A355: y su pieza */   /* A340; A353: todas, en orden de pintado (cubierta, zoclo: sin modulo) */
     });
     (esc.herr || []).forEach(h => { const pr = esc.proy(h.O); dibujarSim(g, h.id, h.flip, X(pr[0]), Y(pr[1]), s, plano); });
     if (o.cotas !== false) esc.cotas.forEach(c => {
@@ -13653,7 +13714,8 @@ const LAM = (() => {
   /* A340 (usuario 21/10: «elementos se seleccionan y se pueden editar en el isometrico»): el modulo de la cara de encima en el punto, y el
      resalte de los elegidos (sus caras visibles con un velo del color de seleccion, en una sola pasada para que no se oscurezca) */
   function isoModulo(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].modulo; return null; }
-  function isoPieza(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].p; return null; }   /* A355 */   /* la cara de encima; la cubierta no elige el bajo */
+  function isoPieza(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].p; return null; }
+  function isoPiezaCara(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i]; return null; }   /* A389: la pieza de encima y su cara */   /* A355 */   /* la cara de encima; la cubierta no elige el bajo */
   /* A353 (usuario 21/10: «la seleccion se ve extraña en el isometrico, ¿podemos cambiarla por una mas dinamica, estetica y legible?»): el
      contorno exterior de la silueta del modulo (union de sus caras visibles: mascara dilatada menos la mascara), un tinte muy suave adentro
      y, por modulo, su caja en pantalla (para la etiqueta). o.ancho: grueso del contorno en px; o.tinte: opacidad del tinte */
@@ -16279,7 +16341,7 @@ const LAM = (() => {
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
-    abiertos, isoEscena, isoPintar, isoClick, isoHit, isoModulo, isoPieza, isoResaltar, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos, cotasManualDe,
+    abiertos, isoEscena, isoPintar, isoClick, isoHit, isoModulo, isoPieza, isoPiezaCara, isoResaltar, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos, cotasManualDe,
     presNueva, presRefrescar, presReacomodar, presCrearModulosCloset, presAcomodarConjunto, presMoverHoja, presReordenarHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
