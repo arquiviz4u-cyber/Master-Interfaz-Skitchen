@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A322. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «el alzado en bajos y altos la tapeta se
+       acota raro, como que se encima sobre otra cota la cual no se cual es») Desde A310 la pieza de ajuste lleva un regreso de 1.8 detras: el
+       alzado del conjunto le ponia su propia cota encima de la de la tira. El alzado y el despiece de frentes toman solo la tira
+       (TAPETA_OCULTA: Regreso, Cierre).
    A321. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «el color del despiece de cajon debe
        coincidir con el del despiece de frentes (se ve mas claro)») El frente del detalle de cajon tipo se pinta con el tono de su grupo sin
        transparencia (antes al 55 %).
@@ -12812,6 +12816,7 @@ const LAM = (() => {
       out.push(q); });
     return out;
   }
+  const TAPETA_OCULTA = new Set(['Regreso', 'Cierre']);   /* A322: piezas de la pieza de ajuste que no se ven de frente (A310) */
   /* A193: luces entre tableros (piso, repisas, cama, techo) de cada gabinete en la columna que cruza la posicion x (cm).
      A320 (usuario 20/10: «las cotas generadas con doble clic en interiores se generan por columna y por gabinete (alto o bajo); eliminar las
      cotas interiores entre cajones, son confusas, en su lugar cotas entre golas»): con z (cm) solo el cuerpo que la contiene (el modulo
@@ -12891,7 +12896,7 @@ const LAM = (() => {
       const ext = {}; cuerpos.forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || { a: 1e9, b: -1e9, id: p.modulo }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
       const mods = Object.values(ext).sort((a, b) => a.a - b.a);
       /* A188: la cota de cada gabinete y, arriba, la total de todos ellos (no «n × 58») */
-      const tapL = ps.filter(p => p.rol === 'tapeta' && !p.modulo && p.ancho > 0).sort((a, b) => a.x - b.x);   /* A190: las tapetas laterales tambien llevan su cota */
+      const tapL = ps.filter(p => p.rol === 'tapeta' && !p.modulo && p.ancho > 0 && !TAPETA_OCULTA.has(p.tipo)).sort((a, b) => a.x - b.x);   /* A322: sin el regreso ni el costado (A310): su cota se encimaba en la de la tira */   /* A190: las tapetas laterales tambien llevan su cota */
       const cadena = mods.map(mo => ({ a: mo.a, b: mo.b })).concat(tapL.map(p => ({ a: p.x, b: p.x + p.ancho })));
       cadena.forEach(mo => J.H(X(mo.a), X(mo.b), M - 14, fmt(mo.b - mo.a)));
       J.H(X(Math.min(...cadena.map(m2 => m2.a))), X(Math.max(...cadena.map(m2 => m2.b))), M - 28, medida(Math.max(...cadena.map(m2 => m2.b)) - Math.min(...cadena.map(m2 => m2.a))));
@@ -13008,7 +13013,7 @@ const LAM = (() => {
   }
   function mapaTonos(o){
     const plan = planDeConj(o), cara = o.cara || 0, f = filtroConjunto(o.grupo, cara), todas = piezasCara(plan, cara), m = new Map();
-    const fr = todas.filter(p => p.rol === 'frente' && f(p, cara) && p.ancho > 0 && p.alto > 0 && p.tipo !== 'Gola'), tap = todas.filter(p => p.rol === 'tapeta' && !p.modulo && f(p, cara) && p.fondo > 0 && p.alto > 0);
+    const fr = todas.filter(p => p.rol === 'frente' && f(p, cara) && p.ancho > 0 && p.alto > 0 && p.tipo !== 'Gola'), tap = todas.filter(p => p.rol === 'tapeta' && !p.modulo && f(p, cara) && p.fondo > 0 && p.alto > 0 && !TAPETA_OCULTA.has(p.tipo));
     agruparDespiece(fr, tap).forEach((q, i) => q.ps.forEach(p => m.set(p.id, tonoGrupo(i, false, o.grupo))));
     return m;
   }
@@ -13038,7 +13043,7 @@ const LAM = (() => {
   function capturarDespieceConjunto(o){
     const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), plano = !!o.plano;
     const todasC = piezasCara(plan, cara), fr = todasC.filter(p => p.rol === 'frente' && f(p, cara) && p.ancho > 0 && p.alto > 0 && p.tipo !== 'Gola');
-    const tap = todasC.filter(p => p.rol === 'tapeta' && !p.modulo && f(p, cara) && p.fondo > 0 && p.alto > 0);   /* A188: las tapetas laterales (no las de piso a techo) tambien se despiezan */
+    const tap = todasC.filter(p => p.rol === 'tapeta' && !p.modulo && f(p, cara) && p.fondo > 0 && p.alto > 0 && !TAPETA_OCULTA.has(p.tipo));   /* A322: el despiece de frentes lleva la tira, no su regreso ni su costado */   /* A188: las tapetas laterales (no las de piso a techo) tambien se despiezan */
     if (!fr.length && !tap.length) throw new Error(T('Este conjunto no tiene frentes'));
     const lista = agruparDespiece(fr, tap), sc = (10 / o.escalaFija) / PX_MM, M = 30, G = 38, hMax = 560;
     const g = new Grabador(900, 900), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
