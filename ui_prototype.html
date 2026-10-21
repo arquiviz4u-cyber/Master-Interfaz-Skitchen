@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A330. [Master hecho 20/10; SketchUp y Revit: sin cambio (leen las repisas del plan)] (usuario 20/10: «Inferior + superior (A313): al
+       elegirlo, el alto queda con 1 repisa; el alto de fabrica sigue con 2. Y cuando el superior se extiende los demas gabinetes tambien
+       pasan a una repisa») ponerDoble deja 1 repisa al alto que pasa a inferior + superior, tambien cuando se le extiende el superior del
+       vecino (capExt, capExtIzq, unir columna).
    A329. [Master hecho 20/10; SketchUp hecho 20/10 (Nombres.bisagra usa comercial); Revit pendiente: nombrar y contar por bisagra.comercial]
        (usuario 20/10: «las bisagras elevables deberian tener otro angulo de apertura con el que las encontremos en el mercado? porque si son las
        mismas que usamos para los traslapes deberian mostrarse como una sola y en caso de que no con el nombre comercial del angulo de
@@ -3670,7 +3674,9 @@ function codigoUS(m){
 }
 const chipCodigo = m => cfg.region === 'US' && !cfg.closet ? ' · ' + codigoUS(m) : '';
 const nombreModulo = m => cfg.closet ? 'Closet · ' + closetLabel(m) : !m.upper && NOMBRES[m.tipo] || (m.upper ? 'Gabinete alto' : 'Gabinete bajo');
-function ponerDoble(m){ if (!isDoble(m)) { m.inferiorAbierto = m.tipo === 'Abierto'; m.tipo = 'Doble'; } }
+/* A330 (usuario 20/10: «cuando el superior se extiende, los demas gabinetes tambien pasan a una repisa»): el alto que pasa a inferior +
+   superior (al elegirlo o al extenderle el superior del vecino) queda con 1 repisa, como en A313 */
+function ponerDoble(m){ if (!isDoble(m)) { m.inferiorAbierto = m.tipo === 'Abierto'; m.tipo = 'Doble'; if (m.upper) m.repisas = 1; } }
 function quitarDoble(m){ m.tipo = m.inferiorAbierto ? 'Abierto' : 'Sencillo'; m.inferiorAbierto = false; }
 /* MinimumWidth: el alto toma el minimo de su bajo emparejado; alacena 20, especial 45, resto 30 */
 function minWidth(m){
