@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A310. [Master hecho 20/10; SketchUp: nombres Tapeta Regreso y Tapeta Cierre (nombres.rb); Revit pendiente] (usuario 20/10: «las tapetas se
+       construyen en sketchup como piezas independientes y no como un solido y por lo tanto la opcion de cerrar extremo aparecera en estas si
+       se llega a necesitar, investiga como se construyen y los espesores») Las tapetas laterales (bajo, alto o de piso a techo) ya no son un
+       bloque del muro al frente: como en taller (tira de 3/4" al pano de los frentes, fijada al gabinete por detras) son la tira del grueso de
+       los frentes (tapeta:<lado>:<fila>), un regreso de 1.8 x 10 cm (US 4"; reg().tapetaRegreso) detras de ella junto al gabinete (tipo Regreso)
+       y, con «Cerrar extremo» en su panel (cerrarTapetaIzq / Der, por cara), un costado de 1.8 del muro a la tira del lado de afuera (tipo
+       Cierre) para cuando el extremo queda libre.
    A309. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (editor)] (usuario 20/10: «las cajas cuando estan unidas por columna se
        seleccionan independiente con doble click para manejar sus opciones») Un clic sobre una caja de repisas corrida sigue eligiendo la caja
        completa; el doble clic elige solo la columna tocada (en el alto doble, su modulo inferior) y el panel muestra las opciones de ese
@@ -2639,13 +2646,13 @@
 const PULG = 2.54, DIECISEISAVO = PULG/16, inch = v => Math.round(v*PULG*1e6)/1e6;
 const REGIONES = {
   MX: { ancho: { min: 30, max: 120, objetivo: 60, piston: 210 }, pasos: { entero: 1 }, pasoDef: 'entero', tapetaCorta: 3, tapetaMin: 2, tapetaMax: 5, especialMin: 45,
-    closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90, labio: 2, esquina: 5 }, fajas: { ancho: 10, tarja: 3 }, esquina: { ciego: 100, ciegoMax: 120, ciegoPuerta: 45, tapeta: 5, lado: 90, ladoAlto: 60, ocultaPuerta: 60, hojaMinAlto: 30 }, horno: { panel: 59.5, nicho: 56.4, grueso: 2 },
+    closet: { min: 40, max: 120, objetivo: 90, reserva: 5 }, estufa: { cuatro: 60, seis: 76, min: 50, max: 92 }, parrilla: { min: 30, max: 90, labio: 2, esquina: 5 }, tapetaRegreso: 10, fajas: { ancho: 10, tarja: 3 }, esquina: { ciego: 100, ciegoMax: 120, ciegoPuerta: 45, tapeta: 5, lado: 90, ladoAlto: 60, ocultaPuerta: 60, hojaMinAlto: 30 }, horno: { panel: 59.5, nicho: 56.4, grueso: 2 },
     tarjaDoble: 85, tarjaDobleBajo: 90, holguraRefri: 5, puertaOculta: { min: 60, max: 120, hoja: 180 }, especieroTorre: 20, especiero: 20,
     lava: 60, lavaCompacto: 45, campana: { protegida: 60, combustible: 75 }, dosPuertasDesde: 0 },
   US: { ancho: { min: inch(12), max: inch(48), objetivo: inch(30), piston: inch(84) }, pasos: { modular: inch(3), pulgada: inch(1), medida: DIECISEISAVO }, pasoDef: 'modular',
     tapetaCorta: inch(1), tapetaMin: inch(.5), tapetaMax: inch(3), especialMin: inch(18),
     closet: { min: inch(18), max: inch(48), objetivo: inch(36), reserva: inch(2) }, estufa: { cuatro: inch(30), seis: inch(36), min: inch(20), max: inch(48) },
-    parrilla: { min: inch(12), max: inch(48), labio: inch(.75), esquina: inch(2) }, fajas: { ancho: inch(4), tarja: inch(1.25) }, esquina: { ciego: inch(36), ciegoMax: inch(42), ciegoPuerta: inch(15), tapeta: inch(3), lado: inch(36), ladoAlto: inch(24), ocultaPuerta: inch(24), hojaMinAlto: inch(12) }, horno: { panel: inch(29.75), nicho: inch(28.5), grueso: inch(.75) }, tarjaDoble: inch(36), tarjaDobleBajo: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
+    parrilla: { min: inch(12), max: inch(48), labio: inch(.75), esquina: inch(2) }, tapetaRegreso: inch(4), fajas: { ancho: inch(4), tarja: inch(1.25) }, esquina: { ciego: inch(36), ciegoMax: inch(42), ciegoPuerta: inch(15), tapeta: inch(3), lado: inch(36), ladoAlto: inch(24), ocultaPuerta: inch(24), hojaMinAlto: inch(12) }, horno: { panel: inch(29.75), nicho: inch(28.5), grueso: inch(.75) }, tarjaDoble: inch(36), tarjaDobleBajo: inch(36), holguraRefri: inch(1), puertaOculta: { min: inch(24), max: inch(48), hoja: inch(72) },
     especieroTorre: inch(12), especiero: inch(9), lava: inch(24), lavaCompacto: inch(18), campana: { protegida: inch(24), combustible: inch(30) }, dosPuertasDesde: inch(24) } };
 /* valores de inicio de Ajustes por region (US: estandar de EE. UU., no conversion literal; seccion B1 del informe) */
 const INICIO_REGION = {
@@ -3250,7 +3257,7 @@ const cortaBack = m => isSpecial(m) || esquinaAlta(m);
    bajo ('ciego' | 'carrusel' | 'diagonal' | 'alacena'), forma de la alacena ('L' | 'diagonal' | 'oculta'), alto ('auto' sigue al
    bajo), duena (0: la cara k, 1: la k + 1; lleva el ciego o la puerta de la alacena oculta) y herraje del ciego. En cada cara la
    esquina es un modulo 'Esquina' (m.esquina = { k, lado }) en la columna del extremo, bajo y alto, con el ancho de su huella */
-const POR_CARA = ['longitud', 'modulos', 'tapetaIzq', 'tapetaDer', 'reservaIzq', 'reservaDer', 'corridaIzq', 'corridaDer', 'cerrarZocloIzq', 'cerrarZocloDer', 'cerrarMolduraIzq', 'cerrarMolduraDer',
+const POR_CARA = ['longitud', 'modulos', 'tapetaIzq', 'tapetaDer', 'reservaIzq', 'reservaDer', 'corridaIzq', 'corridaDer', 'cerrarTapetaIzq', 'cerrarTapetaDer', 'cerrarZocloIzq', 'cerrarZocloDer', 'cerrarMolduraIzq', 'cerrarMolduraDer',
   'puertasOcultas', 'moduloTarja', 'tipoTarja', 'compensacion', 'compReparto', 'topeTapeta'];
 const ESQ_TIPOS = [['diagonal', 'Diagonal (diamante)'], ['carrusel', 'L'], ['ciego', 'Ciego'], ['alacena', 'Alacena esquinera']];   /* A223: el ciego vuelve; 'carrusel' es la L */
 const multiCara = (c = cfg) => !c.isla && !c.closet && (c.forma === 'L' || c.forma === 'U') && Array.isArray(c.caras) && c.caras.length > 1;
@@ -4985,7 +4992,16 @@ function planDePiezas(c = cfg){
        piso a su tope y la alta no existe (columna reservada) */
     if (!cfg.isla) [['izq', true], ['der', false]].forEach(([lado, left]) => {
       if (!(left ? cfg.tapetaIzq : cfg.tapetaDer)) return;
-      const w = left ? ajusteIzq() : ajusteDer(), x0 = left ? 0 : W - w, pieza = (suf, z0, z1, fondo) => add({ id: 'tapeta:' + lado + suf, rol: 'tapeta', x: x0, y: 0, z: z0, ancho: w, fondo, alto: z1 - z0, material: groupMaterial('Tapetas'), etiqueta: 'tapetas' });
+      /* A310 (usuario 20/10: «las tapetas se construyen en sketchup como piezas independientes y no como un solido; la opcion de cerrar extremo
+         aparecera en estas si se llega a necesitar; investiga como se construyen y los espesores»): como en taller, la tapeta es una tira del
+         grueso de los frentes (espFrente) al pano de los frentes, atornillada al gabinete vecino por un regreso del grueso del cuerpo (1.8;
+         10 cm de fondo, US 4") detras de ella, junto al gabinete; con «Cerrar extremo» (extremo libre, no contra muro) un costado del mismo
+         grueso del muro a la tira, del lado de afuera. Ya no es un bloque a todo el fondo */
+      const w = left ? ajusteIzq() : ajusteDer(), x0 = left ? 0 : W - w, e1 = PLAN_CUERPO.lateral, cierre = left ? cfg.cerrarTapetaIzq : cfg.cerrarTapetaDer, mT = groupMaterial('Tapetas');
+      const pieza = (suf, z0, z1, fondo) => { const yT = fondo - t, R = Math.min(reg().tapetaRegreso, yT - sep), xi = left ? x0 + w : x0;   /* xi: el lado del gabinete */
+        add({ id: 'tapeta:' + lado + suf, rol: 'tapeta', x: x0, y: r2(yT), z: z0, ancho: w, fondo: t, alto: z1 - z0, material: mT, etiqueta: 'tapetas' });
+        if (w >= e1 + .3 && R > .5) add({ id: 'tapeta:' + lado + suf + ':regreso', rol: 'tapeta', tipo: 'Regreso', x: r2(left ? xi - e1 : xi), y: r2(yT - R), z: z0, ancho: e1, fondo: r2(R), alto: z1 - z0, material: mT, etiqueta: 'tapetas' });
+        if (cierre && yT - sep > .5) add({ id: 'tapeta:' + lado + suf + ':cierre', rol: 'tapeta', tipo: 'Cierre', x: r2(left ? x0 : x0 + w - e1), y: sep, z: z0, ancho: Math.min(e1, w), fondo: r2(yT - sep), alto: z1 - z0, material: mT, etiqueta: 'tapetas' }); };
       if (left ? cfg.corridaIzq : cfg.corridaDer) { pieza('', 0, cfg.alturaMuro, Math.max(dBajo, dAlto)); return; }
       const lo = lows.length ? lows[left ? 0 : lows.length - 1] : null, hi = highs.length ? highs[left ? 0 : highs.length - 1] : null;
       if (lo) { const [z0, z1] = isSpecial(lo) ? [0, topeEspecial(lo)] : cortaZoclo(lo) ? [0, zBar - pq] : [zb, zBar - pq]; pieza(':bajo', z0, z1, dBajo); }
@@ -9915,7 +9931,8 @@ function partPanel(key){
     html += section('Tapeta', chk(L ? 'tapI' : 'tapD', on, 'Activa') + `<div class="grid-2" style="margin-top:10px">${num(L ? 'tapIW' : 'tapDW', 'Ancho', Math.max(1, w), 'cm', 1, 35)}</div>`
       + `<div class="info-card" style="margin-top:10px"><div class="info-row">Ancho final <b>${fmt(w)}${uS()}</b></div></div>`
       + (cfg.closet ? '' : chk('corridas', L ? cfg.corridaIzq : cfg.corridaDer, 'Lateral piso a techo'))
-      + `<div class="note-sm">El sobrante decimal se absorbe en las tapetas activas. Perfil cerrado con tapas.</div>`);
+      + chk('tapCerr', L ? !!cfg.cerrarTapetaIzq : !!cfg.cerrarTapetaDer, 'Cerrar extremo')   /* A310 */
+      + `<div class="note-sm">El sobrante decimal se absorbe en las tapetas activas. Se arma con la tira al paño de los frentes (${fmt(espFrente())}${uS()}) y un regreso de ${fmt(reg().tapetaRegreso)}${uS()} detrás, atornillado al gabinete; «Cerrar extremo» agrega el costado cuando el extremo queda libre (sin muro).</div>`);
     /* A89: base y tope de las dos tapetas (por cocina) */
     if (!cfg.isla) html += section('Las dos tapetas', `<div class="grid-2">${num('tapBase', 'Ancho base', Math.min(cfg.reservaIzq, cfg.reservaDer), 'cm', 1, 15)}${num('tapTope', 'Ancho máximo', cfg.topeTapeta || reg().tapetaMax, 'cm', 1, 20)}</div>`
       + '<div class="note-sm">Gabinetes iguales en cm enteros; lo que sobra va a las tapetas (hasta su máximo) o, si no cabe, a algunos gabinetes, 1 cm más.</div>');
@@ -10144,7 +10161,7 @@ const ACT = {
   tapBase: v => change(c => { c.reservaIzq = c.reservaDer = v; c.repartoAdaptado = false; if ((c.topeTapeta || 0) < v) c.topeTapeta = v; }),
   tapTope: v => change(c => { c.topeTapeta = Math.max(v, c.tapetaIzq ? c.reservaIzq : 0, c.tapetaDer ? c.reservaDer : 0); }), closetLed: v => change(c => c.closetLed = v), ledTemp: v => change(c => c.ledTemp = parseInt(v, 10) || 3000),
   tapI: v => change(c => c.tapetaIzq = v), tapD: v => change(c => c.tapetaDer = v),
-  tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
+  tapIW: v => setFillerWidth(true, v), tapDW: v => setFillerWidth(false, v), tapCerr: v => change(c => c[selectedPart === 'fillerI' ? 'cerrarTapetaIzq' : 'cerrarTapetaDer'] = v),   /* A310 */ corridas: v => change(c => c[selectedPart === 'fillerI' ? 'corridaIzq' : 'corridaDer'] = v),
   tapSMol: v => change(c => { c.tapetaSuperiorMoldura = v; if (c.tapetaSuperiorModo === 'moldura') c.tapetaSuperiorModo = 'ras'; if (v) c.alturaTapetaSuperior = CROWN_ALTO[c.tapetaSuperiorPerfil || 'ogee'][0]; }, 'Revisar altura'), tapSP: v => change(c => { c.tapetaSuperiorPerfil = v; c.alturaTapetaSuperior = CROWN_ALTO[v][0]; }, 'Revisar altura'),
   tapSLis: v => change(c => c.listonTapeta = v), potF: v => change(c => c.potFiller = v), potFAlto: v => change(c => c.potFillerAlto = v), potFPos: v => change(c => c.potFillerPos = v),
   tapSCI: v => change(c => c.cerrarMolduraIzq = v), tapSCD: v => change(c => c.cerrarMolduraDer = v),
