@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A331. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «opciones de notas por default se pueden
+       eliminar tambien (opcion de borrar todas)») Las notas automaticas llevan × como las propias (notasEd[id].borrada: salen de la lista, de
+       la lamina y de la numeracion de globos); «Borrar todas» quita las automaticas y las propias, y «Restaurar automáticas (n)» devuelve las
+       automaticas borradas. Deshacer tambien las devuelve.
    A330. [Master hecho 20/10; SketchUp y Revit: sin cambio (leen las repisas del plan)] (usuario 20/10: «Inferior + superior (A313): al
        elegirlo, el alto queda con 1 repisa; el alto de fabrica sigue con 2. Y cuando el superior se extiende los demas gabinetes tambien
        pasan a una repisa») ponerDoble deja 1 repisa al alto que pasa a inferior + superior, tambien cuando se le extiende el superior del
@@ -13787,7 +13791,7 @@ const LAM = (() => {
       return { p: q, fx: .5, fy: arriba ? .5 : 1, fz: arriba ? 1 : .5, alz: ALZ_NOTA.has(q.rol) && q.tipo !== 'Tarja' || ['Jaladera', 'Boton', 'Monomando', 'Gola', 'Parrilla'].includes(q.tipo), clave: re.source }; }
     return null; }
   function notasFinales(ed = {}){
-    const auto = notasAuto().filter(a => !(ed[a.id] && ed[a.id].oculta)).map(a => Object.assign({}, a, { texto: (ed[a.id] && ed[a.id].texto) || a.texto }));
+    const auto = notasAuto().filter(a => !(ed[a.id] && (ed[a.id].oculta || ed[a.id].borrada))).map(a => Object.assign({}, a, { texto: (ed[a.id] && ed[a.id].texto) || a.texto }));
     let P = []; if ((ed.__extra || []).length) try { const pl = planCocina(); P = pl.piezas.concat((pl.caras || []).flatMap(c => c.piezas)); } catch (e) { /* closet */ }
     const extra = (ed.__extra || []).filter(x => x && String(x.texto || '').trim()).map(x => Object.assign({ id: x.id, texto: String(x.texto).trim(), manual: true, p: null, fx: .5, fy: .5, fz: .5, alz: false }, anclaNota(x.texto, P) || {}));
     return auto.concat(extra).map((a, i) => Object.assign(a, { n: i + 1 }));
@@ -15369,13 +15373,19 @@ function presLado(){
   /* A316: cada nota con el numero de su globo; las del usuario se quitan con ×; abajo, una nota nueva */
   const finales = LAM.notasFinales(L.notasEd), numDe = id => { const q = finales.find(f => f.id === id); return q ? q.n : ''; };
   const badge = (n, sinGlobo) => `<span class="pres-num${n ? '' : ' off'}" title="${n ? (sinGlobo ? 'Número de la nota (sin globo: su texto no nombra una pieza del dibujo)' : 'Número de su globo') : 'Oculta'}">${n || '–'}</span>`;
-  const notas = LAM.notasAuto().map(a => { const ed = L.notasEd[a.id] || {};
-    return `<label style="display:flex;gap:8px;align-items:center;margin:4px 0">${badge(numDe(a.id))}<input type="checkbox" data-pnv="${a.id}"${ed.oculta ? '' : ' checked'} title="Mostrar u ocultar">` +
-      `<input type="text" data-pnt="${a.id}" value="${e2(ed.texto || a.texto)}" style="flex:1;min-width:0"></label>`; }).join('')
+  /* A331 (usuario 20/10: «las notas por default se pueden eliminar tambien, opcion de borrar todas»): las automaticas tambien llevan ×
+     (notasEd[id].borrada: salen de la lista y de la lamina; «Restaurar automáticas» las devuelve) y «Borrar todas» quita las de las dos clases */
+  const autos = LAM.notasAuto(), borradas = autos.filter(a => (L.notasEd[a.id] || {}).borrada).length;
+  const notas = autos.filter(a => !(L.notasEd[a.id] || {}).borrada).map(a => { const ed = L.notasEd[a.id] || {};
+    return `<div style="display:flex;gap:8px;align-items:center;margin:4px 0">${badge(numDe(a.id))}<input type="checkbox" data-pnv="${a.id}"${ed.oculta ? '' : ' checked'} title="Mostrar u ocultar">` +
+      `<input type="text" data-pnt="${a.id}" value="${e2(ed.texto || a.texto)}" style="flex:1;min-width:0">` +
+      `<button class="btn btn-icon pres-mini" data-pnd="${a.id}" title="Borrar esta nota">&#10005;</button></div>`; }).join('')
     + ((L.notasEd.__extra || []).map(x => { const f = finales.find(q => q.id === x.id);
       return `<div style="display:flex;gap:8px;align-items:center;margin:4px 0">${badge(f ? f.n : '', f && !f.p)}<input type="text" data-pxt="${x.id}" value="${e2(x.texto)}" style="flex:1;min-width:0" title="Si nombra una pieza (horno, tarja, grifo, cubierta, jaladera…) su globo la señala">` +
         `<button class="btn btn-icon pres-mini" data-pxd="${x.id}" title="Quitar esta nota">&#10005;</button></div>`; }).join(''))
-    + `<div class="pres-linea" style="margin-top:6px"><input type="text" id="presNotaNueva" placeholder="Nota nueva (p. ej. «Horno empotrado de 60 cm»)" style="flex:3 1 0"><button class="btn" id="presNotaAgregar" style="flex:1 1 0">Agregar</button></div>`;
+    + `<div class="pres-linea" style="margin-top:6px"><input type="text" id="presNotaNueva" placeholder="Nota nueva (p. ej. «Horno empotrado de 60 cm»)" style="flex:3 1 0"><button class="btn" id="presNotaAgregar" style="flex:1 1 0">Agregar</button></div>`
+    + `<div class="pres-linea" style="margin-top:6px">${finales.length || (L.notasEd.__extra || []).length ? '<button class="btn" id="presNotasBorrar" style="flex:1 1 0" title="Borra todas las notas, automáticas y propias">Borrar todas</button>' : ''}` +
+      `${borradas ? `<button class="btn" id="presNotasRestaurar" style="flex:1 1 0" title="Devuelve las notas automáticas borradas">Restaurar automáticas (${borradas})</button>` : ''}</div>`;
   const chk = (id, t, on) => `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-popt="${id}"${on ? ' checked' : ''}><span>${e2(t)}</span></label>`;
   const hojasHtml = L.hojas.map((h, i) => `<div class="pres-fila${i === L.hoja ? ' sel' : ''}" data-hoja="${i}"${i > 0 ? ' draggable="true" title="Arrastra para cambiar el orden"' : ''}>${i > 0 ? '<span class="pres-asa">&#8942;&#8942;</span>' : ''}<span style="flex:1;min-width:0">${i + 1}. ${e2(h.nombre)}</span>` +
     (i > 0 ? `<button class="btn btn-icon pres-mini" data-phdel="${i}" title="Quitar esta lámina">&#10005;</button>` : '') + '</div>').join('');
@@ -15618,6 +15628,9 @@ function presCargarLogo(){
       if (t.id === 'presNotaAgregar') { const inp = presEl('presNotaNueva'), tx = inp ? inp.value.trim() : ''; if (!tx) { if (inp) inp.focus(); return; }   /* A316 */
         presAntes(); L.notasEd.__extra = (L.notasEd.__extra || []).concat([{ id: 'u' + Date.now().toString(36), texto: tx }]); presRefrescar(false); return; }
       if (t.dataset.pxd) { presAntes(); L.notasEd.__extra = (L.notasEd.__extra || []).filter(x => x.id !== t.dataset.pxd); presRefrescar(false); return; }
+      if (t.dataset.pnd) { presAntes(); L.notasEd[t.dataset.pnd] = Object.assign({}, L.notasEd[t.dataset.pnd], { borrada: true }); presRefrescar(false); return; }   /* A331 */
+      if (t.id === 'presNotasBorrar') { presAntes(); LAM.notasAuto().forEach(a => { L.notasEd[a.id] = Object.assign({}, L.notasEd[a.id], { borrada: true }); }); L.notasEd.__extra = []; presRefrescar(false); return; }
+      if (t.id === 'presNotasRestaurar') { presAntes(); Object.keys(L.notasEd).forEach(k => { if (k !== '__extra' && L.notasEd[k] && L.notasEd[k].borrada) delete L.notasEd[k].borrada; }); presRefrescar(false); return; }
       if (t.id === 'presRestGlobos') { presAntes(); LAM.presRestablecer(L); PRES.selG = null; presGuardar(); presDibujar(); return; }
       if (t.id === 'presRestCotas') { presAntes(); LAM.presRestablecerCotas(L); PRES.selC = null; presGuardar(); presDibujar(); return; }
       if (t.id === 'presLogo') { presCargarLogo(); return; }
