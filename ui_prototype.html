@@ -306,6 +306,13 @@
    A374. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «hay que ponerle un
        icono a la opcion de tarja y parrilla para identificarlo mas rapido») «Preparado para tarja» y «Parrilla de induccion encima» son
        interruptores con icono, como «Dos puertas»: la tarja con su tina y su llave; la parrilla vista de arriba con sus zonas.
+   A380. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (Presentar)] (usuario 21/10: «el estilo de cotas en detalles de nariz y
+       golas debe ser mas fino y mas corta la oblicua; opcion de mostrar estos detalles en circulo») Las cotas de los detalles de nariz y
+       gola van con linea de 0.5 y oblicua de la mitad (cotaFina en dim). Cada uno lleva la opcion «Círculo» (it.circulo, se guarda con la
+       vista): su dibujo va recortado en un circulo con su contorno, en el lienzo y en el PDF; las cotas quedan fuera del recorte.
+   A379. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (Presentar)] (usuario 21/10: «las cotas en presentar de cajones son
+       confusas y no revelan nada util, quitarlas») En las laminas, el interior de un gabinete con cajones ya no lleva la cota de su altura
+       interior (medida detras de las cajas): ni en el alzado interior del conjunto ni en el alzado sin puertas.
    A378. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (seccion del editor)] (usuario 21/10: «las repisas, patines y fajas
        frontales de torre de hornos no se ven en la seccion») El corte de la torre de hornos se dibuja con las piezas del plan que cruza el
        plano del corte: tableros, repisas, patines, rellenos y fajas, la tapa o la rejilla, la gola, los frentes (con puertas) y los equipos
@@ -7063,7 +7070,7 @@ let focusPanel = null, upperFocus = null, esqFoco = null,   /* A237: doble clic 
 const pieceSelected = key => !!selectedPart && selectedPart.startsWith('piece:') && pieces.has(key);
 let selectedPart = null;   /* 'wall' | 'cover' | 'sink' | 'tap' | 'plinth' | 'backsplash' | 'fillerI' | 'fillerD' | 'gola' */
 let view = 'Alzado', showDoors = true, flat = false, measure = false, medirTodo = false, seccionOn = false;   /* A119: Medir en tres pasos (elegidos, todos, apagado) */   /* A115: seccion lateral junto al alzado */
-let hover = null, drag = null, matDrag = null, dimensionKey = null, editingSwatch = null;
+let hover = null, drag = null, matDrag = null, dimensionKey = null, editingSwatch = null, cotaFina = false;   /* A380: cotas de detalle */
 
 /* =======================================================================
  * CANVAS
@@ -7191,13 +7198,13 @@ function dim(x1, y1, x2, y2, text, key, tOff){   /* A183: tOff = [dx, dy] px que
   else if (prefs.cotaUnidad === 'ninguna' && us && text.endsWith(us)) text = text.slice(0, -us.length);
   text = totalFtIn(text);   /* E10 */
   ctx.save();
-  ctx.strokeStyle = dc || C.dimLine; ctx.fillStyle = dc || C.dimLine; ctx.lineWidth = 1;
+  ctx.strokeStyle = dc || C.dimLine; ctx.fillStyle = dc || C.dimLine; ctx.lineWidth = cotaFina ? .5 : 1;
   line(x1, y1, x2, y2);
   const L = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1)/L, uy = (y2 - y1)/L;
   for (const [px, py, sg] of [[x1, y1, 1], [x2, y2, -1]]) {   /* remate: oblicuo (Revit), flecha o punto */
     if (prefs.cotaRemate === 'flecha') { ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + sg*ux*7 - uy*2.6, py + sg*uy*7 + ux*2.6); ctx.lineTo(px + sg*ux*7 + uy*2.6, py + sg*uy*7 - ux*2.6); ctx.closePath(); ctx.fill(); }
     else if (prefs.cotaRemate === 'punto') { ctx.beginPath(); ctx.arc(px, py, 2.3, 0, Math.PI*2); ctx.fill(); }
-    else line(px-4, py+4, px+4, py-4);
+    else { const o = cotaFina ? 2.2 : 4; line(px-o, py+o, px+o, py-o); }   /* A380: en los detalles, oblicua corta */
   }
   ctx.font = `500 ${prefs.cotaTexto}px 'IBM Plex Mono'`;
   const bw = ctx.measureText(text).width + 8, bh = prefs.cotaTexto + 5.5, cx = (x1+x2)/2 + (tOff ? tOff[0] : 0), cy = (y1+y2)/2 + (tOff ? tOff[1] : 0);
@@ -9417,7 +9424,7 @@ function drawMeasure(X, Z){
           if (isDoble(m)) dim(lx, Z(topeAltos() - m.altoSuperior), lx, Z(topeAltos()), fmt(m.altoSuperior), 'mlift:' + m.id);
           const grp = upper && sinPuertas(m) ? bodyGroupOf(m) : null;
           if (grp) { if (grp.members[grp.members.length - 1] === m) drawGaps(grp.members[0], { x: X(grp.x0), y: r.y, w: grp.width*scale, h: r.h }, scale); }   /* caja corrida: repisas y divisiones de la caja (A43) */
-          else if (!showDoors || sinPuertas(m)) drawGaps(m, r, scale);
+          else if ((!showDoors || sinPuertas(m)) && !(exporting && hasDrawers(m))) drawGaps(m, r, scale);   /* A379: en las laminas, sin la luz de un gabinete de cajones */
           if (m.dosPuertas && !sinPuertas(m) && (!drawerType(m) || m.tipo === 'C')) {
             const ym = showDoors ? r.y + r.h - 14 : r.y + 16;   /* A116: en Interior van arriba; abajo quedan las luces entre divisiones */
             dim(r.x, ym, r.x + r.w/2, ym, fmt(m.ancho/2), 'halfw:' + m.id); dim(r.x + r.w/2, ym, r.x + r.w, ym, fmt(m.ancho/2), 'halfw:' + m.id);
@@ -13624,6 +13631,9 @@ const LAM = (() => {
       } else {   /* interiores: una cota de la altura interior (de la pieza base a la de bajo cubierta) por interior distinto; entrepanos con doble clic (A192) */
         const vistos = new Set();
         mods.forEach(mo => {
+          /* A379 (usuario 21/10: «las cotas en presentar de cajones son confusas y no revelan nada util, quitarlas»): un gabinete con cajones no
+             lleva la cota de su altura interior (medida detras de las cajas) */
+          if (ps.some(p => p.modulo === mo.id && p.rol === 'caja')) return;
           const tab = ps.filter(p => p.modulo === mo.id && p.rol !== 'frente' && ['Piso', 'Techo', 'Repisa', 'Cama', 'CamaInterior'].includes(p.tipo) && p.ancho > (mo.b - mo.a) * .6).sort((a, b) => a.z - b.z);
           if (tab.length < 2) return;
           const total = [tab[0].z + tab[0].alto, tab[tab.length - 1].z];
@@ -14957,7 +14967,7 @@ const LAM = (() => {
   }
   /* desplazamiento (mm de hoja) del titulo o de la escala de una vista: { dx, dy } o nada */
   const textoMov = v => v && typeof v === 'object' && isFinite(v.dx) && isFinite(v.dy) && (v.dx || v.dy) ? { dx: Math.round(v.dx * 100) / 100, dy: Math.round(v.dy * 100) / 100 } : undefined;
-  const CAMPOS_VISTA = ['id', 'vista', 'hoja', 'on', 'n', 'x', 'y', 'plano', 'corte', 'dir', 'grupo', 'cara', 'abiertos', 'explotado', 'cotasV', 'tt', 'te', 'ley', 'leyCol', 'gl', 'cols', 'entre', 'rec', 'variante', 'modulo'];
+  const CAMPOS_VISTA = ['id', 'vista', 'hoja', 'on', 'n', 'x', 'y', 'plano', 'corte', 'dir', 'grupo', 'cara', 'abiertos', 'explotado', 'cotasV', 'tt', 'te', 'ley', 'leyCol', 'gl', 'cols', 'entre', 'rec', 'variante', 'modulo', 'circulo'];   /* A380 */
   const copiaVista = it => { const r = {}; CAMPOS_VISTA.forEach(k => { if (it[k] !== undefined) r[k] = it[k]; }); return r; };
   /* o: { papel, cotas, proy, notas, notasEd, rotulo, vistas: [ids], guardado: [{id, vista, on, n, x, y, plano, corte}], globos, detalle, dxf, escalaVistas, escalaIso } */
   function presNueva(o){
@@ -15341,13 +15351,20 @@ const LAM = (() => {
     const k = { ctx, exporting, cot: prefs.exportCotas, de: dimsExport, dm: dimsEspejo, hv: hover }, previoC = Object.assign({}, C);
     try {
       ctx = envolver(gr); exporting = true; prefs.exportCotas = true; dimsExport = null; dimsEspejo = null; hover = null; Object.assign(C, LIGHT);
+      cotaFina = VISTAS_DETALLE.has(it.vista);   /* A380 */
       (dims || []).forEach((d, i) => { const o = ov[i] || {}; if (o.oculta) return;
         if (it.modulo && it.bbEf && Math.abs(d[3] - d[1]) < 1 && Math.abs(d[2] - d[0]) > it.bbEf.w * 1.05) return;   /* A207: en la lamina de un modulo, sin las cotas del ancho de todo el closet */
         const vert = Math.abs(d[2] - d[0]) < 1, dx = vert ? (o.dx || 0) / PX_MM : 0, dy = vert ? 0 : (o.dy || 0) / PX_MM;
         dim(d[0] + dx, d[1] + dy, d[2] + dx, d[3] + dy, d[4], null, null); });
       (isos || []).forEach((c, j) => { const o = ov['i' + j] || {}; if (!o.oculta) dibujarCotaIso(gr, c, o); });
-    } finally { ctx = k.ctx; exporting = k.exporting; prefs.exportCotas = k.cot; dimsExport = k.de; dimsEspejo = k.dm; hover = k.hv; Object.assign(C, previoC); }
+    } finally { ctx = k.ctx; exporting = k.exporting; prefs.exportCotas = k.cot; dimsExport = k.de; dimsEspejo = k.dm; hover = k.hv; Object.assign(C, previoC); cotaFina = false; }
   }
+  /* A380 (usuario 21/10: «el estilo de cotas en detalles de nariz y golas debe ser mas fino y mas corta la oblicua; opcion de mostrar estos
+     detalles en circulo»): los detalles llevan cotas finas (linea de 0.5 y oblicua corta) y, con it.circulo, su dibujo va recortado en un
+     circulo (centrado en su dibujo y del tamaño que cabe en el marco de la vista) con su contorno */
+  const VISTAS_DETALLE = new Set(['ConjNariz', 'ConjGola']);
+  const circuloDe = it => { const b = it.cap.bb, c = celdaDe(it); return { cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2, r: Math.min(c.caja.w, c.caja.h) / 2 / PX_MM }; };   /* el que cabe en el marco de la vista */
+  const rutaCirculo = (c, n = 64) => [{ pts: Array.from({ length: n }, (_, i) => [c.cx + c.r * Math.cos(i * 2 * Math.PI / n), c.cy + c.r * Math.sin(i * 2 * Math.PI / n)]), cerrada: true }];
   /* geometria (mm de hoja) de las cotas de una vista: su linea y la caja de su texto */
   function geomCotas(L, it){
     const { ix, iy } = tintaDe(it), bb = it.cap.bb, ov = (L.cotas && L.cotas[it.id]) || {}, out = [];
@@ -15681,7 +15698,11 @@ const LAM = (() => {
       const recorteMM = it => { const c = celdaDe(it), b = it.bbEf || it.cap.bb; return { x: c.x + c.pad + (c.caja.w - b.w * PX_MM) / 2, y: c.y + c.pad + (c.caja.h - b.h * PX_MM) / 2, w: b.w * PX_MM, h: b.h * PX_MM }; };
       const conRecorte = (it, fn) => { if (!it.rec) { fn(); return; } const r = recorteMM(it); g.save(); g.beginPath(); g.rect(X(r.x), Y(r.y), r.w * Z, r.h * Z); g.clip(); fn(); g.restore(); };
       dibujarHojaBase(Object.assign({}, base, { vista: (cv2, i) => { const it = its[i], cap = it.cap, { ix, iy } = tintaDe(it);
-        const b = bitmapDe(cap, PX_MM * Z * dpr, v.rapido); conRecorte(it, () => g.drawImage(b.cv, X(ix), Y(iy), cap.bb.w * PX_MM * Z, cap.bb.h * PX_MM * Z)); } }), pg);
+        const b = bitmapDe(cap, PX_MM * Z * dpr, v.rapido);
+        if (it.circulo && VISTAS_DETALLE.has(it.vista)) { const c = circuloDe(it), cx = X(ix + (c.cx - cap.bb.x0) * PX_MM), cy = Y(iy + (c.cy - cap.bb.y0) * PX_MM), r = c.r * PX_MM * Z;   /* A380 */
+          g.save(); g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.clip(); g.drawImage(b.cv, X(ix), Y(iy), cap.bb.w * PX_MM * Z, cap.bb.h * PX_MM * Z); g.restore();
+          g.save(); g.strokeStyle = '#222222'; g.lineWidth = Math.max(.6, .35 * Z); g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke(); g.restore(); }
+        else conRecorte(it, () => g.drawImage(b.cv, X(ix), Y(iy), cap.bb.w * PX_MM * Z, cap.bb.h * PX_MM * Z)); } }), pg);
       const gs = globosHoja(L), ms = marcasHoja(L);
       its.forEach(it => { const ops = opsSobre(L, it, gs, ms); if (!ops.length) return; const { ix, iy } = tintaDe(it);
         conRecorte(it, () => { g.save(); g.translate(X(ix), Y(iy)); repetir(g, ops, it.cap.bb, PX_MM * Z); g.restore(); }); });
@@ -15724,7 +15745,9 @@ const LAM = (() => {
           if (!its.length) continue;
           const datos = datosHoja(null, datosRotulo(L), h === 0 ? (L.notasLista || []) : []);
           const gs = globosHoja(L), ms = marcasHoja(L), conSobre = it => { const bE = it.bbEf || it.cap.bb; let ops = it.cap.ops.concat(opsSobre(L, it, gs, ms));
-            if (it.rec) ops = [{ t: 'q' }, { t: 'clip', ruta: [{ pts: [[bE.x0, bE.y0], [bE.x1, bE.y0], [bE.x1, bE.y1], [bE.x0, bE.y1]], cerrada: true }] }].concat(ops, [{ t: 'Q' }]);
+            if (it.circulo && VISTAS_DETALLE.has(it.vista)) { const ru = rutaCirculo(circuloDe(it));   /* A380: el dibujo en su circulo; las cotas, fuera */
+              ops = [{ t: 'q' }, { t: 'clip', ruta: ru }].concat(it.cap.ops, [{ t: 'Q' }], opsSobre(L, it, gs, ms), [{ t: 'stroke', ruta: ru, alpha: 1, color: '#222222', ancho: 1, cap: 'butt', dash: [] }]); }
+            else if (it.rec) ops = [{ t: 'q' }, { t: 'clip', ruta: [{ pts: [[bE.x0, bE.y0], [bE.x1, bE.y0], [bE.x1, bE.y1], [bE.x0, bE.y1]], cerrada: true }] }].concat(ops, [{ t: 'Q' }]);
             return Object.assign({}, it.cap, { ops, bb: bE }); };
           const cs = its.map(it => ({ it, cap: conSobre(it) })); cs.forEach(c => todos.push(c));
           paginas.push(paginaComposicion(cs.map(c => ({ cap: c.cap, celda: celdaDe(c.it), nombre: tituloItem(L, c.it), tt: c.it.tt, te: c.it.te })), Object.assign({}, datos, { hoja: hoja(paginas.length + 1), hojaDe: hojaDe(paginas.length + 1), cotasManual: cotasManualDe(L, h) })));   /* A325 */
@@ -16090,6 +16113,7 @@ function presLado(){
       (dup ? `<button class="btn btn-icon pres-mini" data-pdel="${i}" title="Quitar esta vista">&#10005;</button>` : '') +
       (it.vista === 'ConjTitulo' ? '' : `<div class="pres-opc">` +
         `<label class="pres-bn" title="Esta vista en blanco y negro"><input type="checkbox" data-ppl="${i}"${it.plano ? ' checked' : ''}${it.on ? '' : ' disabled'}>B/N</label>` +
+        (it.vista === 'ConjNariz' || it.vista === 'ConjGola' ? `<label class="pres-bn" title="El detalle dentro de un círculo"><input type="checkbox" data-pcirc="${i}"${it.circulo ? ' checked' : ''}${it.on ? '' : ' disabled'}>Círculo</label>` : '') +   /* A380 */
         (it.vista === 'ConjHerrajes' ? '' : `<label class="pres-bn" title="Cotas de esta vista"><input type="checkbox" data-pcv="${i}"${(it.cotasV !== undefined ? it.cotasV : L.cotasOn !== false) ? ' checked' : ''}${it.on ? '' : ' disabled'}>Cotas</label>`) +
         (it.vista === 'AlzadoPuertas' ? `<label class="pres-bn" title="Globos de las notas automáticas sobre el alzado"><input type="checkbox" data-pgl="${i}"${it.gl ? ' checked' : ''}${it.on ? '' : ' disabled'}>Globos</label>` : '') + (fija ? '' : it.vista === 'ConjHerrajes' ? `<select style="margin-left:auto" title="Tamaño del cuadro; los textos siguen legibles" data-pesc="${i}"${it.on ? '' : ' disabled'}>${[[1, '100 %'], [1.25, '80 %'], [1.5, '67 %']].map(([q, t]) => opt(q, t, q === it.n)).join('')}</select>` : (it.vista === 'Isometrico' || it.vista === 'ConjIso') ? '<span style="margin-left:auto;font-size:11px;color:#6B7680">escala libre</span>' : `<select style="margin-left:auto" data-pesc="${i}"${it.on ? '' : ' disabled'}>${(LAM.ES_CONJUNTO(it.vista) ? LAM.ESC_DET : [10, 20, 25, 50, 100]).map(q => opt(q, '1:' + q, q === it.n)).join('')}</select>`) + '</div>') +
       (it.vista === 'Isometrico' ? `<div class="pres-corte"><button class="btn pres-mini" data-pabrir="${i}" title="Doble clic en un módulo del isométrico abre o cierra sus puertas y cajones">Abrir / cerrar todos</button><span>${(it.abiertos || [...LAM.abiertos]).length} abiertos</span></div>` : '') +
@@ -16402,6 +16426,7 @@ function presCargarLogo(){
     if (d.pxt) { const x = (L.notasEd.__extra || []).find(q => q.id === d.pxt); if (x && x.texto !== t.value) { presAntes(); x.texto = t.value; presRefrescar(false); } return; }   /* A316 */
     if (d.pon !== undefined) { presAntes(); const it = L.vistas[+d.pon]; it.on = t.checked; presRefrescar(it.on && !isFinite(it.x)); return; }
     if (d.ppl !== undefined) { presAntes(); L.vistas[+d.ppl].plano = t.checked; presRefrescar(false); return; }
+    if (d.pcirc !== undefined) { presAntes(); L.vistas[+d.pcirc].circulo = t.checked || undefined; presGuardar(); presDibujar(); return; }   /* A380 */
     if (d.pcv !== undefined) { presAntes(); L.vistas[+d.pcv].cotasV = t.checked; presRefrescar(false); return; }
     if (d.pgl !== undefined) { presAntes(); L.vistas[+d.pgl].gl = t.checked; presRefrescar(false); return; }
     if (d.pisla !== undefined) { presAntes(); L.isla = t.value ? LAM.presIslaPorDefecto(L, t.value) : null; presRefrescar(false); return; }
