@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A308. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente] (usuario 20/10: «una puerta de piston unida en 3 o mas
+       columnas se puede subdividir partes equidistantes; al cambiar la puerta piston de tipo a repisas abiertas, por default con 0 repisas;
+       ademas, siendo piston unido en columnas, deberia desaparecer») 1) El modulo superior de piston unido en varias columnas lleva
+       partesSuperior hojas iguales (campo «Hojas iguales» en su panel; nunca menos de las que pide reg().ancho.piston por hoja): cada hoja es un
+       frente elevable con sus pistones y detras de cada junta va una division (donde montan). 2) Al pasar del ancho maximo del piston ya no se
+       convierte solo en caja de repisas: se divide en hojas. 3) Elegir «Caja de repisas abierta» (capTipo, supTipo) ya no pone 1 repisa: empieza
+       con las que tenga (0 de fabrica).
    A307. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (editor)] (usuario 20/10: «necesitamos diferenciar los iconos de funcion y
        de opciones, siento que se confunden; opciones de gabinetes altos tambien agregar icono de inferior con repisas para que sea mas
        visible») Las Opciones con icono (campana, dos puertas) ya no son tarjetas como las de Funcion: son interruptores en fila (icono
@@ -2690,7 +2697,7 @@ function newModule(upper, region = cfg.region){
     cajonesCloset: 3, altoCajonCloset: 20, sobreCajonera: 'Barra', closetSinPuertas: false, maletero: false, altoMaletero: 40, puertaMaletero: true,
     altoZapatera: 60, altoEscritorio: 75, espejo: 'Rectangular', repisaAltaVanity: 200,
     /* alto doble (UpperCaps): modulo superior de piston, dos puertas o caja de repisas; campana bajo el alto */
-    inferiorAbierto: false, tipoSuperior: 'Piston', bisagraDerechaSuperior: false, repisasSuperior: 0, divisionSuperior: false, divisionesSuperior: 1, unirSuperior: false, altoSuperior: 30, materialSuperior: null, mostrarPuertaSuperior: true,
+    inferiorAbierto: false, partesSuperior: 1, tipoSuperior: 'Piston', bisagraDerechaSuperior: false, repisasSuperior: 0, divisionSuperior: false, divisionesSuperior: 1, unirSuperior: false, altoSuperior: 30, materialSuperior: null, mostrarPuertaSuperior: true,
     huecoCampana: 5, fondoCampana: 50, mostrarCampana: true, soloCampana: false, fondoSuperior: 0, elevacionAlto: 0,   /* A81; A82: 0 = toma el fondo del alto al volverse doble */
     /* especiales de la fila baja: torre de hornos, alacena y especiero torre (Config de src/LayoutState.cs) */
     topeEspecial: 0, espesorLaterales: 1.8, repisasEspecial: 2, aireHornos: 5,
@@ -3843,7 +3850,12 @@ const supAltoEsq = e => e.supFuncion === 'repisas' ? 'repisas' : 'puertas';
 const altoSupEsq = e => { if (e.altoSuperior > 0) return e.altoSuperior; const d = cfg.modulos.find(q => q.upper && !q.reserved && q.tipo === 'Doble'); return d ? d.altoSuperior : 30; };
 /* A261: une la columna vecina (lado +1 derecha, -1 izquierda) al modulo superior del alto doble m; con inferior, tambien su caja de repisas.
    Del lado izquierdo el vecino pasa a ser el primero del grupo y toma lo del modulo superior. Devuelve el vecino (o null) */
-const CAMPOS_SUP = ['fondoSuperior', 'altoSuperior', 'tipoSuperior', 'bisagraDerechaSuperior', 'repisasSuperior', 'divisionSuperior', 'divisionesSuperior', 'materialSuperior', 'mostrarPuertaSuperior'];
+const CAMPOS_SUP = ['fondoSuperior', 'altoSuperior', 'tipoSuperior', 'bisagraDerechaSuperior', 'repisasSuperior', 'divisionSuperior', 'divisionesSuperior', 'materialSuperior', 'mostrarPuertaSuperior', 'partesSuperior'];
+/* A308 (usuario 20/10: «una puerta de piston unida en 3 o mas columnas se puede subdividir en partes equidistantes»): hojas iguales de la
+   puerta elevable del modulo superior unido; nunca menos de las que pide su ancho maximo (reg().ancho.piston) */
+const PARTES_PISTON_MAX = 6;
+const partesPistonMin = g => Math.max(1, Math.ceil((g.width - .01)/reg().ancho.piston));
+const partesPiston = g => !g || g.lead.tipoSuperior !== 'Piston' ? 1 : Math.max(partesPistonMin(g), Math.min(PARTES_PISTON_MAX, Math.round(g.lead.partesSuperior) || 1));
 function vecinoColumna(m, lado){ const up = row(true), g = capGroupOf(m) || { members: [m] }, ref = lado > 0 ? g.members[g.members.length - 1] : g.members[0], v = up[up.indexOf(ref) + lado];
   return v && !v.reserved && !isSpecial(v) && !v.esquina && !hasCampana(v) ? v : null; }
 function unirColumna(m, lado, conInferior){
@@ -3854,7 +3866,7 @@ function unirColumna(m, lado, conInferior){
   (lado > 0 ? last : v).unirSuperior = true;
   if (conInferior && m.inferiorAbierto) { v.inferiorAbierto = true; (lado > 0 ? last : v).unirCuerpo = true; }
   const ng = capGroupOf(v);   /* como capExt (A224): con puertas pasa a piston; a caja de repisas solo si pasa del maximo del piston */
-  if (ng && ng.lead.tipoSuperior !== 'Repisas') { if (ng.width > reg().ancho.piston + .01) { if (ng.members.length <= 3) ng.lead.tipoSuperior = 'Repisas'; } else if (ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Piston'; }
+  if (ng && ng.lead.tipoSuperior !== 'Repisas' && ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Piston';   /* A308: el piston ya no pasa solo a caja de repisas: se divide en hojas */
   return v; }
 const hasDivider = m => !!m.division && (m.upper ? (m.dosPuertas || sinPuertas(m) || isDoble(m)) && !hasCampana(m) : m.dosPuertas && m.tipo === 'Puertas' && !m.preparadoTarja);   /* A260: con campana no (su ducto sube por el gabinete) */
 /* MaxShelves: entre repisas quedan al menos 35 cm libres */
@@ -4722,7 +4734,9 @@ function planDePiezas(c = cfg){
           const capMat = m.materialSuperior || cfg.materialGeneral || null, fondo = m.fondoSuperior > 0 ? m.fondoSuperior : Math.max(...cap.members.map(q => q.fondo));   /* A82 */
           const h = carcasa(m, m.id + ':superior', cx0, cx1, cz0, cz1, fondo, capMat, 'cap', true, false, { ancho: 0, anclaje: 0, fijacion: null }, m.tipoSuperior === 'Repisas' ? -t : PLAN_HOLGURA_PUERTA);   /* A149: lo carga el alto inferior (su fijacion); A266: sin puertas, al frente */   /* A86; A140 */
           /* A201: la puerta elevable unica de gabinetes unidos descansa en una division en cada limite entre ellos (donde van sus pistones) */
-          let limites = null; if (m.tipoSuperior === 'Piston' && cap.members.length > 1 && !m.divisionSuperior) { let xa = cx0; limites = cap.members.slice(0, -1).map(q => (xa += q.ancho)); }
+          const nPz = partesPiston(cap);   /* A308: hojas iguales; cada junta descansa en una division (alli van sus pistones) */
+          let limites = null; if (m.tipoSuperior === 'Piston' && nPz > 1) limites = Array.from({ length: nPz - 1 }, (_, k) => r2(cx0 + (cx1 - cx0)*(k + 1)/nPz));
+          else if (m.tipoSuperior === 'Piston' && cap.members.length > 1 && !m.divisionSuperior) { let xa = cx0; limites = cap.members.slice(0, -1).map(q => (xa += q.ancho)); }
           interior(m, m.id + ':superior', h, m.repisasSuperior || 0, m.divisionSuperior && !cap.members.some(hasCampana) ? Math.max(1, m.divisionesSuperior || 1) : 0, 'cap', limites);   /* A260 */
           /* A76: con tablero, para llevar marco shaker en estilo Clasica como los demas frentes */
           const capFront = (k, kind, a, b, hingeRight) => { const base = m.id + ':superior:frente:' + k;
@@ -4731,7 +4745,7 @@ function planDePiezas(c = cfg){
             if (kind === 'Puerta') bisagras(m, base, a, b, cz0 + hol, cz1 - hol, hingeRight, sep + fondo); };
           if (m.tipoSuperior === 'Puertas') { const xm = (cx0 + cx1)/2; capFront(0, 'Puerta', cx0 + hol, xm - hol, false); capFront(1, 'Puerta', xm + hol, cx1 - hol, true); }
           else if (m.tipoSuperior === 'Puerta') capFront(0, 'Puerta', cx0 + hol, cx1 - hol, !!m.bisagraDerechaSuperior);   /* A98: una sola puerta */
-          else if (m.tipoSuperior !== 'Repisas') capFront(0, 'Elevable', cx0 + hol, cx1 - hol, false);
+          else if (m.tipoSuperior !== 'Repisas') for (let k = 0; k < nPz; k++) capFront(k, 'Elevable', cx0 + (cx1 - cx0)*k/nPz + hol, cx0 + (cx1 - cx0)*(k + 1)/nPz - hol, false);   /* A308 */
         }
         x += m.ancho;
       }
@@ -5288,7 +5302,7 @@ function planDePiezas(c = cfg){
       const pr = qs.find(r => r.abre && r.abre.tipo === 'Elevable'); if (!pr) return;
       const fr = qs.filter(r => r.rol === 'frente'), x0 = Math.min(...fr.map(r => r.x)), x1 = Math.max(...fr.map(r => r.x + r.ancho));
       const yF = Math.min(...fr.map(r => r.y)), z0 = Math.min(...fr.map(r => r.z)), z1 = Math.max(...fr.map(r => r.z + r.alto)), h = z1 - z0;
-      const lat = piezas.filter(r => r.modulo === pr.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.z < z1 && r.z + r.alto > z0 && r.y < yF && r.y + r.fondo >= yF - PLAN_HOLGURA_PUERTA - .01);   /* A185: el lateral acaba una holgura antes del frente (como las bisagras) */
+      const lat = piezas.filter(r => r.modulo === pr.modulo && (r.rol === 'panel' && r.tipo === 'Lateral' || /:superior:frente:/.test(d) && r.rol === 'division' && [x0, x1].some(v => Math.abs(r.x + r.ancho/2 - v) < 4)) && r.x + r.ancho > x0 - 3 && r.x < x1 + 3 &&   /* A308: la hoja del piston dividido monta en las divisiones de sus juntas */ r.z < z1 && r.z + r.alto > z0 && r.y < yF && r.y + r.fondo >= yF - PLAN_HOLGURA_PUERTA - .01);   /* A185: el lateral acaba una holgura antes del frente (como las bisagras) */
       const hondo = lat.length ? Math.max(...lat.map(r => r.fondo)) : 0;
       if (h <= 6 || hondo <= 4) return;
       const caida = Math.min(20, h*.35), fijo = Math.min(h - 3, h*.72), dentro = Math.min(16, hondo*.45), inset = Math.min(4, (x1 - x0)/4), t9 = espFrente();
@@ -6212,7 +6226,7 @@ function validate(){
       throw new Error(`Módulo inferior + superior: no caben (cada uno necesita al menos ${fmt(DOBLE_MIN)}${uS()} y el superior mide hasta ${fmt(DOBLE_MAX)}${uS()}).`);
   }
   for (const g of capGroups()) { const pist = g.lead.tipoSuperior === 'Piston';   /* A205; A224: el piston corrido llega a reg().ancho.piston */
-    if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : pist ? g.width > reg().ancho.piston + .01 : g.members.length > 1 && g.width > reg().ancho.max + .01)
+    if (g.lead.tipoSuperior === 'Repisas' ? g.members.length > 3 : pist ? g.width/partesPiston(g) > reg().ancho.piston + .01 : g.members.length > 1 && g.width > reg().ancho.max + .01)   /* A308: cada hoja hasta el maximo */
       throw new Error(g.lead.tipoSuperior === 'Repisas' ? 'Gabinete superior unido: la caja de repisas abarca hasta 3 columnas.' : pist ? `Puerta de pistón corrida: hasta ${medida(reg().ancho.piston)}; separa columnas.` : `Módulo superior unido: con puertas no puede pasar de ${medida(reg().ancho.max)}; separa columnas o usa caja de repisas.`); }
   /* (A39) la caja de repisas corrida ya no tiene limite de columnas: Unir con la columna derecha sigue mientras haya columnas normales */
   if (cfg.altoBajos < 50) throw new Error(`Los gabinetes bajos quedarían de menos de ${medida(50)}.`);
@@ -8394,9 +8408,11 @@ function drawCap(g, RX, post){
   } else if (showDoors && m.tipoSuperior === 'Puerta') {   /* A98: una puerta, abatimiento hacia su bisagra */
     if (proyOn()) { const hx = m.bisagraDerechaSuperior ? cr.x + cr.w : cr.x, fx = m.bisagraDerechaSuperior ? cr.x : cr.x + cr.w; ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.swing;
       line(hx, cr.y, fx, my); line(hx, cr.y + cr.h, fx, my); ctx.restore(); }
-  } else if (showDoors && !box && m.mostrarPuertaSuperior && proyOn()) { line(cr.x, cr.y + cr.h, mx, cr.y); line(cr.x + cr.w, cr.y + cr.h, mx, cr.y); }
+  } else if (showDoors && !box && m.mostrarPuertaSuperior) { const nP = partesPiston(g), wP = cr.w/nP;   /* A308: cada hoja con su simbolo */
+    for (let k = 1; k < nP; k++) line(cr.x + k*wP, cr.y, cr.x + k*wP, cr.y + cr.h);
+    if (proyOn()) for (let k = 0; k < nP; k++) { const a = cr.x + k*wP; line(a, cr.y + cr.h, a + wP/2, cr.y); line(a + wP, cr.y + cr.h, a + wP/2, cr.y); } }
   /* A76 + A102: en clasica y simple, cada hoja del modulo superior con su marco (clasica) y su jaladera (drawHandle), como los demas frentes */
-  if (showDoors && !box && cfg.style !== 'Moderna') { const s = frame.scale, z0 = topeAltos() - m.altoSuperior, z1 = topeAltos(), n = m.tipoSuperior === 'Puertas' ? 2 : 1, w = cr.w/n;
+  if (showDoors && !box && cfg.style !== 'Moderna') { const s = frame.scale, z0 = topeAltos() - m.altoSuperior, z1 = topeAltos(), n = m.tipoSuperior === 'Puertas' ? 2 : partesPiston(g), w = cr.w/n;
     for (let i = 0; i < n; i++) { const kind = m.tipoSuperior === 'Piston' ? 'Elevable' : 'Puerta', hingeRight = m.tipoSuperior === 'Puertas' ? i === 1 : !!m.bisagraDerechaSuperior;
       drawHandle({ kind, x0: 0, x1: w/s, z0, z1, hingeRight }, { x: cr.x + i*w, y: cr.y, w, h: cr.h }, s); } }
   if (picked) post.push(() => outline(cr, C.focus, 3));
@@ -8795,6 +8811,7 @@ function drawMeasure(X, Z){
     dim(cr.x, cr.y + cr.h - 14, cr.x + cr.w, cr.y + cr.h - 14, fmt(g.width), 'boxw:' + g.members[0].id);   /* A107 */
     if (!showDoors || cap.tipoSuperior === 'Repisas') gapsOf(cr, cap.repisasSuperior, cap.divisionSuperior ? Math.max(1, cap.divisionesSuperior || 1) : 0, scale);
     if (cap.tipoSuperior === 'Puertas') { const ym = cr.y + 14, xm = cr.x + cr.w/2; dim(cr.x, ym, xm, ym, fmt(g.width/2), null); dim(xm, ym, cr.x + cr.w, ym, fmt(g.width/2), null); }   /* A116: sus dos hojas */
+    else if (partesPiston(g) > 1) { const nP = partesPiston(g), ym = cr.y + 14, wP = cr.w/nP; for (let k = 0; k < nP; k++) dim(cr.x + k*wP, ym, cr.x + (k + 1)*wP, ym, fmt(Math.round(g.width/nP*10)/10), null); }   /* A308 */
   }
 }
 const drawGaps = (m, q, scale) => gapsOf(q, hasDrawers(m) ? 0 : shelvesOf(m), !drawerType(m) && hasDivider(m) ? Math.max(1, m.divisiones || 1) : 0, scale);
@@ -9746,6 +9763,8 @@ function capPanel(id){
     + shelfNote(m.altoSuperior, m.repisasSuperior) + `<div class="note-sm">Con puertas llega a ${medida(reg().ancho.max)}; con pistón, a ${medida(reg().ancho.piston)}; la caja abierta, a 3 columnas.</div>`
     + chk('supDiv', m.divisionSuperior, 'División vertical interna') + (m.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', m.divisionesSuperior || 1, 'u', 1, capJoined(m) ? 99 : 4, 1)}</div></div>` : '')
     + (m.tipoSuperior === 'Piston' ? chk('capMostrar', m.mostrarPuertaSuperior, 'Mostrar puerta elevable') : ''));
+  if (m.tipoSuperior === 'Piston' && g.members.length > 1) { const nP = partesPiston(g), mnP = partesPistonMin(g);   /* A308 */
+    html += section('Puerta elevable', `<div class="grid-2">${num('capPartes', 'Hojas iguales', nP, 'u', mnP, Math.max(mnP, PARTES_PISTON_MAX), 1)}</div><div class="note-sm">${nP > 1 ? `${nP} hojas de ${medida(Math.round(g.width/nP*10)/10)}, cada una con sus pistones y una división detrás de cada junta.` : 'Una sola hoja a todo el ancho.'}${mnP > 1 ? ` Con ${medida(g.width)} pide al menos ${mnP} (hasta ${medida(reg().ancho.piston)} por hoja).` : ''}</div>`); }
   const cols = (vecinoColumna(m, -1) ? `<button class="btn btn-block" data-act="capExtIzq">Extender a la columna izquierda</button>` : '')   /* A261 */
     + (next && !next.reserved ? `<button class="btn btn-block" data-act="capExt">Extender a la columna derecha</button>` : '') + (g.members.length > 1 ? `<button class="btn btn-block" data-act="capSep">Separar la última columna</button>` : '');
   html += section('Columnas', (cols ? `<div style="display:grid;gap:8px;margin-bottom:10px">${cols}</div>` : '') + `<div class="note-sm" style="margin-top:0">Es independiente del gabinete alto. Suelta un material sobre él; doble clic elige sus repisas o su fondo.</div>`);
@@ -9991,7 +10010,8 @@ const ACT = {
   mCamp: (v, m) => change(() => byId(m.id).mostrarCampana = v),
   editCap: (v, m) => { const g = capGroupOf(m); if (g) selectPart('ucap:' + g.lead.id); },
   capFondo: v => change(() => { partMod().fondoSuperior = v; }),   /* A82 */
-  capTipo: v => change(() => { const l = partMod(); l.tipoSuperior = v; if (v === 'Repisas' && l.repisasSuperior < 1) l.repisasSuperior = 1; }),
+  capTipo: v => change(() => { const l = partMod(); l.tipoSuperior = v; }),   /* A308 (usuario 20/10): la caja de repisas abierta empieza con 0 repisas */
+  capPartes: v => change(() => { const l = partMod(); l.partesSuperior = Math.max(1, Math.min(PARTES_PISTON_MAX, Math.round(v))); }),   /* A308 */
   capBisDer: v => change(() => { partMod().bisagraDerechaSuperior = v; }),
   capRep: v => change(() => { const l = partMod(); l.repisasSuperior = Math.max(0, Math.min(MAX_REPISAS, Math.round(v))); }),
   capMostrar: v => change(() => partMod().mostrarPuertaSuperior = v), capAlto: v => change(() => partMod().altoSuperior = v, 'Revisar altura'),
@@ -10001,7 +10021,7 @@ const ACT = {
     last.unirSuperior = true; ponerDoble(next); next.altoSuperior = last.altoSuperior;
     /* con puertas no se pasa de 120 cm: al superarlos el grupo se convierte en caja de repisas; la puerta elevable (pistones) no tiene limite */
     const ng = capGroupOf(next);   /* A224: con puertas pasa a piston; a caja de repisas solo si pasa del maximo del piston */
-    if (ng && ng.lead.tipoSuperior !== 'Repisas') { if (ng.width > reg().ancho.piston + .01) { if (ng.members.length <= 3) ng.lead.tipoSuperior = 'Repisas'; } else if (ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Piston'; }
+    if (ng && ng.lead.tipoSuperior !== 'Repisas' && ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Piston';   /* A308 */
   }),
   capSep: () => change(() => { const g = capGroupOf(partMod()); if (g && g.members.length > 1) g.members[g.members.length - 2].unirSuperior = false; }),
   capExtIzq: () => { let v = null; change(() => { v = unirColumna(partMod(), -1, false); }); if (v) { selectedPart = 'ucap:' + v.id; render(); } },   /* A261: el vecino es el nuevo primero */
@@ -10062,7 +10082,7 @@ const ACT = {
   fijo: (v, m) => setFixed(m.id, v), fijoLibre: (v, m) => setFixed(m.id, false),
   dos: (v, m) => change(() => { const t = byId(m.id); t.dosPuertas = v; t.dosPuertasManual = true; }),   /* E12: elegido a mano */ tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m), tgInfAb: (v, m) => ACT.infAb(!m.inferiorAbierto, m),   /* A307 */
   supInv: (v, m) => change(() => { capLead(byId(m.id)).bisagraDerechaSuperior = v; }),
-  supTipo: (v, m) => change(() => { const l = capLead(byId(m.id)); l.tipoSuperior = v; if (v === 'Repisas' && l.repisasSuperior < 1) l.repisasSuperior = 1; }),
+  supTipo: (v, m) => change(() => { const l = capLead(byId(m.id)); l.tipoSuperior = v; }),   /* A308: sin repisas de fabrica */
   inv: (v, m) => change(() => byId(m.id).invertir = v),
   div: (v, m) => change(() => boxTargets(m).forEach(id => byId(id).division = v)),
   nDiv: (v, m) => change(() => { const t = boxTargets(m), mx = t.length > 1 ? 99 : 4; t.forEach(id => byId(id).divisiones = Math.max(1, Math.min(mx, Math.round(v)))); }),
