@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A332. [Master hecho 20/10; SketchUp y Revit: sin cambio (leen los anchos del plan)] (usuario 20/10: «el reparto de anchos tambien debe ser
+       igual cuando se seleccionan varias columnas y se presiona el EQ; tambien estas se apoyan de la holgura de las tapetas laterales para
+       compensar; si el calculo hace que no sean equidistantes se reduce el ancho y las tapetas absorben el cm menos») Con tapetas, EQ deja
+       todas las columnas elegidas del mismo ancho (pasos enteros, redondeando hacia abajo); lo que sobra vuelve al reparto y, como en A311,
+       lo absorben las tapetas (o los automaticos parejos). Sin tapetas sigue el reparto de antes (un paso de mas a las primeras).
    A331. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «opciones de notas por default se pueden
        eliminar tambien (opcion de borrar todas)») Las notas automaticas llevan × como las propias (notasEd[id].borrada: salen de la lista, de
        la lamina y de la numeracion de globos); «Borrar todas» quita las automaticas y las propias, y «Restaurar automáticas (n)» devuelve las
@@ -6572,12 +6577,15 @@ function columnasEq(){
   [...selection].map(byId).forEach(m => { if (!m || m.esquina) return; const r = row(m.upper), i = r.indexOf(m); if (i < 0) return; if (r === base || par) out.add(i); });
   return [...out].sort((a, b) => a - b);
 }
-/* A306: iguala las columnas de la cota EQ: su suma se reparte parejo (de paso en paso; lo que sobra al ultimo) y quedan con ancho fijo */
+/* A306: iguala las columnas de la cota EQ: su suma se reparte parejo (de paso en paso; lo que sobra al ultimo) y quedan con ancho fijo.
+   A332 (usuario 20/10: «el reparto de anchos tambien debe ser igual cuando se seleccionan varias columnas y se presiona EQ; tambien se apoyan
+   de la holgura de las tapetas laterales: si el calculo hace que no sean equidistantes se reduce el ancho y las tapetas absorben el cm de
+   menos»): con tapetas todas quedan del mismo ancho (pasos enteros, hacia abajo) y lo que sobra lo toma el reparto: las tapetas (A311) */
 function igualarColumnas(){
   const idx = columnasEq(); if (idx.length < 2) return;
-  change(() => { const l = row(false), h = row(true), base = l.length ? l : h, par = l.length === h.length, u = pasoAncho();
-    const cols = idx.map(i => base[i]), total = cols.reduce((s, m) => s + m.ancho, 0), pasos = Math.floor(total/u + 1e-6), w = Math.floor(pasos/cols.length), extra = pasos - w*cols.length;
-    const sobra = Math.round((total - pasos*u)*1e4)/1e4, mn = Math.max(...cols.map((m, k) => Math.max(minWidth(m), par ? minWidth(h[idx[k]] || m) : 0)));
+  change(() => { const l = row(false), h = row(true), base = l.length ? l : h, par = l.length === h.length, u = pasoAncho(), conTap = !!(cfg.tapetaIzq || cfg.tapetaDer);
+    const cols = idx.map(i => base[i]), total = cols.reduce((s, m) => s + m.ancho, 0), pasos = Math.floor(total/u + 1e-6), w = Math.floor(pasos/cols.length), extra = conTap ? 0 : pasos - w*cols.length;
+    const sobra = conTap ? 0 : Math.round((total - pasos*u)*1e4)/1e4, mn = Math.max(...cols.map((m, k) => Math.max(minWidth(m), par ? minWidth(h[idx[k]] || m) : 0)));
     if (w*u < mn - 1e-6) throw new Error(`Igualadas quedarían de ${medida(w*u)}: alguna no baja de ${medida(mn)}.`);
     cols.forEach((m, k) => { const v = Math.round(((w + (k < extra ? 1 : 0))*u + (k === cols.length - 1 ? sobra : 0))*1e4)/1e4; m.ancho = v; m.fijo = true; const o = par ? (base === l ? h : l)[idx[k]] : null; if (o) { o.ancho = v; o.fijo = true; } });
   }, 'Igualar anchos');
