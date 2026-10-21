@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A306. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente (LayoutState: reparto y cota EQ)] (usuario 20/10: «los
+       anchos de las columnas siguen sin repartirse homogeneamente; al seleccionar mas de dos columnas en las cotas me salga una cota de EQ
+       (equidistante) como en Revit para homogenizar los anchos») 1) Mover un modulo o una tapeta dejaba el reparto «adaptado» para siempre
+       (pesos con los anchos de antes: 68, 68, 67, 66, 66 en vez de 67 x 5). Ahora los automaticos se reparten parejo (repartoParejo: su minimo
+       y el resto de paso en paso al mas angosto; difieren un paso como mucho); el adaptado queda solo para una plantilla ('plantilla') y lo
+       guardado con el viejo vuelve al parejo. 2) Con dos o mas columnas elegidas (Ctrl + clic o recuadro), el alzado agrega sobre las cotas de
+       ancho una cadena «EQ» en esas columnas; un clic las iguala (su suma, de paso en paso, lo que sobra a la ultima) y las deja con ancho fijo.
    A305. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente (editor)] (usuario 20/10: «anadir alto y anadir bajo
        desaparece, se reemplaza por anadir columna») En la cocina de muro el panel sin seleccion ofrece solo «+ Anadir columna»: un bajo y su
        alto nuevos a la derecha de la columna elegida (o al final, antes de una esquina derecha), los dos seleccionados. La isla sigue con
@@ -3862,6 +3869,14 @@ function shelvesOf(m){
 
 /* WidthFit.Fit: reparte el total (en pasos u: MX cm enteros; US 3", 1" o 1/16") proporcional a los pesos, respetando los minimos
    y el maximo de la region. total va en pasos; devuelve cm */
+/* A306 (usuario 20/10: «los anchos de las columnas siguen sin repartirse homogeneamente»): los anchos automaticos se reparten parejo:
+   cada uno su minimo y el resto de paso en paso al mas angosto (empate: el de la izquierda), asi difieren un paso como mucho */
+function repartoParejo(minimum, total, u = 1){
+  const max = Math.floor(reg().ancho.max/u + 1e-6), r = minimum.map(v => Math.ceil(v/u - 1e-6));
+  if (total < r.reduce((a, b) => a + b, 0) || total > max*r.length) throw new Error(`La nueva distancia no admite estos módulos entre sus anchos mínimos y ${medida(reg().ancho.max)}. Ajusta la cantidad o el equipo.`);
+  for (let rem = total - r.reduce((a, b) => a + b, 0); rem > 0; rem--) { let best = -1; for (let i = 0; i < r.length; i++) if (r[i] < max && (best < 0 || r[i] < r[best])) best = i; if (best < 0) break; r[best]++; }
+  return r.map(k => k*u);
+}
 function widthFit(weights, minimum, total, u = 1){
   const max = Math.floor(reg().ancho.max/u + 1e-6), r = minimum.map(v => Math.ceil(v/u - 1e-6)), sum = weights.reduce((a, b) => a + b, 0);
   if (total < r.reduce((a, b) => a + b, 0) || total > max*weights.length) throw new Error(`La nueva distancia no admite estos módulos entre sus anchos mínimos y ${medida(reg().ancho.max)}. Ajusta la cantidad o el equipo.`);
@@ -5992,6 +6007,7 @@ function recalculate(){
 function recalcularCara(){
   ensureCatalog(cfg);
   if (!cfg.region) cfg.region = 'MX';   /* E1: lo guardado antes de la region es metrico */
+  if (cfg.repartoAdaptado === true) cfg.repartoAdaptado = false;   /* A306: lo guardado con el reparto adaptado (tras mover o una tapeta) vuelve al parejo */
   /* configuraciones guardadas antes de un campo nuevo: lo completan con su valor por defecto */
   if (!cfg.puertasOcultas) cfg.puertasOcultas = [];
   /* «Laterales piso a techo» por tapeta (antes una sola opcion para las dos) */
@@ -6070,7 +6086,7 @@ function recalcularCara(){
     cfg.compensacion = cfg.tapetaIzq || cfg.tapetaDer ? Math.max(0, residual) : 0;
     /* A87: con tapetas y reparto parejo (no adaptado) en metrico, los pasos que sobran al dividir entre los automaticos van a las tapetas */
     const flexB = base.filter(m => !m.fijo), pasos = Math.round((raw - cfg.compensacion)/u);
-    const resto = cfg.region !== 'US' && !cfg.repartoAdaptado && (cfg.tapetaIzq || cfg.tapetaDer) && flexB.length > 1 ? pasos % flexB.length : 0;
+    const resto = cfg.region !== 'US' && cfg.repartoAdaptado !== 'plantilla' && (cfg.tapetaIzq || cfg.tapetaDer) && flexB.length > 1 ? pasos % flexB.length : 0;
     /* A89 (usuario, 08/10): las tapetas no pasan de su tope (cfg.topeTapeta): solo los pasos que caben bajo el tope van a ellas */
     cfg.compReparto = 0;
     const lados = [cfg.tapetaIzq && ajusteIzq(), cfg.tapetaDer && ajusteDer()].filter(w => w !== false);
@@ -6094,8 +6110,8 @@ function recalcularCara(){
         available = cfg.longitud - ajusteIzq() - ajusteDer() - r.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0) - cedido; } }
     const n = Math.floor(available/u + 1e-6), sobra = Math.round((available - n*u)*1e4)/1e4;   /* sobra: solo en la fila que no es la base */
     let alloc;
-    if (cfg.repartoAdaptado) alloc = widthFit(flex.map(m => m.peso > 0 ? m.peso : m.ancho), flex.map(minWidth), n, u);
-    else { const w = Math.floor(n/flex.length), extra = n - w*flex.length; alloc = flex.map((m, k) => (w + (k < extra ? 1 : 0))*u); }
+    if (cfg.repartoAdaptado === 'plantilla') alloc = widthFit(flex.map(m => m.peso > 0 ? m.peso : m.ancho), flex.map(minWidth), n, u);   /* A306: solo una plantilla conserva sus proporciones */
+    else alloc = repartoParejo(flex.map(minWidth), n, u);
     if (sobra > 1e-4) alloc[alloc.length - 1] += sobra;
     flex.forEach((m, k) => m.ancho = Math.round(alloc[k]*1e4)/1e4);
     cedidos.forEach(([m, d]) => m.ancho = Math.round((m.ancho + d)*1e4)/1e4);   /* A226 */
@@ -6229,7 +6245,7 @@ function setFillerWidth(left, value){
       value = rd(value); const other = rd((ajusteIzq() + ajusteDer() - value));
       if (value < 1 || other < 1) throw new Error(`Cada tapeta debe conservar al menos ${medida(1)}.`);
       if (left) { c.reservaIzq = value; c.reservaDer = other; } else { c.reservaDer = value; c.reservaIzq = other; }
-      c.repartoAdaptado = true; c.modulos.forEach(m => m.peso = m.ancho);
+      c.modulos.forEach(m => m.peso = m.ancho);   /* A306: los modulos siguen parejos */
     } else {
       if (Math.abs((c.longitud - value) - Math.round(c.longitud - value)) > .001) throw new Error('Activa ambas tapetas para ajustar libremente una y compensar en la otra.');
       if (left) c.reservaIzq = value; else c.reservaDer = value;
@@ -6299,7 +6315,7 @@ function swap(sourceId, targetId){
     const src = byId(sourceId), tgt = byId(columnaPar(sourceId, targetId) || targetId);
     if (src.upper !== tgt.upper) throw new Error('Intercambia módulos dentro de su fila.');
     const r = row(src.upper), delta = r.indexOf(tgt) - r.indexOf(src); if (!delta) return;
-    cfg.repartoAdaptado = true; cfg.modulos.forEach(m => m.peso = m.ancho);   /* el modulo movido conserva su ancho */
+    cfg.modulos.forEach(m => m.peso = m.ancho);   /* A306: sin reparto adaptado; los fijos conservan su ancho y los automaticos siguen parejos */
     const picked = new Set([...selection, sourceId]);
     const idx = r.map((m, i) => picked.has(m.id) ? i : -1).filter(i => i >= 0), dest = idx.map(i => i + delta);
     if (dest.some(i => i < 0 || i >= r.length) || dest.some(i => idx.includes(i))) throw new Error('El grupo debe caber en posiciones libres de la misma selección.');
@@ -6340,6 +6356,24 @@ function addColumn(){
     const b = pon(false, l), a = pon(true, h);
     selection = new Set([b.id, a.id]); selectedPart = null;
   });
+}
+/* A306: columnas elegidas (indices en la fila de los bajos, o de los altos si no hay bajos), sin esquinas ni especiales de ancho propio;
+   la cota EQ aparece con dos o mas */
+function columnasEq(){
+  if (cfg.isla || cfg.closet || selection.size < 2) return [];
+  const l = row(false), h = row(true), base = l.length ? l : h, par = l.length === h.length, out = new Set();
+  [...selection].map(byId).forEach(m => { if (!m || m.esquina) return; const r = row(m.upper), i = r.indexOf(m); if (i < 0) return; if (r === base || par) out.add(i); });
+  return [...out].sort((a, b) => a - b);
+}
+/* A306: iguala las columnas de la cota EQ: su suma se reparte parejo (de paso en paso; lo que sobra al ultimo) y quedan con ancho fijo */
+function igualarColumnas(){
+  const idx = columnasEq(); if (idx.length < 2) return;
+  change(() => { const l = row(false), h = row(true), base = l.length ? l : h, par = l.length === h.length, u = pasoAncho();
+    const cols = idx.map(i => base[i]), total = cols.reduce((s, m) => s + m.ancho, 0), pasos = Math.floor(total/u + 1e-6), w = Math.floor(pasos/cols.length), extra = pasos - w*cols.length;
+    const sobra = Math.round((total - pasos*u)*1e4)/1e4, mn = Math.max(...cols.map((m, k) => Math.max(minWidth(m), par ? minWidth(h[idx[k]] || m) : 0)));
+    if (w*u < mn - 1e-6) throw new Error(`Igualadas quedarían de ${medida(w*u)}: alguna no baja de ${medida(mn)}.`);
+    cols.forEach((m, k) => { const v = Math.round(((w + (k < extra ? 1 : 0))*u + (k === cols.length - 1 ? sobra : 0))*1e4)/1e4; m.ancho = v; m.fijo = true; const o = par ? (base === l ? h : l)[idx[k]] : null; if (o) { o.ancho = v; o.fijo = true; } });
+  }, 'Igualar anchos');
 }
 function deleteSelected(){
   if (selectedPart && selectedPart !== 'wall') { deletePart(selectedPart); return; }
@@ -6721,6 +6755,9 @@ function drawElevation(){
   let x = ajusteIzq(); first.forEach(m => { dim(X(x), yTop, X(x + m.ancho), yTop, fmt(m.ancho), 'width:' + m.id); x += m.ancho; });
   const differ = lows.length && highs.length && (highs.length !== lows.length || highs.some((h, i) => h.ancho !== lows[i].ancho));
   if (differ) { x = ajusteIzq(); highs.forEach(m => { if (m.ancho > .01) dim(X(x), yTop - 25, X(x + m.ancho), yTop - 25, fmt(m.ancho), 'width:' + m.id); x += m.ancho; });   /* A144: la columna del anexo no lleva alto */ }
+  /* A306 (usuario 20/10: «al seleccionar mas de dos columnas en las cotas me salga una cota de EQ como en Revit para homogenizar los anchos») */
+  if (!exporting) { const eq = columnasEq(); if (eq.length >= 2) { const yE = yTop - (differ ? 50 : 25); x = ajusteIzq();
+    first.forEach((m, k) => { if (eq.includes(k)) dim(X(x), yE, X(x + m.ancho), yE, 'EQ', 'eq'); x += m.ancho; }); } }
   dim(X(-eL) - 34, ground, X(-eL) - 34, top, fmt(H) + uS(), 'wall');
   const xr = X(W + eR) + 40;
   dim(xr, ground, xr, Z(zBar), fmt(zBar) + uS(), 'bar');
@@ -9062,7 +9099,7 @@ canvas.addEventListener('mousedown', e => {
       drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn: cd.wMin, mx: cd.wMax, snaps: [cd.w0], una: null, cg: false, puertaCiego: reg().esquina.ciegoPuerta - cd.w0, snapped: false }; return; }
     drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn, snaps: cg ? [mn + tapetaCiego()] : [mn, reg().esquina.lado], una: !cg && !esquinaDiag(ee) ? mn : null, cg, snapped: false }; return; }
   const pc = planCaraHits.find(q => inside(p, q.rect)); if (pc) { e.preventDefault(); ACT.cara(String(pc.k)); selection = new Set([pc.id]); selectedPart = null; render(); return; }   /* A140 */
-  const d = dimHits.find(q => inside(p, q.rect)); if (d) { e.preventDefault(); beginDimension(d.key, d.rect); return; }
+  const d = dimHits.find(q => inside(p, q.rect)); if (d) { e.preventDefault(); if (d.key === 'eq') { igualarColumnas(); return; } beginDimension(d.key, d.rect); return; }   /* A306 */
   const g = gripHits.find(q => inside(p, q.rect));
   if (g) {   /* el iman toma todos los bordes visibles de los demas modulos y piezas, mas sus niveles (AlignLevels) */
     const snap = [...new Set(edges.filter(q => q.id !== g.id).map(q => Math.round(q.z*100)/100))].concat(magnetLevels(g.id));
@@ -11473,7 +11510,7 @@ function saveConfig(name, asNew){
 function loadConfig(item){
   const before = JSON.stringify(cfg);
   try {
-    const c = JSON.parse(JSON.stringify(item.layout)); c.longitud = cfg.longitud; c.repartoAdaptado = true;
+    const c = JSON.parse(JSON.stringify(item.layout)); c.longitud = cfg.longitud; c.repartoAdaptado = 'plantilla';   /* A306 */
     c.modulos.forEach(m => { m.peso = m.ancho; m.fijo = false; });
     cfg = c; recalculate(); validate(); undoStack.push(before); redoStack = [];
   } catch (err) { cfg = JSON.parse(before); showDialog('Configuración', err.message); return false; }
