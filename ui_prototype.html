@@ -306,6 +306,17 @@
    A374. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «hay que ponerle un
        icono a la opcion de tarja y parrilla para identificarlo mas rapido») «Preparado para tarja» y «Parrilla de induccion encima» son
        interruptores con icono, como «Dos puertas»: la tarja con su tina y su llave; la parrilla vista de arriba con sus zonas.
+   A378. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (seccion del editor)] (usuario 21/10: «las repisas, patines y fajas
+       frontales de torre de hornos no se ven en la seccion») El corte de la torre de hornos se dibuja con las piezas del plan que cruza el
+       plano del corte: tableros, repisas, patines, rellenos y fajas, la tapa o la rejilla, la gola, los frentes (con puertas) y los equipos
+       en proyeccion. Antes era una formula propia (caja, repisas parejas y los hornos punteados).
+   A377. [Master hecho 21/10; SketchUp: construye el plan; Revit pendiente] (usuario 21/10: «las puertas altas de torres no llevan gola,
+       deberian llevar un unero como los gabinetes altos») En moderno las puertas de arriba de la torre ya no llevan la gola C de A351: van a
+       su alto completo y abren por un unero: la faja frontal de la division sobre el ultimo equipo se quita y esa division se retrae lo que
+       mide el canal (golaHondo), como la cama de los altos. Las de abajo siguen con su gola.
+   A376. [Master hecho 21/10; SketchUp: el clic en una pieza sin frente ya abre todo su gabinete; Revit pendiente] (usuario 21/10: «los
+       cajones con tarja no abren») En el mueble de la tarja con cajones (A373) el primero es un falso frente fijo; el clic en el no hacia
+       nada en el isometrico. Ahora un clic en el falso frente abre (o cierra) los cajones de su mueble.
    A375. [Master hecho 21/10; SketchUp y Revit: leen la posicion de las bisagras del plan; Revit pendiente] (usuario 21/10: «el 10 cm entre cajones es regla: el usuario no cae en cuenta, solo el que fabrica»)
        Detras de una puerta con cajas de cajon, la placa de la bisagra pide una ventana de 10 cm (PLAN_BISAGRA.ventana) libre de cajas alrededor de su eje, no solo que no choque
        (antes, solo que no cruzara). Se prueba sobre la serie del Sistema 32 y, si ninguna posicion tiene la ventana, se cae a la regla de antes para no dejar la puerta sin
@@ -4137,7 +4148,7 @@ function fronts(m){
       const ti = m.torreInferior, ts = m.torreSuperior, a = ins + hol, b = m.ancho - ins - hol;
       /* A351 (usuario 21/10: «las puertas en hornos no muestran la gola para abrirlas en estilo moderno»): en moderno las puertas de abajo
          terminan bajo su gola (arriba, bajo los hornos) y las de arriba empiezan sobre la suya (abajo, sobre los hornos) */
-      const gm = cfg.style === 'Moderna', gIn = gm ? topGap(m) : hol, gSu = gm && (ts === 'Puertas' || ts === '2 puertas') ? agarreEntre() : hol;   /* el piston abre por su canto */
+      const gm = cfg.style === 'Moderna', gIn = gm ? topGap(m) : hol, gSu = hol;   /* A377: las de arriba abren por su unero, sin gola */
       if (ti === 'Puertas' || ti === '2 puertas') door(a, b, zb + hol, zb + bodyH(m) - gIn, ti === '2 puertas', m.invertir);
       if (ts === 'Puertas' || ts === '2 puertas') door(a, b, towerTopStart(m) + gSu, top - hol, ts === '2 puertas', m.invertir);
       else if (ts === 'Pistón') r.push({ kind: 'Elevable', x0: a, x1: b, z0: towerTopStart(m) + gSu, z1: top - hol });   /* A160: como el alto de piston */
@@ -4215,7 +4226,6 @@ function golaStrips(m){
   if (m.tipo === 'Alacena') { const hs = pantryHeights(m); let at = pantryStart(m); hs.forEach((h, b) => { if (pantryTopGola(m, b, hs.length)) s.push([at + h - gT, gT]); at += h; }); }
   if (isTower(m)) {   /* A351: la gola de las puertas de la torre: sobre las de abajo y bajo las de arriba (las de cajones ya van arriba) */
     if (m.torreInferior === 'Puertas' || m.torreInferior === '2 puertas') s.unshift([zb + bodyH(m) - topGap(m), topGap(m)]);
-    if (['Puertas', '2 puertas'].includes(m.torreSuperior)) s.push([towerTopStart(m), gE]);
   }
   return s;
 }
@@ -5019,6 +5029,13 @@ function planDePiezas(c = cfg){
             equipoModelo('micro_sobreponer', mx, mx + mw, z, z + m.microAlto, y1 - 1, Math.max(y0 + ef + vH, y1 - 1 - MODELO_EQUIPOS.micro_sobreponer.medida[1])));
           z += m.altoMicro; pisoV('division:micro', z); z += e;
         }
+        /* A377 (usuario 21/10: «las puertas altas de torres no llevan gola, deberian llevar un unero como los gabinetes altos»): en moderno,
+           con puertas arriba, la faja de la division sobre el ultimo equipo se quita y la division se retrae lo que mide el canal: los dedos
+           entran bajo el canto de la puerta, como bajo la cama de los altos */
+        if (cfg.style === 'Moderna' && ['Puertas', '2 puertas'].includes(m.torreSuperior)) {
+          const kU = m.microondas && !m.microSobreponer ? 'micro' : 'horno', dv = piezas.find(q => q.id === m.id + ':' + (m.microondas ? 'division:micro' : 'division:horno'));
+          const iR = piezas.findIndex(q => q.id === m.id + ':' + kU + ':relleno:sup'); if (iR >= 0) piezas.splice(iR, 1);
+          const g = golaHondo(true) - (yl - y1); if (dv && g > 0) dv.fondo = r2(Math.max(5, dv.fondo - g)); }
         if (lift) pisoV('division:piston', top - lh - e);
         const hzS = Object.assign(zona(z, top - e - (lift ? lh : 0)), { y0: y0 + ef + vH });   /* A260: las repisas de arriba dejan el canal */
         /* A279 (usuario 18/10: «las repisas de gabinete superior de torres no se reparten homogeneamente»): con piston ya no se reserva su
@@ -7540,13 +7557,25 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
       if (low.superiorRefri && altoEsp(low) - low.huecoRefri > 1) { caja(low, low.huecoRefri, altoEsp(low), D, false); repisas(low, low.huecoRefri, altoEsp(low), zoneShelves(low, 'superior'), D); }
       hits.push({ rect: { x: P(D), y: Z(altoEsp(low)), w: D*s, h: altoEsp(low)*s }, module: low });
     } else if (isSpecial(low)) {   /* torre de hornos, alacena y especiero torre */
-      caja(low, zb, altoEsp(low), D, false);
-      if (isTower(low)) segments(low).forEach(([n, a, b]) => {   /* A118: cuerpo inferior y superior con sus repisas; hornos y micro en proyeccion */
+      /* A378 (usuario 21/10: «las repisas, patines y fajas frontales de torre de hornos no se ven en la seccion»): la torre se corta con las
+         piezas del plan en el plano del corte: tableros, repisas, patines, rellenos y fajas, la tapa o la rejilla, los frentes y la gola; los
+         equipos en proyeccion. Antes se dibujaba con una formula propia (caja, repisas parejas y los hornos) */
+      let hecho = false;
+      if (isTower(low)) { let P0 = []; try { P0 = planCocina().piezas.filter(q => q.modulo === low.id && q.x <= xc + .01 && q.x + q.ancho >= xc - .01 && q.rol !== 'luz'); } catch (e) { P0 = []; }
+        if (P0.length) { hecho = true; const mm = low.material || cfg.materialGeneral, rect = q => ({ x: P(q.y + q.fondo), y: Z(q.z + q.alto), w: q.fondo*s, h: q.alto*s });
+          P0.filter(q => q.rol === 'panel' || q.rol === 'repisa' || q.rol === 'division' || q.rol === 'caja').forEach(q => brd(rect(q), q.material || mm));
+          P0.filter(q => q.rol === 'tapeta').forEach(q => brd(rect(q), q.material || mm));
+          P0.filter(q => q.rol === 'herraje' && (q.tipo === 'Rejilla' || q.tipo === 'Gola' || q.tipo === 'Perfil')).forEach(q => { const r = rect(q); ctx.fillStyle = q.tipo === 'Rejilla' ? C.grille : C.metal; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.line, 1); });
+          if (showDoors) P0.filter(q => q.rol === 'frente').forEach(q => { const r = rect(q); fillMat(r.x, r.y, r.w, r.h, flat ? null : q.material, C.front); outline(r, C.line, 1); });
+          P0.filter(q => q.rol === 'equipo').forEach(q => proy(q.y, q.y + q.fondo, q.z, q.z + q.alto, q.tipo));
+          hits.push({ rect: { x: P(D), y: Z(altoEsp(low)), w: D*s, h: (altoEsp(low) - zb)*s }, module: low }); } }
+      if (!hecho) caja(low, zb, altoEsp(low), D, false);
+      if (!hecho && isTower(low)) segments(low).forEach(([n, a, b]) => {   /* A118: cuerpo inferior y superior con sus repisas; hornos y micro en proyeccion */
         if (n === 'oven') proy(2, D - 2, a, b, 'Horno'); else if (n === 'micro') proy(2, D - 2, a, b, 'Micro');
         else if (n === 'body') repisas(low, a, b, zoneShelves(low, 'inferior'), D);
         else if (n === 'upper') repisas(low, a, b, zoneShelves(low, 'superior'), D, 0, a > zb + .5);
         else if (n === 'lift') repisas(low, a, b, 0, D, 0, true); });
-      else {   /* alacena y especiero torre: cada cuerpo con sus repisas (Elevable: las suyas; Especiero: 5 niveles) */
+      else if (!isTower(low)) {   /* alacena y especiero torre: cada cuerpo con sus repisas (Elevable: las suyas; Especiero: 5 niveles) */
         const parts = pantryHeights(low); let at = pantryStart(low);
         parts.forEach((h, j) => { const bt = bodyType(low, j, parts.length), n = bt === 'Elevable' ? low.repisasElevable : bt.startsWith('Especiero') ? 5 : zoneShelves(low, 'cuerpo' + (j + 1));
           repisas(low, at, at + h, n, D, 0, at > zb + .5); if (bt.startsWith('Especiero')) proy(3, D - 3, at + 2, at + h - 2, 'Especiero'); at += h; });
@@ -13276,7 +13305,7 @@ const LAM = (() => {
           (t.holes || []).forEach(h0 => { h0.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath(); }); }   /* el contorno de la cara, otra vez: el trazo de la trama lo reemplazo */
       }
       g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
-      if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && t.q.p.frente) isoHits.push({ pr, frente: t.q.p.frente, modulo: t.q.p.modulo });
+      if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && (t.q.p.frente || t.q.p.fijo)) isoHits.push({ pr, frente: t.q.p.frente || null, modulo: t.q.p.modulo });   /* A376: el falso frente tambien */
       if (o.hits && t.t === 'cara' && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null, p: t.q.p });   /* A355: y su pieza */   /* A340; A353: todas, en orden de pintado (cubierta, zoclo: sin modulo) */
     });
     (esc.herr || []).forEach(h => { const pr = esc.proy(h.O); dibujarSim(g, h.id, h.flip, X(pr[0]), Y(pr[1]), s, plano); });
@@ -13332,6 +13361,9 @@ const LAM = (() => {
     piezas.forEach(q => { if (q.frente) { if (q.abre) abres[q.frente] = q.abre; (porModulo[q.modulo] = porModulo[q.modulo] || new Set()).add(q.frente); } });
     if (todos) { const ids = Object.keys(abres), todoAbierto = ids.every(f => abiertos.has(f)); ids.forEach(f => todoAbierto ? abiertos.delete(f) : abiertos.add(f)); return true; }
     const h = isoHit(p); if (!h) return false;
+    /* A376 (usuario 21/10: «los cajones con tarja no abren»): el falso frente sobre la tina no abre; un clic en el abre los cajones de su mueble */
+    if (!h.frente) { const fs = [...(porModulo[h.modulo] || [])].filter(f => f in abres && !abres[f].solo); if (!fs.length) return false;
+      if (fs.every(f => abiertos.has(f))) fs.forEach(f => abiertos.delete(f)); else fs.forEach(f => abiertos.add(f)); return true; }
     const a = abres[h.frente];
     /* A339 (usuario 21/10: «al abrir puertas en isometrico la de piston se abre junto con el inferior, pasa lo mismo cuando estan unidas las
        columnas; el abrir puertas deberia ser por panel independiente, aun si el piston unido se subdivide en puertas»): cada frente abre solo;
