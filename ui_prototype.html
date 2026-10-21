@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A339. [Master hecho 21/10; SketchUp hecho 21/10 (Interaccion.apertura); Revit pendiente (InteractiveOpenings)] (usuario 21/10: «al abrir
+       puertas en isometrico la de piston se abre junto con el inferior, pasa lo mismo cuando estan unidas las columnas; el abrir puertas
+       deberia ser por panel independiente (aun si el piston unido se subdivide en puertas)») El clic (doble clic en el isometrico) abre o
+       cierra solo el frente tocado: cada puerta, cada hoja del piston dividido y el superior de un inferior + superior por separado. Solo
+       abren juntos los frentes de un grupo (cajones de una columna en cascada, A126; hojas plegables); al cerrar un frente se cierra lo que
+       va dentro de el (dentroDe). Antes, sin grupo, abria su cuerpo (zona, A156) o el gabinete entero.
    A338. [Master hecho 21/10; SketchUp: no aplica (su propia camara); Revit pendiente (vista isometrica del editor)] (usuario 21/10: «zoom en
        el isometrico con scroll del mouse (no aplica en presentar)») En la vista Isometrico del editor la rueda acerca o aleja hacia el
        puntero (de ajustado a la ventana hasta 12 veces) y, acercado, el boton central desplaza. Al volver a la vista empieza ajustado; al
@@ -12829,9 +12835,11 @@ const LAM = (() => {
     if (todos) { const ids = Object.keys(abres), todoAbierto = ids.every(f => abiertos.has(f)); ids.forEach(f => todoAbierto ? abiertos.delete(f) : abiertos.add(f)); return true; }
     const h = isoHit(p); if (!h) return false;
     const a = abres[h.frente];
-    const juntos = a && a.grupo ? Object.keys(abres).filter(k => abres[k].grupo === a.grupo) : a && a.independiente ? [h.frente]
-      : a && a.zona ? Object.keys(abres).filter(k => abres[k].zona === a.zona && !abres[k].independiente) : null;
-    const abre = juntos || [...(porModulo[h.modulo] || [h.frente])].filter(f => f in abres && !abres[f].solo);   /* sin grupo ni zona: todo el gabinete; A289/A290: sin sus herrajes de clic propio */
+    /* A339 (usuario 21/10: «al abrir puertas en isometrico la de piston se abre junto con el inferior, pasa lo mismo cuando estan unidas las
+       columnas; el abrir puertas deberia ser por panel independiente, aun si el piston unido se subdivide en puertas»): cada frente abre solo;
+       solo un grupo (cajones en cascada A126, hojas plegables) abre junto. Antes: sin grupo, su cuerpo (zona) o todo el gabinete */
+    const juntos = a && a.grupo ? Object.keys(abres).filter(k => abres[k].grupo === a.grupo) : [h.frente].filter(f => f in abres);
+    const abre = juntos;
     const cierra = juntos ? juntos.concat(Object.keys(abres).filter(k => juntos.includes(abres[k].dentroDe))) : abre;
     if (abre.every(f => abiertos.has(f))) cierra.forEach(f => abiertos.delete(f)); else abre.forEach(f => abiertos.add(f));
     return true;
