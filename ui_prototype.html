@@ -344,6 +344,15 @@
    A376. [Master hecho 21/10; SketchUp: el clic en una pieza sin frente ya abre todo su gabinete; Revit pendiente] (usuario 21/10: «los
        cajones con tarja no abren») En el mueble de la tarja con cajones (A373) el primero es un falso frente fijo; el clic en el no hacia
        nada en el isometrico. Ahora un clic en el falso frente abre (o cierra) los cajones de su mueble.
+   A390. [Master hecho 21/10; SketchUp: construye el plan; Revit pendiente] (usuario 21/10: «si el gabinete alto queda en peninsula aparece una
+       nueva funcion de repisas, alacena etc. tambien con una nueva funcion especial de subdividir»; decidido: arranca de la cubierta, puertas
+       hacia la cocina, repisas integradas del lado de los bancos, subdividir por altura y por ancho) Peninsula, fase 3 (primera parte). Cada
+       columna de la peninsula puede llevar su alto sobre la cubierta (m.penSobre: desde su bajo, «Altos en todas» o «Sin altos» en el
+       panel de la peninsula): en la peninsula los altos arrancan sobre la cubierta (baseAltos sin separacion) y llegan al tope, con todas sus
+       funciones (sencillo, repisas, piston, inferior + superior unible, division vertical) y fijacion por taquetes. Del lado de los bancos,
+       repisas dentro del mueble (m.penBancos, penRepFondo 15 cm / US 6", penRepN 3): el cuerpo con puertas va delante (sepDe) y detras un
+       compartimento abierto (piezas :bancos:lateral, piso, techo y repisas). La vista doble muestra los altos en el frente y su lado de los
+       bancos en el posterior.
    A389. [Master hecho 21/10; SketchUp: construye el plan; Revit pendiente] (usuario 21/10, lista de la peninsula, resto de A388) La barra
        elevada solo cubre el vuelo para bancos (del canto al panel, sin peralte) y al activarla toma 30 cm de vuelo (US 12") si estaba en 0.
        El alzado de la peninsula es siempre doble (sin «vista simple»); en ella, al hacer clic en vacio sus opciones salen primero (sin el
@@ -3584,7 +3593,8 @@ const row = upper => cfg.modulos.filter(m => m.upper === upper);
 const camaCubierta = () => cfg.generarCubierta && cfg.narizCubierta ? Math.max(0, cfg.alturaNariz - cfg.espesorCubierta) : 0;
 const paquete = () => cfg.espesorCubierta + camaCubierta();
 const altoBarra = () => cfg.baseBajos + cfg.altoBajos + paquete();
-const baseAltos = () => altoBarra() + cfg.separacionAltos;
+/* A390: en la peninsula los altos arrancan sobre su cubierta (mueble sobre la cubierta, fase 3) */
+const baseAltos = () => altoBarra() + (cfg.peninsula && multiCara() ? 0 : cfg.separacionAltos);
 const topeAltos = () => cfg.alturaMuro - (cfg.tapetaSuperior ? cfg.alturaTapetaSuperior : 0);
 const altoAltos = () => topeAltos() - baseAltos();
 /* D1: el sobrante decimal del muro (compensacion, LayoutState de Revit) va a la tapeta derecha, o a la izquierda si es la unica.
@@ -3912,6 +3922,14 @@ const penVuelo = (q = cfg) => Number.isFinite(q.penVuelo) && q.penVuelo >= 0 ? q
    (el vuelo para bancos pasa a la barra) y el panel posterior sube hasta la barra. Sin gabinetes (penSinGabinetes): los bajos de la
    peninsula no se construyen (reservados), el esquinero queda ciego con su puerta en la cara del muro y el extremo libre lleva cascada;
    con barra, la barra cubre todo el fondo fuera del esquinero y un remate cierra el escalon sobre la cubierta del esquinero */
+/* A390 (usuario 21/10: «si el gabinete alto queda en peninsula aparece una nueva funcion de repisas, alacena etc. tambien con una nueva funcion
+   especial de subdividir»; decidido: arranca de la cubierta, puertas hacia la cocina, «el canto que mira hacia los bancos tendra repisas
+   integradas al interior de ese mueble», subdividir por altura y por ancho): cada columna de la peninsula puede llevar su alto (m.penSobre)
+   sobre la cubierta, de ella al tope de los altos, con todas las funciones de los altos (sencillo, repisas, piston, inferior + superior
+   unible con las otras columnas, division vertical). Del lado de los bancos, un compartimento de repisas (m.penBancos, de fabrica si; fondo
+   penRepFondo, 15 cm / US 6"; penRepN repisas) dentro del mismo mueble: el cuerpo con puertas queda delante */
+const penRepF = m => m.penBancos === false ? 0 : Number.isFinite(m.penRepFondo) && m.penRepFondo > 0 ? m.penRepFondo : cfg.region === 'US' ? inch(6) : 15;
+const penRepN = m => Number.isFinite(m.penRepN) ? Math.max(0, Math.min(8, Math.round(m.penRepN))) : 3;
 const penElev = (q = cfg) => Number.isFinite(q.penBarraElev) && q.penBarraElev > 0 ? q.penBarraElev : cfg.region === 'US' ? inch(8) : 20;
 const penSGActivo = () => multiCara() && cfg.caras.some((q, k) => caraDe(k).peninsula && caraDe(k).penSinGabinetes);
 /* geometria de la barra en la cara peninsula activa (x local): extremo de la barra, columna del esquinero, tope y grueso */
@@ -4901,7 +4919,7 @@ function planDePiezas(c = cfg){
     Object.defineProperty(cfg, '__piezas', { value: piezas, enumerable: false, configurable: true, writable: true });   /* A134: los esquineros recortan zoclo y cubierta */
     /* sep: del origen del plan a la cara posterior del modulo. Muro: separacion posterior. Isla (B16): y va del canto de los bancos
        (0) al frente de la cubierta (islaAncho) y los frentes quedan alineados, asi que cada modulo arranca segun su fondo */
-    const sepDe = m => cfg.isla ? cfg.islaAncho - vueloEf() - t - m.fondo : sepMuro;
+    const sepDe = m => cfg.isla ? cfg.islaAncho - vueloEf() - t - m.fondo : m.upper && cfg.peninsula && multiCara() ? sepMuro + penRepF(m) : sepMuro;   /* A390: el cuerpo con puertas, delante de las repisas de los bancos */
     let sep = sepMuro;
     /* se redondean los extremos de la caja y la medida sale de ellos: dos piezas que se tocan siguen tocandose al centesimo */
     const borde = (a, w) => { const a0 = r2(a), a1 = r2(a + w); return [a0, r2(a1 - a0)]; };
@@ -5294,7 +5312,7 @@ function planDePiezas(c = cfg){
           const led = conCama(m);   /* sobre la cama (LED o gola, A83); el alto con campana no la lleva: su lecho es el hueco de la campana */
           /* A86: el bajo con cubierta lleva fajas en lugar del techo (detras del canal superior de la gola); todos, de anclaje */
           const gs = upper ? [] : golaStrips(m), receso = gs.length && gs[0][0] + gs[0][1] >= z1 - PLAN_CUERPO.lateral - .01 ? golaHondo(true) : 0;
-          const fj = { ancho: upper || !cfg.generarCubierta ? 0 : tarja ? reg().fajas.tarja : reg().fajas.ancho, receso, anclaje: 0, fijacion: upper ? fijacionAltos() : null };   /* A240: ningun gabinete lleva la tira posterior */   /* A145 */
+          const fj = { ancho: upper || !cfg.generarCubierta ? 0 : tarja ? reg().fajas.tarja : reg().fajas.ancho, receso, anclaje: 0, fijacion: upper ? (cfg.peninsula && multiCara() ? 'taquetes' : fijacionAltos()) : null };   /* A390: en la peninsula no hay muro para el riel */   /* A240: ningun gabinete lleva la tira posterior */   /* A145 */
           /* A266 (usuario 18/10: «los repiseros (sin puerta) llegan hasta el pano de la cara frontal de los frentes»): la caja sin puertas
              llega al frente de las puertas vecinas (su holgura es -t) */
           const h = carcasa(lead, lead.id + ':cuerpo', gx0, basura ? x + m.anchoBasura : gx1, z0, z1, fondo, matDe(lead), 'cuerpo', !tarja || fj.ancho > 0, led, fj, sinPuertas(lead) ? -t : PLAN_HOLGURA_PUERTA);
@@ -5383,14 +5401,14 @@ function planDePiezas(c = cfg){
         tramosCama.forEach(q => { if (corr.length && Math.abs(corr[corr.length - 1].x1 - q.x0) > .01) cierra(); corr.push(q); }); if (corr.length) cierra(); }
       /* A281 (usuario 18/10: «la holgura entre frentes y cama de altos en clasica y simple no es de 3 mm»): con puertas la cama queda
          PLAN_HOLGURA_PUERTA detras de ellas, como la caja (antes tocaba la cara posterior); el repisero sigue al frente */
-      tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sep + q.fondo + (sinPuertas(q.m) ? t : cfg.style === 'Moderna' ? 0 : -PLAN_HOLGURA_PUERTA), z0 = baseAltos() + elevAlto(q.m), e = PLAN_CUERPO.lateral;   /* A95; A266: la del repisero, al frente */
+      tramosCama.forEach(q => { const k = q.m.id; const L = PLAN_LED, y1 = sepDe(q.m) + q.fondo + (sinPuertas(q.m) ? t : cfg.style === 'Moderna' ? 0 : -PLAN_HOLGURA_PUERTA), z0 = baseAltos() + elevAlto(q.m), e = PLAN_CUERPO.lateral;   /* A95; A266: la del repisero, al frente */
         /* una sola tabla con la ranura cortada por debajo a lo largo (contrato: ranura = {y, ancho, hondo} desde su cara inferior) */
         /* A91 (usuario, 08/10): con gola, la cama del piso se queda la profundidad del canal (golaHondo) antes del pano de las puertas:
            ese hueco es el unero de los altos, y la cama interior de encima llega al pano y lo cierra. Con LED igual (la ranura y la tira
            van en la cama del piso, medidas desde su canto); sin gola la cama va completa */
         /* A93 (usuario, 08/10): la caja de repisas (alto sin puertas) lleva una sola cama, completa hasta el frente (sin unero ni cama
            interior: un solo marco) y con la tira si hay LED. La cama sigue al material del fondo de su caja, como el resto de la caja (A64) */
-        const yc = sep + (!cfg.isla && fijacionAltos() === 'frances' ? PLAN_FIJACION.frances.grueso : 0);   /* A150: con riel frances, al pano del fondo */
+        const yc = sepDe(q.m) + (!cfg.isla && !cfg.peninsula && fijacionAltos() === 'frances' ? PLAN_FIJACION.frances.grueso : 0);   /* A150: con riel frances, al pano del fondo; A390: en la peninsula, delante de las repisas de los bancos */
         const unero = cfg.style === 'Moderna' && !sinPuertas(q.m) ? golaHondo(true) : 0, r0 = ranuraLed(refLed.get(q), yc);   /* A264 */
         const dueno = (sinPuertas(q.m) && bodyGroupOf(q.m) || { members: [q.m] }).members[0], fondoCaja = (dueno.materialesPaneles || {})['cuerpo.fondo'];
         add(Object.assign({ id: 'cama:' + k, rol: 'panel', modulo: q.m.id, tipo: 'Cama', x: q.x0, y: yc, z: z0, ancho: q.x1 - q.x0, fondo: y1 - yc - unero, alto: e, material: fondoCaja || matDe(q.m), etiqueta: 'gabinetes' },
@@ -5629,6 +5647,14 @@ function planDePiezas(c = cfg){
           caja('barra:completa', 'Barra', f0, f1, -penSale, Dc, zt - be, zt, mB);
           caja('barra:remate', 'Peralte', r0, r0 + be, yB, Dc, zBar, zt - be, mP); }
       }
+      /* A390: compartimento de repisas hacia los bancos de cada alto sobre la cubierta: laterales, piso, techo y repisas en el fondo penRepFondo
+         detras del cuerpo con puertas (su trasero es la division); abierto hacia los bancos */
+      { let xu = ajusteIzq(); const e1 = PLAN_CUERPO.lateral, zA = baseAltos(), zZ = topeAltos();
+        highs.forEach(m => { const x0 = xu, x1 = xu + m.ancho; xu = x1; const r = penRepF(m); if (m.reserved || r < 1) return;
+          const mat = matDe(m), pz = (k, tipo, a, b, c0, c1, d0, d1, rol = 'panel') => add({ id: m.id + ':bancos:' + k, rol, modulo: m.id, tipo, x: a, y: c0, z: d0, ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material: mat, etiqueta: 'gabinetes' });
+          pz('lateral:izq', 'Lateral', x0, x0 + e1, sepMuro, sepMuro + r, zA, zZ); pz('lateral:der', 'Lateral', x1 - e1, x1, sepMuro, sepMuro + r, zA, zZ);
+          pz('piso', 'Piso', x0 + e1, x1 - e1, sepMuro, sepMuro + r, zA, zA + e1); pz('techo', 'Techo', x0 + e1, x1 - e1, sepMuro, sepMuro + r, zZ - e1, zZ);
+          const n = penRepN(m); repisasS32(zZ - zA - 2*e1, n, e1).forEach((d, i) => pz('repisa:' + (i + 1), 'Repisa', x0 + e1, x1 - e1, sepMuro, sepMuro + r - .3, zZ - d, zZ - d + e1, 'repisa')); }); }   /* A372: en los agujeros del Sistema 32 */
       /* cascada del extremo libre: sin barra, del piso a la cubierta; con barra, la parte de la barra sube hasta ella (sin gabinetes, a todo el fondo) */
       if (penCasc && cfg.generarCubierta) { const x0 = libreIzq ? 0 : W - wL;
         if (!penBar) caja('cascada', 'Cascada', x0, x0 + wL, -penSale, Dc, 0, zBar, mC);
@@ -6234,6 +6260,8 @@ function pruebasPlanMX(){
     ['peninsula a la izquierda con cascada y nariz (A383)', c => { const prev = cfg; cfg = c; try { crearPeninsula(c, 'izq'); c.penCascada = true; c.narizCubierta = true; } finally { cfg = prev; } return c; }],
     ['peninsula con barra elevada y cascada (A385)', c => { const prev = cfg; cfg = c; try { crearPeninsula(c, 'der'); c.penBarra = true; c.penCascada = true; } finally { cfg = prev; } return c; }],
     ['peninsula con un panel posterior de ancho fijo (A386)', c => { const prev = cfg; cfg = c; try { crearPeninsula(c, 'der'); c.penPaneles = [{ id: 'pa', ancho: 90, fijo: true, material: null }, { id: 'pb', ancho: 60, fijo: false, material: null }]; } finally { cfg = prev; } return c; }],
+    ['peninsula con altos sobre la cubierta, uno doble y repisas hacia los bancos (A390)', c => { const prev = cfg; cfg = c; try { crearPeninsula(c, 'der'); const u = c.modulos.filter(m => m.upper && !m.esquina);
+      u.forEach(m => m.penSobre = true); u[0].tipo = 'Doble'; u[0].tipoSuperior = 'Puertas'; u[1].penRepN = 2; } finally { cfg = prev; } return c; }],
     ['peninsula sin gabinetes, a nivel (A385)', c => { const prev = cfg; cfg = c; try { crearPeninsula(c, 'izq'); c.penSinGabinetes = true; c.penCascada = true; } finally { cfg = prev; } return c; }],
     ['peninsula sin gabinetes con barra elevada (A385)', c => { const prev = cfg; cfg = c; try { crearPeninsula(c, 'der'); c.penSinGabinetes = true; c.penBarra = true; c.penCascada = true; } finally { cfg = prev; } return c; }],
     ['cocina en L con diagonal y ciego en la otra cara (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'diagonal'; c.esquinas[0].alto = 'L'; c.esquinas[0].duena = 1; } finally { cfg = prev; } return c; }],
@@ -6825,7 +6853,7 @@ function recalcularCara(){
   {
     const lows = row(false), highs = row(true);
     highs.forEach(h => h.reserved = false);
-    if (multiCara() && cfg.peninsula) highs.forEach(h => h.reserved = true);   /* A383: la peninsula no lleva altos */
+    if (multiCara() && cfg.peninsula) highs.forEach(h => h.reserved = !h.penSobre || !!cfg.penSinGabinetes);   /* A383: la peninsula no lleva altos */
     /* A134: la alacena esquinera llega al tope de los altos y el alto que «sigue al bajo» puede ser «sin alto» */
     if (multiCara() && lows.length === highs.length) lows.forEach((a, i) => { const e = esquinaDe(a); if (e && altoEsquina(e) === 'ninguno' && highs[i].esquina) highs[i].reserved = true; });   /* A383: no el alto normal de la cara del muro */
     if (lows.some(isSpecial)) {
@@ -7504,7 +7532,7 @@ function drawCaraTabs(){
 function drawElevation(){
   const pd = penVistaDoble();   /* A386: frente arriba y posterior abajo */
   title(pd ? 'PENÍNSULA' : 'ALZADO', pd ? '· arriba el frente (lado de la cocina) · abajo el posterior (lado de los bancos) · clic en vacío: sus opciones' : ''); drawCaraTabs();
-  const W = cfg.longitud, H = pd ? (cfg.penBarra ? altoBarra() + penElev() : altoBarra()) + 12 : cfg.alturaMuro, highs = row(true), lows = row(false);
+  const W = cfg.longitud, H = pd ? (row(true).some(h => !h.reserved) ? cfg.alturaMuro : (cfg.penBarra ? altoBarra() + penElev() : altoBarra()) + 12) : cfg.alturaMuro, highs = row(true), lows = row(false);   /* A390: con altos, a toda la altura */
   const hA = pd ? Math.round(cssH*.56) : cssH;
   const L = 74, R = 112, T = multiCara() && !exporting ? 122 : 96, B = pd ? 74 : 66;   /* A135: lugar para las pestanas de las caras */
   const eL = hdExtra(false), eR = hdExtra(true), Wt = W + eL + eR;   /* las puertas ocultas quedan fuera de la cota del muro */
@@ -7626,7 +7654,7 @@ function drawElevation(){
   dim(xr, ground, xr, Z(zBar), fmt(zBar) + uS(), 'bar');
   /* cadena lateral: con altos dobles, del lecho de los altos al lecho del modulo superior y de ahi al tope (upperBody / upperLift) */
   if (highs.some(h => !h.reserved)) {
-    dim(xr, Z(zBar), xr, Z(zBA), fmt(cfg.separacionAltos) + uS(), 'gap');
+    if (zBA - zBar > .05) dim(xr, Z(zBar), xr, Z(zBA), fmt(cfg.separacionAltos) + uS(), 'gap');   /* A390: en la peninsula los altos arrancan de la cubierta */
     const lifted = highs.filter(h => !h.reserved && isDoble(h) && !soloCamp(h));   /* A81 */
     if (lifted.length) { const hs = Math.max(...lifted.map(h => h.altoSuperior)); dim(xr, Z(zBA), xr, Z(zTop - hs), fmt(zTop - hs - zBA) + uS(), 'upperBody'); dim(xr, Z(zTop - hs), xr, Z(zTop), fmt(hs) + uS(), 'upperLift'); }
     else dim(xr, Z(zBA), xr, Z(zTop), fmt(altoAltos()) + uS(), null);
@@ -7643,7 +7671,7 @@ function drawElevation(){
    paneles con su reparto (clic: elegirlo; cota: su ancho; material por panel), canto de la cubierta o de la barra y cascada */
 function drawPenPosterior(y0, s0){
   const W = cfg.longitud, L = 74, R = 112, B = 46, g = penGeo(), zBar = altoBarra(), pq = paquete(), bar = !!cfg.penBarra, casc = !!cfg.penCascada;
-  const zTop = bar ? g.zt : zBar, H = zTop + 12, s = Math.max(.1, Math.min(s0, (cssH - y0 - 40 - B)/H)), ox = L + ((cssW - L - R) - W*s)/2, ground = cssH - B;
+  const altosP = row(true).some(h => !h.reserved), zTop = altosP ? topeAltos() : bar ? g.zt : zBar, H = zTop + 12,   /* A390 */ s = Math.max(.1, Math.min(s0, (cssH - y0 - 40 - B)/H)), ox = L + ((cssW - L - R) - W*s)/2, ground = cssH - B;
   const X = x => ox + (W - x)*s, Z = z => ground - z*s, RX = (x0, x1, z0, z1) => ({ x: X(x1), y: Z(z1), w: (x1 - x0)*s, h: (z1 - z0)*s });
   ctx.save(); ctx.strokeStyle = C.line; ctx.globalAlpha = .35; ctx.lineWidth = 1; line(16, y0, cssW - 16, y0); ctx.restore();
   ctx.save(); ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = C.accent; ctx.font = "600 12px 'Inter'"; ctx.fillText('POSTERIOR', 22, y0 + 10);
@@ -7665,6 +7693,11 @@ function drawPenPosterior(y0, s0){
     if (bar) { const [b0, b1] = sg ? (g.izq ? [g.bx0, g.ec0] : [g.ec1, g.bx1]) : [g.bx0, g.bx1]; losa(b0, b1, g.zt - g.be, g.zt, groupMaterial('BarraElevada')); }
     else losa(g.izq ? (casc ? wL : -vueloLat()) : 0, g.izq ? W : casc ? W - wL : W + vueloLat(), zBar - pq, zBar, groupMaterial('Cubierta'));
     if (casc) { const x0 = g.izq ? 0 : W - wL; losa(x0, x0 + wL, 0, bar ? g.zt - g.be : zBar, groupMaterial(bar ? 'BarraElevada' : 'Cubierta')); } }
+  /* A390: los altos sobre la cubierta vistos desde los bancos: el compartimento de repisas o el trasero del mueble */
+  if (altosP) { let xu = ajusteIzq(); const zA = baseAltos(), zZ = topeAltos();
+    row(true).forEach(m => { const x0 = xu, x1 = xu + m.ancho; xu = x1; if (m.reserved) return; const r = RX(x0, x1, zA, zZ);
+      fillMat(r.x, r.y, r.w, r.h, flat ? null : (m.material || cfg.materialGeneral), C.interior); outline(r, C.line, 1);
+      if (penRepF(m) >= 1) { const n = penRepN(m); ctx.save(); ctx.strokeStyle = C.line; ctx.lineWidth = 1.5; for (let i = 1; i <= n; i++) { const y = r.y + r.h*i/(n + 1); line(r.x + 2, y, r.x + r.w - 2, y); } ctx.restore(); } }); }
   sobre.forEach(f => f());
   dim(X(W), ground + 26, X(0), ground + 26, fmt(W) + uS(), null);
   const xe = X(Math.min(0, g.bx0)) + 30; dim(xe, ground, xe, Z(zTop), fmt(zTop) + uS(), null);
@@ -7767,7 +7800,7 @@ function cotasSeccion(xl, xw, Z){
   dim(xw + 30, Z(0), xw + 30, Z(H), fmt(H) + uS(), 'wall');
   dim(xr, Z(0), xr, Z(zBar), fmt(zBar) + uS(), 'bar');
   if (highs.some(h => !h.reserved)) {
-    dim(xr, Z(zBar), xr, Z(zBA), fmt(cfg.separacionAltos) + uS(), 'gap');
+    if (zBA - zBar > .05) dim(xr, Z(zBar), xr, Z(zBA), fmt(cfg.separacionAltos) + uS(), 'gap');   /* A390: en la peninsula los altos arrancan de la cubierta */
     const lifted = highs.filter(h => !h.reserved && isDoble(h) && !soloCamp(h));
     if (lifted.length) { const hs = Math.max(...lifted.map(h => h.altoSuperior)); dim(xr, Z(zBA), xr, Z(zTop - hs), fmt(zTop - hs - zBA) + uS(), 'upperBody'); dim(xr, Z(zTop - hs), xr, Z(zTop), fmt(hs) + uS(), 'upperLift'); }
     else dim(xr, Z(zBA), xr, Z(zTop), fmt(altoAltos()) + uS(), null);
@@ -10623,6 +10656,7 @@ function penPanelHTML(){
   return section('Península', (view !== 'Alzado' ? `<button class="btn btn-sm btn-block" data-act="penVer" style="margin-bottom:10px">Ver frente y posterior</button>` : '')   /* A386; A389: el alzado ya es doble */
     + `<div class="grid-2">${num('penLargo', 'Largo desde el frente', penLargoLibre(), 'cm', 20, 400)}${num('penVuelo', 'Vuelo para bancos', penVuelo(), 'cm', 0, 60)}</div>`   /* A389 */
     + chk('penCasc', !!cfg.penCascada, 'Cascada en el extremo libre')
+    + (!cfg.penSinGabinetes ? `<div class="grid-2" style="margin-top:6px"><button class="btn btn-sm" data-act="penAltosTodos">Altos en todas</button><button class="btn btn-sm" data-act="penAltosNinguno">Sin altos</button></div><div class="note-sm">Muebles altos sobre la cubierta (o uno por columna desde su bajo).</div>` : '')   /* A390 */
     + chk('penBarra', !!cfg.penBarra, 'Barra elevada') + (cfg.penBarra ? `<div class="grid-2" style="margin-top:6px">${num('penBarraElev', 'Elevación sobre la cubierta', penElev(), 'cm', 5, 40)}</div><div class="note-sm">El vuelo para bancos pasa a la barra y el panel posterior sube hasta ella.</div>` : '')   /* A385 */
     + chk('penSinGab', !!cfg.penSinGabinetes, 'Sin gabinetes (solo barra)') + (cfg.penSinGabinetes ? `<div class="note-sm">Los gabinetes y los paneles posteriores no se construyen; el esquinero queda ciego del lado de la cara del muro, sin piezas de ajuste, y el extremo libre lleva cascada.</div>` : '')
     + `<div class="note-sm">Sin muro detrás: no lleva altos, backsplash ni potfiller. Con gabinetes lleva panel posterior sobre su zoclo. La cubierta corre en L desde la cara del muro.</div>` + quitar);
@@ -10712,6 +10746,14 @@ function modulePanel(m){
     + ((m.frentes || []).some(v => v > 0) ? `<button class="btn btn-block" style="margin-top:10px" data-act="repartir">Repartir alturas de nuevo</button>` : ''));
   else if (drawerType(m)) html += section('Cajón', `<div class="note-sm" style="margin-top:0">Arrastra el punto azul o haz clic en su cota.</div>`);
   /* A383: en una cocina recta, el primer y el ultimo bajo pueden volverse la esquina de una peninsula */
+  /* A390: en la peninsula, el alto sobre la cubierta de esta columna (desde el bajo) y, en el alto, su lado de los bancos */
+  if (multiCara() && cfg.peninsula && !cfg.penSinGabinetes && selection.size === 1) { const r = row(m.upper), o = row(!m.upper), i = r.indexOf(m), u = m.upper ? m : r.length === o.length ? o[i] : null;
+    if (!m.upper && u && !isSpecial(m) && !m.esquina) html += section('Alto sobre la cubierta', toggles([['penSobre', !!u.penSobre, 'Mueble alto sobre la cubierta en esta columna', FI['opt:Doble'] || '']])
+      + `<div class="note-sm">Arranca de la cubierta y llega al tope de los altos, con sus puertas hacia la cocina; del lado de los bancos lleva repisas.</div>`);
+    if (m.upper && !m.reserved) html += section('Lado de los bancos', chk('penBancos', m.penBancos !== false, 'Repisas hacia los bancos (dentro del mueble)')
+      + (m.penBancos !== false ? `<div class="grid-2" style="margin-top:6px">${num('penRepFondo', 'Fondo de las repisas', penRepF(m), 'cm', 8, 30)}${num('penRepN', 'Repisas', penRepN(m), '', 0, 8, 1)}</div>` : '')
+      + `<div class="note-sm">Para subdividir: por altura, «Módulo inferior + módulo superior» (se une con las columnas vecinas); por ancho, la división vertical.</div>`
+      + `<button class="btn btn-sm btn-block" data-act="penSobreQuitar" style="margin-top:8px">Quitar este alto</button>`); }
   if (!m.upper && !cfg.isla && !cfg.closet && !multiCara() && selection.size === 1) { const l = row(false), i = l.indexOf(m);
     if (i === 0 || i === l.length - 1) html += section('Península', `<button class="btn btn-block" data-act="${i === 0 ? 'penIzq' : 'penDer'}">${conIco(ICO_PEN, 'Sacar una península desde aquí')}</button>`
       + `<div class="note-sm">Este bajo pasa a ser el esquinero y la península sale hacia la cocina, con la cubierta corrida en L.</div>`); }
@@ -11223,6 +11265,12 @@ const ACT = {
   penVuelo: v => change(c => c.penVuelo = Math.max(0, Math.min(60, v))), penPanel: v => change(c => c.penPanel = v),
   penVer: () => penAbrir(),   /* A386; A389: siempre doble */
   penLargo: v => change(c => c.longitud = Math.round((v + penOff())*100)/100),   /* A389 */
+  /* A390: altos sobre la cubierta de la peninsula */
+  penSobre: (v, m) => change(() => { const r = row(m.upper), o = row(!m.upper), i = r.indexOf(byId(m.id)), u = m.upper ? byId(m.id) : r.length === o.length ? o[i] : null; if (u) u.penSobre = !!v; }),
+  penSobreQuitar: (v, m) => { change(() => { byId(m.id).penSobre = false; }); selection.clear(); render(); },
+  penAltosTodos: () => change(c => row(true).forEach(u => { const i = row(true).indexOf(u), b = row(false)[i]; if (!u.esquina && !(b && (isSpecial(b) || b.esquina))) u.penSobre = true; })),
+  penAltosNinguno: () => { change(c => row(true).forEach(u => u.penSobre = false)); selection.clear(); render(); },
+  penBancos: (v, m) => change(() => byId(m.id).penBancos = v), penRepFondo: (v, m) => change(() => byId(m.id).penRepFondo = Math.max(8, Math.min(30, v))), penRepN: (v, m) => change(() => byId(m.id).penRepN = v),
   ppAncho: v => change(c => { const q = c.penPaneles.find(q => q.id === selectedPart.slice(9)); q.ancho = v; q.fijo = true; }),
   ppLibre: () => change(c => c.penPaneles.find(q => q.id === selectedPart.slice(9)).fijo = false),
   ppAdd: () => { const id = selectedPart.slice(9), nq = newPanel(); change(c => { const i = c.penPaneles.findIndex(q => q.id === id); nq.material = c.penPaneles[i].material; c.penPaneles.splice(i + 1, 0, nq); c.penPaneles.forEach(q => q.fijo = false); }); selectPart('penpanel:' + nq.id); },
@@ -11246,7 +11294,7 @@ function onSideAction(e){
   act(v, selection.size === 1 ? byId([...selection][0]) : null);
 }
 /* A341: una accion del panel aplicada a cada gabinete elegido (como si fuera el unico) y un solo paso de deshacer */
-const MULTI_NO = new Set(['tipo', 'addBajo', 'addAlto', 'addCol', 'delSel', 'closePart', 'penIzq', 'penDer', 'penQuitar']);   /* A383 */
+const MULTI_NO = new Set(['tipo', 'addBajo', 'addAlto', 'addCol', 'delSel', 'closePart', 'penIzq', 'penDer', 'penQuitar', 'penAltosTodos', 'penAltosNinguno']);   /* A383; A390 */
 function multiAplica(act, v){
   const ids = [...selection], before = JSON.stringify(cfg), n0 = undoStack.length;
   try { ids.forEach(id => { const m = byId(id); if (!m) return; selection = new Set([id]); act(v, m); }); }
