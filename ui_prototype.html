@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A305. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente (editor)] (usuario 20/10: «anadir alto y anadir bajo
+       desaparece, se reemplaza por anadir columna») En la cocina de muro el panel sin seleccion ofrece solo «+ Anadir columna»: un bajo y su
+       alto nuevos a la derecha de la columna elegida (o al final, antes de una esquina derecha), los dos seleccionados. La isla sigue con
+       «Anadir bajo» y el closet con «Anadir modulo».
    A304. [Master hecho 19/10; SketchUp: Dialogo manda sketchupBeta(true) al cargar; Revit: sin beta por ahora] (usuario 19/10, beta
        privada en Gumroad): sketchupBeta(v) marca la version beta y las laminas de Presentar llevan «Versión beta: verifique medidas antes de fabricar.» antes de
        la nota de medidas (rotulo y bloque NOTA; con su traduccion al ingles).
@@ -6322,6 +6326,21 @@ function addModule(upper){
     selection = new Set([m.id]); selectedPart = null;
   });
 }
+/* A305 (usuario 20/10: «anadir alto y anadir bajo desaparece, se reemplaza por anadir columna»): una columna nueva (su bajo y su alto)
+   a la derecha de la columna elegida, o al final */
+function addColumn(){
+  const sel = [...selection].map(byId).find(m => m && !m.esquina);
+  change(() => {
+    const l = row(false), h = row(true), k = sel ? row(sel.upper).indexOf(sel) + 1 : Math.max(l.length, h.length);
+    const pon = (upper, r) => { const m = newModule(upper), j = Math.min(k, r.length), sig = r[j];
+      /* no entra entre una esquina derecha y el final: queda antes de ella */
+      const at = sig ? cfg.modulos.indexOf(sig) : r.length ? cfg.modulos.indexOf(r[r.length - 1]) + 1 : cfg.modulos.length;
+      const fin = !sig && r.length && r[r.length - 1].esquina && r[r.length - 1].esquina.lado === 'der' ? cfg.modulos.indexOf(r[r.length - 1]) : at;
+      cfg.modulos.splice(fin, 0, m); return m; };
+    const b = pon(false, l), a = pon(true, h);
+    selection = new Set([b.id, a.id]); selectedPart = null;
+  });
+}
 function deleteSelected(){
   if (selectedPart && selectedPart !== 'wall') { deletePart(selectedPart); return; }
   if (!selection.size) return;
@@ -9403,7 +9422,7 @@ function renderSide(){
   if (selectedPart) html += partPanel(selectedPart);
   if (!selectedPart || selectedPart === 'wall') {
     if (!ids.length) {
-      const addBtns = cfg.closet ? `<button class="btn btn-block" data-act="addBajo">+ Añadir módulo</button>` : !cfg.isla ? `<div class="grid-2"><button class="btn btn-block" data-act="addBajo">+ Añadir bajo</button><button class="btn btn-block" data-act="addAlto">+ Añadir alto</button></div>`
+      const addBtns = cfg.closet ? `<button class="btn btn-block" data-act="addBajo">+ Añadir módulo</button>` : !cfg.isla ? `<button class="btn btn-block" data-act="addCol">+ Añadir columna</button>`   /* A305 */
         : view === 'Alzado' ? `<button class="btn btn-block" data-act="addBajo">+ Añadir bajo</button>` : view === 'Posterior' ? `<button class="btn btn-block" data-act="addPanel">+ Añadir panel posterior</button>` : '';
       html += section('', `<div class="empty" style="padding:6px 0 12px">${cfg.isla ? 'Selecciona un gabinete, la cubierta, una cascada, el zoclo o la barra elevada en el dibujo.' : cfg.closet ? 'Haz clic en un módulo, el zoclo, una tapeta o una cota para editarlo.' : 'Haz clic en un gabinete, la cubierta, el zoclo o una cota para editarlo.'}</div>${addBtns}`);
     } else if (!m) {
@@ -10049,7 +10068,7 @@ const ACT = {
   tapSCI: v => change(c => c.cerrarMolduraIzq = v), tapSCD: v => change(c => c.cerrarMolduraDer = v),
   tapS: v => change(c => c.tapetaSuperior = v, 'Revisar altura'), tapSH: v => change(c => c.alturaTapetaSuperior = v, 'Revisar altura'),
   perfil: v => change(c => c.perfil = v),
-  addBajo: () => addModule(false), addAlto: () => addModule(true), delSel: () => deleteSelected(),
+  addBajo: () => addModule(false), addAlto: () => addModule(true), addCol: () => addColumn(), delSel: () => deleteSelected(),
   closePart: () => { selectedPart = null; render(); },
 };
 function onSideAction(e){
@@ -10466,6 +10485,7 @@ const EN = {
   'Con abatibles el cuerpo retrocede el espesor de la hoja. Correderas: sistema Ducasse D52 al piso dentro de vano (riel inferior, guía superior bajo una tapeta de 8 cm, hojas casi a tope con 3 cm de traslape), sin zoclo. En estilo moderno los cajones llevan perfiles gola de aluminio (L superior con hueco de 35 mm, C intermedio con hueco de 30 mm); en clásico, jaladeras.': 'With hinged doors the section sets back by the leaf thickness. Sliding: Ducasse D52 floor system inside the opening (bottom rail, top guide under an 8 cm filler, leaves almost touching with 3 cm overlap), no toe kick. In the modern style drawers get aluminum gola profiles (L on top with a 35 mm gap, C in between with a 30 mm gap); in classic, pulls.',
   'Cada cascada mide 3 cm: el de la nariz o, sin nariz, el de la cubierta. Se descuenta del largo de los gabinetes.': 'Each waterfall is 3 cm: the built-up edge height, or the countertop thickness if there is no built-up edge. That thickness is taken from the length for the cabinets.',
   '+ Añadir alto': '+ Add upper',
+  '+ Añadir columna': '+ Add column',
   '+ Añadir bajo': '+ Add base',
   '+ Añadir módulo': '+ Add cabinet',
   '+ Añadir panel': '+ Add panel',
