@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A373. [Master hecho 21/10; SketchUp: caja en U del plan (trasera partida y piso con forma perfil eje z); Revit pendiente] (usuario 21/10: «preparar la construccion de ese cajon en 3D, isometrico y despiece»)
+       Mueble de la tarja con cajones: la tarja ya se puede poner en un bajo de «Cajones» (antes solo Puertas y Cajon y puerta). El primer frente queda fijo sobre la tina
+       (sin caja; su alto minimo cubre lo que baja la tina mas 3 cm: tarjaFijoMin) y los demas cajones llevan la caja en U (PLAN_CAJA_U): la trasera se parte en dos
+       (...:trasera y ...:trasera:der) y el piso (...:piso) lleva forma perfil eje z con el corte atras al centro (mitad del ancho interior, 18 cm o mas, y 8 cm de brazo a cada lado;
+       60 % del fondo, 20 cm o mas, y 15 cm de piso al frente). Con tarja el modulo tiene al menos 2 cajones. El detalle de cajon dibuja el piso en U y lo lista aparte. El aviso
+       «se recomienda puerta» sale solo en MX (cfg.region distinto de US). Pendiente: codigo de gabinete de EE. UU. del bajo de tarja con cajon, y la corredera con el corte.
    A372. [Master hecho 21/10; SketchUp y Revit: leen z y alto de repisas y bisagras del plan; Revit pendiente (repisas y placas de bisagra de sus familias)] (usuario 21/10: «integra sistema 32»)
        Cuadricula del Sistema 32 en los laterales (PLAN_S32: agujeros cada 3.2 cm, la serie arranca a 3.7 cm del canto superior del lateral). 1) Las repisas del
        interior (repisasS32): luces iguales y cada cara inferior baja al agujero mas cercano (como mucho 1.6 cm); si al ajustar dos repisas se juntan o salen del hueco,
@@ -4049,16 +4055,21 @@ function cajoneraPar(m){
   const l = row(false), i = l.indexOf(m), n = two(m) ? 2 : 3;
   return l.map((q, k) => [q, Math.abs(k - i)]).filter(([q]) => q !== m && !q.reserved && q.tipo === 'Cajones' && q.numCajones === n).sort((a, b) => a[1] - b[1]).map(([q]) => q)[0] || null;
 }
+/* A373: alto minimo del frente fijo sobre la tina: lo que la tina baja del tablero del gabinete (su fondo menos el paquete de la cubierta si va sobrepuesta) y 3 cm */
+const tarjaFijoMin = () => Math.max(8, cfg.tarjaProf - (cfg.tarjaBajoCubierta ? 0 : paquete()) + 3);
 function heights(m){
   { const ref = cajoneraPar(m); if (ref) { const h = heights(ref); return two(m) ? [h[0], h[1], 0] : h.slice(0, 3); } }   /* A363 */
   if (two(m)) { const total = bodyH(m) - .2 - topGap(m) - agarreEntre(), top = m.frenteSup > 0 ? m.frenteSup : total*.4; return [top, total - top, 0]; }
   if (m.tipo === 'Cajones' || m.tipo === 'Especiero' && espCon(m) === 'Cajones') {   /* A97: el especiero reparte sus cajones como la cajonera */
     /* pesos: pequeño + grandes = (n-1) para el de arriba y n para cada uno de los demas (con 3: 25 % y 37.5 %); iguales = 1.
        Las alturas fijadas con los puntos azules (frentes) se respetan; el resto se reparte y el ultimo toma lo que sobra */
-    const n = m.numCajones, sum = bodyH(m) - .2 - topGap(m) - (n - 1)*agarreEntre(), c = m.frentes || [];
-    const w = i => m.cajonesIguales ? 1 : i === 0 ? n - 1 : n, h = Array(n).fill(0), auto = []; let fixed = 0;
-    for (let i = 0; i < n; i++) { if (i < n - 1 && c[i] > 0) { h[i] = c[i]; fixed += c[i]; } else auto.push(i); }
-    const W = auto.reduce((a, i) => a + w(i), 0) || 1; auto.forEach(i => h[i] = (sum - fixed)*w(i)/W);
+    const n = m.numCajones, sum = bodyH(m) - .2 - topGap(m) - (n - 1)*agarreEntre();
+    const w = i => m.cajonesIguales ? 1 : i === 0 ? n - 1 : n;
+    const reparto = c => { const h = Array(n).fill(0), auto = []; let fixed = 0;
+      for (let i = 0; i < n; i++) { if (i < n - 1 && c[i] > 0) { h[i] = c[i]; fixed += c[i]; } else auto.push(i); }
+      const W = auto.reduce((a, i) => a + w(i), 0) || 1; auto.forEach(i => h[i] = (sum - fixed)*w(i)/W); return h; };
+    const h = reparto(m.frentes || []);
+    if (m.tipo === 'Cajones' && m.preparadoTarja && n > 1 && h[0] < tarjaFijoMin() - 1e-6) { const c = (m.frentes || []).slice(); c[0] = tarjaFijoMin(); return reparto(c); }   /* A373: el frente fijo cubre la tina */
     return h;
   }
   const sum = bodyH(m) - .2 - topGap(m) - 2*agarreEntre();
@@ -4102,7 +4113,7 @@ function fronts(m){
   const drawers = () => {
     const hs = heights(m); let top = zb + bodyH(m) - topGap(m);
     for (let i = 0; i < count(m); i++) {
-      const fijo = m.tipo === 'C' && m.preparadoTarja && i === 0; /* frente fijo de tarja: sin caja ni apertura */
+      const fijo = (m.tipo === 'C' || m.tipo === 'Cajones') && m.preparadoTarja && i === 0; /* frente fijo de tarja: sin caja ni apertura */
       if (hs[i] > 1) r.push({kind:'Cajon', x0:ins+hol, x1:m.ancho-ins-hol, z0:top-hs[i], z1:top, fijo});
       top -= hs[i] + agarreEntre();
     }
@@ -4341,6 +4352,10 @@ const cuerpoFondo = () => cfg.espesorFondo > 0 ? cfg.espesorFondo : cfg.region =
    en el muro, dentro del backsplash que sube detras de ella; va delante de el (y en el isometrico ya no queda tapada) */
 const yCampana = sep => Math.max(sep, cfg.backsplash ? cfg.espesorBacksplash || 0 : 0);
 const PLAN_PATA = { borde: 5, clip: 4.5, seisDesde: 76.5, placa: [9.2, 7.9, 2.5], columna: 3.5, base: 7.8, baseAlto: 1.2, lados: 12, tuerca: { entreCaras: 4.6, alto: 1.4 } };   /* A326: tuerca de ajuste */
+/* A373 (usuario 21/10): mueble de la tarja con cajones. El primer frente queda fijo sobre la tina y los demas cajones llevan la caja en U: la trasera se parte en dos y el piso
+   tiene un corte atras, al centro, para el sifon y las tuberias. ancho: fraccion del ancho interior (entre anchoMin y lo que deja brazo a cada lado); fondo: fraccion del fondo
+   (entre fondoMin y lo que deja tras de piso al frente) */
+const PLAN_CAJA_U = { ancho: .5, anchoMin: 18, brazo: 8, fondo: .6, fondoMin: 20, tras: 15 };
 const PLAN_CAJA = { lado: 1.5, piso: .6, ranura: .5, holgura: 1.3, retiro: 2, libreArriba: 3, libreGola: .5 };   /* caja de cajon dentro de la carcasa. A370 (usuario 21/10, manual «El Cocinator»): fondo de 6 mm que entra en una ranura a 5 mm del borde inferior de los costados (antes piso de 12 mm al ras) */
 /* A140 (usuario, 11/10): holgura de 3 mm entre la cara posterior de puertas y cajones y el canto de la carcasa (la de la bisagra);
    la carcasa con frentes termina 3 mm antes y los frentes no se mueven. Saque del cajon oculto del cesto: rebaje en el canto inferior
@@ -4786,6 +4801,15 @@ function planDePiezas(c = cfg){
       lado('lado:izq', 'Lado', x0, x0 + c.lado, y0, y1, z0, z1);
       lado('lado:der', 'Lado', x1 - c.lado, x1, y0, y1, z0, z1);
       lado('frente', 'Frente', x0 + c.lado, x1 - c.lado, y1 - c.lado, y1, z0, z1);
+      const xi0 = x0 + c.lado, xi1 = x1 - c.lado, Wi = xi1 - xi0, U = PLAN_CAJA_U, Hf = (y1 - c.lado) - (y0 + c.lado);
+      const N = m.tipo === 'Cajones' && m.preparadoTarja ? Math.min(Math.max(U.anchoMin, Wi*U.ancho), Wi - 2*U.brazo) : 0, Dn = Math.min(Hf - U.tras, Math.max(U.fondoMin, (y1 - y0)*U.fondo));
+      if (N >= U.anchoMin - .01 && Dn >= 10) {   /* A373: caja en U */
+        const xl = r2((Wi - N)/2);
+        lado('trasera', 'Trasera', xi0, xi0 + xl, y0, y0 + c.lado, z0, z1);
+        lado('trasera:der', 'Trasera', xi1 - xl, xi1, y0, y0 + c.lado, z0, z1);
+        lado('piso', 'Piso', xi0, xi1, y0 + c.lado, y1 - c.lado, z0 + c.ranura, z0 + c.ranura + c.piso);
+        const q = piezas[piezas.length - 1]; if (q && q.id === base + ':piso') q.forma = { tipo: 'perfil', eje: 'z', puntos: [[0, 0], [xl, 0], [xl, r2(Dn)], [r2(xl + N), r2(Dn)], [r2(xl + N), 0], [r2(Wi), 0], [r2(Wi), r2(Hf)], [0, r2(Hf)]] };
+        return; }
       lado('trasera', 'Trasera', x0 + c.lado, x1 - c.lado, y0, y0 + c.lado, z0, z1);
       lado('piso', 'Piso', x0 + c.lado, x1 - c.lado, y0 + c.lado, y1 - c.lado, z0 + c.ranura, z0 + c.ranura + c.piso);   /* A370 */
     };
@@ -5952,6 +5976,8 @@ function pruebasPlanMX(){
     ['alacena oculta con barra de cajones, puerta en la cara B, clasica (A294)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.style = 'Clasica'; Object.assign(c.esquinas[0], { tipo: 'alacena', alacena: 'oculta', duena: 1 }); } finally { cfg = prev; } return c; }],
     ['alacena oculta con barra de puertas, simple (A294)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.style = 'Simple'; Object.assign(c.esquinas[0], { tipo: 'alacena', alacena: 'oculta', barraFuncion: 'puertas' }); } finally { cfg = prev; } return c; }],
     ['torre con el microondas separado 10 del horno (A277)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 60, fijo: true, elevacionMicro: 10, microSobreponer: false }); return c; }],
+    ['mueble de tarja con 3 cajones, moderna (A373)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[1], { tipo: 'Cajones', numCajones: 3, preparadoTarja: true }); c.moduloTarja = l[1].id; c.tipoTarja = 1; return c; }],
+    ['mueble de tarja doble bajo cubierta con 2 cajones, clasica (A373)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[1], { tipo: 'Cajones', numCajones: 2, preparadoTarja: true }); c.style = 'Clasica'; c.tarjaBajoCubierta = true; c.moduloTarja = l[1].id; c.tipoTarja = 2; return c; }],
     ['torre de 76 con horno y microondas juntos (A275)', c => { const l = c.modulos.filter(m => !m.upper); Object.assign(l[0], { tipo: 'Hornos', ancho: 76, fijo: true, hornosJuntos: true, rejillaHorno: false }); return c; }],
     ['esquinero plegable con la bisagra oculta Blum (A270)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].bisagraIntermedia = 'oculta'; } finally { cfg = prev; } return c; }],
     ['cocina en L con LED, alto de esquina con tapeta y repiseros (A266)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.led = true; Object.assign(c.esquinas[0], { union: 'tapeta', repiseroA: true, repiseroB: true }); } finally { cfg = prev; } return c; }],
@@ -6085,6 +6111,15 @@ function pruebasPlanMX(){
     p.piezas.filter(q => q.tipo === 'Bisagra' && q.frente && q.estado === 'cerrado' && !/^esq/.test(q.id) && !/:s\d+$/.test(q.id) && q.modelo && /brazo_cerrada/.test(q.modelo.archivo)).forEach(q => {
       const zc = q.z + q.alto/2, L = p.piezas.filter(r => r.modulo === q.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.z <= zc + .01 && r.z + r.alto >= zc - .01);
       if (L.length) ok(L.some(r => enS32(r.z + r.alto, zc)), nombre + ': la bisagra ' + q.id + ' no cae en un agujero del Sistema 32'); });
+    /* A373: mueble de la tarja con cajones: el primer frente es fijo (sin caja) y cubre la tina; los demas llevan la caja en U (trasera partida y piso con el corte atras) */
+    c.modulos.filter(m => !m.upper && m.tipo === 'Cajones' && m.preparadoTarja).forEach(m => {
+      const fr = p.piezas.filter(q => q.modulo === m.id && q.rol === 'frente' && q.tipo === 'Cajon').sort((a, b) => b.z - a.z), cajas = k => p.piezas.filter(q => q.modulo === m.id && q.rol === 'caja' && q.id.startsWith(m.id + ':caja:' + k + ':'));
+      ok(fr.length >= 2 && fr[0].fijo === true && fr.slice(1).every(q => !q.fijo), nombre + ': el primer frente del mueble de la tarja debe ser fijo y los demas moviles');
+      ok(fr[0].alto >= tarjaFijoMin() - .01, nombre + ': el frente fijo no cubre la tina (' + fr[0].alto + ' < ' + tarjaFijoMin() + ')');
+      ok(!p.piezas.some(q => q.rol === 'caja' && q.frente === fr[0].id), nombre + ': el frente fijo de la tarja lleva caja');
+      fr.slice(1).forEach(q => { const cj = p.piezas.filter(r => r.rol === 'caja' && r.frente === q.id), piso = cj.find(r => r.tipo === 'Piso'), tr = cj.filter(r => r.tipo === 'Trasera');
+        ok(tr.length === 2 && piso && piso.forma && piso.forma.puntos.length === 8, nombre + ': la caja en U de ' + q.id + ' no tiene trasera partida y piso con corte');
+        if (tr.length === 2 && piso && piso.forma) { const hueco = Math.min(...tr.map(r => r.x)) + Math.max(...tr.map(r => r.ancho)); ok(tr.every(r => r.x + r.ancho <= piso.x + piso.ancho + .01 && r.x >= piso.x - .01) && Math.abs(tr[0].ancho - tr[1].ancho) < .02, nombre + ': las traseras de ' + q.id + ' no son simetricas'); } }); });
     /* gola: detras de cada hueco de agarre queda libre el canal (del alma del perfil al plano de los frentes) para los dedos */
     if (c.style === 'Moderna') p.piezas.filter(q => q.tipo === 'Gola' && !q.forma && !String(q.id).startsWith('esq')).forEach(g => {   /* A143: la gola del esquinero corre por sus alas (otra orientacion) */   /* A139: la gola a 45 del esquinero diagonal es una losa (forma) */
       const alma = p.piezas.find(q => q.id === g.id), dedo = { x: g.x + .5, y: g.y + g.fondo + .01, z: 0, ancho: g.ancho - 1, fondo: 0, alto: 0 };
@@ -6547,8 +6582,9 @@ function recalcularCara(){
   if (!cfg.generarCubierta || !cfg.modulos.some(m => m.id === cfg.moduloTarja && !m.upper)) { cfg.tipoTarja = 0; cfg.moduloTarja = null; }
   for (const m of cfg.modulos) {
     if (m.upper) continue;
-    if (m.tipo !== 'Puertas' && m.tipo !== 'C') { m.preparadoTarja = false; if (m.id === cfg.moduloTarja) { cfg.moduloTarja = null; cfg.tipoTarja = 0; } }
+    if (m.tipo !== 'Puertas' && m.tipo !== 'C' && m.tipo !== 'Cajones') { m.preparadoTarja = false; if (m.id === cfg.moduloTarja) { cfg.moduloTarja = null; cfg.tipoTarja = 0; } }
     if (tarjaDe(m) !== 'Sin tarja') m.preparadoTarja = true;
+    if (m.tipo === 'Cajones' && m.preparadoTarja && m.numCajones < 2) m.numCajones = 2;   /* A373: el fijo sobre la tina y al menos un cajon en U */
     if (m.tipo === 'Cajones' || m.tipo === 'Abierto') m.dosPuertas = false;
   }
   for (const m of cfg.modulos) if (sinPuertas(m) || m.upper && m.tipo === 'Piston') m.dosPuertas = false;
@@ -10259,10 +10295,12 @@ function modulePanel(m){
     html += section('Repisas', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete alto', n, 'u', 0, 12, 1)}</div>`
       + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los ${medida(25)} recomendados. Se generan igual.</div>`
         : `<div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mx}.${showDoors && !sinPuertas(m) ? ' Detrás de las puertas se ven en la vista Interior.' : ''}</div>`)); }
-  if (!m.upper && (m.tipo === 'Puertas' || m.tipo === 'C')) {
+  if (!m.upper && (m.tipo === 'Puertas' || m.tipo === 'C' || m.tipo === 'Cajones')) {
     const t = tarjaDe(m);
     let tj = chk('prep', m.preparadoTarja, 'Preparado para tarja') + sel('tarja', [['Sin tarja', 'Sin tarja'], ['Tarja sencilla', 'Tarja sencilla'], ['Tarja doble', 'Tarja doble']], t);
     if (t !== 'Sin tarja') tj += chk('bajoCub', cfg.tarjaBajoCubierta, 'Tarja bajo cubierta');
+    if (m.tipo === 'Cajones' && m.preparadoTarja) tj += `<div class="note-sm">El primer frente queda fijo sobre la tina y los demás cajones salen en U, con el corte atrás para el sifón y las tuberías.</div>`
+      + (cfg.region !== 'US' ? `<div class="note-sm" style="color:#C2410C">En México se recomienda puerta en el mueble de la tarja, para llegar a las tuberías sin sacar los cajones.</div>` : '');   /* A373: el aviso solo en MX */
     html += section('Tarja', tj);
   }
   if (m.tipo === 'Especiero') html += section('Especiero', alturaEspeciero(m) + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
@@ -10937,7 +10975,7 @@ function renderStyle(){
  * TOOLBAR / PESTANAS / ESTADO
  * ======================================================================= */
 const EN = {
-  'Consejos': 'Tips',
+  'Consejos': 'Tips', 'Piso en U (corte atrás)': 'U-shaped floor (back cutout)',
   "PLANTA GENERAL": "OVERALL PLAN", "Especiero anexado": "Attached spice rack", "Sin especiero": "No spice rack", "A la izquierda": "On the left", "A la derecha": "On the right", "Ancho del especiero": "Spice rack width", "Ancho de la alacena": "Pantry width", "Volver al de fábrica": "Back to factory size", "1 cara": "1 face", "2 caras (L)": "2 faces (L)", "3 caras (U)": "3 faces (U)", "Todas las puertas de bajos": "All base doors", "Todas las puertas de altos": "All wall doors", "Todos los cajones": "All drawers",
   "Armado del alto": "Wall cabinet build", "Unido en L, un solo gabinete": "Joined in L, one cabinet", "Dos gabinetes con tapeta": "Two cabinets with filler",
   "Junto a la esquina": "Next to the corner", "Gabinete con puerta": "Cabinet with door", "Repisas abiertas": "Open shelves",
@@ -11897,6 +11935,8 @@ const EN = {
   'El isométrico sale con todo cerrado; en la vista Isométrico puedes abrir las puertas y cajones que quieras mostrar.': 'The isometric comes out fully closed; in the Isometric view you can open the doors and drawers you want to show.'
 };
 const EN_T = [
+  ["El primer frente queda fijo sobre la tina y los demás cajones salen en U, con el corte atrás para el sifón y las tuberías.", "The first front stays fixed over the sink bowl and the other drawers are U-shaped, with the cutout at the back for the trap and plumbing."],
+  ["En México se recomienda puerta en el mueble de la tarja, para llegar a las tuberías sin sacar los cajones.", "In Mexico a door is recommended on the sink cabinet, to reach the plumbing without pulling the drawers out."],
   ["No va en la esquina interna de una L o U: si su puerta abre hacia ella, déjale al menos {0} de la pared perpendicular.", "Keep it out of the inside corner of an L or U: if its door swings toward it, leave at least {0} from the perpendicular wall."],
   ["Déjale al menos {0} a una ventana (el sol lo calienta) y {1} a la estufa si son contiguos.", "Leave at least {0} to a window (the sun warms it) and {1} to the range if they are side by side."],
   ["Necesita aire: de {0} a {1} atrás y {2} arriba, salvo que la ficha del fabricante pida otra cosa.", "It needs air: {0} to {1} behind and {2} above, unless the manufacturer’s spec sheet says otherwise."],
@@ -13407,6 +13447,7 @@ const LAM = (() => {
     const m = pz && !pz.plano && pz.p && pz.p.material ? mat(pz.p.material) : null, spec = m && m.categoria !== 'Color' ? patternOf(m.patron) : null;
     if (spec) paintPattern(g, x, y, Math.max(.4, w), Math.max(.4, h), spec, pz.sc * (m.escala || 1), lineColorOf(m));
     g.strokeStyle = stroke; g.lineWidth = lw; g.beginPath(); g.rect(x, y, Math.max(.4, w), Math.max(.4, h)); g.stroke(); g.restore(); };
+  const poli2D = (g, pts, fill, stroke, lw = .8) => { g.save(); g.fillStyle = fill; g.strokeStyle = stroke; g.lineWidth = lw; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); g.stroke(); g.restore(); };
   const agrupaIguales = (valores, tol = .05) => { const out = []; valores.forEach(v => { const r = out[out.length - 1]; if (r && Math.abs(r.v - v) < tol) r.n++; else out.push({ v, n: 1 }); }); return out; };
   /* alzado del conjunto: con puertas (cada puerta y cajon con su medida: el despiece) o sin ellas (interiores y sus luces) */
   /* A198: tramos de muro que ocupan los gabinetes del conjunto (y sus tapetas): lo que cae entre ellos (una torre, un refrigerador) no lleva zoclo ni cubierta */
@@ -13932,7 +13973,7 @@ const LAM = (() => {
     /* A200: la marca de color es la del frente en el despiece de frentes: asi el cajon se identifica con su grupo */
     let tono = '#8A949C'; if (d.fr) { try { tono = mapaTonos(o).get(d.fr.id) || tono; } catch (e) { /* gris */ } }   /* A203: la marca de color se conserva en B/N */
     /* lista de piezas: igual medida y tipo juntas */
-    const grupos = new Map(); P.forEach(p => { const dim = [p.ancho, p.fondo, p.alto].map(v => Math.round(v * 10) / 10).sort((a, b) => b - a), k = `${p.tipo}|${dim.join('x')}`; const q = grupos.get(k) || { tipo: p.tipo, dim, n: 0 }; q.n++; grupos.set(k, q); });
+    const grupos = new Map(); P.forEach(p => { const dim = [p.ancho, p.fondo, p.alto].map(v => Math.round(v * 10) / 10).sort((a, b) => b - a), u = p.tipo === 'Piso' && p.forma, k = `${p.tipo}${u ? 'U' : ''}|${dim.join('x')}`; const q = grupos.get(k) || { tipo: p.tipo, u, dim, n: 0 }; q.n++; grupos.set(k, q); });   /* A373: el piso en U aparte */
     if (d.fr) grupos.set('frente', { tipo: T('Frente'), dim: [d.fr.ancho, d.fr.alto, d.fr.fondo].map(v => Math.round(v * 10) / 10), n: 1 });
     const filas = [...grupos.values()], anchoV = Math.max(wP, wFr) + 2 * 0, anchoTot = M * 2 + anchoV + GAP + dP + GAP + wP + 24, altoTot = M * 2 + Math.max(hP, dP) + 70 + filas.length * 15 + 36;
     const g = new Grabador(Math.max(anchoTot, 420), altoTot), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
@@ -13959,7 +14000,8 @@ const LAM = (() => {
       J.H(Xp(by1), Xp(by0), Yp(z1) - 10, fmt(by1 - by0));
       /* planta: x a la derecha, el frente abajo */
       const xl = xp + dP + GAP; vTit('PLANTA', xl); const Xl = x => xl + (x - x0) * sc, Yl = y => yB + 6 + (y1 - y) * sc;
-      P.slice().sort((a, b) => a.z - b.z).forEach(p => caja2D(g, Xl(p.x), Yl(p.y + p.fondo), p.ancho * sc, p.fondo * sc, col(p), tinta, .8, { p, sc, plano }));
+      P.slice().sort((a, b) => a.z - b.z).forEach(p => { if (p.forma && p.forma.tipo === 'perfil' && p.forma.eje === 'z') poli2D(g, p.forma.puntos.map(([u, v]) => [Xl(p.x + u), Yl(p.y + v)]), col(p), tinta);   /* A373: piso en U */
+        else caja2D(g, Xl(p.x), Yl(p.y + p.fondo), p.ancho * sc, p.fondo * sc, col(p), tinta, .8, { p, sc, plano }); });
       if (d.fr) frente2D(Xl(d.fr.x), Yl(d.fr.y + d.fr.fondo), d.fr.ancho * sc, d.fr.fondo * sc);
       J.H(Xl(bx0), Xl(bx1), Yl(y1) - 10, fmt(bx1 - bx0)); J.V(Xl(bx0) - 12, Yl(by1), Yl(by0), fmt(by1 - by0));
       /* la marca de color y la cantidad, arriba a la izquierda */
@@ -13971,7 +14013,7 @@ const LAM = (() => {
       g.save(); g.fillStyle = '#222222'; g.font = "600 9px 'Inter'"; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
       g.fillText(`${T('PIEZA')}`, M, yy); g.fillText(`${T('MEDIDAS (cm)')}`, M + 190, yy); g.fillText(T('CANT.'), M + 360, yy);
       g.font = "400 10px 'Inter'"; yy += 6;
-      filas.forEach(q => { yy += 13; g.fillText(T(NOM_PIEZA[q.tipo] || q.tipo), M, yy); g.fillText(q.dim.map(v => fmt(v)).join(' × '), M + 190, yy); g.fillText(`${q.n} ${T('pzas')}`, M + 360, yy); });
+      filas.forEach(q => { yy += 13; g.fillText(q.u ? T('Piso en U (corte atrás)') : T(NOM_PIEZA[q.tipo] || q.tipo), M, yy); g.fillText(q.dim.map(v => fmt(v)).join(' × '), M + 190, yy); g.fillText(`${q.n} ${T('pzas')}`, M + 360, yy); });
       if (d.cor.length) { yy += 13; g.fillText(T('Correderas de extracción total'), M, yy); g.fillText(`${fmt(d.cor[0].fondo)} · ${T('juego')}`, M + 190, yy); g.fillText(`1 ${T('juego')}`, M + 360, yy); }
       g.restore();
     } finally { Object.assign(C, previoC); }
