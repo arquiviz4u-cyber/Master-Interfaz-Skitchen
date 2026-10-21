@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A329. [Master hecho 20/10; SketchUp hecho 20/10 (Nombres.bisagra usa comercial); Revit pendiente: nombrar y contar por bisagra.comercial]
+       (usuario 20/10: «las bisagras elevables deberian tener otro angulo de apertura con el que las encontremos en el mercado? porque si son las
+       mismas que usamos para los traslapes deberian mostrarse como una sola y en caso de que no con el nombre comercial del angulo de
+       apertura») La de la elevable es la misma bisagra que la de traslape (mismo modelo, Blum CLIP top 110 de traslape completo, montada en el
+       techo). Cada bisagra del plan lleva bisagra.comercial = { uso, grados } (BISAGRA_COMERCIAL): traslape y elevable -> traslape 110,
+       embutida 110, esquinero y esquinero 45 -> 110, las hojas en L -> 155; la plegable, la de libro y la de puerta oculta siguen con su
+       apertura. La tarjeta de herrajes, la tabla del pie y SketchUp (DLB_Bisagra_Traslape_110) cuentan y nombran por ella: la elevable y la de
+       traslape salen juntas. bisagra.apertura sigue siendo el giro de su puerta.
    A328. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «en la captura se ven las cajas que aparecen al
        abrir los pistones en isometrico, sin puertas deberian verse las bisagras reales no cajas; el piston no se representa como el modelo que
        tenemos en SketchUp, mantener el mismo estilo de representacion que bisagras») Simbolos nuevos sacados de los .skp (herramientas/
@@ -4346,10 +4354,17 @@ const USOS_BISAGRA = { traslape: 'traslape', embutida: 'embutida', elevable: 'el
 /* A270: bisagra intermedia de la plegable del esquinero: 'libro' (basica, de fabrica) u 'oculta' (Blum 79T8500, de pago) */
 const intermediaEsq = e => e && e.bisagraIntermedia === 'oculta' ? 'oculta' : 'libro';
 const giroIntermedia = e => intermediaEsq(e) === 'oculta' ? MODELO.bisagraPlegable.grados : MODELO.bisagraLibro.grados;
-const especBisagra = (uso, apertura) => ({ uso, apertura: Math.round(apertura*100)/100 });
+/* A329 (usuario 20/10: «las bisagras elevables, si son las mismas que usamos para los traslapes, deberian mostrarse como una sola y en caso de
+   que no, con el nombre comercial del angulo de apertura»): la bisagra que se compra. La de la elevable es la de traslape (mismo modelo, Blum
+   CLIP top 110 de traslape completo, en el techo); la de las hojas en L, la de 155. apertura sigue siendo el giro de su puerta */
+const BISAGRA_COMERCIAL = { traslape: ['traslape', 110], elevable: ['traslape', 110], embutida: ['embutida', 110], esquinero: ['esquinero', 110],
+  'esquinero 45': ['esquinero 45', 110], 'esquinero plegable': ['esquinero plegable', 155], 'esquinero abatible': ['esquinero abatible', 155] };
+const especBisagra = (uso, apertura) => { const c = BISAGRA_COMERCIAL[uso];
+  return Object.assign({ uso, apertura: Math.round(apertura*100)/100 }, c ? { comercial: { uso: c[0], grados: c[1] } } : {}); };
+const claveBisagra = b => b.comercial ? [b.comercial.uso, b.comercial.grados] : [b.uso, b.apertura];   /* A329: como se agrupa y se nombra */
 const esBisagraCerrada = q => q.tipo === 'Bisagra' && q.estado !== 'abierto' || q.tipo === 'Brazo';
 /* [[uso, apertura, piezas]] de las bisagras de unas piezas, de la mas comun a la menos */
-const gruposBisagra = piezas => { const g = new Map(); piezas.filter(esBisagraCerrada).forEach(q => { const b = q.bisagra || { uso: 'traslape', apertura: 90 }, k = b.uso + '|' + b.apertura;
+const gruposBisagra = piezas => { const g = new Map(); piezas.filter(esBisagraCerrada).forEach(q => { const b = q.bisagra || especBisagra('traslape', 90), k = claveBisagra(b).join('|');   /* A329: por la bisagra comercial */
   g.set(k, (g.get(k) || 0) + 1); }); return [...g].map(([k, n]) => { const [uso, a] = k.split('|'); return [uso, +a, n]; }).sort((a, b) => b[2] - a[2]); };
 const fmtGrados = a => (Math.round(a*100)/100).toString() + '°';
 /* A160: en un cuerpo con frente de piston (torre, refrigerador) las repisas van bajo el mecanismo: su punta cae min(20, 35 %) bajo el
@@ -13201,7 +13216,7 @@ const LAM = (() => {
       g = new Grabador((cols * (BW + GAP) + 20) * zoom, (filasG * (BH + GAP) + 20 - GAP) * zoom), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
     const icono = (k, cx, cy, ex) => { g.save(); g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.fillStyle = plano ? '#FFFFFF' : '#9AA3AB'; g.lineWidth = 1.2; g.lineJoin = 'round';
       if (k === 'bisagra') { g.restore();   /* A190: la bisagra aprobada: sus tres partes del modelo, a la medida de la ventana */
-        let eb = null; try { eb = ex && ex.uso && !USOS_COMUNES.has(ex.uso) ? escenaHerraje(o, p => esBisagraCerrada(p) && p.bisagra && p.bisagra.uso === ex.uso && Math.abs(p.bisagra.apertura - ex.apertura) < .05, TIPOS_BISAGRA) : escenaBisagra(o); } catch (x) { eb = null; }   /* A327: la especial, sus piezas */
+        let eb = null; try { eb = ex && ex.uso && !USOS_COMUNES.has(ex.uso) ? escenaHerraje(o, p => esBisagraCerrada(p) && p.bisagra && claveBisagra(p.bisagra)[0] === ex.uso && Math.abs(claveBisagra(p.bisagra)[1] - ex.apertura) < .05, TIPOS_BISAGRA) : escenaBisagra(o); } catch (x) { eb = null; }   /* A327: la especial, sus piezas */
         if (eb) { const w = eb.w, h = eb.h, sb = Math.min(150 / w, 96 / h); ventanaIso(g, eb, w, h, sb, cx - w * sb / 2, cy - h * sb / 2 + 4, plano); return; }
         g.drawImage(IMGS.bisagra_3d, cx - 76, cy - 46, 152, 152 * IMGS.bisagra_3d.h / IMGS.bisagra_3d.w); return; }
       if (k === 'corredera') { g.restore();   /* las tres partes del modelo en su sitio: fija, media y movil (isometrico) */
