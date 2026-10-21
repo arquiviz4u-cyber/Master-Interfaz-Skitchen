@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A337. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente (isometrico)] (usuario 21/10: «una de las bisagras del piston elevable se
+       sobrepone en el isometrico sin puertas y cuando abro los elevables en el isometrico con puertas tambien se sobrepone en las puertas una
+       de las bisagras de cada elevable; revisa que tampoco pase cuando se unen las columnas con piston») 1) La caja del brazo de la elevable
+       entra 0.64 cm en el techo (los tornillos de la placa): el orden de pintor no lo separaba del techo y lo pintaba encima. Para el orden,
+       su caja ya no pasa de la cara inferior del techo. 2) El brazo de la elevable va en el techo, no en la puerta: ya no usa la regla A187
+       (brazo sobre la cara interior de su puerta), y sin puertas en la escena ningun brazo queda encima de todo. 3) El soporte del piston en
+       la puerta (caja gris) se pintaba sobre la puerta abierta: va bajo ella, como el piston. Revisado con la elevable sola y con el superior
+       de piston unido en tres columnas, sin puertas y abiertas.
    A336. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 21/10: «¿sabes por que las cotas automaticas no
        coinciden con las cotas hechas en la lamina? estoy comenzando a percibir que el dibujo no esta dibujado con precision; ademas el acotado
        directo sobre las laminas deberia seguir el movimiento y la posicion de la misma lamina») El dibujo es exacto: los alzados y el conjunto
@@ -12546,7 +12554,10 @@ const LAM = (() => {
           /* A187: viendo la cara interior de su puerta, el brazo va sobrepuesto a ella (no enterrado detras); si se ve la exterior, queda en el orden de las cajas */
           const md = p.frente && abres[p.frente] ? movimientoDe(abres[p.frente]) : null;
           const a0 = K(mover([0, 0, 0], md)), a1 = K(mover([0, 1, 0], md));
-          if (p.frente && md && (a1[0] - a0[0]) * SX - (a1[1] - a0[1]) + (a1[2] - a0[2]) > .05) { cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }
+          /* A337 (usuario 21/10: «una de las bisagras del piston elevable se sobrepone en el isometrico sin puertas y, al abrir los elevables,
+             tambien sobre las puertas»): el brazo de la elevable (modelo.giro) va en el techo, no en la puerta: siempre en el orden de las
+             cajas; y sin puertas en la escena ningun brazo va sobre su puerta (antes quedaba encima de todo) */
+          if (conPuertas && !mod.giro && p.frente && md && (a1[0] - a0[0]) * SX - (a1[1] - a0[1]) + (a1[2] - a0[2]) > .05) { cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }
           simQ = { id: sim.id, flip: sim.flip, O: OO, ar: true }; }
         else if (sim && FAM[mod.archivo] === 'caz' && p.frente) {   /* va con su puerta, y solo si se ve la cara interior donde esta atornillada */
           const b0 = [mod.origen[0], -mod.origen[1], mod.origen[2]], a0 = K(mover(b0, m)), a1 = K(mover([b0[0], b0[1] + 1, b0[2]], m));   /* normal de la cara interior, hacia el muro */
@@ -12564,6 +12575,7 @@ const LAM = (() => {
       q.c = [0, 1, 2].map(i => q.v.reduce((s, v) => s + v[i], 0) / 8);
       q.mn = [0, 1, 2].map(i => Math.min(...q.v.map(v => v[i]))); q.mx = [0, 1, 2].map(i => Math.max(...q.v.map(v => v[i])));
       if (simQ && simQ.ar) { q.mn[0] += .3; q.mx[0] -= .3; q.mn[1] += .3; q.mx[1] -= .3; }   /* la placa toca el lateral: que el lateral quede detras */
+      if (simQ && simQ.ar && p.modelo && p.modelo.giro) { const MB = MODELO.bisagra, pen = Math.max(0, MB.brazoCerrado[1][0] - MB.lateral) + .05; q.mx[2] -= pen; }   /* A337: la placa de la elevable va bajo el techo; sus tornillos (0.64) no lo atraviesan para el orden */
       /* huecos (A99/A170): rectangulos que atraviesan la pieza; sus paredes se ven por dentro */
       q.huecos = (p.tipo === 'Parrilla' ? [] : [p.hueco].concat(p.huecos || [])).filter(h => h && h.ancho > 0 && h.fondo > 0).map(h => {   /* A193: la parrilla es una placa entera, no un marco */
         const hx0 = x0 + h.x, hx1 = hx0 + h.ancho, hy0 = y0 + h.y, hy1 = hy0 + h.fondo;
@@ -12610,7 +12622,7 @@ const LAM = (() => {
     const solapan = (a, b) => a.hull.length > 2 && b.hull.length > 2 ? Math.abs(areaP(recorta(a.hull, b.hull))) : 1e3;   /* cm2 de pantalla que una tapa a la otra */
     for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
       const ar = solapan(cajas[i], cajas[j]); if (ar <= .6) continue;
-      const pis = (a, b) => (a.p.tipo === 'Piston' || a.p.tipo === 'Vastago') && b.p.rol === 'frente' && b.p.frente && b.p.frente === a.p.frente;   /* A188: el piston va bajo la puerta que levanta */
+      const pis = (a, b) => ['Piston', 'Vastago', 'PistonSoportePuerta'].includes(a.p.tipo) && b.p.rol === 'frente' && b.p.frente && b.p.frente === a.p.frente;   /* A188: el piston va bajo la puerta que levanta; A337: y su soporte atornillado a ella */
       if (pis(cajas[i], cajas[j])) { despues[i].push([j, ar]); faltan[j]++; peso[j] += ar; continue; }
       if (pis(cajas[j], cajas[i])) { despues[j].push([i, ar]); faltan[i]++; peso[i] += ar; continue; }
       const ij = detras(cajas[i], cajas[j]), ji = detras(cajas[j], cajas[i]);
