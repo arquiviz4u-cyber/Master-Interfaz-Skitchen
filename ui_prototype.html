@@ -344,6 +344,12 @@
    A376. [Master hecho 21/10; SketchUp: el clic en una pieza sin frente ya abre todo su gabinete; Revit pendiente] (usuario 21/10: «los
        cajones con tarja no abren») En el mueble de la tarja con cajones (A373) el primero es un falso frente fijo; el clic en el no hacia
        nada en el isometrico. Ahora un clic en el falso frente abre (o cierra) los cajones de su mueble.
+   A388. [Master hecho 21/10 (parcial); SketchUp: no aplica; Revit pendiente] (usuario 21/10, lista de la peninsula) Hecho: la peninsula se
+       nombra «Península» y no cuenta como cara (letraCara: A, B, C solo para las de muro; «Cara Península» en el ciego); sin botones + de
+       puertas ocultas en la peninsula; vuelo para bancos de fabrica en 0; la pieza de ajuste del esquinero no se elige en el isometrico.
+       Pendiente del mismo pedido: barra solo sobre el vuelo, vista doble fija, opciones primero en vacio, zoclo posterior, panel sin opcion,
+       cota del largo desde el frente, eleccion en el isometrico, Ctrl/Mayus al arrastrar material, cubierta en planta, iconos, sin gabinetes
+       con esquinero ciego sin ajustes y zoclo, esquinero bajo y bisagras de esquineros en el isometrico, altos en la peninsula.
    A387. [Master hecho 21/10; SketchUp: lee las medidas del plan; Revit pendiente (familias de cajon)] (usuario 21/10: «pasa las cajas a 18 mm»; el manual: «todo el cuerpo del mueble en 18 mm»)
        La caja del cajon pasa de 15 a 18 mm: lados, frente y trasera (PLAN_CAJA.lado = 1.8; el piso sigue en 6 mm). Corredera visible: sin cambio en la holgura (1.3 por lado), el ancho interior
        de la caja queda 62 mm menor que el hueco (antes 56). Corredera oculta: la TANDEM 560H solo admite costados de 11 a 16 mm, asi que pasa a la TANDEM 19 mm 560F (ficha oficial Blum
@@ -3678,7 +3684,8 @@ const caraDe = k => k === cfg.cara ? cfg : cfg.caras[k];
 function enCara(k, fn){ if (k === null || k === undefined || !multiCara() || k === cfg.cara || !cfg.caras[k]) return fn(); const k0 = cfg.cara; guardarCara(); cargarCara(cfg, k);
   try { return fn(); } finally { guardarCara(); cargarCara(cfg, k0); } }
 /* A135 (usuario 11/10): las caras se nombran A, B y C (en U, B es siempre la de enmedio) */
-const letraCara = k => 'ABC'[k] || String(k + 1);
+/* A388 (usuario 21/10: «la peninsula no cuenta como cara sino como peninsula»): la peninsula se llama «Península» y las caras de muro siguen A, B, C sin contarla */
+const letraCara = k => { if (multiCara() && cfg.caras[k] && caraDe(k).peninsula) return 'Península'; let n = 0; for (let i = 0; i < k; i++) if (!(multiCara() && cfg.caras[i] && caraDe(i).peninsula)) n++; return 'ABC'[n] || String(n + 1); };
 /* A137: todos los modulos de la cocina (la cara activa y las demas) */
 const todosModulos = (c = cfg) => c.modulos.concat(multiCara(c) ? c.caras.filter((q, k) => k !== c.cara).flatMap(q => q.modulos || []) : []);
 const fondoCara = (q, upper) => Math.max(0, ...q.modulos.filter(m => m.upper === upper && !m.esquina && !m.reserved).map(m => m.fondo)) || (upper ? prefs.inicio.fondoAltos : prefs.inicio.fondoBajos);
@@ -3887,7 +3894,7 @@ function setForma(c, v, largos = null){
    fases). La peninsula es la segunda cara de una cocina en L sin muro detras (cara.peninsula): el bajo del extremo pasa a ser el esquinero
    (e.penin: sin alto de esquina), la cara no lleva altos (todos reservados), backsplash ni potfiller; por fuera lleva el panel posterior
    (penPanel), la cubierta vuela penVuelo detras de el para los bancos y el extremo libre cierra con costado o con cascada (penCascada) */
-const penVuelo = (q = cfg) => Number.isFinite(q.penVuelo) && q.penVuelo >= 0 ? q.penVuelo : cfg.region === 'US' ? inch(12) : 30;
+const penVuelo = (q = cfg) => Number.isFinite(q.penVuelo) && q.penVuelo >= 0 ? q.penVuelo : 0;   /* A388: de fabrica sin vuelo para bancos */
 /* A385 (usuario 21/10: «opcion de ponerla sin gabinetes (solo como barra y puede estar elevada)»): barra elevada (penBarra, a penBarraElev
    sobre la cubierta, del grueso de la cubierta) del lado de los bancos, sobre un peralte apoyado en la cubierta; la cubierta baja ya no vuela
    (el vuelo para bancos pasa a la barra) y el panel posterior sube hasta la barra. Sin gabinetes (penSinGabinetes): los bajos de la
@@ -5484,7 +5491,7 @@ function planDePiezas(c = cfg){
           forma: { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [esp, 0], [esp, r2(pq)], [0, r2(pq - esp)]] } });
         losa('cubierta:' + k + ':cama', 'Cama', a, b, pen ? 0 : yC, D - esp, zBar - pq, zBar - esp);
         /* A383: en la peninsula la nariz sigue por el canto del vuelo (lado de los bancos); la cama, solo sobre los gabinetes */
-        if (pen && !penBar) add({ id: 'cubierta:' + k + ':nariz:atras', rol: 'cubierta', tipo: 'Nariz', x: a, y: yC, z: zBar - pq, ancho: b - a, fondo: esp, alto: pq - esp, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' });   /* A100: al pano de la nariz (con tarja, la cama lleva su hueco) */
+        if (pen && !penBar && penSale >= esp) add({ id: 'cubierta:' + k + ':nariz:atras', rol: 'cubierta', tipo: 'Nariz', x: a, y: yC, z: zBar - pq, ancho: b - a, fondo: esp, alto: pq - esp, material: groupMaterial('Cubierta'), etiqueta: 'cubierta' });   /* A100: al pano de la nariz (con tarja, la cama lleva su hueco) */
       });
       /* tina de lamina (paredes y fondo): bajo cubierta llega a la base de la cubierta; de sobreponer sube hasta su cara y
          lleva ceja encima. Monomando detras de la tina */
@@ -7456,7 +7463,7 @@ function drawCaraTabs(){
   if (!multiCara() || exporting) return;
   let x = 22; const y = 44, h = 22;
   ctx.save(); ctx.font = "500 12px 'Inter'"; ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-  cfg.caras.forEach((q, k) => { const t = `${letraCara(k)}${caraDe(k).peninsula ? ' · Península' : ''} · ${fmt(caraDe(k).longitud)}`,   /* A383 */ w = ctx.measureText(t).width + 22, r = { x, y, w, h }, act = k === cfg.cara;
+  cfg.caras.forEach((q, k) => { const t = `${letraCara(k)} · ${fmt(caraDe(k).longitud)}`,   /* A383 */ w = ctx.measureText(t).width + 22, r = { x, y, w, h }, act = k === cfg.cara;
     ctx.fillStyle = act ? C.accent : C.labelBg; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, act ? C.accent : C.line, 1);
     ctx.fillStyle = act ? '#FFFFFF' : C.ink; ctx.fillText(t, r.x + 11, r.y + h/2 + .5); tabHits.push({ rect: r, k }); x += w + 6; });
   ctx.restore(); ctx.textBaseline = 'alphabetic';
@@ -8437,7 +8444,7 @@ function drawHiddenDoors(X, Z, RX, scale, post){
     edgeOwner = null;
   }
   /* botones + (gris claro translucido): cada extremo libre anade su propia puerta */
-  if (!exporting) for (const right of [false, true]) {
+  if (!exporting && !(multiCara() && cfg.peninsula)) for (const right of [false, true]) {   /* A388: la peninsula no lleva puertas ocultas */
     if (doors().some(d => d.derecha === right)) continue;
     const cx = right ? X(cfg.longitud) + 13 : X(0) - 13, cy = frame.ground - 12, r = { x: cx - 10, y: cy - 10, w: 20, h: 20 }, on = hover === 'part:adddoor:' + (right ? 'R' : 'L');
     ctx.fillStyle = on ? 'rgba(30,144,255,.25)' : 'rgba(150,155,160,.27)'; ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI*2); ctx.fill();
@@ -9741,7 +9748,7 @@ function drawPlanCocina(){
   muros.forEach(([a, b], k) => { const f = marcos[k], act = k === cfg.cara; ctx.save(); ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.strokeStyle = act ? C.accent : C.wallLine; ctx.lineWidth = act ? 4 : 3; if (caraDe(k).peninsula) { ctx.setLineDash([6, 4]); ctx.lineWidth = act ? 2 : 1.5; } ctx.stroke(); ctx.restore();   /* A383 */
     /* largo de cada cara por detras de su muro; la activa se edita */
     const off = -26 - (caraDe(k).peninsula ? (espFrente() + penVuelo(caraDe(k)))*sc : 0), pa = P([a[0] + f.n[0]*off/sc, a[1] + f.n[1]*off/sc]), pb = P([b[0] + f.n[0]*off/sc, b[1] + f.n[1]*off/sc]);   /* A383: detras del vuelo */
-    dim(pa[0], pa[1], pb[0], pb[1], letraCara(k) + (caraDe(k).peninsula ? ' · península' : '') + ' · ' + fmt(caraDe(k).longitud) + uS(), act ? 'length' : null); });
+    dim(pa[0], pa[1], pb[0], pb[1], letraCara(k) + ' · ' + fmt(caraDe(k).longitud) + uS(), act ? 'length' : null); });
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 }
 function drawPlan(){
@@ -16289,7 +16296,7 @@ let isoZoom = { k: 1, dx: 0, dy: 0, base: null }, isoPan = null, isoHover = null
 let cuadroPend = 0; const pedirDibujo = () => { if (cuadroPend) return; cuadroPend = requestAnimationFrame(() => { cuadroPend = 0; drawCanvas(); }); };
 /* A355 (usuario 21/10: «arrastrar materiales en elementos funciona en isometrico; los listones de ajuste laterales y superiores se seleccionan
    en isometrico»): la parte del editor que es una pieza del plan (piezas de ajuste, cubierta, zoclo, backsplash, gola) y su grupo de material */
-const parteIso = p => !p ? null : p.rol === 'tapeta' ? (/^tapeta:izq/.test(p.id) ? 'fillerI' : /^tapeta:der/.test(p.id) ? 'fillerD' : 'fillerTop')
+const parteIso = p => !p || p.rol === 'tapeta' && /^esq/.test(p.id) ? null : p.rol === 'tapeta' ? (/^tapeta:izq/.test(p.id) ? 'fillerI' : /^tapeta:der/.test(p.id) ? 'fillerD' : 'fillerTop')
   : p.rol === 'cubierta' ? 'cover' : p.rol === 'zoclo' ? 'plinth' : p.rol === 'backsplash' ? 'backsplash' : p.tipo === 'Gola' || p.tipo === 'Perfil' ? 'gola' : null;
 const GRUPO_PARTE = { fillerI: 'Tapetas', fillerD: 'Tapetas', fillerTop: 'Tapetas', cover: 'Cubierta', plinth: 'Zoclo', backsplash: 'Backsplash', gola: 'Gola' };   /* A353: modulo bajo el puntero */
 function drawIsometrico(){
