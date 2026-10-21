@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A320. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «eliminar las cotas interiores entre cajones,
+       son confusas, en lugar colocar cotas entre golas; las cotas interiores en altos entre repisas se ven desfasadas de las repisas y no se
+       pueden mover dentro de presentar; las cotas generadas con doble click en interiores se generan por columna y por gabinete (alto o
+       bajo)») El doble clic guarda x y z (it.entre = [{ x, z }]; lo de antes, solo x, sigue valiendo) y lucesColumna da las luces del cuerpo
+       que contiene ese punto (el modulo superior del alto doble es otro cuerpo; el bajo y el alto, otros). Las cajas de los cajones ya no
+       hacen cotas; si el cuerpo lleva golas, las luces van entre ellas (del piso a la primera, entre golas y de la ultima al techo). En el
+       alzado interior de la lamina general esas cotas ya no se pintan encima de la vista (no se podian mover y salian de la cara 0 aunque la
+       vista fuera de otra): salen con la vista como cotas sueltas (dimsEntre), con la cara de la vista, y se mueven o se quitan como las demas.
    A319. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «las cotas en isometricos de bajos y altos
        deben mostrar el ancho total de la seccion en especifico que se esta mostrando, no el total de todo el conjunto de la cocina; aplicar la
        misma logica en torres») isoCotas toma el ancho de los cuerpos de los modulos y de las piezas de ajuste de la vista; la cubierta, el
@@ -12252,6 +12260,7 @@ const LAM = (() => {
       let dimsSueltas = null;
       if (o.cotasSueltas && e.cotas && e.cotas.n0 >= 0) { g.ops.splice(e.cotas.n0, e.cotas.n1 - e.cotas.n0); dimsSueltas = e.cotas.dims; }   /* A182: salen aparte; la caja ya las incluye */
       if (o.letra) { for (let i = g.ops.length - 1; i >= 0; i--) if (g.ops[i].t === 'text' && g.ops[i].s === 'SECCIÓN') g.ops.splice(i, 1); }   /* A193: el corte no lleva el texto superior (el titulo de la vista ya dice A–A) */
+      if (vista === 'AlzadoInterior' && o.cotasSueltas && (o.entre || []).length) dimsSueltas = (dimsSueltas || []).concat(dimsEntre(o.entre, e.marco, o.cara));   /* A320: las del doble clic, sueltas como las demas */
       return { ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: e.n, vista, plano: !!o.plano, bb: o.letra && !dimsSueltas ? cajaTinta(g.ops) : e.bb, marco: e.marco, dims: dimsSueltas };
     } finally {
       ctx = k.ctx; view = k.view; showDoors = k.showDoors; flat = k.flat; measure = k.measure; medirTodo = k.medirTodo; exporting = k.exporting;
@@ -12800,17 +12809,32 @@ const LAM = (() => {
       out.push(q); });
     return out;
   }
-  /* A193: luces entre tableros (piso, repisas, cama, techo) de cada gabinete en la columna que cruza la posicion x (cm) */
-  function lucesColumna(piezas, x){
-    const por = new Map();
-    piezas.forEach(p => { if (!p.modulo || p.rol === 'frente' || !['Piso', 'Techo', 'Repisa', 'Cama', 'CamaInterior'].includes(p.tipo) || p.ancho < 3 || p.alto > 6) return;
-      if (p.x <= x + .01 && p.x + p.ancho >= x - .01) { if (!por.has(p.modulo)) por.set(p.modulo, []); por.get(p.modulo).push(p); } });
+  /* A193: luces entre tableros (piso, repisas, cama, techo) de cada gabinete en la columna que cruza la posicion x (cm).
+     A320 (usuario 20/10: «las cotas generadas con doble clic en interiores se generan por columna y por gabinete (alto o bajo); eliminar las
+     cotas interiores entre cajones, son confusas, en su lugar cotas entre golas»): con z (cm) solo el cuerpo que la contiene (el modulo
+     superior del alto doble es otro cuerpo); las cajas de los cajones ya no cuentan y, si el cuerpo lleva golas, las luces van entre ellas */
+  function lucesColumna(piezas, x, z){
+    const por = new Map(), golas = new Map(), cuerpo = p => p.modulo + (/:superior/.test(p.id) ? ':sup' : '');
+    piezas.forEach(p => { if (!p.modulo || p.x > x + .01 || p.x + p.ancho < x - .01) return;
+      if (p.tipo === 'Gola') { const k = cuerpo(p); if (!golas.has(k)) golas.set(k, []); golas.get(k).push(p); return; }
+      if (p.rol === 'frente' || p.rol === 'caja' || !['Piso', 'Techo', 'Repisa', 'Cama', 'CamaInterior'].includes(p.tipo) || p.ancho < 3 || p.alto > 6) return;
+      const k = cuerpo(p); if (!por.has(k)) por.set(k, []); por.get(k).push(p); });
     const out = [];
-    por.forEach((tab, mod) => { tab.sort((a, b) => a.z - b.z); const luces = [];
-      for (let t = 0; t + 1 < tab.length; t++) { const lo = tab[t].z + tab[t].alto, hi = tab[t + 1].z; if (hi - lo > 2.5) luces.push([lo, hi]); }
-      if (luces.length) out.push({ mod, luces }); });
+    golas.forEach((g, k) => { if (!por.has(k)) por.set(k, []); });
+    por.forEach((tab, k) => { tab.sort((a, b) => a.z - b.z); const gs = (golas.get(k) || []).sort((a, b) => a.z - b.z);
+      const zs = tab.flatMap(q => [q.z, q.z + q.alto]).concat(gs.flatMap(q => [q.z, q.z + q.alto])); if (!zs.length) return;
+      const z0 = Math.min(...zs), z1 = Math.max(...zs);
+      if (z !== undefined && z !== null && (z < z0 - 1 || z > z1 + 1)) return;
+      const luces = [];
+      if (gs.length) {   /* del piso a la primera gola, entre golas y de la ultima al techo (si lo hay) */
+        let lo = tab.length && tab[0].z < gs[0].z ? tab[0].z + tab[0].alto : null;
+        gs.forEach(q => { if (lo !== null && q.z - lo > 2.5) luces.push([lo, q.z]); lo = Math.max(lo === null ? -1e9 : lo, q.z + q.alto); });
+        const tops = tab.filter(q => q.z > lo); if (tops.length && tops[tops.length - 1].z - lo > 2.5) luces.push([lo, tops[tops.length - 1].z]); }
+      else for (let t = 0; t + 1 < tab.length; t++) { const lo = tab[t].z + tab[t].alto, hi = tab[t + 1].z; if (hi - lo > 2.5) luces.push([lo, hi]); }
+      if (luces.length) out.push({ mod: k.split(':')[0], cuerpo: k, luces }); });
     return out;
   }
+  const entreXZ = e => typeof e === 'number' ? { x: e, z: null } : e && typeof e.x === 'number' ? { x: e.x, z: typeof e.z === 'number' ? e.z : null } : null;   /* A320: lo guardado antes era solo x */
   /* A192: horno y microondas de frente: marco, cristal oscuro y manija (y el panel de control del microondas) */
   function detalleEquipo(g, x, y, w, h, tipo, plano){
     const tinta = plano ? '#222222' : '#1D2125', marco = plano ? '#FFFFFF' : '#4B545C', cristal = plano ? '#FFFFFF' : '#14181C';
@@ -12892,8 +12916,8 @@ const LAM = (() => {
           if (total[1] - total[0] < 2.5 || vistos.has(firma)) return; vistos.add(firma);
           J.V(X(mo.a) + 14, Y(total[1]), Y(total[0]), fmt(total[1] - total[0])); });
         /* A193: las cotas de entrepanos de la columna donde se dio doble clic (it.entre: x en cm), no las de todo el gabinete */
-        (o.entre || []).forEach(xc => lucesColumna(ps, xc).forEach(c => c.luces.forEach(([lo, hi], t) => J.V(X(xc), Y(hi), Y(lo), fmt(hi - lo)))));
-        zonas = mods.map(mo => ({ id: mo.id, x0: X(mo.a), x1: X(mo.b), y0: Y(z1), y1: Y(z0) })); xmap = { x0, M, sc };
+        (o.entre || []).map(entreXZ).filter(Boolean).forEach(e => lucesColumna(ps, e.x, e.z).forEach(c => c.luces.forEach(([lo, hi]) => J.V(X(e.x), Y(hi), Y(lo), fmt(hi - lo)))));   /* A320 */
+        zonas = mods.map(mo => ({ id: mo.id, x0: X(mo.a), x1: X(mo.b), y0: Y(z1), y1: Y(z0) })); xmap = { x0, M, sc, z1 };
       }
     } finally { Object.assign(C, previoC); }
     return J.fin({ ops: g.ops, w: g.canvas.width, h: g.canvas.height, n: o.escalaFija, vista, plano, bb: cajaTinta(g.ops), zonas, xmap });
@@ -13890,13 +13914,13 @@ const LAM = (() => {
   const enHoja = (L, h = L.hoja) => L.vistas.filter(it => it.hoja === h);   /* las vistas de una lamina (A177: hay varias) */
   const numeroConjunto = (L, it) => L.hojas.map((h, i) => h.grupo ? i : -1).filter(i => i >= 0).indexOf(it.hoja) + 1;
   const cotasDe = (L, it) => it.cotasV !== undefined && it.cotasV !== null ? !!it.cotasV : L.cotasOn !== false;   /* A186: cada vista puede llevar o no sus cotas */
-  const claveCap = (L, it) => [it.vista, it.n, it.cols || 0, it.variante || 0, it.vista === 'ConjInterior' ? (it.entre || []).join(',') : '', it.plano ? 1 : 0, cotasDe(L, it) ? 1 : 0, L.proy ? 1 : 0, L.matCol ? 1 : 0,
+  const claveCap = (L, it) => [it.vista, it.n, it.cols || 0, it.variante || 0, it.vista === 'ConjInterior' || it.vista === 'AlzadoInterior' ? (it.entre || []).map(e => { const q = entreXZ(e); return q ? q.x + ':' + q.z : ''; }).join(',') : '',   /* A320 */ it.plano ? 1 : 0, cotasDe(L, it) ? 1 : 0, L.proy ? 1 : 0, L.matCol ? 1 : 0,
     it.vista === 'Corte' ? Math.round((it.corte || 0) * 10) + letraDe(L, it) + ':' + (it.dir || 0) : '', ES_CONJUNTO(it.vista) ? '' : 'c' + (it.cara || 0),   /* A284 */
     ES_CONJUNTO(it.vista) ? [it.grupo, it.cara || 0, (it.abiertos || []).slice().sort().join(','), it.explotado ? 1 : 0, numeroConjunto(L, it)].join(':') : '',
     it.vista === 'Isometrico' || it.vista === 'ConjLocal' || it.grupo === 'isla' ? islaFirma(L) : '', it.vista === 'Isometrico' && it.abiertos ? 'o:' + it.abiertos.slice().sort().join(',') : '', [...abiertos].sort().join(',')].join('|');
   const opcCap = (L, it) => ({ plano: !!it.plano, cotas: cotasDe(L, it), proy: !!L.proy, matCol: !!L.matCol, leyendaSuelta: it.vista === 'Isometrico', globos: [],   /* los globos y las marcas de corte se pintan aparte */
     corte: it.vista === 'Corte' ? it.corte : undefined, letra: it.vista === 'Corte' ? letraDe(L, it) : undefined, cotasSueltas: true, conHits: it.vista === 'Isometrico', dirCorte: it.vista === 'Corte' ? it.dir : undefined,
-    abiertosIso: it.vista === 'Isometrico' && it.abiertos ? it.abiertos : undefined, cols: it.vista === 'ConjHerrajes' ? it.cols : undefined, variante: it.variante, entre: it.vista === 'ConjInterior' ? it.entre : undefined,
+    abiertosIso: it.vista === 'Isometrico' && it.abiertos ? it.abiertos : undefined, cols: it.vista === 'ConjHerrajes' ? it.cols : undefined, variante: it.variante, entre: it.vista === 'ConjInterior' || it.vista === 'AlzadoInterior' ? it.entre : undefined,   /* A320 */
     grupo: it.grupo, cara: it.cara || 0, abiertos: it.vista === 'Isometrico' ? it.abiertos || undefined : it.abiertos, explotado: !!it.explotado, numero: ES_CONJUNTO(it.vista) ? numeroConjunto(L, it) : undefined,
     extraCaras: it.vista === 'Isometrico' || it.vista === 'ConjLocal' ? extrasIsla(L) : undefined,
     planIsla: it.grupo === 'isla' && L.isla && L.isla.on ? planIsla(L.isla.id) : null });
@@ -14192,28 +14216,31 @@ const LAM = (() => {
   function presAlternarEntre(L, it, mx, my){
     if (!it.cap || (it.vista !== 'ConjInterior' && it.vista !== 'AlzadoInterior')) return false;
     const cap = it.cap, { ix, iy } = conHoja(L, () => tintaDe(it)), p = { x: (mx - ix) / PX_MM + cap.bb.x0, y: (my - iy) / PX_MM + cap.bb.y0 };
-    let xc, piezas;
+    let xc, zc = null, piezas;
     if (it.vista === 'ConjInterior') {
       if (!cap.zonas || !cap.xmap) return false;
       if (!cap.zonas.find(q => p.x >= q.x0 && p.x <= q.x1 && p.y >= q.y0 && p.y <= q.y1)) return false;
-      xc = cap.xmap.x0 + (p.x - cap.xmap.M) / cap.xmap.sc;
+      xc = cap.xmap.x0 + (p.x - cap.xmap.M) / cap.xmap.sc; zc = cap.xmap.z1 !== undefined ? cap.xmap.z1 - (p.y - cap.xmap.M) / cap.xmap.sc : null;   /* A320 */
       try { const pl = planDeConj({ grupo: it.grupo, planIsla: undefined }); piezas = piezasCara(pl, it.cara || 0).filter(q => filtroConjunto(it.grupo, it.cara || 0)(q, it.cara || 0)); } catch (e) { return false; }
     } else {
       const m = cap.marco; if (!m || !m.kx) return false;
-      xc = (p.x - m.x0) / m.kx;
-      try { piezas = planCocina().piezas; } catch (e) { return false; }
+      xc = (p.x - m.x0) / m.kx; if (m.kz) zc = (p.y - m.z0) / m.kz;
+      try { piezas = piezasCara(planCocina(), it.cara || 0); } catch (e) { return false; }
     }
-    xc = Math.round(xc * 10) / 10;
-    const lc = lucesColumna(piezas, xc); if (!lc.length) return false;
-    const s = (it.entre || []).filter(v => typeof v === 'number'), k = s.findIndex(v => Math.abs(v - xc) < 4);
-    if (k >= 0) s.splice(k, 1); else s.push(xc);
+    xc = Math.round(xc * 10) / 10; if (zc !== null) zc = Math.round(zc * 10) / 10;
+    const lc = lucesColumna(piezas, xc, zc); if (!lc.length) return false;   /* A320: solo el cuerpo tocado */
+    const s = (it.entre || []).map(entreXZ).filter(Boolean), cu = lc[0].cuerpo, mismo = e => Math.abs(e.x - xc) < 4 && (e.z === null || zc === null || (lucesColumna(piezas, e.x, e.z)[0] || {}).cuerpo === cu);
+    const k = s.findIndex(mismo);
+    if (k >= 0) s.splice(k, 1); else s.push({ x: xc, z: zc });
     it.entre = s.length ? s : undefined; return true;
   }
   /* A193: cotas de entrepanos sobre el alzado interior del editor, en las columnas elegidas con doble clic */
-  function entreSobre(g, it){
-    const m = it.cap.marco; if (!m || !(it.entre || []).length) return;
-    let pl; try { pl = planCocina(); } catch (e) { return; }
-    it.entre.forEach(xc => lucesColumna(pl.piezas, xc).forEach(c => c.luces.forEach(([lo, hi]) => cotaV(g, m.x0 + m.kx * xc, m.z0 + m.kz * hi, m.z0 + m.kz * lo, fmt(hi - lo)))));
+  function entreSobre(g, it){ /* A320: ya no se pintan encima: salen con la vista como cotas que se mueven (dimsEntre) */ }
+  function dimsEntre(entre, marco, cara){
+    if (!marco || !marco.kx || !(entre || []).length) return [];
+    let P; try { P = piezasCara(planCocina(), cara || 0); } catch (e) { return []; }
+    const out = []; entre.map(entreXZ).filter(Boolean).forEach(e => lucesColumna(P, e.x, e.z).forEach(c => c.luces.forEach(([lo, hi]) => out.push([marco.x0 + marco.kx * e.x, marco.z0 + marco.kz * hi, marco.x0 + marco.kx * e.x, marco.z0 + marco.kz * lo, fmt(hi - lo)]))));
+    return out;
   }
   function presAlternarFrente(it, h, todos){
     const plan = planCocina(), piezas = plan.piezas.concat((plan.caras || []).flatMap(c => c.piezas)), abres = {}, porModulo = {}, set = new Set(it.abiertos || (it.vista === 'Isometrico' ? [...abiertos] : []));
@@ -14547,7 +14574,7 @@ const LAM = (() => {
       lg.dibuja(gr, cap.ley.x + d.dx / PX_MM, cap.ley.y + d.dy / PX_MM, !!it.plano); }   /* A188: la leyenda de materiales, aparte y movible */
     if (it.vista === 'Planta') dibujarIslaPlanta(gr, L, it);
     if (it.vista === 'AlzadoInterior' || it.vista === 'Corte') herrajesSobre(gr, L, it);
-    if (it.vista === 'AlzadoInterior') entreSobre(gr, it);
+    /* A320: las cotas del doble clic del alzado interior ya vienen en la vista (cap.dims) */
     if (it.vista === 'AlzadoInterior' && it.modulo) cotasModuloCloset(gr, it);   /* A207 */
     opsCotas(L, it, gr);
     return gr.ops;
