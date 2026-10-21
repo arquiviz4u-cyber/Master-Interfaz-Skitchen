@@ -303,6 +303,16 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A372. [Master hecho 21/10; SketchUp y Revit: leen z y alto de repisas y bisagras del plan; Revit pendiente (repisas y placas de bisagra de sus familias)] (usuario 21/10: «integra sistema 32»)
+       Cuadricula del Sistema 32 en los laterales (PLAN_S32: agujeros cada 3.2 cm, la serie arranca a 3.7 cm del canto superior del lateral). 1) Las repisas del
+       interior (repisasS32): luces iguales y cada cara inferior baja al agujero mas cercano (como mucho 1.6 cm); si al ajustar dos repisas se juntan o salen del hueco,
+       queda el reparto exacto. Lo mismo en la vista Interior, en el corte y en el plan (que usan SketchUp y el isometrico). 2) Las placas de las bisagras de puertas:
+       cada bisagra va al agujero mas cercano a su posicion repartida (10 cm de los extremos) que libre la placa y el brazo de repisas, cajas y paneles (la regla de
+       antes, ahora sobre la serie). Sin cambio: esquineros (L, diagonal y ciego), puertas elevables, bisagras de puerta oculta, closet y correderas (siguen a su caja).
+       El aviso de «luz entre repisas» sigue calculando con el reparto exacto. Falta la lista de taladros en la lista de corte (E17-E20).
+       En torres, alacenas de varios cuerpos y refrigerador la cuadricula arranca en el techo de cada cuerpo (no en el canto del lateral continuo): lo que se
+       resuelve con la lista de taladros. Correccion de paso: el soporte del piston en el lateral (y su calza) no cae sobre una repisa, y cabe bajo el techo
+       (antes bastaba 2 cm bajo la puerta y la calza podia cruzar el techo con ciertas repisas). Prueba nueva en pruebasPlanDePiezas (repisas y placas en agujeros).
    A371. [Master hecho 21/10; SketchUp: lee el conteo de bisagras del plan; Revit pendiente (valores de inicio y conteo de bisagras)] (usuario 21/10, manual «El Cocinator»)
        1) Altura de la cubierta de 90 cm por defecto en MX: bajos de 77 cm (zoclo 10 + 77 + cubierta 3; antes 72 y 85 en total); EE. UU. sin cambio (36"). Las cocinas
        guardadas conservan la suya; la barra al ras toma los 90. 2) Zoclo (10), fondos y costados del cajon (1.5) quedan como estaban. 3) Pasillo recomendado entre
@@ -4518,6 +4528,18 @@ const ranuraLedEn = (y1, y0) => { const L = PLAN_LED, hueco = y1 - y0 - L.ancho,
   return cfg.ledCentro ? y0 + hueco/2 : cfg.ledFrente ? y1 - ret - L.ancho : y0 + ret; };
 const uneroLed = () => cfg.style === 'Moderna' ? golaHondo(true) : PLAN_HOLGURA_PUERTA;   /* A281: sin gola, el canto de la cama queda 3 mm detras de las puertas */
 const fondoLedAtras = () => !cfg.isla && fijacionAltos() === 'frances' ? PLAN_FIJACION.frances.grueso : 0;   /* A150: con riel frances, al pano del fondo */
+/* A372 (usuario 21/10, manual «El Cocinator»): Sistema 32. En la cara interior de cada lateral, agujeros de 5 mm cada 32 mm; la serie arranca a 37 mm del
+   canto superior del lateral (y filas a 37 mm del frente y del fondo). Las repisas apoyan en esos agujeros y las placas de bisagra se atornillan en ellos.
+   repisasS32 reparte n repisas de espesor e en un hueco interior de alto Hint (entre el techo y el piso del cuerpo, de espesor e): luces iguales y cada cara
+   inferior se baja al agujero mas cercano. Devuelve, de abajo arriba, la distancia (cm) de la cara inferior de cada repisa al canto superior del lateral.
+   Si al ajustar a la cuadricula dos repisas se juntan o salen del hueco, deja el reparto exacto */
+const PLAN_S32 = { paso: 3.2, inicio: 3.7 };
+function repisasS32(Hint, n, e){
+  const S = PLAN_S32, luz = (Hint - n*e)/(n + 1), exacto = [], ajust = [];
+  for (let i = 1; i <= n; i++) { const d = e + Hint - (i*luz + (i - 1)*e); exacto.push(d); ajust.push(S.inicio + S.paso*Math.max(0, Math.round((d - S.inicio)/S.paso))); }
+  const bien = ajust.every((d, j) => d >= 2*e - 1e-6 && d <= e + Hint + 1e-6 && (j === 0 || ajust[j - 1] - d >= S.paso - 1e-6));
+  return bien ? ajust : exacto;
+}
 const nBisagras = h => h <= 90 ? 2 : h <= 150 ? 3 : 4;   /* A371 (usuario 21/10, manual «El Cocinator»): 2 hasta 90 cm, 3 hasta 150, 4 arriba (antes 3 hasta 160, 4 hasta 200, 5) */
 const PLAN_BISAGRA = { cazoleta: 3.5, hondo: 1.2, canto: 2.25,                       /* E15: cazoleta de 35 mm con su centro a 22.5 mm del canto (perforacion de 5 mm; Blum pide 3-8 mm). Antes 1.8 */
   brazo: 4.5, brazoAlto: 1.6, brazoPaso: .6, placa: 3, placaAlto: 4, placaGrueso: .8 };   /* B19: brazo y placa en el lateral */
@@ -4749,7 +4771,7 @@ function planDePiezas(c = cfg){
       }
       xs.push(h.x1);
       for (let i = 1; i <= nRep; i++) {
-        const luz = (h.z1 - h.z0 - nRep*e)/(nRep + 1), zc = h.z0 + i*luz + (i - .5)*e;   /* A188: las luces entre tableros quedan iguales */
+        const zc = (h.z1 + e) - repisasS32(h.z1 - h.z0, nRep, e)[i - 1] + e/2;   /* A188: las luces entre tableros quedan iguales; A372: cada cara inferior en un agujero del Sistema 32 */
         for (let b = 0; b < xs.length; b += 2) add({ id: base + ':repisa:' + i + (nDiv ? ':' + b/2 : ''), rol: 'repisa', modulo: dueno.id, tipo: 'Repisa', x: xs[b], y: h.y0, z: zc - e/2, ancho: xs[b + 1] - xs[b], fondo: h.y1 - h.y0, alto: e, material: matPanel(dueno, zona, 'repisa.' + i, 'Repisas'), etiqueta: 'gabinetes' });
       }
     };
@@ -5633,7 +5655,11 @@ function planDePiezas(c = cfg){
         return [{ x: xa, ancho: xb - xa, y: k.y, fondo: yb - k.y, z: k.z, alto: k.alto }]; };   /* con la calza: hasta el lateral */   /* lo que queda detras de la puerta, hasta el lateral */
       const hz = tal ? (MB.cerrada[1][2] - MB.cerrada[0][2])/2 : B9.placaAlto/2;
       const libre2 = z => tal ? z - hz >= f0 - .01 && z + hz <= f1 + .01 && cuerpo(z).every(b => estorban.every(r => !seCruzan(b, r))) : libre(z);
-      const z = [z0, ...estorban.flatMap(r => [r.z + r.alto + hz + .1, r.z - hz - .1])].sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0)).find(libre2);
+      /* A372: Sistema 32: la placa se atornilla en un agujero de la serie del lateral (desde su canto superior); se toma el mas cercano a la posicion repartida que
+         libre la placa y el brazo, y solo si no hay ninguno se busca como antes */
+      const latS = piezas.find(r => r.modulo === q.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && Math.abs((der ? r.x : r.x + r.ancho) - cara) < .01 && r.z < z0 && r.z + r.alto > z0);
+      const huecos = latS ? Array.from({ length: Math.max(0, Math.floor((latS.alto - 2*PLAN_S32.inicio)/PLAN_S32.paso) + 1) }, (_, k) => r2(latS.z + latS.alto - PLAN_S32.inicio - PLAN_S32.paso*k)).sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0)) : [];
+      const z = [...huecos, ...[z0, ...estorban.flatMap(r => [r.z + r.alto + hz + .1, r.z - hz - .1])].sort((a, b) => Math.abs(a - z0) - Math.abs(b - z0))].find(libre2);
       if (z === undefined || bx[1] - bx[0] < .1) return;
       q.z = r2(q.z + z - z0);
       if (tal) {
@@ -5753,10 +5779,13 @@ function planDePiezas(c = cfg){
       const ejesP = (sg, th) => { const R = v => [v[0], v[1]*Math.cos(th) - v[2]*Math.sin(th), v[1]*Math.sin(th) + v[2]*Math.cos(th)]; return [R([0, 1, 0]), R([-sg, 0, 0]), R([0, 0, 1])]; };
       const coloca = (Q, T, cara, sg, th) => { const e = ejesP(sg, th); return { e: e.map(v => v.map(r3)), o: [r3(cara), r3(T[0] - Q[0]*e[0][1] - Q[2]*e[2][1]), r3(T[1] - Q[0]*e[0][2] - Q[2]*e[2][2])] }; };
       const zPuerta = Math.min(...fr.map(r => r.z));
-      const resolver = (cara, sg) => { const xs = cara + sg*1.55, c0 = Math.min(20, h*.35);
+      const resolver = (cara, sg, caraLat = cara) => { const xs = cara + sg*1.55, c0 = Math.min(20, h*.35);
         /* A287: el soporte de la puerta tampoco toca una repisa (A279 las sube en la torre y el de la puerta caia sobre el canto de la de arriba) */
         const soporteChoca = Pc => { const sp = coloca(MP.P0, Pc, cara, sg, (MP.placa - 90)*Math.PI/180), b = cajaEjes(MP.cajas.piston_soporte_puerta, sp.o, sp.e);
           return piezas.some(r => r.modulo === pr.modulo && r.rol === 'repisa' && r.x < b.x + b.ancho && r.x + r.ancho > b.x && r.y < b.y + b.fondo && r.y + r.fondo > b.y && r.z < b.z + b.alto + .3 && r.z + r.alto > b.z - .3); };
+        /* A372: el apoyo del cuerpo del piston en el lateral (con su calza) tampoco cae sobre una repisa: las repisas ya no estan en el reparto exacto (Sistema 32) */
+        const apoyoChoca = A => { const sp = coloca(MP.A0, A, cara, sg, 0), b = cajaEjes(MP.cajas.piston_soporte, sp.o, sp.e), xa = Math.min(b.x, caraLat), xb = Math.max(b.x + b.ancho, caraLat);
+          return piezas.some(r => r.modulo === pr.modulo && r.rol === 'repisa' && r.x < xb && r.x + r.ancho > xa && r.y < b.y + b.fondo && r.y + r.fondo > b.y && r.z < b.z + b.alto + .3 && r.z + r.alto > b.z - .3); };
         const cruza = (A, P) => piezas.some(r => r.modulo === pr.modulo && r.rol === 'repisa' && r.x < xs + 1.5 && r.x + r.ancho > xs - 1.5 &&
           Array.from({ length: 21 }, (_, k) => [A[0] + (P[0] - A[0])*k/20, A[1] + (P[1] - A[1])*k/20]).some(([y, z]) => y > r.y && y < r.y + r.fondo && z > r.z - 1 && z < r.z + r.alto + 1));
         for (let dc = 0; dc <= h; dc += .5) for (const ca of dc ? [c0 + dc, c0 - dc] : [c0]) {
@@ -5765,12 +5794,12 @@ function planDePiezas(c = cfg){
           if (dd < 1e-6 || dd > Le + Lc || dd < Le - Lc) continue;
           const a = (Lc*Lc - Le*Le + dd*dd)/(2*dd), hh = Math.sqrt(Math.max(0, Lc*Lc - a*a)), u = [(Po[0] - Pc[0])/dd, (Po[1] - Pc[1])/dd];
           const A = [[Pc[0] + a*u[0] - hh*u[1], Pc[1] + a*u[1] + hh*u[0]], [Pc[0] + a*u[0] + hh*u[1], Pc[1] + a*u[1] - hh*u[0]]]
-            .filter(q => q[0] > yFondo + 4 && q[0] < yF - 3 && q[1] > zPuerta + 2 && q[1] < z1 - 2).sort((p, q) => p[0] - q[0])[0];
-          if (A && !cruza(A, Pc) && !cruza(A, Po) && !soporteChoca(Pc)) return { A, Pc, Po, xs }; }
+            .filter(q => q[0] > yFondo + 4 && q[0] < yF - 3 && q[1] > zPuerta + 2 && q[1] < z1 - PLAN_CUERPO.lateral - (MP.cajas.piston_soporte[1][2] - MP.A0[2]) - .05).sort((p, q) => p[0] - q[0])[0];   /* A372: el soporte (3 cm) cabe bajo el techo; antes bastaba 2 cm bajo la puerta y la calza podia cruzar el techo */
+          if (A && !cruza(A, Pc) && !cruza(A, Po) && !soporteChoca(Pc) && !apoyoChoca(A)) return { A, Pc, Po, xs }; }
         return null; };
       const dato = { rol: 'herraje', modulo: pr.modulo, material: null, etiqueta: 'herrajes' };
       montajes.forEach(([cara, sg, caraLat, calza], i) => {
-        const S = resolver(cara, sg);
+        const S = resolver(cara, sg, caraLat);
         if (S) {
           const id0 = d + ':piston:' + i, sop = coloca(MP.A0, S.A, cara, sg, 0), spu = coloca(MP.P0, S.Pc, cara, sg, (MP.placa - 90)*Math.PI/180);   /* A250: la placa al paño de la puerta */
           const cajaSop = cajaEjes(MP.cajas.piston_soporte, sop.o, sop.e);
@@ -6047,6 +6076,15 @@ function pruebasPlanMX(){
       const marco = p.piezas.filter(r => r.id.startsWith(q.id + ':marco:')), h = marco.length ? Math.max(...marco.map(r => r.alto)) : q.alto;
       const n = p.piezas.filter(r => r.id.startsWith(q.id + ':bisagra:')).length;
       ok(n === (c.bisagras ? nBisagras(h) : 0), nombre + ': ' + n + ' bisagras en ' + q.id); });
+    /* A372: Sistema 32: la cara inferior de cada repisa recta cae en un agujero de la serie que arranca en la cara superior del panel que la cubre (techo, faja o entrepano de su cuerpo),
+       y el centro de cada bisagra con placa, en un agujero de la serie de su lateral. Quedan fuera los esquineros, las puertas elevables, las ocultas y el closet */
+    const enS32 = (top, z) => { const k = (top - z - PLAN_S32.inicio)/PLAN_S32.paso; return Math.abs(k - Math.round(k)) < .03; };
+    p.piezas.filter(q => q.rol === 'repisa' && q.tipo === 'Repisa' && !/^esq/.test(q.id)).forEach(q => {
+      const cubre = p.piezas.filter(r => r.modulo === q.modulo && r.rol === 'panel' && ['Techo', 'Faja', 'Piso', 'Entrepano'].includes(r.tipo) && r.x < q.x + q.ancho && r.x + r.ancho > q.x && r.y < q.y + q.fondo && r.y + r.fondo > q.y && r.z >= q.z + q.alto - .01).sort((a, b) => a.z - b.z)[0];
+      if (cubre) ok(enS32(cubre.z + cubre.alto, q.z), nombre + ': la repisa ' + q.id + ' no cae en un agujero del Sistema 32'); });
+    p.piezas.filter(q => q.tipo === 'Bisagra' && q.frente && q.estado === 'cerrado' && !/^esq/.test(q.id) && !/:s\d+$/.test(q.id) && q.modelo && /brazo_cerrada/.test(q.modelo.archivo)).forEach(q => {
+      const zc = q.z + q.alto/2, L = p.piezas.filter(r => r.modulo === q.modulo && r.rol === 'panel' && r.tipo === 'Lateral' && r.z <= zc + .01 && r.z + r.alto >= zc - .01);
+      if (L.length) ok(L.some(r => enS32(r.z + r.alto, zc)), nombre + ': la bisagra ' + q.id + ' no cae en un agujero del Sistema 32'); });
     /* gola: detras de cada hueco de agarre queda libre el canal (del alma del perfil al plano de los frentes) para los dedos */
     if (c.style === 'Moderna') p.piezas.filter(q => q.tipo === 'Gola' && !q.forma && !String(q.id).startsWith('esq')).forEach(g => {   /* A143: la gola del esquinero corre por sus alas (otra orientacion) */   /* A139: la gola a 45 del esquinero diagonal es una losa (forma) */
       const alma = p.piezas.find(q => q.id === g.id), dedo = { x: g.x + .5, y: g.y + g.fondo + .01, z: 0, ancho: g.ancho - 1, fondo: 0, alto: 0 };
@@ -7406,7 +7444,8 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     const ci = camaInterior(m) && Math.abs(z0 - baseAltos() - elevAlto(m)) < .05 ? 1.8 : 0;   /* A334: la cama interior sobre la del piso */
     if (ci) brd({ x: body.x, y: Z(z0 + 1.8) - t, w: body.w, h: t }, mm);
     const n = conRepisas && !fr.some(f => f.kind === 'Cajon') ? shelvesOf(m) : 0, inner = z1 - z0 - 3.6 - ci;
-    for (let k = 1; k <= n; k++) { const lz = (inner - n*1.8)/(n + 1); brd({ x: body.x + 2, y: Z(z0 + ci + 1.8 + k*lz + (k - .5)*1.8 + .9), w: body.w - 2*t, h: t }, mm); }
+    const dS = repisasS32(inner, n, 1.8);   /* A372: Sistema 32, como el plan */
+    for (let k = 1; k <= n; k++) brd({ x: body.x + 2, y: Z(z1 - dS[k - 1] + 1.8), w: body.w - 2*t, h: t }, mm);
     /* A125 (usuario, 09/10): jaladeras en corte (clasica y simple): salen del frente; puertas a lo largo, cajones de canto, boton */
     if (cfg.style !== 'Moderna') fr.forEach(f => { if (f.kind === 'Elevable' || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
       const L = cfg.largoJaladera, vert = jalVertical(f), ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0), sale = 2.5;   /* A280 */
@@ -7419,7 +7458,8 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
   /* A118 (usuario, 08/10): repisas de un tramo [a, b] (como drawShelves: n repartidas en su luz) y, si no es el primero, su tablero divisorio */
   const repisas = (m, a, b, n, D, d0 = 0, div = false) => { const mm = m.material || cfg.materialGeneral, inner = b - a - 3.6;
     if (div) brd({ x: P(D), y: Z(a + 1.8), w: (D - d0)*s - t, h: t }, mm);
-    for (let k = 1; k <= n; k++) { const lz = (inner - n*1.8)/(n + 1); brd({ x: P(D) + 2, y: Z(a + 1.8 + k*lz + (k - .5)*1.8 + .9), w: (D - d0)*s - t - 2, h: t }, mm); } };
+    const dS = repisasS32(inner, n, 1.8);   /* A372: Sistema 32, como el plan */
+    for (let k = 1; k <= n; k++) brd({ x: P(D) + 2, y: Z(b - dS[k - 1] + 1.8), w: (D - d0)*s - t - 2, h: t }, mm); };
   const low = moduloEn(false, xc), up = moduloEn(true, xc), out = { low, up };
   /* A141 (usuario, 11/10): por la columna de una esquina, el corte de las piezas reales del esquinero */
   const mEsq = low && low.esquina ? low : up && up.esquina ? up : null;
@@ -8939,8 +8979,9 @@ function drawShelves(body, count, owner, zone, divider = false, sel = false){
   if (canto && !flat) { fillMat(body.x, body.y, body.w, body.h, canto, C.front); outline(body, C.line, 1); }
   piece(inner, 'Interior', sel ? C.interiorSel : C.interior, 'fondo'); outline(inner, C.line, 1);
   ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  const ds = repisasS32(inner.h/frame.scale, count, 1.8);   /* A372: Sistema 32, como el plan */
   for (let i = 1; i <= count; i++) {
-    const lz = (inner.h - count*t)/(count + 1), y = inner.y + inner.h - i*(lz + t), q = { x: inner.x, y, w: inner.w, h: t }; edgeY(y); edgeY(y + t);   /* A188: luces iguales */
+    const y = body.y + ds[i - 1]*frame.scale - t, q = { x: inner.x, y, w: inner.w, h: t }; edgeY(y); edgeY(y + t);   /* A188: luces iguales */
     piece(q, 'Repisas', C.shelf, 'repisa.' + i); ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.strokeRect(q.x, q.y, q.w, q.h);
   }
   if (divider) { const nd = typeof divider === 'number' ? divider : Math.max(1, owner && owner.divisiones || 1);   /* Divisiones verticales (1 a 4; sin limite en cajas unidas, A41) */
