@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A319. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «las cotas en isometricos de bajos y altos
+       deben mostrar el ancho total de la seccion en especifico que se esta mostrando, no el total de todo el conjunto de la cocina; aplicar la
+       misma logica en torres») isoCotas toma el ancho de los cuerpos de los modulos y de las piezas de ajuste de la vista; la cubierta, el
+       zoclo y el backsplash (que corren por toda la cocina) ya no lo alargan.
    A318. [Master hecho 20/10; SketchUp: sin cambio (Presentar es del master); Revit pendiente (Presentar)] (usuario 20/10: «¿podriamos tener
        otras dos opciones de marco en hojas? adjunto captura del otro estilo de pie de plano: puede ser en formato vertical y horizontal»)
        «Estilo del pie» en «Pie de lamina» (rotulo.estiloPie, vale para todas): Franja a la derecha (la de siempre); Franja vertical gris (como
@@ -12566,7 +12570,11 @@ const LAM = (() => {
       Object.values(ext).forEach(e => { xs.push(e[0], e[1]); zs.push(e[2], e[3]); });
       ps.filter(p => p.rol === 'tapeta' && !p.modulo).forEach(p => xs.push(p.x, p.x + p.ancho));
       ps.filter(p => p.rol === 'zoclo' || p.rol === 'cubierta').forEach(p => zs.push(p.z, p.z + p.alto));
-      const x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x + p.ancho)), z0 = Math.min(...ps.map(p => p.z)), z1 = Math.max(...ps.map(p => p.z + p.alto));
+      /* A319 (usuario 20/10: «las cotas en isometricos de bajos y altos deben mostrar el ancho total de la seccion que se muestra, no el total de
+         la cocina; la misma logica en torres»): el ancho sale de los gabinetes y piezas de ajuste de la vista (la cubierta, el zoclo y el
+         backsplash corren por toda la cocina y no cuentan) */
+      const xsB = xs.length ? xs.slice() : ps.flatMap(p => [p.x, p.x + p.ancho]);
+      const x0 = Math.min(...xsB), x1 = Math.max(...xsB), z0 = Math.min(...ps.map(p => p.z)), z1 = Math.max(...ps.map(p => p.z + p.alto));
       xs.push(x0, x1); zs.push(z0, z1);
       /* cortes distintos y separados al menos 2.5 cm: los tabiques entre gabinetes no hacen cotas de 1 cm */
       const unico = a => [...new Set(a.map(v => Math.round(v * 100) / 100))].sort((p, q) => p - q).reduce((r, v) => (r.length && v - r[r.length - 1] < 2.5 ? r : r.concat(v)), []);
