@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A307. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (editor)] (usuario 20/10: «necesitamos diferenciar los iconos de funcion y
+       de opciones, siento que se confunden; opciones de gabinetes altos tambien agregar icono de inferior con repisas para que sea mas
+       visible») Las Opciones con icono (campana, dos puertas) ya no son tarjetas como las de Funcion: son interruptores en fila (icono
+       chico, texto y un interruptor que se enciende), dos por renglon. El alto doble (sin campana) suma el interruptor «Inferior con repisas»
+       con su icono (FI.InfRepisas) en lugar de la casilla «Modulo inferior solo repisas» (A261).
    A306. [Master hecho 20/10; SketchUp: sin cambio (sale del plan); Revit pendiente (LayoutState: reparto y cota EQ)] (usuario 20/10: «los
        anchos de las columnas siguen sin repartirse homogeneamente; al seleccionar mas de dos columnas en las cotas me salga una cota de EQ
        (equidistante) como en Revit para homogenizar los anchos») 1) Mover un modulo o una tapeta dejaba el reparto «adaptado» para siempre
@@ -2234,6 +2239,14 @@
   .ftile svg, .ftile span { pointer-events: none; }
   .ftile svg { width: 30px; height: 36px; }
   .otiles { margin: 2px 0 10px; }
+  /* A307 (usuario 20/10: «diferenciar los iconos de funcion y de opciones, se confunden»): las opciones son interruptores en fila */
+  .ftiles.otiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .otiles .ftile { flex-direction: row; justify-content: flex-start; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 999px; text-align: left; font-size: 11px; }
+  .otiles .ftile svg { width: 16px; height: 19px; flex: none; }
+  .otiles .ftile span { flex: 1; min-width: 0; }
+  .otiles .ftile::after { content: ''; flex: none; width: 24px; height: 14px; border-radius: 7px; background: #CBD2D9 radial-gradient(circle at 7px 7px, #fff 4.6px, transparent 5.2px); transition: background .12s; }
+  .otiles .ftile.on { box-shadow: none; }
+  .otiles .ftile.on::after { background: var(--ink) radial-gradient(circle at 17px 7px, #fff 4.6px, transparent 5.2px); }
   .fijo-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: #4A5560; margin-bottom: 10px; }
   .note { font-size: 11.5px; color: #6B7680; line-height: 1.45; margin-top: 10px; }
 
@@ -2362,6 +2375,9 @@
   html[data-theme=dark] .fijo-row { color: #B9C0C7; }
   html[data-theme=dark] .ftile { background: #2C2F34; border-color: #3A3E44; color: #B9C0C7; }
   html[data-theme=dark] .ftile.on { background: #22374A; border-color: #5C9BD1; color: #8DBBE3; box-shadow: inset 0 0 0 1px #5C9BD1; }
+  html[data-theme=dark] .otiles .ftile::after { background-color: #4A5057; }
+  html[data-theme=dark] .otiles .ftile.on { box-shadow: none; }
+  html[data-theme=dark] .otiles .ftile.on::after { background-color: #5C9BD1; }
   html[data-theme=dark] .opt .d, html[data-theme=dark] .note, html[data-theme=dark] .note-sm, html[data-theme=dark] .empty { color: #9AA3AD; }
   html[data-theme=dark] .sw-name { color: #B9C0C7; }
   html[data-theme=dark] .swatch.add .sw-chip { background: #2C2F34; border-color: #4A4F57; }
@@ -9405,6 +9421,7 @@ const FI = (() => {
     SupPuerta: R(5,14,30,20) + L(5,14,35,24,1) + L(5,34,35,24,1),
     SupRepisas: R(5,14,30,20) + L(5,20.7,35,20.7) + L(5,27.3,35,27.3),
     Doble: R(5,6,30,36) + L(5,17,35,17) + lift(5,6,30,11) + door(5,17,30,25),
+    InfRepisas: R(5,6,30,36) + L(5,17,35,17) + lift(5,6,30,11) + L(5,25.3,35,25.3) + L(5,33.7,35,33.7),   /* A307: el inferior abierto con repisas */
     Colgado: R(4,4,32,40) + L(4,12,36,12) + L(8,16,32,16) + P('M20 16 v3 M14 25 L20 19 L26 25 Z'),
     ColgadoDoble: R(4,4,32,40) + L(8,12,32,12) + L(8,28,32,28),
     Repisas: R(4,4,32,40) + L(4,12,36,12) + L(4,20,36,20) + L(4,28,36,28) + L(4,36,36,36),
@@ -9577,6 +9594,7 @@ function modulePanel(m){
   const twoVis = !sinPuertas(m) && !soloCamp(m) && m.tipo !== 'Piston' && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
   if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);
   if (twoVis) sw.push(['tgDos', m.dosPuertas, 'Dos puertas', FI.DosPuertas]);
+  if (isDoble(m) && !hasCampana(m)) sw.push(['tgInfAb', m.inferiorAbierto, 'Inferior con repisas', FI.InfRepisas]);   /* A307 (usuario 20/10: «agregar icono de inferior con repisas para que sea mas visible»; A261) */
   if (sw.length) opts += toggles(sw);
   if (twoVis && m.dosPuertasTarja && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas por la tarja doble.</div>`;   /* A128 */
   else if (twoVis && cfg.dosPuertasDesde > 0 && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas en más de ${medida(cfg.dosPuertasDesde)} de ancho.</div>`;
@@ -9586,7 +9604,6 @@ function modulePanel(m){
   if (divVis) opts += chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, 4, 1)}</div></div>` : '');
   if (!m.upper && m.tipo === 'Puertas' && !m.preparadoTarja) opts += chk('repBajo', m.repisaBajo, 'Repisa interior');
   if (m.upper && sinPuertas(m) && !hasCampana(m) && !bx) opts += chk('unir', m.unirCuerpo, 'Unir con la columna derecha (caja corrida)');
-  if (isDoble(m) && !hasCampana(m)) opts += chk('infAb', m.inferiorAbierto, 'Módulo inferior solo repisas');   /* A261 */
   if (isDoble(m) && !bx && bodyGroupOf(m)) opts += `<div class="note-sm">Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o</div><button class="btn btn-block" style="margin-top:6px" data-act="editBox">Editar la caja corrida</button>`;
   html += section('Opciones', opts);
   if (m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
@@ -10043,7 +10060,7 @@ const ACT = {
   pzReset: () => deletePart(selectedPart),
   pzEditar: () => { const id = selectedPart.split(':')[1]; selectedPart = null; pieces.clear(); selection = new Set([id]); render(); },
   fijo: (v, m) => setFixed(m.id, v), fijoLibre: (v, m) => setFixed(m.id, false),
-  dos: (v, m) => change(() => { const t = byId(m.id); t.dosPuertas = v; t.dosPuertasManual = true; }),   /* E12: elegido a mano */ tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m),
+  dos: (v, m) => change(() => { const t = byId(m.id); t.dosPuertas = v; t.dosPuertasManual = true; }),   /* E12: elegido a mano */ tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m), tgInfAb: (v, m) => ACT.infAb(!m.inferiorAbierto, m),   /* A307 */
   supInv: (v, m) => change(() => { capLead(byId(m.id)).bisagraDerechaSuperior = v; }),
   supTipo: (v, m) => change(() => { const l = capLead(byId(m.id)); l.tipoSuperior = v; if (v === 'Repisas' && l.repisasSuperior < 1) l.repisasSuperior = 1; }),
   inv: (v, m) => change(() => byId(m.id).invertir = v),
