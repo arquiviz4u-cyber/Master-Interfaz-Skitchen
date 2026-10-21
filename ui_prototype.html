@@ -303,6 +303,9 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A358. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (isometrico del editor)] (usuario 21/10: «el estilo oscuro en isometrico
+       pinta los componentes a oscuro») En el tema oscuro el isometrico pinta el mueble con la paleta clara (sus colores y materiales
+       reales); solo el fondo, los textos y la seleccion siguen el tema.
    A357. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «opciones de alacena
        (cajones bajos, cuerpos de repisas, invertir abatimiento) ponerlo debajo de funcion en columna») En el panel de la alacena su seccion
        «Alacena» va justo bajo Funcion (antes de Especiero anexado y Medidas).
@@ -15640,7 +15643,10 @@ function drawIsometrico(){
   const fit = Math.max(.05, Math.min(aw / w, ah / h)), zk = exporting ? 1 : isoZoom.k, s = fit*zk;
   const ox = L + 15 + (aw - w*s)/2 + (exporting ? 0 : isoZoom.dx), oy = T + 15 + (ah - h*s)/2 + (exporting ? 0 : isoZoom.dy);
   if (!exporting) isoZoom.base = { L, T, aw, ah, w, h, fit };   /* A338 */
-  LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true });
+  /* A358 (usuario 21/10: «el estilo oscuro en isometrico pinta los componentes a oscuro»): el mueble va con sus colores reales (los de la
+     paleta clara); el tema oscuro solo cambia el fondo y los textos */
+  { const previo = Object.assign({}, C); Object.assign(C, LIGHT); if (cfg.closet) Object.assign(C, CLOSET_LIGHT);
+    try { LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true }); } finally { Object.assign(C, previo); } }
   /* A353: el que esta bajo el puntero, contorno tenue; los elegidos, contorno y etiqueta (nombre y ancho) sobre su silueta */
   if (!exporting && isoHover && !selection.has(isoHover)) LAM.isoResaltar(ctx, typeof isoHover === 'string' && isoHover.startsWith('parte:') ? (h => parteIso(h.p) === isoHover.slice(6)) : [isoHover], C.accent, { ancho: 1.5, alfa: .55, tinte: 0 });
   if (!exporting && selectedPart && GRUPO_PARTE[selectedPart]) LAM.isoResaltar(ctx, h => parteIso(h.p) === selectedPart, C.accent);   /* A355: la pieza elegida */
