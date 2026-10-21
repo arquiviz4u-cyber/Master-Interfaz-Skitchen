@@ -303,6 +303,14 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A326. [Master hecho 20/10; SketchUp: construye la tuerca (perfil eje z) y el pie escalonado; Revit pendiente] (usuario 20/10: «en lamina de
+       torres tambien deben incluir el zoclo perteneciente a su respectivo ancho y su acotado contemplando el zoclo; aun si son de patas
+       niveladoras representarlas fielmente en alzados, se ven mal y redondas, investiga medidas y dibujalas tal cual el estandar; tambien en
+       el 3D lo mas acercadas a la realidad, no simples cilindros») 1) El zoclo entra en el conjunto de torres, cortado a su ancho, y su alzado
+       acota zoclo, cuerpo y total desde el piso. 2) En los alzados del conjunto la pata se dibuja de perfil (placa, columna, tuerca y pie
+       rectos, en gris oscuro), no como barra de punta redonda. 3) Con la referencia Hafele Axilo 78 (A84: placa 9.2 x 7.9 x 2.5, columna de
+       3.5, pie de 7.8) la pata suma una tuerca de ajuste hexagonal de 4.6 entre caras y 1.4 de alto sobre el pie, y el pie va en dos discos
+       (7.8 y 6.2) como su chaflan.
    A325. [Master hecho 20/10; SketchUp: sin cambio (Presentar es del master); Revit pendiente (Presentar)] (usuario 20/10: «herramienta acotar
        en presentar») Boton «Acotar» en la barra de Presentar: clic en un punto y clic en otro; la cota sale horizontal o vertical (segun el
        movimiento) con la medida real en la escala de la vista donde empieza (sin vista, en mm de papel). Se arrastra para separarla, Supr la
@@ -4054,7 +4062,7 @@ const cuerpoFondo = () => cfg.espesorFondo > 0 ? cfg.espesorFondo : cfg.region =
    atornillada bajo el piso, columna de 3.5 y base de 7.8 de diametro; altura de 9 a 12 cm con la de 10 (y 11.5 a 14.5 con la de
    12.5). Cuatro por gabinete y seis cuando pasa de 76 cm (30"), con el eje a 5 cm de los laterales y del trasero; las delanteras
    con el eje 4.5 cm detras del zoclo (el clip abraza la columna y la base de 7.8 queda libre del zoclo) */
-const PLAN_PATA = { borde: 5, clip: 4.5, seisDesde: 76.5, placa: [9.2, 7.9, 2.5], columna: 3.5, base: 7.8, baseAlto: 1.2, lados: 12 };
+const PLAN_PATA = { borde: 5, clip: 4.5, seisDesde: 76.5, placa: [9.2, 7.9, 2.5], columna: 3.5, base: 7.8, baseAlto: 1.2, lados: 12, tuerca: { entreCaras: 4.6, alto: 1.4 } };   /* A326: tuerca de ajuste */
 const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3, libreGola: .5 };   /* caja de cajon dentro de la carcasa */
 /* A140 (usuario, 11/10): holgura de 3 mm entre la cara posterior de puertas y cajones y el canto de la carcasa (la de la bisagra);
    la carcasa con frentes termina 3 mm antes y los frentes no se mueven. Saque del cajon oculto del cesto: rebaje en el canto inferior
@@ -4896,7 +4904,12 @@ function planDePiezas(c = cfg){
           add({ id: base + ':placa', rol: 'herraje', modulo: m.id, tipo: 'Pata', x: xc - pa/2, y: yc - pf/2, z: zb - ph, ancho: pa, fondo: pf, alto: ph, material: null, etiqueta: 'herrajes' });
           const cil = (k2, d, a0, a1) => { if (a1 - a0 > .01) add({ id: base + ':' + k2, rol: 'herraje', modulo: m.id, tipo: 'Pata', x: xc - d/2, y: yc - d/2, z: a0, ancho: d, fondo: d, alto: a1 - a0, material: null, etiqueta: 'herrajes',
             forma: { tipo: 'cilindro', de: [r2(d/2), r2(d/2), 0], a: [r2(d/2), r2(d/2), r2(a1 - a0)], diametro: d, lados: P.lados } }); };
-          cil('columna', P.columna, Math.min(P.baseAlto, zb - ph), zb - ph); cil('base', P.base, 0, Math.min(P.baseAlto, zb - ph)); };
+          /* A326 (usuario 20/10: «las patas niveladoras representarlas fielmente, se ven mal y redondas; tambien en el 3D lo mas acercadas a la
+             realidad, no simples cilindros»): pie de 7.8 con chaflan (dos discos), tuerca de ajuste hexagonal sobre el pie y la columna */
+          const hb = Math.min(P.baseAlto, zb - ph), tu = P.tuerca, zt0 = hb + .2, zt1 = Math.min(zb - ph, zt0 + tu.alto);
+          cil('columna', P.columna, hb, zb - ph); cil('base', P.base, 0, hb * .5); cil('base:chaflan', P.base * .8, hb * .5, hb);
+          if (zt1 - zt0 > .3) { const ac = tu.entreCaras, ap = ac / Math.cos(Math.PI / 6), hx = Array.from({ length: 6 }, (_, i) => [r2(ap/2 + ap/2 * Math.cos(i * Math.PI / 3)), r2(ac/2 + ap/2 * Math.sin(i * Math.PI / 3))]);
+            add({ id: base + ':tuerca', rol: 'herraje', modulo: m.id, tipo: 'Pata', x: xc - ap/2, y: yc - ac/2, z: zt0, ancho: r2(ap), fondo: r2(ac), alto: r2(zt1 - zt0), material: null, etiqueta: 'herrajes', forma: { tipo: 'perfil', eje: 'z', puntos: hx } }); } };
         /* en los extremos con cierre, la pata se recorre hacia dentro para que el cierre llegue al piso */
         const cierres = []; tramosZ.forEach(([a, b], k) => { if (k === 0 && cfg.cerrarZocloIzq) cierres.push([a, a + t]); if (k === tramosZ.length - 1 && cfg.cerrarZocloDer) cierres.push([b - t, b]); });
         const libre = (xc, izq) => { cierres.forEach(([c0, c1]) => { if (xc - pa/2 < c1 + .1 && xc + pa/2 > c0 - .1) xc = izq ? c1 + pa/2 + .2 : c0 - pa/2 - .2; }); return xc; };
@@ -5742,7 +5755,8 @@ function pruebasPlanMX(){
       a.tipo === 'RielMuro' && b.tipo === 'RielGabinete' ||   /* A145: las dos mitades del riel frances comparten su caja (A146: el del muro corre por toda la fila) */
       a.tipo === 'Nariz' && b.tipo === 'Losa' && (b.id === a.id.replace(/:nariz$/, '') || b.id.startsWith(a.id.replace(/:nariz$/, '') + ':')) ||   /* A88: inglete */
       (a.id.startsWith('esq') || b.id.startsWith('esq')) && (a.forma && a.forma.eje === 'z' || b.forma && b.forma.eje === 'z' || a.forma && a.forma.tipo === 'cilindro' || b.forma && b.forma.tipo === 'cilindro') ||   /* A134: las losas del esquinero (L, charolas, frente a 45) no son su caja */
-      a.tipo === 'Moldura' && b.tipo === 'Moldura' || a.rol === 'backsplash' && a.forma;   /* A283: la corona a inglete y el backsplash que sube detras de la campana sola no son su caja */
+      a.tipo === 'Moldura' && b.tipo === 'Moldura' || a.rol === 'backsplash' && a.forma ||
+      a.tipo === 'Pata' && b.tipo === 'Pata' && a.id.split(':pata:')[0] === b.id.split(':pata:')[0] && a.id.split(':')[2] === b.id.split(':')[2];   /* A326: la tuerca abraza la columna de su pata */   /* A283: la corona a inglete y el backsplash que sube detras de la campana sola no son su caja */
     p.piezas.forEach((a, i) => p.piezas.slice(i + 1).forEach(b => ok(suya(a, b) || suya(b, a) || !choca(a, b), nombre + ': se cruzan ' + a.id + ' y ' + b.id)));
     /* bisagras: las de la regla de Revit en cada puerta (2 hasta 90 cm, 3 hasta 160, 4 hasta 200, 5 mas) */
     const ocultas = new Set((c.puertasOcultas || []).map(d => d.id));
@@ -12784,6 +12798,7 @@ const LAM = (() => {
       if (!p.modulo && p.rol === 'tapeta' && p.alto > (cfg.alturaMuro || 240) * .92) return false;   /* A188: la tapeta de piso a techo no es de bajos ni de altos */
       const m = p.modulo && mods[p.modulo], g = m ? (m.esquina && !['cubierta', 'zoclo', 'backsplash', 'luz'].includes(p.rol) ? 'esquinero' : m.upper ? 'altos' : (isSpecial(m) || isRefri(m)) ? 'torres' : 'bajos')   /* A284: el esquinero (bajo y alto) es su propio conjunto */
         : p.rol === 'backsplash' ? 'muro' : (p.z + p.alto / 2 >= zBA ? 'altos' : 'bajos');
+      if (!p.modulo && p.rol === 'zoclo' && grupo === 'torres') return true;   /* A326: el zoclo de las torres (se corta a su ancho como en los bajos) */
       return g === grupo; };
   }
   const planDeConj = o => o.grupo === 'isla' && o.planIsla ? o.planIsla.plan : planCocina();
@@ -12911,6 +12926,7 @@ const LAM = (() => {
     let zonas = null, xmap = null;
     try {
       ps.slice().sort((a, b) => (a.y + a.fondo) - (b.y + b.fondo) || a.z - b.z).forEach(p => {
+        if (p.tipo === 'Pata') { caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? '#FFFFFF' : '#3A3D42', plano ? '#222222' : '#1F2226', .7); return; }   /* A326: la pata de perfil, como es */
         if (p.forma && p.forma.tipo === 'cilindro' && p.forma.de && p.forma.a) {   /* A192: pistones y vastagos como barras (no como la caja que los envuelve) */
           g.save(); g.lineCap = 'round'; const x1 = X(p.x + p.forma.de[0]), y1 = Y(p.z + p.forma.de[2]), x2 = X(p.x + p.forma.a[0]), y2 = Y(p.z + p.forma.a[2]), dd = Math.max(1.6, (p.forma.diametro || 1) * sc);
           g.strokeStyle = plano ? '#222222' : '#4A5057'; g.lineWidth = dd + 1.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
@@ -12932,6 +12948,9 @@ const LAM = (() => {
         const niv = [...new Set([z0, zocB.length ? Math.max(...zocB.map(p => p.z + p.alto)) : z0, cubB.z, cubB.z + cubB.alto].map(v => Math.round(v * 100) / 100))].sort((a, b) => a - b);
         for (let q = 0; q + 1 < niv.length; q++) if (niv[q + 1] - niv[q] > .4) J.V(M - 14, Y(niv[q + 1]), Y(niv[q]), fmt(niv[q + 1] - niv[q]));
         J.V(M - 28, Y(cubB.z + cubB.alto), Y(z0), medida(cubB.z + cubB.alto - z0));
+      } else if (o.grupo === 'torres' && zocB.length) {   /* A326 (usuario 20/10): el zoclo de las torres con su cota y la total desde el piso */
+        const zt = Math.max(...zocB.map(p => p.z + p.alto)); if (zt - z0 > .4) J.V(M - 14, Y(zt), Y(z0), fmt(zt - z0)); if (z1 - zt > .4) J.V(M - 14, Y(z1), Y(zt), fmt(z1 - zt));
+        J.V(M - 28, Y(z1), Y(z0), medida(z1 - z0));
       } else J.V(M - 16, Y(z1), Y(z0), medida(z1 - z0));
       if (conPuertas) {   /* despiece: la medida de cada puerta y cajon distinto, una vez, con cuantos hay */
         const todosFr = ps.filter(p => p.rol === 'frente'), yFr = Math.max(...todosFr.map(p => p.y + p.fondo)), fr = todosFr.filter(p => p.y + p.fondo >= yFr - 6), grupos = new Map();   /* solo los del lado que se ve (la isla tiene dos) */
