@@ -303,6 +303,23 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A363. [Master hecho 21/10; SketchUp y Revit: reciben las alturas en el plan (Revit pendiente si calcula las suyas)] (usuario 21/10: «auto
+       alineado de cajones bajos de alacena con otros que tengan misma configuracion (cantidad de cajones)») La cajonera de la alacena
+       copia las alturas de la cajonera de bajo mas cercana con el mismo numero de cajones (3, o 2 con «2 cajones»), incluidas las que se
+       ajustaron a mano y el reparto iguales o pequeño + grandes (cajoneraPar en heights); asi sus frentes y golas quedan a la misma altura.
+       Solo si su alto es el de los bajos y no se movieron sus puntos; el panel de la cajonera dice con cual se alinea.
+   A362. [Master hecho 21/10; SketchUp: no aplica (tiene su propio mover); Revit pendiente (isometrico del editor)] (usuario 21/10:
+       «intercambiar modulos de posicion tambien funciona en isometrico») En el isometrico, arrastrar un gabinete y soltarlo sobre otro los
+       intercambia como en el alzado (por columna: columnaPar y swap); mientras se arrastra se resalta el destino con «Soltar para
+       intercambiar». Un clic sin mover solo elige.
+   A361. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente] (usuario 21/10: «la funcion de arrastrar material al espacio vacio y
+       pintar todo tambien debe aplicarse en el isometrico») Soltar un material en vacio en el isometrico lo aplica a toda la cocina, como en
+       el alzado (corrige A355).
+   A360. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (LayoutState: MinWidth)] (usuario 21/10: «me da este error cuando quiero
+       agregar un especiero en ambas torres: el hueco de la parrilla (56 cm) es mas ancho que su gabinete (53 cm); no se que tenga que ver la
+       parrilla, aun ensanchando la parrilla me sigue lanzando ese aviso») Al anexar el especiero la torre crece y el reparto achicaba las
+       demas columnas, tambien la de la parrilla, por debajo del hueco de su parrilla (ensancharla lo empeoraba). minWidth del gabinete con
+       parrilla ya es el ancho de su hueco: el reparto no lo achica de mas y, si no cabe, A359 ofrece quitar otra columna.
    A359. [Master hecho 21/10; SketchUp: no aplica (recibe el plan); Revit pendiente (LayoutState: Change)] (usuario 21/10: «si quiero hacer
        mas grande una torre o agregar un especiero no me deja (por la regla de anchos equidistantes o similares); no se si deberia existir
        una regla de ancho minimo y maximo para determinar si el ensanchamiento de columnas hara que se eliminen otras columnas; investiga
@@ -331,8 +348,8 @@
    A355. [Master hecho 21/10; SketchUp: no aplica (materiales en su modelo); Revit pendiente (isometrico del editor)] (usuario 21/10:
        «arrastrar materiales en elementos funciona en isometrico; los listones de ajuste laterales y superiores se seleccionan en
        isometrico») En el isometrico, soltar un material sobre una pieza lo aplica como en el alzado: gabinete (o los elegidos), piezas de
-       ajuste (Tapetas), cubierta, zoclo, backsplash o gola; mientras se arrastra se resalta lo que recibira el material, y en vacio no
-       pinta nada. Un clic en una pieza de ajuste (lateral o superior), la cubierta, el zoclo, el backsplash o la gola la elige (su panel,
+       ajuste (Tapetas), cubierta, zoclo, backsplash o gola; mientras se arrastra se resalta lo que recibira el material (A361: en vacio,
+       toda la cocina, como en el alzado). Un clic en una pieza de ajuste (lateral o superior), la cubierta, el zoclo, el backsplash o la gola la elige (su panel,
        como en el alzado) y se resalta. isoPieza da la pieza de la cara de encima; isoResaltar acepta una regla por cara.
    A354. [Master hecho 21/10; SketchUp: no aplica (construye todo); Revit pendiente (isometrico)] (usuario 21/10: «las repisas en gabinete
        abierto no se muestran en el isometrico (altos y bajos)») Con puertas, lo interior (repisas, divisiones, cajas) solo se oculta si un
@@ -3832,7 +3849,10 @@ function quitarDoble(m){ m.tipo = m.inferiorAbierto ? 'Abierto' : 'Sencillo'; m.
 /* MinimumWidth: el alto toma el minimo de su bajo emparejado; alacena 20, especial 45, resto 30 */
 function minWidth(m){
   if (m.upper) { const r = row(true), l = row(false); if (l.length === r.length) m = l[r.indexOf(m)]; }
-  return (isPantry(m) ? 20 : m.tipo === 'Especiero' ? (espCon(m) !== 'Nada' ? espAncho(m) + reg().ancho.min : 15) : isSpecial(m) ? reg().especialMin : reg().ancho.min) + (m.anexo ? m.anexo.ancho : 0);   /* E3; A154: con su especiero */
+  const base = (isPantry(m) ? 20 : m.tipo === 'Especiero' ? (espCon(m) !== 'Nada' ? espAncho(m) + reg().ancho.min : 15) : isSpecial(m) ? reg().especialMin : reg().ancho.min) + (m.anexo ? m.anexo.ancho : 0);   /* E3; A154: con su especiero */
+  /* A360 (usuario 21/10: al anexar el especiero a la torre salia «el hueco de la parrilla es mas ancho que su gabinete» y no lo dejaba): el
+     gabinete con parrilla no baja del hueco de su parrilla; asi el reparto no lo achica de mas y, si no cabe, se ofrece quitar otra columna */
+  return !m.upper && m.parrilla && m.parrillaAncho > 0 ? Math.max(base, Math.ceil(m.parrillaAncho - 2*reg().parrilla.labio - 1e-6)) : base;
 }
 
 /* ---- especiales: torre de hornos (FrontLayout) y alacena (SpecialSplits) ---- */
@@ -3977,7 +3997,16 @@ const topGap = m => isTower(m) ? agarreEntre() : agarre();
 const two = m => isTower(m) ? m.torreInferior === 'Dos cajones' : m.tipo === 'Alacena' && m.cajonesDobles;
 const count = m => m.tipo === 'Cajones' ? m.numCajones : m.tipo === 'C' ? 1 : two(m) ? 2 : 3;
 const hasDrawers = m => drawerType(m) || isTower(m) && (m.torreInferior === 'Cajones' || m.torreInferior === 'Dos cajones') || m.tipo === 'Alacena' && m.cajonesAlacena;
+/* A363 (usuario 21/10: «auto alineado de cajones bajos de alacena con otros que tengan misma configuracion (cantidad de cajones)»): la
+   cajonera de la alacena copia las alturas de la cajonera de bajo mas cercana con el mismo numero de cajones, si mide lo mismo que los
+   bajos y no se movieron sus puntos a mano */
+function cajoneraPar(m){
+  if (m.tipo !== 'Alacena' || !m.cajonesAlacena || m.frenteSup > 0 || m.frenteMed > 0 || Math.abs(bodyH(m) - cfg.altoBajos) > .5) return null;
+  const l = row(false), i = l.indexOf(m), n = two(m) ? 2 : 3;
+  return l.map((q, k) => [q, Math.abs(k - i)]).filter(([q]) => q !== m && !q.reserved && q.tipo === 'Cajones' && q.numCajones === n).sort((a, b) => a[1] - b[1]).map(([q]) => q)[0] || null;
+}
 function heights(m){
+  { const ref = cajoneraPar(m); if (ref) { const h = heights(ref); return two(m) ? [h[0], h[1], 0] : h.slice(0, 3); } }   /* A363 */
   if (two(m)) { const total = bodyH(m) - .2 - topGap(m) - agarreEntre(), top = m.frenteSup > 0 ? m.frenteSup : total*.4; return [top, total - top, 0]; }
   if (m.tipo === 'Cajones' || m.tipo === 'Especiero' && espCon(m) === 'Cajones') {   /* A97: el especiero reparte sus cajones como la cajonera */
     /* pesos: pequeño + grandes = (n-1) para el de arriba y n para cada uno de los demas (con 3: 25 % y 37.5 %); iguales = 1.
@@ -9391,7 +9420,7 @@ function materialTarget(p){
   if (view === 'Isometrico') { const pc = LAM.isoPieza(p), parte = parteIso(pc);
     if (parte) return { key: GRUPO_PARTE[parte], rects: [], iso: h => parteIso(h.p) === parte };
     if (pc && pc.modulo && byId(pc.modulo)) { const multi = selection.has(pc.modulo), ids = multi ? [...selection] : [pc.modulo]; return { key: 'mod:' + pc.modulo, multi, count: ids.length, rects: [], iso: ids }; }
-    return { key: null, rects: [], nada: true }; }
+    return { key: null, rects: [] }; }   /* A361: en vacio, toda la cocina, como en el alzado */
   /* A137 (usuario 11/10): Ctrl + soltar sobre una puerta de bajos, de altos o un cajon: todas las de su clase, en todas las caras */
   if (p.ctrl) { const fh = frontHits.find(h => inside(p, h.rect)); if (fh) { const cl = claseFrente(fh); return { key: 'frentes:' + cl, rects: frontHits.filter(h => claseFrente(h) === cl).map(h => h.rect) }; } }
   const onMod = view === 'Planta' && hits.find(h => inside(p, h.rect));
@@ -9422,7 +9451,7 @@ function drawMaterialDrag(){
   ctx.fillStyle = C.swapFill;
   if (t.rects.length) t.rects.forEach(r => { ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.accent, 2); });
   else if (!t.iso && !t.nada) outline({ x: 2, y: 2, w: cssW - 4, h: cssH - 4 }, C.accent, 2);
-  if (t.nada) { label('Suelta sobre un gabinete o una pieza', Math.min(cssW - 220, matDrag.x + 14), matDrag.y - 18, C.muted, "500 12px 'Inter'"); return; }   /* A355 */
+
   const sw = mat(matDrag.id);
   label((sw ? sw.nombre : 'Original') + ' → ' + etiqueta(t.key) + (t.multi && t.count > 1 ? ` (${t.count})` : ''), Math.min(cssW - 180, matDrag.x + 14), matDrag.y - 18, C.ink, "500 12px 'Inter'");
 }
@@ -9547,7 +9576,7 @@ canvas.addEventListener('mousedown', e => {
     const parte = parteIso(LAM.isoPieza(p)); if (parte && !e.ctrlKey) { selection = new Set(); selectedPart = parte; focusPanel = null; render(); return; }
     /* A340: un clic elige el gabinete (Ctrl: varios) y su panel se edita como en el alzado; en vacio, nada elegido */
     const id = LAM.isoModulo(p), m = id && byId(id);
-    if (m) { if (e.ctrlKey || e.metaKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); } else selection = new Set([id]); }
+    if (m) { if (e.ctrlKey || e.metaKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); } else { selection = new Set([id]); drag = { kind: 'module', id, over: null, x: p.x, y: p.y, x0: p.x, y0: p.y, iso: true }; } }   /* A362: arrastrar intercambia */
     else if (!e.ctrlKey) selection = new Set();
     selectedPart = null; focusPanel = null; render(); return; }
   /* A45: sin preventDefault el clic termina dando el foco al lienzo, el campo pierde el foco (blur) y se cierra al instante */
@@ -9639,6 +9668,9 @@ canvas.addEventListener('mousedown', e => {
 });
 canvas.addEventListener('mousemove', e => {
   const p = pt(e);
+  if (view === 'Isometrico' && drag && drag.kind === 'module') {   /* A362 (usuario 21/10: «intercambiar modulos de posicion tambien funciona en isometrico») */
+    drag.x = p.x; drag.y = p.y; const lejos = Math.hypot(p.x - drag.x0, p.y - drag.y0) > 5, t = lejos ? LAM.isoModulo(p) : null;
+    drag.over = t && t !== drag.id && byId(t) ? columnaPar(drag.id, t) : null; canvas.style.cursor = lejos ? 'grabbing' : 'pointer'; drawCanvas(); return; }
   if (view === 'Isometrico') { const pa = parteIso(LAM.isoPieza(p)), hm = LAM.isoModulo(p), hv = pa ? 'parte:' + pa : hm && byId(hm) ? hm : null; canvas.style.cursor = LAM.isoHit(p) || hv ? 'pointer' : 'default';   /* A170; A340; A355 */
     if (hv !== isoHover) { isoHover = hv; drawCanvas(); } return; }   /* A353: el contorno tenue sigue al puntero */
   if (drag && drag.kind === 'module') {
@@ -10206,7 +10238,9 @@ function focusPanelHtml(m, zone, chip){
   /* A286 (usuario 18/10: «es la torre de hornos, quita el campo cuando hay cajones»): con cajones abajo no hay repisas que elegir */
   if (tower && zone === 'inferior' && hasDrawers(m)) more = `<div class="note-sm" style="margin-top:0">Con cajones este gabinete no lleva repisas.</div>`;
   else if (tower) more = shelvesField('Repisas en este gabinete', (zone === 'inferior' ? m.torreInferior : m.torreSuperior).includes('Repisas') || zone === 'superior' && (towerLift(m) || m.torreSuperior === 'Pistón'));
-  else if (zone === 'cajones') { kind = tilesInt('cajDob', [['3','3 cajones'],['2','2 cajones']], m.cajonesDobles ? '2' : '3'); more = `<div class="grid-2">${num('altoCaj', 'Alto de cajonera', m.altoCajonesAlacena, 'cm', 40, 100)}</div>`; }
+  else if (zone === 'cajones') { kind = tilesInt('cajDob', [['3','3 cajones'],['2','2 cajones']], m.cajonesDobles ? '2' : '3');
+    { const ref = cajoneraPar(m); dosPend += ref ? `<div class="note-sm" style="margin-top:0">Alineados con la cajonera de la col. ${row(false).indexOf(ref) + 1} (${ref.numCajones} cajones).</div>` : ''; }   /* A363 */
+    more = `<div class="grid-2">${num('altoCaj', 'Alto de cajonera', m.altoCajonesAlacena, 'cm', 40, 100)}</div>`; }
   else {
     const j = +zone.slice(6) - 1, bt = bodyType(m, j, n);
     kind = tilesInt('cuerpoTipo', [['1 puerta','1 puerta'],['2 puertas','2 puertas'],['Repisas','Repisas'],['Especiero','Especiero'],['Especiero extraíble','Especiero extraíble']].concat(j === n - 1 ? [['Elevable','Elevable']] : []), bt);
@@ -15706,6 +15740,7 @@ function drawIsometrico(){
   if (!exporting && isoHover && !selection.has(isoHover)) LAM.isoResaltar(ctx, typeof isoHover === 'string' && isoHover.startsWith('parte:') ? (h => parteIso(h.p) === isoHover.slice(6)) : [isoHover], C.accent, { ancho: 1.5, alfa: .55, tinte: 0 });
   if (!exporting && selectedPart && GRUPO_PARTE[selectedPart]) LAM.isoResaltar(ctx, h => parteIso(h.p) === selectedPart, C.accent);   /* A355: la pieza elegida */
   if (!exporting && matDrag) { const t = materialTarget(matDrag); if (t.iso) LAM.isoResaltar(ctx, t.iso, C.accent, { tinte: .18 }); }
+  if (!exporting && drag && drag.kind === 'module' && drag.iso && drag.over) { LAM.isoResaltar(ctx, [drag.over], C.accent, { tinte: .2, ancho: 3 }); label('Soltar para intercambiar', drag.x + 14, drag.y - 16, C.ink, "500 12px 'Inter'"); }   /* A362 */
   if (!exporting && selection.size) LAM.isoResaltar(ctx, [...selection], C.accent).forEach(b => { const m = byId(b.id); if (!m) return;
     const tx = `${nombreModulo(m)} · ${fmt(m.ancho)}${uS()}`; ctx.save(); ctx.font = "600 11px 'Inter'"; const tw = ctx.measureText(tx).width, cx = (b.x0 + b.x1) / 2;
     const x = Math.max(4, Math.min(cssW - tw - 20, cx - tw / 2 - 8)), y = Math.max(4, b.y0 - 26);
