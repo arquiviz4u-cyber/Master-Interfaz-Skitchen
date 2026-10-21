@@ -303,6 +303,18 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A367. [Master hecho 21/10; SketchUp: construye el potfiller del plan; Revit pendiente] (usuario 21/10: «pot filler en estufa y parrilla»)
+       El potfiller va sobre la estufa o, si no hay estufa, sobre el gabinete con parrilla (estufaRango toma la columna de coccion). En el
+       panel de la estufa y en el de un gabinete con parrilla sale su casilla, ademas de la del backsplash.
+   A366. [Master hecho 21/10; SketchUp y Revit: leen cubiertaAPano] (usuario 21/10: «opcion a paño de gabinetes por default activada»)
+       «A paño de gabinetes (solo en laterales)» viene activada de fabrica (cubiertaAPano: true). Las cocinas guardadas conservan la suya.
+   A365. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (editor)] (usuario 21/10: «para evitar errores de arrastre de materiales,
+       el material de cubiertas y backsplash se arrastra a su categoria, incluso arrastrandose al espacio en blanco») Un material de la
+       categoria Cubiertas va siempre a la cubierta y uno de Backsplash al backsplash, se suelte donde se suelte (alzado, planta o
+       isometrico); se resalta la cubierta o el backsplash mientras se arrastra. Antes, en vacio, pintaba todo el mueble.
+   A364. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (editor)] (usuario 21/10: «se siente laggeado cuando arrastro un material
+       a los elementos») El arrastre redibuja una vez por cuadro (pedirDibujo con requestAnimationFrame; antes en cada evento dragover), el
+       isometrico reutiliza su escena mientras no cambie la cocina (isoCache) y el resalte reutiliza sus lienzos.
    A363. [Master hecho 21/10; SketchUp y Revit: reciben las alturas en el plan (Revit pendiente si calcula las suyas)] (usuario 21/10: «auto
        alineado de cajones bajos de alacena con otros que tengan misma configuracion (cantidad de cajones)») La cajonera de la alacena
        copia las alturas de la cajonera de bajo mas cercana con el mismo numero de cajones (3, o 2 con «2 cajones»), incluidas las que se
@@ -3156,7 +3168,7 @@ function defaultConfig(length){
     generarCubierta: true, generarZoclos: true, tipoZoclo: 'madera', retiroZoclo: 7, cerrarZocloIzq: false, cerrarZocloDer: false,
     backsplash: true, backsplashCompleto: true, altoBacksplash: 15, espesorBacksplash: 1, led: false, ledFrente: true, ledCentro: false, ledRetiro: 8, ledLuz: true, ledFade: 45, ledTemp: 3000,
     moduloTarja: null, tipoTarja: 0, tarjaBajoCubierta: false, tarjaAncho: 50, tarjaFondo: 42, tarjaProf: 20, retiroTarja: 7, monomando: true,
-    style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, anchoShaker: 5, bisagras: true, cubiertaAPano: false,
+    style: 'Moderna', gola: 'L', perfil: 'L', jaladera: 'Barra', largoJaladera: 12.8, anchoShaker: 5, bisagras: true, cubiertaAPano: true,   /* A366: a paño de gabinetes de fabrica */
     narizCubierta: false, alturaNariz: 5, puertasOcultas: [],
     materialGeneral: null, materiales: {}, modulos: [] };
   /* E1: la cocina nueva toma la region de Ajustes y la guarda; sus reglas ya no cambian aunque cambie la preferencia */
@@ -4421,7 +4433,8 @@ const crownFaja = c => Math.min(1.9, c * .3);
 /* A216 (usuario): potfiller (llenador de ollas) sobre el backsplash, en la columna de la estufa */
 /* A219 (usuario): posicion del potfiller en la columna de la estufa: izquierda, centro o derecha (centro del conjunto de 14-1/4 in, a 3 cm del borde) */
 const potFillerCx = rE => { const w = 14.25 * 2.54, pos = cfg.potFillerPos; return pos === 'izq' ? rE[0] + 3 + w / 2 : pos === 'der' ? rE[1] - 3 - w / 2 : (rE[0] + rE[1]) / 2; };
-const estufaRango = () => { let x = ajusteIzq(), r = null; row(false).forEach(m => { if (!r && !m.reserved && m.tipo === 'Estufa') r = [x, x + m.ancho]; x += m.ancho; }); return r; };
+/* A367 (usuario 21/10: «pot filler en estufa y parrilla»): la columna de coccion: la estufa o, sin ella, el gabinete con parrilla */
+const estufaRango = () => { let x = ajusteIzq(), r = null, rp = null; row(false).forEach(m => { if (!m.reserved && m.tipo === 'Estufa' && !r) r = [x, x + m.ancho]; else if (!m.reserved && m.parrilla && !rp) rp = [x, x + m.ancho]; x += m.ancho; }); return r || rp; };
 /* A218 (usuario): potfiller con las medidas de la ficha del fabricante (Eco Brass, plegado, en pulgadas): ancho total 14-1/4, alto 8-7/8 desde el eje de la valvula,
    columna de 2-1/4 con su centro a 1-1/8 del borde, brazo superior a 5-1/4 y brazo inferior a 3-1/4 sobre la valvula, buje de 1-3/4 a 6-3/4 a 12-1/2 de la columna,
    pico a 4 de la columna y 5/8 sobre la valvula, salida del muro a 1-3/8 sobre la valvula. cx = centro del conjunto; z0 = eje de la valvula; y0 = cara del muro */
@@ -9416,6 +9429,11 @@ function planGeneral(){
 
 /* arrastre de material: destino resaltado y rotulo «Material → destino» (MaterialTab.DrawMaterialDrag) */
 function materialTarget(p){
+  /* A365 (usuario 21/10: «para evitar errores de arrastre de materiales, el material de cubiertas y backsplash se arrastra a su categoria,
+     incluso arrastrandose al espacio en blanco»): un material de Cubiertas va a la cubierta y uno de Backsplash al backsplash, caiga donde
+     caiga (antes, en vacio pintaba todo el mueble con granito) */
+  { const sw = p && p.id ? mat(p.id) : null, gr = sw && sw.categoria === 'Cubiertas' ? ['Cubierta', 'cover'] : sw && sw.categoria === 'Backsplash' ? ['Backsplash', 'backsplash'] : null;
+    if (gr) return { key: gr[0], rects: view === 'Isometrico' ? [] : partHits.filter(h => h.key === gr[1]).map(h => h.rect), iso: view === 'Isometrico' ? (h => parteIso(h.p) === gr[1]) : null }; }
   /* A355: en el isometrico, la pieza de encima: una parte (su grupo de material) o su gabinete; en vacio, nada */
   if (view === 'Isometrico') { const pc = LAM.isoPieza(p), parte = parteIso(pc);
     if (parte) return { key: GRUPO_PARTE[parte], rects: [], iso: h => parteIso(h.p) === parte };
@@ -9670,9 +9688,9 @@ canvas.addEventListener('mousemove', e => {
   const p = pt(e);
   if (view === 'Isometrico' && drag && drag.kind === 'module') {   /* A362 (usuario 21/10: «intercambiar modulos de posicion tambien funciona en isometrico») */
     drag.x = p.x; drag.y = p.y; const lejos = Math.hypot(p.x - drag.x0, p.y - drag.y0) > 5, t = lejos ? LAM.isoModulo(p) : null;
-    drag.over = t && t !== drag.id && byId(t) ? columnaPar(drag.id, t) : null; canvas.style.cursor = lejos ? 'grabbing' : 'pointer'; drawCanvas(); return; }
+    drag.over = t && t !== drag.id && byId(t) ? columnaPar(drag.id, t) : null; canvas.style.cursor = lejos ? 'grabbing' : 'pointer'; pedirDibujo(); return; }
   if (view === 'Isometrico') { const pa = parteIso(LAM.isoPieza(p)), hm = LAM.isoModulo(p), hv = pa ? 'parte:' + pa : hm && byId(hm) ? hm : null; canvas.style.cursor = LAM.isoHit(p) || hv ? 'pointer' : 'default';   /* A170; A340; A355 */
-    if (hv !== isoHover) { isoHover = hv; drawCanvas(); } return; }   /* A353: el contorno tenue sigue al puntero */
+    if (hv !== isoHover) { isoHover = hv; pedirDibujo(); } return; }   /* A353: el contorno tenue sigue al puntero; A364: por cuadro */
   if (drag && drag.kind === 'module') {
     const h = hits.find(h => h.module.id !== drag.id && inside(p, h.rect)), next = h ? columnaPar(drag.id, h.module.id) : null;   /* A160: por columna */
     drag.x = p.x; drag.y = p.y; canvas.style.cursor = 'grabbing';
@@ -9774,11 +9792,11 @@ document.addEventListener('keydown', e => {
 });
 
 /* soltar una muestra sobre el canvas (canvas.DragDrop + ApplyMaterial) */
-canvas.addEventListener('dragover', e => { if (!matDrag) return; e.preventDefault(); matDrag.x = e.offsetX; matDrag.y = e.offsetY; matDrag.ctrl = e.ctrlKey; drawCanvas(); });
+canvas.addEventListener('dragover', e => { if (!matDrag) return; e.preventDefault(); if (matDrag.x === e.offsetX && matDrag.y === e.offsetY && matDrag.ctrl === e.ctrlKey) return; matDrag.x = e.offsetX; matDrag.y = e.offsetY; matDrag.ctrl = e.ctrlKey; pedirDibujo(); });   /* A364 */
 canvas.addEventListener('dragleave', () => { if (matDrag) { matDrag = null; drawCanvas(); } });
 canvas.addEventListener('drop', e => {
   e.preventDefault();
-  const id = e.dataTransfer.getData('text/swatch'), q = pt(e); q.ctrl = e.ctrlKey; const t = materialTarget(q); matDrag = null;   /* A137 */
+  const id = e.dataTransfer.getData('text/swatch'), q = pt(e); q.ctrl = e.ctrlKey; q.id = id; const t = materialTarget(q); matDrag = null;   /* A137; A365: con su categoria */
   if (id && !t.nada) applyMaterial(id, t.key); else drawCanvas();   /* A355: en el isometrico, en vacio no pinta toda la cocina */
 });
 
@@ -10165,10 +10183,11 @@ function modulePanel(m){
   if (m.tipo === 'Lavavajillas') html += section('Lavavajillas', chk('lavaComp', m.lavavajillasCompacto, `Compacto (${medida(reg().lavaCompacto)})`)
     + `<div class="note-sm">Hueco de ${medida(m.ancho)} del piso a la cubierta; trae su propio zoclo.</div>` + avisoLavavajillas(m));
   if (!m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
-  if (m.tipo === 'Estufa') html += section('Estufa', chk('quem6', m.ancho >= (reg().estufa.cuatro + reg().estufa.seis)/2, `6 quemadores (${medida(reg().estufa.seis)}); sin marcar, 4 (${medida(reg().estufa.cuatro)})`));
+  if (m.tipo === 'Estufa') html += section('Estufa', chk('quem6', m.ancho >= (reg().estufa.cuatro + reg().estufa.seis)/2, `6 quemadores (${medida(reg().estufa.seis)}); sin marcar, 4 (${medida(reg().estufa.cuatro)})`)
+    + chk('potF', cfg.potFiller, 'Potfiller sobre la estufa'));   /* A367 */
   if (m.tipo === 'Frigobar') html += section('Frigobar', `<div class="grid-2">${num('altoFrig', 'Alto del frigobar (desde el zoclo)', m.altoFrigobar, 'cm', 50, 120)}</div>`
     + chk('tapFrig', m.tapetaFrigobar, 'Tapeta superior bajo la cubierta') + `<div class="note-sm">Si es más alto que el gabinete, baja al piso y corta el zoclo.</div>`);
-  if (!m.upper && !esAparato(m)) html += section('Parrilla', chk('parr', m.parrilla, 'Parrilla de inducción encima')
+  if (!m.upper && !esAparato(m)) html += section('Parrilla', chk('parr', m.parrilla, 'Parrilla de inducción encima') + (m.parrilla ? chk('potF', cfg.potFiller, 'Potfiller sobre la parrilla') : '')   /* A367 */
     + (m.parrilla ? `<div class="grid-2" style="margin-top:10px">${num('parrAncho', 'Ancho de la parrilla', m.parrillaAncho, 'cm', reg().parrilla.min, reg().parrilla.max)}</div>` + notaParrilla(m) : ''));
   if (m.tipo === 'Cajones') html += section('Cajones', `<div class="grid-2">${num('nCaj', 'Número de cajones', m.numCajones, 'u', 1, 6, 1)}</div>`
     + `<div style="margin-top:10px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>`
@@ -10411,7 +10430,7 @@ function partPanel(key){
   } else if (key === 'backsplash') {
     html += section('Backsplash', chk('genBs', cfg.backsplash, 'Generar backsplash') + chk('bsComp', cfg.backsplashCompleto, 'Completo hasta los gabinetes altos')
       + `<div class="grid-2" style="margin-top:10px">${cfg.backsplashCompleto ? '' : num('bsAlto', 'Altura', cfg.altoBacksplash, 'cm', 5, 100)}${num('bsEsp', 'Espesor', cfg.espesorBacksplash, 'cm', .5, 5)}</div>`
-      + chk('potF', cfg.potFiller, 'Potfiller sobre la estufa') + (cfg.potFiller ? `<div class="grid-2" style="margin-top:10px">${num('potFAlto', 'Eje de la válvula sobre la cubierta', cfg.potFillerAlto, 'cm', 15, 60)}</div>` + radios('potFPos', [['izq', 'Izquierda'], ['centro', 'Centro'], ['der', 'Derecha']], cfg.potFillerPos || 'centro') : ''));
+      + chk('potF', cfg.potFiller, 'Potfiller sobre la estufa o la parrilla') + (cfg.potFiller ? `<div class="grid-2" style="margin-top:10px">${num('potFAlto', 'Eje de la válvula sobre la cubierta', cfg.potFillerAlto, 'cm', 15, 60)}</div>` + radios('potFPos', [['izq', 'Izquierda'], ['centro', 'Centro'], ['der', 'Derecha']], cfg.potFillerPos || 'centro') : ''));
     html += section('Iluminación', chk('led', cfg.led, 'Iluminación LED bajo gabinetes altos') + (cfg.led ? posicionLedHTML('gabinete') + tonoLuzHTML() : ''));
   } else if (key === 'fillerI' || key === 'fillerD') {
     const L = key === 'fillerI', on = L ? cfg.tapetaIzq : cfg.tapetaDer, w = L ? ajusteIzq() : ajusteDer();
@@ -13110,12 +13129,14 @@ const LAM = (() => {
   /* A353 (usuario 21/10: «la seleccion se ve extraña en el isometrico, ¿podemos cambiarla por una mas dinamica, estetica y legible?»): el
      contorno exterior de la silueta del modulo (union de sus caras visibles: mascara dilatada menos la mascara), un tinte muy suave adentro
      y, por modulo, su caja en pantalla (para la etiqueta). o.ancho: grueso del contorno en px; o.tinte: opacidad del tinte */
+  const LIENZOS_RES = [];
   function isoResaltar(g, ids, color, o = {}){
     const set = new Set(typeof ids === 'function' ? [] : ids), esMio = typeof ids === 'function' ? ids : h => h.modulo && set.has(h.modulo);   /* A355: o una regla sobre la cara (piezas sueltas) */
     const por = new Map(); isoModHits.forEach(h => { if (esMio(h)) { const k = typeof ids === 'function' ? '__' : h.modulo; if (!por.has(k)) por.set(k, []); por.get(k).push(h); } });
     if (!por.size) return [];
     const W = g.canvas.width, H = g.canvas.height, T = g.getTransform(), k = Math.hypot(T.a, T.b) || 1, r = (o.ancho || 2.5) * k;
-    const lienzo = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+    let nL = 0; const lienzo = () => { const c = LIENZOS_RES[nL] || (LIENZOS_RES[nL] = document.createElement('canvas')); nL++;   /* A364: reutilizados */
+      if (c.width !== W || c.height !== H) { c.width = W; c.height = H; } else { const cx = c.getContext('2d'); cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalCompositeOperation = 'source-over'; cx.globalAlpha = 1; cx.clearRect(0, 0, W, H); } return c; };
     const masc = lienzo(), mg = masc.getContext('2d'); mg.setTransform(T); mg.fillStyle = '#000'; mg.strokeStyle = '#000'; mg.lineWidth = 2.2 / k; mg.lineJoin = 'round';
     /* cada cara por su cuenta (un solo trazo con caras encimadas de giro opuesto dejaba huecos) y con su borde, que cierra las rendijas */
     /* en orden de pintado: lo de los elegidos suma; lo que otra pieza pinta encima despues, se borra (solo queda lo visible) */
@@ -15716,7 +15737,9 @@ const pruebasLaminas = () => LAM.pruebas();
 /* preview isometrico del editor (A170): el mismo dibujo que se exporta, con clic para abrir o cerrar puertas y cajones */
 /* A338 (usuario 21/10: «zoom en el isometrico con scroll del mouse (no aplica en presentar)»): k = acercamiento sobre el ajuste a la ventana
    (1 a 12) y dx, dy = corrimiento en px; la rueda acerca hacia el puntero, el boton central arrastra. Al exportar no cuenta */
-let isoZoom = { k: 1, dx: 0, dy: 0, base: null }, isoPan = null, isoHover = null;
+let isoZoom = { k: 1, dx: 0, dy: 0, base: null }, isoPan = null, isoHover = null, isoCache = { clave: null, esc: null };
+/* A364: un dibujo por cuadro mientras se arrastra o se pasa el mouse (los eventos llegan mucho mas seguido que los cuadros) */
+let cuadroPend = 0; const pedirDibujo = () => { if (cuadroPend) return; cuadroPend = requestAnimationFrame(() => { cuadroPend = 0; drawCanvas(); }); };
 /* A355 (usuario 21/10: «arrastrar materiales en elementos funciona en isometrico; los listones de ajuste laterales y superiores se seleccionan
    en isometrico»): la parte del editor que es una pieza del plan (piezas de ajuste, cubierta, zoclo, backsplash, gola) y su grupo de material */
 const parteIso = p => !p ? null : p.rol === 'tapeta' ? (/^tapeta:izq/.test(p.id) ? 'fillerI' : /^tapeta:der/.test(p.id) ? 'fillerD' : 'fillerTop')
@@ -15726,7 +15749,10 @@ function drawIsometrico(){
   title('ISOMÉTRICO', '');
   frame = { scale: 1, ox: 0, ground: 0, X: x => x, Z: z => z, W: 0 };
   let esc;
-  try { esc = LAM.isoEscena({ puertas: showDoors, cotas: measure }); }
+  /* A364 (usuario 21/10: «se siente laggeado cuando arrastro un material a los elementos»): la escena se rehace solo si cambio la cocina,
+     las puertas, lo abierto o las cotas; arrastrar, pasar el mouse o elegir reutilizan la ultima */
+  const claveEsc = exporting ? null : [JSON.stringify(cfg), showDoors, measure, [...LAM.abiertos].sort().join(','), cfg.region].join('|');
+  try { esc = claveEsc && isoCache.clave === claveEsc ? isoCache.esc : LAM.isoEscena({ puertas: showDoors, cotas: measure }); if (claveEsc) isoCache = { clave: claveEsc, esc }; }
   catch (e) { ctx.save(); ctx.font = "13px 'Inter'"; ctx.fillStyle = C.muted; ctx.fillText(e.message, 40, 130); ctx.restore(); return; }
   const L = 40, R = 40, T = 96, B = 66, w = esc.bb.x1 - esc.bb.x0, h = esc.bb.y1 - esc.bb.y0, aw = cssW - L - R - 30, ah = cssH - T - B - 30;
   const fit = Math.max(.05, Math.min(aw / w, ah / h)), zk = exporting ? 1 : isoZoom.k, s = fit*zk;
