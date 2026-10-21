@@ -303,6 +303,19 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A345. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «la funcion
+       particular de los modulos internos de torres (cuando damos doble clic) deberia ser grafica para identificarlo a la primera» y «la
+       funcion que aparece como "Puertas" se une con la opcion de 2 puertas; al seleccionarla por default se pone una sola y despues deberia
+       aparecer la opcion de 2 puertas con este modulo seleccionado») Los cuerpos internos (torre: inferior y superior; alacena: cada cuerpo
+       y la cajonera; gabinete del refrigerador) eligen su funcion con tarjetas con icono (tilesInt, FI_INT), plegadas como la Funcion del
+       gabinete. «Puertas» y «2 puertas» son una sola tarjeta: elegirla pone una puerta y en Opciones aparece el interruptor «2 puertas»
+       (dosInt).
+   A344. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (editor)] (usuario 21/10: «teniendo seleccionado columnas de torres, la
+       siguiente opcion que muestra despues de funcion deberia ser especiero anexado para tenerlo visible inmediato») En el panel de la torre
+       (hornos, alacena, refrigerador) «Especiero anexado» va justo despues de Funcion.
+   A343. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «en la funcion se
+       minimizan los demas tipos dejando solo el seleccionado visible (al pasar el mouse se muestran las otras)») Funcion plegada muestra
+       solo la tarjeta elegida (antes la primera fila y la elegida); al pasar el mouse o con el foco aparecen todas.
    A342. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (Presentar)] (usuario 21/10: «en el panel izquierdo de presentar las
        vistas de lamina se minimiza la pestaña») «Vistas de esta lámina» es plegable como «Hoja y opciones» y las demas (abierta de fabrica;
        recuerda si se plego).
@@ -2428,8 +2441,10 @@
   .ftiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   /* A48: la Funcion queda plegada y se despliega al pasar el mouse, para tener cerca las opciones del mueble. A71 (usuario, 04/10):
      plegada deja a la vista la primera fila (3 tarjetas) y la elegida; las demas aparecen debajo al pasar el mouse */
-  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on) .ftile:not(.on):nth-child(n+4) { display: none; }
-  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on):has(.ftile:nth-child(4)) .p-label::after { content: ' · pasa el mouse para ver todas'; font-weight: 400; text-transform: none; letter-spacing: 0; color: #8A949E; }
+  /* A343 (usuario 21/10: «en la funcion se minimizan los demas tipos dejando solo el seleccionado visible; al pasar el mouse se muestran
+     las otras»): plegada deja solo la elegida */
+  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on) .ftile:not(.on) { display: none; }
+  .p-section.plegable:not(:hover):not(:focus-within):has(.ftile.on):has(.ftile:nth-child(2)) .p-label::after { content: ' · pasa el mouse para ver todas'; font-weight: 400; text-transform: none; letter-spacing: 0; color: #8A949E; }
   .ftile { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 3px 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; color: #5A6570; font: 500 11px/1.2 'Inter', sans-serif; text-align: center; transition: border-color .12s, background .12s; }
   .ftile:hover { border-color: #B8C0C8; }
   .ftile.on { border-color: var(--ink); background: var(--ink-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
@@ -9721,11 +9736,23 @@ const FI = (() => {
     ZapateraBaja: R(4,4,32,40) + L(8,12,32,12) + L(6,40,34,36) + L(6,32,34,28),
     Completo: R(4,4,32,40) + L(4,10,36,10) + L(8,16,32,16) + L(4,32,36,32) + L(4,38,36,38) + K(20,35) + K(20,41),
     Vanity: R(4,4,32,40) + C(20,15,6) + L(4,27,36,27) + R(8,28,24,5),
+    'int:Dos cajones': R(5,10,30,32) + L(5,26,35,26) + K(20,18) + K(20,34),   /* A345: cuerpos internos de torre, alacena y refrigerador */
+    'int:Especiero extraíble': R(13,10,12,32) + L(13,18,25,18) + L(13,26,25,26) + L(13,34,25,34) + L(28,26,37,26) + L(34,23,37,26) + L(34,29,37,26),
   };
 })();
+const FI_INT = { 'Puertas': 'Sencillo', '1 puerta': 'Sencillo', '2 puertas': 'DosPuertas', 'Cajones': 'Cajones', '3': 'Cajones', 'Dos cajones': 'int:Dos cajones', '2': 'int:Dos cajones',
+  'Repisas': 'Repisas', 'Pistón': 'Piston', 'Elevable': 'Piston', 'Especiero': 'Especiero', 'Especiero extraíble': 'int:Especiero extraíble' };
 const FI_CORTO = { 'Abierto / repisas': 'Abierto', 'Módulo inferior + módulo superior': 'Inferior + superior' };
-const tiles = (act, opts, cur) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span></button>`).join('')}</div>`;
+const tiles = (act, opts, cur, ic) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${(ic && FI[ic[v]]) || FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span></button>`).join('')}</div>`;
 const toggles = list => `<div class="ftiles otiles">${list.map(([act, on, t, icon]) => `<button type="button" class="ftile${on ? ' on' : ''}" data-act="${act}" aria-pressed="${on ? 'true' : 'false'}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${icon}</svg><span>${esc(t)}</span></button>`).join('')}</div>`;
+/* A345 (usuario 21/10: «la funcion particular de los modulos internos de torres (doble clic) deberia ser grafica para identificarlo a la
+   primera»; «la funcion "Puertas" se une con la opcion de 2 puertas: al elegirla queda una sola y despues aparece la opcion de 2 puertas»):
+   tarjetas con icono; «Puertas» y «2 puertas» son una tarjeta y el interruptor «2 puertas» va en Opciones (dosPend lo deja listo) */
+let dosPend = '';
+const tilesInt = (act, opts, cur) => { const uno = opts.find(([v]) => v === 'Puertas' || v === '1 puerta'), hayDos = opts.some(([v]) => v === '2 puertas') && uno;
+  const o2 = hayDos ? opts.filter(([v]) => v !== '2 puertas').map(([v, t]) => v === uno[0] ? [v, 'Puertas'] : [v, t]) : opts, c2 = hayDos && cur === '2 puertas' ? uno[0] : cur;
+  dosPend = hayDos && c2 === uno[0] ? toggles([['dosInt', cur === '2 puertas', '2 puertas', FI.DosPuertas]]) : '';
+  return tiles(act, o2, c2, FI_INT); };
 /* dibujo del perfil de corona para el panel (7 x 7 cm) */
 const crownSvg = tipo => { const pts = perfilCrown(tipo, 7, 7), d = pts.map(([y, z], i) => `${i ? 'L' : 'M'}${(y + .5).toFixed(2)} ${(7.5 - z).toFixed(2)}`).join('') + 'Z';
   return `<svg viewBox="0 0 8 8" width="34" height="34" style="vertical-align:middle;margin-right:6px"><path d="${d}" fill="#D9C7A3" stroke="#4A5057" stroke-width=".35" stroke-linejoin="round"/><path d="M.5 .5V7.5" stroke="#9AA3AB" stroke-width=".25" stroke-dasharray=".6 .5"/></svg>`; };
@@ -9962,6 +9989,8 @@ function specialPanel(m){
   if (valid) return focusPanelHtml(m, zone, chip);
   let html = head(nombreModulo(m), chip);
   html += section('Función', tiles('tipo', tilesBajo(), tileTipo(m.tipo)), 'plegable');
+  /* A344 (usuario 21/10: «teniendo seleccionada una columna de torre, la siguiente opcion despues de funcion deberia ser especiero anexado») */
+  if (torreAnexable(m)) html += section('Especiero anexado', anexoOpciones(m));
   html += section('Medidas', (m.tipo === 'EspecieroTorre' ? '' : anchoFijo(m.fijo, 'fijoLibre'))
     + `<div class="grid-2" style="margin-top:10px">${m.tipo === 'EspecieroTorre' ? num('anexoAncho', 'Ancho del especiero', m.ancho, 'cm', 15, 45) : num('topeEsp', 'Alto desde el piso', altoEsp(m), 'cm', 160, topeAltos())}${num('lat', 'Espesor laterales', m.espesorLaterales, 'cm', 1, 5)}</div>`);   /* A144 */
   if (isTower(m)) html += section('Torre', `<div class="note-sm" style="margin-top:0">Doble clic en un cuerpo para elegir puertas, cajones o repisas; clic en un equipo para editarlo.</div><div class="grid-2" style="margin-top:10px">${num('aire', 'Aire posterior', m.aireHornos, 'cm', 5, 15)}</div>`);
@@ -9978,7 +10007,6 @@ function specialPanel(m){
   else html += section('Especiero', `<div class="note-sm">Especiero anexado a la torre: del zoclo al cuerpo de arriba de la torre, que se ensancha y lo cubre.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
     + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas apiladas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')
     + `<div style="margin-top:8px">${chk('espPiso', !!m.especieroAlPiso, 'Frente hasta el piso (oculta el zoclo)')}</div>`);   /* A150; A152 */   /* A144 */
-  if (torreAnexable(m)) html += section('Especiero anexado', anexoOpciones(m));
   if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules o haz clic en su cota.</div>`);
   return html;
 }
@@ -9995,29 +10023,29 @@ function anexoOpciones(m){ const a = m.anexo;
 const FUNCIONES_REFRI = [['Puertas', 'Puertas'], ['2 puertas', '2 puertas'], ['Pistón', 'Pistón']];
 const refriSup = m => m.pistonRefri ? 'Pistón' : m.dosPuertas ? '2 puertas' : 'Puertas';
 function focusPanelHtml(m, zone, chip){
-  if (isRefri(m) && zone === 'superior') return head(nombreModulo(m) + ' · gabinete superior', chip) + section('Función', sel('refriSup', FUNCIONES_REFRI, refriSup(m)))
-    + section('Opciones', `<div class="grid-2">${num('repRefri', 'Repisas en este gabinete', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'))
+  if (isRefri(m) && zone === 'superior') return head(nombreModulo(m) + ' · gabinete superior', chip) + section('Función', tilesInt('refriSup', FUNCIONES_REFRI, refriSup(m)), 'plegable')
+    + section('Opciones', dosPend + `<div class="grid-2">${num('repRefri', 'Repisas en este gabinete', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'))
       + (refriSup(m) === 'Puertas' ? chk('inv', m.invertir, 'Invertir abatimiento') : ''))
     + `<div class="p-foot"><button class="btn btn-block" data-act="closeFocus">Volver al gabinete</button></div>`;
   if (zone === 'especiero') return head(nombreModulo(m) + ' · especiero', chip) + section('Especiero anexado', anexoOpciones(m))   /* A156 */
     + `<div class="p-foot"><button class="btn btn-block" data-act="closeFocus">Volver al gabinete</button></div>`;
   const tower = isTower(m), n = m.cuerposAlacena;
   let kind, more;
-  if (tower && zone === 'inferior') kind = sel('torreInf', [['Puertas','Puertas'],['2 puertas','2 puertas'],['Cajones','3 cajones'],['Dos cajones','2 cajones'],['Repisas','Repisas']], m.torreInferior);
-  else if (tower) kind = sel('torreSup', [['Puertas','Puertas'],['2 puertas','2 puertas'],['Repisas','Repisas'],['Pistón','Pistón']], m.torreSuperior);   /* A160 (usuario): como en los altos */
+  if (tower && zone === 'inferior') kind = tilesInt('torreInf', [['Puertas','Puertas'],['2 puertas','2 puertas'],['Cajones','3 cajones'],['Dos cajones','2 cajones'],['Repisas','Repisas']], m.torreInferior);
+  else if (tower) kind = tilesInt('torreSup', [['Puertas','Puertas'],['2 puertas','2 puertas'],['Repisas','Repisas'],['Pistón','Pistón']], m.torreSuperior);   /* A160 (usuario): como en los altos */
   /* repisas propias del cuerpo, con el maximo que cabe (35 cm entre repisas) */
   const shelvesField = (text, open) => `<div class="grid-2">${num('repZona', text, zoneShelves(m, zone), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, zone), zoneShelves(m, zone), !open && showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '');
   /* A286 (usuario 18/10: «es la torre de hornos, quita el campo cuando hay cajones»): con cajones abajo no hay repisas que elegir */
   if (tower && zone === 'inferior' && hasDrawers(m)) more = `<div class="note-sm" style="margin-top:0">Con cajones este gabinete no lleva repisas.</div>`;
   else if (tower) more = shelvesField('Repisas en este gabinete', (zone === 'inferior' ? m.torreInferior : m.torreSuperior).includes('Repisas') || zone === 'superior' && (towerLift(m) || m.torreSuperior === 'Pistón'));
-  else if (zone === 'cajones') { kind = sel('cajDob', [['3','3 cajones'],['2','2 cajones']], m.cajonesDobles ? '2' : '3'); more = `<div class="grid-2">${num('altoCaj', 'Alto de cajonera', m.altoCajonesAlacena, 'cm', 40, 100)}</div>`; }
+  else if (zone === 'cajones') { kind = tilesInt('cajDob', [['3','3 cajones'],['2','2 cajones']], m.cajonesDobles ? '2' : '3'); more = `<div class="grid-2">${num('altoCaj', 'Alto de cajonera', m.altoCajonesAlacena, 'cm', 40, 100)}</div>`; }
   else {
     const j = +zone.slice(6) - 1, bt = bodyType(m, j, n);
-    kind = sel('cuerpoTipo', [['1 puerta','1 puerta'],['2 puertas','2 puertas'],['Repisas','Repisas'],['Especiero','Especiero'],['Especiero extraíble','Especiero extraíble']].concat(j === n - 1 ? [['Elevable','Elevable']] : []), bt);
+    kind = tilesInt('cuerpoTipo', [['1 puerta','1 puerta'],['2 puertas','2 puertas'],['Repisas','Repisas'],['Especiero','Especiero'],['Especiero extraíble','Especiero extraíble']].concat(j === n - 1 ? [['Elevable','Elevable']] : []), bt);
     more = bt === 'Elevable' ? `<div class="grid-2">${num('repElev', 'Repisas en este cuerpo', m.repisasElevable, 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, zone), m.repisasElevable, '', 27)
       : bt.startsWith('Especiero') ? `<div class="note-sm" style="margin-top:0">El especiero lleva 5 repisas.</div>` : shelvesField('Repisas en este cuerpo', bt === 'Repisas');
   }
-  return head((tower ? 'Torre · ' : 'Alacena · ') + panelLabel(zone).toLowerCase(), chip) + section('Función', kind) + section('Opciones', more)
+  return head((tower ? 'Torre · ' : 'Alacena · ') + panelLabel(zone).toLowerCase(), chip) + section('Función', kind, 'plegable') + section('Opciones', dosPend + (more || ''))
     + `<div class="p-foot"><button class="btn btn-block" data-act="closeFocus">Volver al gabinete</button></div>`;
 }
 /* piezas interiores elegidas (repisas, fondos, division) */
@@ -10246,6 +10274,11 @@ const ACT = {
   refriSup: (v, m) => change(() => { const t = byId(m.id); t.pistonRefri = v === 'Pistón'; t.dosPuertas = v === '2 puertas'; }),   /* A160 */
   cajDob: (v, m) => change(() => { const t = byId(m.id); t.cajonesDobles = v === '2'; t.frenteSup = t.frenteMed = 0; }),
   cuerpoTipo: (v, m) => change(() => setBodyType(byId(m.id), +focusPanel.split(':')[2].slice(6) - 1, v)),
+  /* A345: interruptor «2 puertas» del cuerpo interno (torre, alacena, refrigerador) */
+  dosInt: (v, m) => { const t = byId(m.id), z = focusPanel ? focusPanel.split(':')[2] : '';
+    if (isRefri(t)) return ACT.refriSup(refriSup(t) === '2 puertas' ? 'Puertas' : '2 puertas', m);
+    if (isTower(t)) return z === 'inferior' ? ACT.torreInf(t.torreInferior === '2 puertas' ? 'Puertas' : '2 puertas', m) : ACT.torreSup(t.torreSuperior === '2 puertas' ? 'Puertas' : '2 puertas', m);
+    const j = +z.slice(6) - 1; return ACT.cuerpoTipo(bodyType(t, j, t.cuerposAlacena) === '2 puertas' ? '1 puerta' : '2 puertas', m); },
   repZona: (v, m) => change(() => { const t = byId(m.id), zone = focusPanel.split(':')[2]; t.repisasZona[zone] = Math.max(0, Math.min(MAX_REPISAS, Math.round(v))); }),
   repElev: (v, m) => change(() => byId(m.id).repisasElevable = Math.round(v)),
   huecoRefri: (v, m) => change(() => byId(m.id).huecoRefri = v, 'Revisar altura'), supRefri: (v, m) => change(() => byId(m.id).superiorRefri = v),
