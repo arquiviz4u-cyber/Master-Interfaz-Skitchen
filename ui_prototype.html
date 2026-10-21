@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A334. [Master hecho 20/10; SketchUp y Revit: sin cambio (construyen del plan)] (usuario 20/10: «hay discrepancia en las cotas interiores y
+       siguen estando desfasadas de las repisas», captura: 19.6 / 18.7 / 19.6 en una columna y 18.7 x 3 en la de al lado) Las cotas salen del
+       plan y el plan estaba bien: el alto moderno con puertas lleva la cama interior sobre la cama del piso (A83), un piso de 3.6. El alzado
+       sin puertas (editor y lamina) repartia las repisas desde un piso de 1.8: quedaban 1.2 y 0.6 cm abajo (0.9 con una repisa) de donde
+       las acota el plan. drawInterior ya parte el cuerpo sobre la cama (camaInterior) y dibuja la junta de las dos camas; comprobado en
+       moderna, clasica (con y sin LED), inferior + superior y piston: el dibujo y el plan coinciden.
    A333. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «el estilo de pies de planos que se llamen
        banda horizontal abajo, banda vertical derecha, ambas sin marialuisa ni marco delimitante en area de vistas, el pie de plano que ocupe
        todo el borde de la hoja, manteniendo un ligero borde virtual para evitar recortes en la impresion» y «todas las tags en los nuevos pie
@@ -8846,9 +8852,15 @@ function drawHandle(f, r, scale){
   ctx.lineCap = 'butt';
 }
 /* interior (boton Puertas apagado, o modulo abierto): caja, repisas, division, cajas de cajon punteadas y rotulo */
+/* A334 (usuario 20/10: «hay discrepancia en las cotas interiores y siguen estando desfasadas de las repisas»): el alto moderno con puertas
+   lleva la cama interior sobre la cama del piso (A83): su piso mide 3.6 y las repisas se reparten desde ahi, como en el plan. El dibujo las
+   repartia desde 1.8 y quedaban 1.2 y 0.6 cm abajo de donde las acota el plan */
+const camaInterior = m => m.upper && conCama(m) && cfg.style === 'Moderna' && !sinPuertas(m);
 function drawInterior(m, body, Z, mat, sel){
   const t = 1.8*frame.scale;
   fillMat(body.x, body.y, body.w, body.h, mat, sel ? C.selFill : C.front);
+  if (camaInterior(m)) { const yb = body.y + body.h - t; ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(body.x, yb); ctx.lineTo(body.x + body.w, yb); ctx.stroke(); edgeY(yb);
+    body = { x: body.x, y: body.y, w: body.w, h: body.h - t }; }   /* A334: la cama del piso abajo; el cuerpo, sobre ella */
   const drawers = fronts(m).filter(f => f.kind === 'Cajon' && !f.fijo), comb = espCon(m) !== 'Nada', n = comb ? 0 : shelvesOf(m);
   if (comb) { const [e0, e1, r0, r1] = espPartes(m), s = frame.scale;   /* A51: especiero con sus 5 repisas y el resto con la suya */
     if (!m.extraible) drawShelves({ x: body.x + e0*s, y: body.y, w: (e1 - e0)*s, h: body.h }, 5, m, 'cuerpo', false, sel);
