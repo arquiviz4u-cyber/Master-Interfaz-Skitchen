@@ -303,6 +303,17 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A347. [Master hecho 21/10; SketchUp: construye las correderas del plan (ids :corredera:<lado>:<k>); Revit pendiente] (usuario 21/10:
+       «opcion para modificar los juegos de correderas en especieros (bajo y de torre); por default el especiero de torre tendra 3 juegos de
+       correderas (mostrar este cambio en isometrico)») El especiero extraible de madera lleva J juegos de correderas (1 a 4) repartidos en
+       sus niveles, el de abajo siempre, cada uno en las tiras de su nivel: el bajo 1 de fabrica (m.juegosCorredera), el de torre 3 (anexado:
+       anexo.correderas; EspecieroTorre: m.juegosCorredera). Campo «Juegos de correderas» en sus opciones (no con el condimentero). Salen en
+       el isometrico, el despiece y el conteo de herrajes (Correderas (juegos)).
+   A346. [Master hecho 21/10; SketchUp: no aplica (dibujo del editor); Revit pendiente (alzado del editor)] (usuario 21/10: «el especiero
+       extraible en alzado debe verse el frente de su puerta y en la vista sin puertas debe verse correctamente su distribucion interna
+       (actualmente no se muestra)») Con puertas el especiero bajo extraible ya no pinta sus repisas encima: se ve su frente. Sin puertas, el
+       bajo y el anexado a la torre dibujan la caja del extraible como la arma el plan (tapas, piso y entrepaños de cada nivel, tiras
+       punteadas, o los condimenteros) con drawExtraible; antes el bajo salia vacio y el de torre con repisas parejas.
    A345. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «la funcion
        particular de los modulos internos de torres (cuando damos doble clic) deberia ser grafica para identificarlo a la primera» y «la
        funcion que aparece como "Puertas" se une con la opcion de 2 puertas; al seleccionarla por default se pone una sola y despues deberia
@@ -3798,13 +3809,15 @@ function frentesConAnexo(m){
   const zs = baseSuperiorTorre(tm), top = altoEsp(tm), entre = isTower(m), e = m.espesorLaterales;   /* A222: en el refrigerador, sobrepuesto */
   const z0 = (A.alPiso ? 0 : cfg.baseBajos) + hol, z1 = (zs !== null ? zs : top) - hol;
   const x0 = offE + (izq && entre ? e : 0) + hol, x1 = offE + w - (!izq && entre ? e : 0) - hol;
-  r.push(A.extraible ? { kind: 'Cajon', x0, x1, z0, z1, especiero: true, herraje: A.herraje, arriba: true, anexo: true, zona: 'especiero' } : { kind: 'Puerta', x0, x1, z0, z1, hingeRight: !izq, anexo: true, zona: 'especiero' });
+  r.push(A.extraible ? { kind: 'Cajon', x0, x1, z0, z1, especiero: true, herraje: A.herraje, juegos: A.correderas, arriba: true, anexo: true, zona: 'especiero' } : { kind: 'Puerta', x0, x1, z0, z1, hingeRight: !izq, anexo: true, zona: 'especiero' });
   return r;
 }
 const grille = m => isTower(m) && m.rejillaHorno ? m.altoRejilla : 0;
 /* A280 (usuario 18/10: «el tirador del especiero al costado de torres se coloca a media altura del mismo en vertical»): el extraible del
    especiero anexado lleva la jaladera vertical, centrada en su ancho y a media altura; el resto sigue HandleAt */
 const jalEspeciero = f => !!(f.anexo && f.especiero);
+/* A347: juegos de correderas del especiero extraible de madera: el de torre (anexado o EspecieroTorre) 3 de fabrica, el bajo 1 */
+const juegosEspeciero = (m, f) => Math.max(1, Math.min(4, Math.round(f && f.anexo ? (f.juegos || 3) : m.tipo === 'EspecieroTorre' ? (m.juegosCorredera || 3) : (m.juegosCorredera || 1))));
 const jalVertical = f => f.kind === 'Puerta' || jalEspeciero(f);
 const jalZ = (f, L, ck) => jalEspeciero(f) ? (f.z0 + f.z1)/2 : jalVertical(f) ? (f.z0 > altoBarra() ? f.z0 + 5 + L/2 : f.z1 - f.z0 > 110 && f.z1 > 160 ? f.z0 + 95 : f.z1 - 5 - L/2)
   : f.kind === 'Elevable' ? f.z0 + ck : f.arriba ? f.z1 - ck : (f.z0 + f.z1)/2;
@@ -4079,6 +4092,21 @@ function unirColumna(m, lado, conInferior){
   if (ng && ng.lead.tipoSuperior !== 'Repisas' && ng.lead.tipoSuperior !== 'Piston' && ng.width > reg().ancho.max + .01) ng.lead.tipoSuperior = 'Piston';   /* A308: el piston ya no pasa solo a caja de repisas: se divide en hojas */
   return v; }
 const hasDivider = m => !!m.division && (m.upper ? (m.dosPuertas || sinPuertas(m) || isDoble(m)) && !hasCampana(m) : m.dosPuertas && m.tipo === 'Puertas' && !m.preparadoTarja);   /* A260: con campana no (su ducto sube por el gabinete) */
+/* A346 (usuario 21/10: «el especiero extraible en alzado debe verse el frente de su puerta y en la vista sin puertas debe verse correctamente su
+   distribucion interna»): sin puertas, la caja del extraible tal como la arma el plan (tapas, piso, entrepaños cada nivel y tiras; o los
+   condimenteros) dentro de su hueco q (px). false si el plan no la trae */
+function drawExtraible(m, k, q){
+  if (k < 0 || !frame || !frame.Z) return false; let P; try { P = planCocina().piezas; } catch (e) { return false; }
+  const fid = m.id + ':frente:' + k, cs = P.filter(p => p.frente === fid && (p.rol === 'caja' || p.tipo === 'Condimentero')); if (!cs.length) return false;
+  const s = frame.scale, Y = z => frame.Z(z), t = 1.8*s, x0 = q.x + t, w = q.w - 2*t;
+  ctx.save(); ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  const tapas = cs.filter(p => p.tipo === 'Tapa'); if (tapas.length) { const z0 = Math.min(...tapas.map(p => p.z)), z1 = Math.max(...tapas.map(p => p.z + p.alto));
+    const r = { x: x0 + 2, y: Y(z1), w: w - 4, h: (z1 - z0)*s }; fillMat(r.x, r.y, r.w, r.h, null, C.interior); ctx.strokeRect(r.x, r.y, r.w, r.h); }
+  cs.filter(p => p.tipo === 'Piso' || p.tipo === 'Entrepano').forEach(p => { const r = { x: x0 + 2, y: Y(p.z + p.alto), w: w - 4, h: Math.max(1.5, p.alto*s) }; ctx.fillStyle = C.shelf; ctx.fillRect(r.x, r.y, r.w, r.h); ctx.strokeRect(r.x, r.y, r.w, r.h); edgeY(r.y); });
+  cs.filter(p => p.tipo === 'Tira').forEach(p => { const r = { x: x0 + 2, y: Y(p.z + p.alto), w: w - 4, h: p.alto*s }; ctx.save(); ctx.setLineDash([3, 2]); ctx.strokeRect(r.x, r.y, r.w, r.h); ctx.restore(); });
+  cs.filter(p => p.tipo === 'Condimentero').forEach(p => { const r = { x: x0 + 2, y: Y(p.z + p.alto), w: w - 4, h: p.alto*s }; ctx.strokeRect(r.x, r.y, r.w, r.h); line(r.x, r.y + r.h*.35, r.x + r.w, r.y + r.h*.35); });
+  ctx.restore(); return true;
+}
 /* MaxShelves: entre repisas quedan al menos 35 cm libres */
 function maxShelves(h, t = 1.8, gap = 35){ const inner = h - 2*t; if (inner < 20) return 0; return Math.max(1, Math.floor((inner-gap)/(gap+t) + 1e-9)); }
 /* aviso de repisas de los gabinetes altos: 25 cm libres entre ellas (la regla de 35 cm sigue para torre, alacena y la familia) */
@@ -4633,7 +4661,10 @@ function planDePiezas(c = cfg){
         tabla(i ? 'entrepano:' + i : 'piso', i ? 'Entrepano' : 'Piso', x0 + T, x1 - T, y0 + e, y1 - e, zp, zp + e);
         tabla(i ? 'tira:' + i + ':izq' : 'lado:izq', 'Tira', x0, x0 + T, y0, y1, zt, zt + E.tiraAlto);
         tabla(i ? 'tira:' + i + ':der' : 'lado:der', 'Tira', x1 - T, x1, y0, y1, zt, zt + E.tiraAlto); }
-      correderasDe.push([frenteId, piezas.find(q => q.id === base + ':lado:izq'), piezas.find(q => q.id === base + ':lado:der')]);
+      /* A347 (usuario 21/10: «opcion para modificar los juegos de correderas en especieros (bajo y de torre); por default el de torre tendra 3
+         juegos»): J juegos repartidos en los niveles (el de abajo siempre); cada uno en las tiras de su nivel */
+      const J = juegosEspeciero(m, f), lv = J > 1 ? Array.from({ length: Math.min(J, n) }, (_, k) => Math.round(k*(n - 1)/(Math.min(J, n) - 1))) : [0];
+      [...new Set(lv)].forEach((i, k) => correderasDe.push([frenteId, piezas.find(q => q.id === base + (i ? ':tira:' + i : ':lado') + ':izq'), piezas.find(q => q.id === base + (i ? ':tira:' + i : ':lado') + ':der'), k]));
     };
     /* cesto de basura (A138): piso y bastidor con el hueco de los botes, y los botes tal cual (sencillo o doble), sobre correderas en
        los costados del piso; arriba deja libre zTope (cajon chico u oculto, o la gola) */
@@ -5503,8 +5534,8 @@ function planDePiezas(c = cfg){
     /* A138: la corredera del usuario tal cual en tres partes: fija en el lateral, media (una pieza cerrada y otra abierta a la mitad del
        recorrido) y movil con el cajon; estirada a su largo comercial */
     const C9 = PLAN_CORREDERA, hueco = PLAN_CAJA.holgura, MC = MODELO.corredera;
-    const parCorrederas = (d, iz, dr) => {
-      if (!iz || !dr) return;
+    const parCorrederas = (d, iz, dr, k = 0) => {
+      if (!iz || !dr) return; const sk = k ? ':' + k : '';   /* A347: juegos de mas del especiero */
       const largo = cfg.region === 'US' ? Math.min(iz.fondo, Math.max(inch(9), Math.min(inch(21), Math.floor(iz.fondo/inch(3) + 1e-6)*inch(3))))   /* E14: 9-21" de 3 en 3 */
         : Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), yF = iz.y + iz.fondo;
       const H = MC.alto, z = iz.z + Math.min(C9.centro, iz.alto/2) - H/2;
@@ -5516,14 +5547,14 @@ function planDePiezas(c = cfg){
       [['izq', iz.x - hueco], ['der', dr.x + dr.ancho + hueco]].forEach(([lado, cara]) => {
         const marco = (dy = 0) => ({ ox: cara, refX: MC.lateral, espejo: lado === 'izq', oy: yF + dy, sy: largo/MC.largo, oz: z });
         const dato = (archivo, extra) => Object.assign({ rol: 'herraje', modulo: iz.modulo, material: null, etiqueta: 'herrajes', modelo: { archivo, espejo: lado === 'izq' } }, extra);
-        add(Object.assign({ id: d + ':corredera:' + lado, tipo: 'Corredera' }, dato('corredera_fija'), cajaModelo(MC.fija, marco())));
-        [['cerrado', 0], ['abierto', media]].forEach(([estado, dy]) => add(Object.assign({ id: d + ':corredera:' + lado + ':media:' + estado, tipo: 'CorrederaMedia' },
+        add(Object.assign({ id: d + ':corredera:' + lado + sk, tipo: 'Corredera' }, dato('corredera_fija'), cajaModelo(MC.fija, marco())));
+        [['cerrado', 0], ['abierto', media]].forEach(([estado, dy]) => add(Object.assign({ id: d + ':corredera:' + lado + sk + ':media:' + estado, tipo: 'CorrederaMedia' },
           dato('corredera_media', { frente: d, estado }), cajaModelo(MC.media, marco(dy)))));
-        add(Object.assign({ id: d + ':corredera:' + lado + ':movil', tipo: 'CorrederaMovil' }, dato('corredera_movil', { frente: d }), cajaModelo(MC.movil, marco())));
+        add(Object.assign({ id: d + ':corredera:' + lado + sk + ':movil', tipo: 'CorrederaMovil' }, dato('corredera_movil', { frente: d }), cajaModelo(MC.movil, marco())));
       });
     };
     cajasPorFrente.forEach((qs, d) => parCorrederas(d, qs.find(r => r.id.endsWith(':lado:izq')), qs.find(r => r.id.endsWith(':lado:der'))));
-    correderasDe.forEach(([d, iz, dr]) => parCorrederas(d, iz, dr));
+    correderasDe.forEach(([d, iz, dr, k]) => parCorrederas(d, iz, dr, k));
     /* pistones (regla de Revit, PistonMount): dos por elevable a min(4, ancho/4) de sus cantos; ancla en el lateral, a min(16, 45 %
        del fondo) del frente y a min(alto - 3, 72 % del alto) bajo su canto superior; punta en la puerta: cerrada, 1.8 tras el frente y
        a min(20, 35 % del alto) bajo el canto; abierta, a esa distancia delante del frente, bajo la puerta levantada. Una pieza por
@@ -5921,7 +5952,8 @@ function pruebasPlanMX(){
         const [du, dv] = { x: [q.fondo, q.alto], y: [q.ancho, q.alto], z: [q.ancho, q.fondo] }[q.forma.eje]; return u >= -.001 && v >= -.001 && u <= du + .001 && v <= dv + .001; }),
       nombre + ': forma fuera de su caja en ' + q.id));
     p.piezas.filter(q => q.abre && q.abre.tipo === 'Cajon').forEach(q => { const n = p.piezas.filter(r => r.frente === q.frente && r.tipo === 'CorrederaMovil').length;
-      ok(!p.piezas.some(r => r.frente === q.frente && r.rol === 'caja') || n === 2, nombre + ': ' + n + ' correderas en ' + q.frente); });
+      const esp = p.piezas.some(r => r.frente === q.frente && r.tipo === 'Tira'), nJ = esp ? p.piezas.filter(r => r.frente === q.frente && r.tipo === 'Tira').length / 2 : 1;   /* A347: el especiero, de 1 a 4 juegos */
+      ok(!p.piezas.some(r => r.frente === q.frente && r.rol === 'caja') || (esp ? n >= 2 && n <= 2*Math.min(4, nJ) && n % 2 === 0 : n === 2), nombre + ': ' + n + ' correderas en ' + q.frente); });
     /* B18: la caja de cajon sale por y: ninguna cruza en x y z la gola de su modulo */
     p.piezas.filter(q => q.rol === 'caja').forEach(q => p.piezas.filter(g => g.rol === 'herraje' && ['Gola', 'Perfil'].includes(g.tipo) && g.modulo === q.modulo)
       .forEach(g => ok(!(q.x < g.x + g.ancho - .01 && q.x + q.ancho > g.x + .01 && q.z < g.z + g.alto - .01 && q.z + q.alto > g.z + .01), nombre + ': la caja ' + q.id + ' choca al abrir con ' + g.id)));
@@ -8616,7 +8648,7 @@ function drawModule(m, x0, RX, X, Z, post){
     if (false && m.tipo === 'Basura') {   /* A96: ya no hay tapeta de compensacion junto al cesto */
       const q = RX(x0 + m.anchoBasura, x0 + m.ancho, zb, zb + cfg.altoBajos); fillMat(q.x, q.y, q.w, q.h, groupMaterial('Tapetas'), C.tapeta); ctx.strokeStyle = C.line; line(q.x, q.y, q.x, q.y + q.h);
     }
-    if (m.tipo === 'Especiero') { const [e0, e1] = espPartes(m), s = frame.scale;   /* A51: sus repisas, solo en su parte */
+    if (m.tipo === 'Especiero' && !m.extraible) { const [e0, e1] = espPartes(m), s = frame.scale;   /* A51: sus repisas, solo en su parte; A346: el extraible lleva su frente (no se ve su interior) */
       drawShelves({ x: body.x + e0*s, y: body.y, w: (e1 - e0)*s, h: body.h }, 5, m, 'cuerpo', false, sel); }   /* sus 5 repisas se ven con las puertas */
     drawGola(m, x0, RX, post);
     fronts(m).forEach(f => drawFront(f, x0, Z, scale, m));
@@ -8724,7 +8756,8 @@ function drawSpecialConAnexo(m, x0, RX, Z, post){
     const fe = showDoors ? fronts(m).find(f => f.anexo) : null, qf = fe ? RX(x0 + fe.x0, x0 + fe.x1, fe.z0, fe.z1) : q; post.push(() => outline(qf, C.focus, 3)); }
   ctx.strokeStyle = C.line; ctx.lineWidth = 1; const xl = izq ? q.x + tt : q.x + q.w - tt; line(xl, q.y, xl, q.y + q.h);   /* A240: no atraviesa el cuerpo de arriba */
   line(q.x, q.y + q.h, q.x + q.w, q.y + q.h); line(izq ? q.x : q.x + q.w, todo.y, izq ? q.x : q.x + q.w, q.y + q.h);
-  if (!showDoors) drawShelves({ x: izq ? q.x : q.x - tt, y: q.y, w: q.w + tt, h: q.h }, A.extraible ? Math.max(1, Math.floor((zt - zb)/(MODELO.especiero.nivel || 20)) - 1) : 5, m, 'especiero', false, sel);   /* A240: un solo grueso de lateral; el extraible, sus niveles */
+  const qa = { x: izq ? q.x : q.x - tt, y: q.y, w: q.w + tt, h: q.h };   /* A240: un solo grueso de lateral */
+  if (!showDoors && !(A.extraible && drawExtraible(m, fronts(m).findIndex(f => f.anexo), qa))) drawShelves(qa, A.extraible ? Math.max(1, Math.floor((zt - zb)/(MODELO.especiero.nivel || 20)) - 1) : 5, m, 'especiero', false, sel);   /* A346: el extraible, su caja del plan */
   else fronts(m).filter(f => f.anexo).forEach(f => drawFront(f, x0, Z, scale, m));
   hits.push({ rect: todo, module: m });
 }
@@ -8924,6 +8957,7 @@ function drawInterior(m, body, Z, mat, sel){
   const drawers = fronts(m).filter(f => f.kind === 'Cajon' && !f.fijo), comb = espCon(m) !== 'Nada', n = comb ? 0 : shelvesOf(m);
   if (comb) { const [e0, e1, r0, r1] = espPartes(m), s = frame.scale;   /* A51: especiero con sus 5 repisas y el resto con la suya */
     if (!m.extraible) drawShelves({ x: body.x + e0*s, y: body.y, w: (e1 - e0)*s, h: body.h }, 5, m, 'cuerpo', false, sel);
+    else drawExtraible(m, fronts(m).findIndex(f => f.especiero), { x: body.x + e0*s, y: body.y, w: (e1 - e0)*s, h: body.h });   /* A346: su caja, como el plan */
     drawShelves({ x: body.x + r0*s, y: body.y, w: (r1 - r0)*s, h: body.h }, espCon(m) === 'Puerta' && m.repisaBajo ? 1 : 0, m, 'resto', false, sel); }
   else drawShelves(body, n, m, 'cuerpo', !drawers.length && hasDivider(m), sel);
   if (drawers.length) {
@@ -9959,6 +9993,7 @@ function modulePanel(m){
   }
   if (m.tipo === 'Especiero') html += section('Especiero', alturaEspeciero(m) + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
     + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')   /* A138 */
+    + (m.extraible && m.especieroHerraje !== 'Condimentero' ? `<div class="grid-2" style="margin-top:8px">${num('espJuegos', 'Juegos de correderas', juegosEspeciero(m), 'u', 1, 4, 1)}</div>` : '')   /* A347 */
     + `<div style="margin-top:10px">${radios('espCon', [['Nada', 'Solo'], ['Puerta', '+ Puerta'], ['Cajones', '+ Cajones']], espCon(m))}</div>`
     + (espCon(m) !== 'Nada' ? `<div style="margin-top:8px">${radios('espLado', [['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], espIzq(m) ? 'Izquierda' : 'Derecha')}</div>`
       + (espCon(m) === 'Cajones' ? `<div class="grid-2" style="margin-top:10px">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div><div style="margin-top:8px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>` : '')
@@ -10006,6 +10041,7 @@ function specialPanel(m){
     + chk('inv', m.invertir, 'Invertir abatimiento') + `<div class="note-sm">Las puertas abren hacia el borde ${alacenaBordeDer(m) ? 'derecho' : 'izquierdo'}${alacenaBordeDer(m) ? ' (la alacena está en el borde derecho de la fila)' : ''}${m.invertir ? '; invertido' : ''}.</div>`);   /* A261 */
   else html += section('Especiero', `<div class="note-sm">Especiero anexado a la torre: del zoclo al cuerpo de arriba de la torre, que se ensancha y lo cubre.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
     + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas apiladas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')
+    + (m.extraible && m.especieroHerraje !== 'Condimentero' ? `<div class="grid-2" style="margin-top:8px">${num('espJuegos', 'Juegos de correderas', juegosEspeciero(m), 'u', 1, 4, 1)}</div>` : '')   /* A347 */
     + `<div style="margin-top:8px">${chk('espPiso', !!m.especieroAlPiso, 'Frente hasta el piso (oculta el zoclo)')}</div>`);   /* A150; A152 */   /* A144 */
   if (hasDrawers(m)) html += section('Cajones', `<div class="note-sm" style="margin-top:0">Arrastra los puntos azules o haz clic en su cota.</div>`);
   return html;
@@ -10016,6 +10052,7 @@ function anexoOpciones(m){ const a = m.anexo;
       + (a ? `<div class="grid-2" style="margin-top:10px">${num('anexoAncho', 'Ancho del especiero', a.ancho, 'cm', 15, 45)}</div>`
         + `<div style="margin-top:8px">${chk('anexoExtr', !!a.extraible, 'Extraíble (abre como cajón)')}</div>`
         + (a.extraible ? `<div style="margin-top:8px">${radios('anexoHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas apiladas)']], a.herraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')
+        + (a.extraible && a.herraje !== 'Condimentero' ? `<div class="grid-2" style="margin-top:8px">${num('anexoJuegos', 'Juegos de correderas', a.correderas || 3, 'u', 1, 4, 1)}</div>` : '')   /* A347 */
         + `<div style="margin-top:8px">${chk('anexoPiso', !!a.alPiso, 'Frente hasta el piso (oculta el zoclo)')}</div>` : '')
       + `<div class="note-sm">Parte del mismo mueble (${a ? fmt(m.ancho - a.ancho) + ' + ' + fmt(a.ancho) + uS() : 'su ancho se suma al de la torre'}): del zoclo al cuerpo de arriba, que lo cubre.</div>`);
 }
@@ -10314,6 +10351,8 @@ const ACT = {
   repCaj: (v, m) => change(() => { const t = byId(m.id); t.cajonesIguales = v === 'igu'; t.frentes = []; }),
   cesto: (v, m) => change(() => { byId(m.id).cestoVariante = v; byId(m.id).frentes = []; }), anchoBote: (v, m) => change(() => byId(m.id).anchoBasura = v), cestoBotes: (v, m) => change(() => byId(m.id).cestoBotes = v),   /* A138 */
   espHerraje: (v, m) => change(() => byId(m.id).especieroHerraje = v),
+  espJuegos: (v, m) => change(() => byId(m.id).juegosCorredera = Math.max(1, Math.min(4, Math.round(v) || 1))),   /* A347 */
+  anexoJuegos: (v, m) => change(() => { const t = byId(m.id); if (t.anexo) t.anexo.correderas = Math.max(1, Math.min(4, Math.round(v) || 1)); }),
   espPiso: (v, m) => change(() => byId(m.id).especieroAlPiso = v),   /* A152 */
   repartir: (v, m) => change(() => { const t = byId(m.id); t.frentes = []; t.frenteSup = t.frenteMed = 0; }),
   campana: (v, m) => change(() => { const t = byId(m.id); t.campana = v; if (v) t.inferiorAbierto = false; }, 'Revisar altura'),
