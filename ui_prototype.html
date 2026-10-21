@@ -303,11 +303,17 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A335. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «herramienta acotar agregarle icono y en
+       cada vista aparece una regilla/snap que identifica los bordes/esquinas de los objetos en vistas») El boton Acotar lleva su icono (cota
+       con flechas). Con la herramienta activa, la vista bajo el puntero muestra su rejilla de iman (las esquinas de lo dibujado, puntos azules)
+       y el puntero se pega a la esquina mas cercana (cuadro naranja) o, si no hay, al borde (rombo); el clic toma ese punto. Alt suelta el
+       iman. El iman sale de los trazos grabados de la vista (sin textos, simbolos ni cotas) y se guarda con la captura.
    A334. [Master hecho 20/10; SketchUp y Revit: sin cambio (construyen del plan)] (usuario 20/10: «hay discrepancia en las cotas interiores y
        siguen estando desfasadas de las repisas», captura: 19.6 / 18.7 / 19.6 en una columna y 18.7 x 3 en la de al lado) Las cotas salen del
        plan y el plan estaba bien: el alto moderno con puertas lleva la cama interior sobre la cama del piso (A83), un piso de 3.6. El alzado
        sin puertas (editor y lamina) repartia las repisas desde un piso de 1.8: quedaban 1.2 y 0.6 cm abajo (0.9 con una repisa) de donde
-       las acota el plan. drawInterior ya parte el cuerpo sobre la cama (camaInterior) y dibuja la junta de las dos camas; comprobado en
+       las acota el plan; y las cotas de Medir (gapsOf) repartian por fracciones del interior (29.6 / 28.7 / 29.6 en vez de 28.7 x 3).
+       drawInterior, gapsOf y el corte ya parten el cuerpo sobre la cama (camaInterior), con luces iguales, y dibujan las dos camas; comprobado en
        moderna, clasica (con y sin LED), inferior + superior y piston: el dibujo y el plan coinciden.
    A333. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «el estilo de pies de planos que se llamen
        banda horizontal abajo, banda vertical derecha, ambas sin marialuisa ni marco delimitante en area de vistas, el pie de plano que ocupe
@@ -2751,7 +2757,7 @@
       <button class="btn btn-icon" id="presNext" title="Hoja siguiente">&#9654;</button>
       <span class="sep"></span>
       <button class="btn" id="presReacomodar" title="Acomoda las vistas encendidas en filas, sin cambiar sus escalas (si no caben, sube la escala). Cada clic muestra otra opción de acomodo. Mayús + clic en las vistas las selecciona para moverlas juntas">Reacomodar</button>
-      <button class="btn" id="presAcotar" title="Acotar: clic en un punto y clic en otro (horizontal o vertical). La medida sale en la escala de la vista donde empieza. Arrastra la cota para separarla; Supr la quita; Esc termina">Acotar</button>
+      <button class="btn" id="presAcotar" style="display:inline-flex;align-items:center;gap:6px" title="Acotar: clic en un punto y clic en otro (horizontal o vertical). El imán se pega a las esquinas (cuadro) y a los bordes (rombo) de lo dibujado; Alt suelta el imán. La medida sale en la escala de la vista donde empieza. Arrastra la cota para separarla; Supr la quita; Esc termina"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5v9M14 3.5v9"/><path d="M2 8h12"/><path d="M4.6 6.2 2 8l2.6 1.8M11.4 6.2 14 8l-2.6 1.8"/></svg>Acotar</button>
       <button class="btn" id="presAjustar" title="Muestra la hoja completa en la ventana">Ajustar</button>
       <button class="btn btn-icon" id="presMenos" title="Alejar">&minus;</button>
       <span id="presZoom" style="min-width:48px;text-align:center;font-size:12px"></span>
@@ -7134,8 +7140,10 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     const fr = fronts(m).filter(f => f.kind !== 'Gola' && f.z1 > z0 + .5 && f.z0 < z1 - .5);   /* A131: traslape real; los frentes que solo tocan el borde son de la otra caja */
     fr.forEach(f => { brd({ x: body.x - t, y: Z(f.z1), w: t, h: (f.z1 - f.z0)*s }, mm);
       if (f.kind === 'Cajon' && !f.fijo) { const [ca, cb] = cajaDeCajon(m, f, z0 + 1.8, z1 - 1.8), atras = PLAN_CUERPO.fondo + PLAN_CAJA.retiro + PLAN_CUERPO.lateral, q = { x: body.x, y: Z(cb), w: Math.max(2, (D - atras)*s), h: (cb - ca)*s };   /* A188: como en el plan: pegada al frente */ ctx.fillStyle = drawerC; ctx.fillRect(q.x, q.y, q.w, q.h); outline(q, C.line, 1); } });   /* A126: como en 3D */
-    const n = conRepisas && !fr.some(f => f.kind === 'Cajon') ? shelvesOf(m) : 0, inner = z1 - z0 - 3.6;
-    for (let k = 1; k <= n; k++) { const lz = (inner - n*1.8)/(n + 1); brd({ x: body.x + 2, y: Z(z0 + 1.8 + k*lz + (k - .5)*1.8 + .9), w: body.w - 2*t, h: t }, mm); }
+    const ci = camaInterior(m) && Math.abs(z0 - baseAltos() - elevAlto(m)) < .05 ? 1.8 : 0;   /* A334: la cama interior sobre la del piso */
+    if (ci) brd({ x: body.x, y: Z(z0 + 1.8) - t, w: body.w, h: t }, mm);
+    const n = conRepisas && !fr.some(f => f.kind === 'Cajon') ? shelvesOf(m) : 0, inner = z1 - z0 - 3.6 - ci;
+    for (let k = 1; k <= n; k++) { const lz = (inner - n*1.8)/(n + 1); brd({ x: body.x + 2, y: Z(z0 + ci + 1.8 + k*lz + (k - .5)*1.8 + .9), w: body.w - 2*t, h: t }, mm); }
     /* A125 (usuario, 09/10): jaladeras en corte (clasica y simple): salen del frente; puertas a lo largo, cajones de canto, boton */
     if (cfg.style !== 'Moderna') fr.forEach(f => { if (f.kind === 'Elevable' || f.x1 - f.x0 < 8 || f.z1 - f.z0 < 8) return;
       const L = cfg.largoJaladera, vert = jalVertical(f), ck = cantoJaladera(f.x1 - f.x0, f.z1 - f.z0), sale = 2.5;   /* A280 */
@@ -9020,12 +9028,13 @@ function drawMeasure(X, Z){
     else if (partesPiston(g) > 1) { const nP = partesPiston(g), ym = cr.y + 14, wP = cr.w/nP; for (let k = 0; k < nP; k++) dim(cr.x + k*wP, ym, cr.x + (k + 1)*wP, ym, fmt(Math.round(g.width/nP*10)/10), null); }   /* A308 */
   }
 }
-const drawGaps = (m, q, scale) => gapsOf(q, hasDrawers(m) ? 0 : shelvesOf(m), !drawerType(m) && hasDivider(m) ? Math.max(1, m.divisiones || 1) : 0, scale);
+/* A334: con la cama interior (alto moderno con puertas) las luces se miden desde ella, como el plan */
+const drawGaps = (m, q, scale) => gapsOf(camaInterior(m) ? { x: q.x, y: q.y, w: q.w, h: q.h - 1.8*scale } : q, hasDrawers(m) ? 0 : shelvesOf(m), !drawerType(m) && hasDivider(m) ? Math.max(1, m.divisiones || 1) : 0, scale);
 function gapsOf(q, n, divider, scale){
   const t = 1.8*scale, inner = { x: q.x + t, y: q.y + t, w: q.w - 2*t, h: q.h - 2*t }; if (inner.w <= 0 || inner.h <= 0) return;
-  const mx = q.x + q.w - 14; let bottom = inner.y + inner.h;
+  const mx = q.x + q.w - 14, lz = (inner.h - n*t)/(n + 1); let bottom = inner.y + inner.h;   /* A334: luces iguales, como drawShelves y el plan (antes por fracciones del interior: 29.6 / 28.7 / 29.6) */
   for (let i = 1; i <= n + 1; i++) {
-    const top = i <= n ? inner.y + inner.h - inner.h*i/(n+1) + t/2 : inner.y;
+    const top = i <= n ? bottom - lz : inner.y;
     dim(mx, bottom, mx, top, fmt((bottom - top)/scale), null); bottom = top - t;
   }
   if (divider) {   /* hueco libre entre divisiones: tantas como pida el modulo o la caja (A43) */
@@ -14008,6 +14017,32 @@ const LAM = (() => {
       if (G.h) S.t(G.texto, mx - w / 2, my - .9 * k, t, false, AZ); else if (S.tv) S.tv(G.texto, mx - .9 * k, my + w / 2, t, false, AZ); else S.t(G.texto, mx + .9 * k, my, t, false, AZ); });
   }
   const cotasManualDe = (L, h) => ((L.cotas && L.cotas.__manual) || []).filter(c => c.hoja === h);
+  /* A335 (usuario 20/10: «herramienta acotar: agregarle icono y en cada vista aparece una rejilla/snap que identifica los bordes/esquinas de
+     los objetos en vistas»): el iman sale de los trazos grabados de la vista (sus vertices son las esquinas y sus segmentos, los bordes; los
+     textos, simbolos y cotas no cuentan). Se guarda con la captura; en mm de hoja con la misma cuenta que pinta la vista (tintaDe) */
+  const imanDe = it => { const cap = it.cap; if (cap.iman) return cap.iman; const vs = new Map(), sg = [];
+    (cap.ops || []).forEach(o => { if (o.t !== 'stroke' && o.t !== 'fill') return; (o.ruta || []).forEach(sb => { const ps = sb.pts || [];
+      ps.forEach((q, i) => { const k = Math.round(q[0] * 2) + ',' + Math.round(q[1] * 2); if (!vs.has(k)) vs.set(k, q); if (i) sg.push([ps[i - 1], q]); });
+      if (sb.cerrada && ps.length > 2) sg.push([ps[ps.length - 1], ps[0]]); }); });
+    return cap.iman = { v: [...vs.values()], s: sg }; };
+  const imanVista = (L, it) => { const c = celdaDe(it), { ix, iy } = tintaDe(it), b = it.cap.bb;
+    return { aHoja: q => [ix + (q[0] - b.x0) * PX_MM, iy + (q[1] - b.y0) * PX_MM], aCap: (x, y) => [(x - ix) / PX_MM + b.x0, (y - iy) / PX_MM + b.y0],
+      dentro: q => q[0] >= c.x && q[0] <= c.x + c.w && q[1] >= c.y && q[1] <= c.y + c.h }; };
+  function imanCota(L, mx, my, tol){
+    return conHoja(L, () => { const it = presHit(L, mx, my); if (!it || !it.cap || !it.cap.ops) return null;
+      const I = imanDe(it), V = imanVista(L, it), [qx, qy] = V.aCap(mx, my), tp = tol / PX_MM;
+      let best = null, bd = tp; I.v.forEach(q => { const d = Math.hypot(q[0] - qx, q[1] - qy); if (d < bd) { const h = V.aHoja(q); if (V.dentro(h)) { bd = d; best = h; } } });
+      if (best) return { p: best, tipo: 'esquina', id: it.id };
+      let be = null; bd = tp * .75; I.s.forEach(([a, c]) => { const dx = c[0] - a[0], dy = c[1] - a[1], L2 = dx * dx + dy * dy; if (L2 < 1e-6) return;
+        const u = Math.max(0, Math.min(1, ((qx - a[0]) * dx + (qy - a[1]) * dy) / L2)), px = a[0] + u * dx, py = a[1] + u * dy, d = Math.hypot(px - qx, py - qy);
+        if (d < bd) { const h = V.aHoja([px, py]); if (V.dentro(h)) { bd = d; be = h; } } });
+      return be ? { p: be, tipo: 'borde', id: it.id } : { p: null, tipo: null, id: it.id }; });
+  }
+  /* las esquinas de una vista en mm de hoja (la rejilla del iman mientras se acota), hasta max */
+  function imanPuntos(L, id, max = 6000){
+    return conHoja(L, () => { const it = enHoja(L).find(q => q.id === id && q.on && q.cap); if (!it) return []; const I = imanDe(it), V = imanVista(L, it), out = [];
+      for (const q of I.v) { const h = V.aHoja(q); if (V.dentro(h)) out.push(h); if (out.length >= max) break; } return out; });
+  }
   function presHitCotaManual(L, mx, my, tol){
     return cotasManualDe(L, L.hoja).slice().reverse().find(c => { const G = cotaManualGeo(c), [x1, y1] = G.p1, [x2, y2] = G.p2, dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy || 1;
       const u = Math.max(0, Math.min(1, ((mx - x1) * dx + (my - y1) * dy) / L2)); return Math.hypot(mx - (x1 + u * dx), my - (y1 + u * dy)) <= tol + .8; }) || null; }
@@ -15302,7 +15337,7 @@ const LAM = (() => {
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
-    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo,
+    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos,
     presNueva, presRefrescar, presReacomodar, presCrearModulosCloset, presAcomodarConjunto, presMoverHoja, presReordenarHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
@@ -15379,7 +15414,7 @@ function presAjustar(){
   presDibujar();
 }
 /* A325: herramienta acotar encendida o apagada */
-function presModoAcotar(on){ PRES.modo = on ? 'acotar' : null; PRES.cotaA = PRES.cotaB = null; const b = presEl('presAcotar'); if (b) b.classList.toggle('btn-primary', !!on); const cv = presEl('presCanvas'); if (cv) cv.style.cursor = on ? 'crosshair' : 'default'; setStatus(on ? 'Acotar: clic en el primer punto y clic en el segundo · Esc termina' : ''); presDibujar(); }
+function presModoAcotar(on){ PRES.modo = on ? 'acotar' : null; PRES.cotaA = PRES.cotaB = null; PRES.iman = null;   /* A335 */ const b = presEl('presAcotar'); if (b) b.classList.toggle('btn-primary', !!on); const cv = presEl('presCanvas'); if (cv) cv.style.cursor = on ? 'crosshair' : 'default'; setStatus(on ? 'Acotar: clic en el primer punto y clic en el segundo · Esc termina' : ''); presDibujar(); }
 function presDibujar(rapido){
   const L = PRES.L, cv = presEl('presCanvas'); if (!PRES.abierto || !L) return;
   const r = presEl('presLienzo').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -15394,6 +15429,12 @@ function presDibujar(rapido){
   const cmSel = PRES.selCM && ((L.cotas && L.cotas.__manual) || []).find(c => c.id === PRES.selCM && c.hoja === PRES.pag);
   const trazo = PRES.modo === 'acotar' && PRES.cotaA && PRES.cotaB ? (() => { const dx = PRES.cotaB[0] - PRES.cotaA[0], dy = PRES.cotaB[1] - PRES.cotaA[1], dir = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
     return { a: PRES.cotaA, b: PRES.cotaB, dir, off: 0, n: (LAM.presHit(L, PRES.cotaA[0], PRES.cotaA[1]) || {}).n || null }; })() : null;
+  /* A335: la rejilla del iman (esquinas de la vista bajo el puntero) y el punto donde se pega: cuadro en esquina, rombo en borde */
+  if (PRES.modo === 'acotar' && PRES.iman && PRES.iman.id) { const X = v => PRES.ox + v * PRES.Z, Yy = v => PRES.oy + v * PRES.Z, im = PRES.iman;
+    if (PRES.Z > 1.2) { g.save(); g.fillStyle = 'rgba(38,96,150,.45)'; LAM.imanPuntos(L, im.id).forEach(q => g.fillRect(X(q[0]) - 1.2, Yy(q[1]) - 1.2, 2.4, 2.4)); g.restore(); }
+    if (im.p) { const x = X(im.p[0]), y = Yy(im.p[1]); g.save(); g.strokeStyle = '#E8590C'; g.lineWidth = 1.6; g.beginPath();
+      if (im.tipo === 'esquina') g.rect(x - 5, y - 5, 10, 10); else { g.moveTo(x, y - 6); g.lineTo(x + 6, y); g.lineTo(x, y + 6); g.lineTo(x - 6, y); g.closePath(); }
+      g.stroke(); g.restore(); } }
   [cmSel, trazo].forEach((c, i) => { if (!c) return; const G = LAM.cotaManualGeo(c), X = v => PRES.ox + v * PRES.Z, Yy = v => PRES.oy + v * PRES.Z;
     g.save(); g.strokeStyle = i ? '#E8590C' : '#1E90FF'; g.lineWidth = i ? 1.2 : 2.4; g.globalAlpha = i ? 1 : .45; g.beginPath(); g.moveTo(X(G.p1[0]), Yy(G.p1[1])); g.lineTo(X(G.p2[0]), Yy(G.p2[1])); g.stroke();
     if (i) { g.globalAlpha = 1; g.fillStyle = '#E8590C'; g.font = "600 12px 'Inter'"; g.fillText(G.texto, X((G.p1[0] + G.p2[0]) / 2) + 6, Yy((G.p1[1] + G.p2[1]) / 2) - 6); }
@@ -15563,8 +15604,9 @@ function presCargarLogo(){
     try { cv.setPointerCapture(e.pointerId); } catch (x) { /* sin captura */ }
     const L = PRES.L, p = pos(e), m = mmDe(p), tol = 6 / PRES.Z;
     /* A325: herramienta acotar: primer clic, segundo clic (horizontal o vertical segun el movimiento) */
-    if (PRES.modo === 'acotar' && PRES.pag < L.hojas.length) { if (!PRES.cotaA) { PRES.cotaA = [m.x, m.y]; PRES.cotaB = [m.x, m.y]; presDibujar(true); return; }
-      presAntes(); const c = LAM.presAgregarCotaManual(L, PRES.cotaA, [m.x, m.y]); PRES.cotaA = PRES.cotaB = null; if (!c) { PRES.hist.pop(); presDibujar(); return; }
+    if (PRES.modo === 'acotar' && PRES.pag < L.hojas.length) { const im = e.altKey ? null : LAM.imanCota(L, m.x, m.y, 9 / PRES.Z), q = im && im.p ? im.p : [m.x, m.y];   /* A335: con iman */
+      if (!PRES.cotaA) { PRES.cotaA = q.slice(); PRES.cotaB = q.slice(); presDibujar(true); return; }
+      presAntes(); const c = LAM.presAgregarCotaManual(L, PRES.cotaA, q); PRES.cotaA = PRES.cotaB = null; if (!c) { PRES.hist.pop(); presDibujar(); return; }
       PRES.selCM = c.id; presGuardar(); presDibujar(); return; }
     if (PRES.pag < L.hojas.length) { const cm = LAM.presHitCotaManual(L, m.x, m.y, tol); if (cm) { PRES.selCM = cm.id; PRES.sel = null; PRES.selG = null; PRES.selC = null; PRES.pend = presSnap(); PRES.drag = { k: 'cotaManual', id: cm.id, movido: false }; presDibujar(); return; } }
     PRES.selCM = null;
@@ -15614,7 +15656,9 @@ function presCargarLogo(){
   });
   cv.addEventListener('pointermove', e => {
     const d = PRES.drag, p = pos(e), m = mmDe(p);
-    if (PRES.modo === 'acotar') { cv.style.cursor = 'crosshair'; if (PRES.cotaA) { PRES.cotaB = [m.x, m.y]; presDibujar(true); } return; }   /* A325 */
+    if (PRES.modo === 'acotar') { cv.style.cursor = 'crosshair';   /* A325; A335: el iman sigue al puntero */
+      PRES.iman = e.altKey || PRES.pag >= PRES.L.hojas.length ? null : LAM.imanCota(PRES.L, m.x, m.y, 9 / PRES.Z);
+      if (PRES.cotaA) PRES.cotaB = PRES.iman && PRES.iman.p ? PRES.iman.p.slice() : [m.x, m.y]; presDibujar(true); return; }
     if (!d && PRES.pag < PRES.L.hojas.length) {   /* ⇄ del corte: solo con el puntero sobre la vista */
       const it0 = LAM.presHit(PRES.L, m.x, m.y), hv = it0 && it0.vista === 'Corte' ? it0.id : null;
       if (hv !== PRES.hoverC) { PRES.hoverC = hv; presDibujar(true); } }
