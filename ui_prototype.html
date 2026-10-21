@@ -303,6 +303,15 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A333. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «el estilo de pies de planos que se llamen
+       banda horizontal abajo, banda vertical derecha, ambas sin marialuisa ni marco delimitante en area de vistas, el pie de plano que ocupe
+       todo el borde de la hoja, manteniendo un ligero borde virtual para evitar recortes en la impresion» y «todas las tags en los nuevos pie
+       de planos no se muestran completos ni se distribuyen en el pie si agrego mas de 15») Estilos «Banda vertical derecha» y «Banda horizontal
+       abajo»: sin marco, con margen de solo 4 mm (A3; 3 en A4, 6 en A1) para la impresion, y la banda de borde a borde dentro de ese margen;
+       las vistas ganan el area de la marialuisa. Las notas numeradas y los herrajes fluyen en columnas dentro de su area (flujo): la letra
+       baja hasta 70 % y se abren columnas antes de cortar; si aun asi no caben, el titulo dice cuantas faltan. En la banda horizontal el area
+       se reparte: los herrajes toman el ancho de su renglon mas largo y las notas el resto, en columnas parejas; en la vertical, una letra
+       comun para que entren una tras otra y el bloque girado del proyecto mide lo que su nombre (antes reservaba hasta 72 mm en A3).
    A332. [Master hecho 20/10; SketchUp y Revit: sin cambio (leen los anchos del plan)] (usuario 20/10: «el reparto de anchos tambien debe ser
        igual cuando se seleccionan varias columnas y se presiona el EQ; tambien estas se apoyan de la holgura de las tapetas laterales para
        compensar; si el calculo hace que no sean equidistantes se reduce el ancho y las tapetas absorben el cm menos») Con tapetas, EQ deja
@@ -12099,10 +12108,13 @@ const LAM = (() => {
   /* A318 (usuario 20/10: «¿podriamos tener otras dos opciones de marco en hojas? otro estilo de pie de plano (captura): puede ser en formato
      vertical y horizontal»): estilo 'clasico' (la franja de siempre), 'vertical' (franja gris angosta: logo en circulo, proyecto en grande
      girado, datos y hoja) u 'horizontal' (banda abajo a todo el ancho). franja: ancho del pie a la derecha; pie: alto del pie abajo */
-  const ESTILOS_PIE = [['clasico', 'Franja a la derecha'], ['vertical', 'Franja vertical gris (proyecto girado)'], ['horizontal', 'Banda horizontal abajo']];
+  /* A333 (usuario 20/10: «que se llamen banda horizontal abajo, banda vertical derecha, ambas sin marialuisa ni marco delimitante en area de
+     vistas; el pie de plano que ocupe todo el borde de la hoja, manteniendo un ligero borde virtual para evitar recortes en la impresion»):
+     en las bandas el margen es solo el borde de impresion (4 mm en A3) y no hay marco */
+  const ESTILOS_PIE = [['clasico', 'Franja a la derecha'], ['vertical', 'Banda vertical derecha'], ['horizontal', 'Banda horizontal abajo']];
   const hojaDe = (nombre, estilo = 'clasico') => { const ok = nombre in PAPELES, [w, h] = PAPELES[ok ? nombre : 'A3'], k = Math.max(.75, Math.min(2, Math.sqrt(w * h / (420 * 297))));
     const es = ['vertical', 'horizontal'].includes(estilo) ? estilo : 'clasico';
-    return { nombre: ok ? nombre : 'A3', ancho: w, alto: h, k, margen: Math.round(10 * Math.max(.8, Math.min(1.5, k))), rotulo: Math.round(28 * k), estilo: es,
+    return { nombre: ok ? nombre : 'A3', ancho: w, alto: h, k, margen: es === 'clasico' ? Math.round(10 * Math.max(.8, Math.min(1.5, k))) : Math.max(3, Math.round(4 * Math.min(1.5, k))), rotulo: Math.round(28 * k), estilo: es,   /* A333 */
       franja: es === 'horizontal' ? 0 : Math.round((es === 'vertical' ? 44 : 54) * k), pie: es === 'horizontal' ? Math.round(32 * k) : 0 }; };
   let HOJA = hojaDe('A3');   /* la hoja en uso: generar() la cambia mientras arma los archivos */
   const VISTAS = [['AlzadoPuertas', 'Alzado con frentes'], ['AlzadoInterior', 'Alzado sin puertas'], ['Planta', 'Planta'], ['Corte', 'Corte'], ['Isometrico', 'Isométrico']];
@@ -14004,36 +14016,71 @@ const LAM = (() => {
         S.img(d.logo, lx, ly, lw, lh); if (S.logo) S.logo(lx, ly, lw, lh); return; }
       const mk = marca(), tam = Math.min(6.4 * k, hMax * .5), wa = anchoHelv(mk.a, tam, true), wb = anchoHelv(mk.b, tam, false), x = cx - (wa + wb) / 2;
       t(mk.a, x, cy + tam * .2, tam, true, mk.col); t(mk.b, x + wa, cy + tam * .2, tam, false, '#13212B'); const by = 'by Drawlibri'; t(by, cx - anchoHelv(by, 2.4 * k) / 2, cy + tam * .2 + 3.6 * k, 2.4 * k, false, '#6B7680'); };
-    const notas = (x, y, ancho, fin, tam) => { if (!(d.notas && d.notas.length)) return y; t(T('NOTAS DEL PROYECTO'), x, y + tam * 1.4, tam * .95, true, '#444444'); y += tam * 2.6;
-      d.notas.forEach(q => { if (y + tam * 1.5 > fin) return; const rN = tam * .78, ns = String(q.n);
-        if (S.circ) { S.circ(x + rN, y + rN, rN, '#266096'); t(ns, x + rN - anchoHelv(ns, tam * .9, true) / 2, y + rN + tam * .32, tam * .9, true, '#FFFFFF'); }
-        parrafo(q.texto, ancho - rN * 2 - tam * .8, tam).forEach(l => { if (y + tam * 1.5 > fin) return; t(l, x + rN * 2 + tam * .8, y + tam * 1.1, tam, false, '#13212B'); y += tam * 1.5; }); y += tam * .6; });
-      return y; };
-    const herrajes = (x, y, ancho, fin, tam) => { if (!d.herrajes.length) return y; t(T('HERRAJES'), x, y + tam * 1.4, tam * .95, true, '#444444'); y += tam * 2.4;
-      d.herrajes.forEach(([nom, c]) => { if (y + tam * 1.6 > fin) return; t(corta(T(nom), ancho - 6 * k, tam, false), x, y + tam, tam, false); const q = String(c); t(q, x + ancho - anchoHelv(q, tam, true), y + tam, tam, true); y += tam * 1.6; }); return y; };
+    /* A333 (usuario 20/10: «las tags en los nuevos pies de plano no se muestran completas ni se distribuyen en el pie si agrego mas de 15»):
+       notas y herrajes fluyen en columnas dentro de su area; si no caben, la letra baja (hasta 70 %) y se abren mas columnas; solo si aun asi
+       no caben se indica cuantas faltan */
+    const GAPC = 2.6 * k;
+    const flujo = (n, alto, w, h, max, min) => { let ult = null;
+      const empaca = (tam, cols, cw, hh) => { const pos = []; let c = 0, yy = 0, usado = 0;
+        for (let i = 0; i < n; i++) { const a = alto(i, tam, cw); if (yy > 0 && yy + a > hh + 1e-6) { c++; yy = 0; } if (c >= cols || a > hh + 1e-6) break; pos.push([c, yy]); yy += a; usado = Math.max(usado, yy); }
+        return { tam, cw, pos, usado, resto: n - pos.length }; };
+      for (let tam = max; tam >= min - 1e-9; tam = tam > min + 1e-9 ? Math.max(min, tam * .93) : min - 1) {
+        const maxC = Math.max(1, Math.floor((w + GAPC) / (tam * 24 + GAPC)));
+        for (let cols = 1; cols <= maxC; cols++) { const cw = (w - (cols - 1) * GAPC) / cols, r = empaca(tam, cols, cw, h);
+          if (!r.resto) { let lo = 0, hi = h, mejor = r;   /* columnas parejas: la menor altura con la que aun caben en esas columnas */
+            for (let j = 0; j < 14; j++) { const md = (lo + hi) / 2, q = empaca(tam, cols, cw, md); if (q.resto) lo = md; else { hi = md; mejor = q; } }
+            return mejor; }
+          if (!ult || r.pos.length > ult.pos.length) ult = r; } }
+      return ult; };
+    const altoNota = (i, tam, cw) => parrafo(d.notas[i].texto, cw - tam * 2.36, tam).length * tam * 1.5 + tam * .6;
+    const notas = (x, y, ancho, fin, tam, min = tam * .7) => { if (!(d.notas && d.notas.length) || fin - y < tam * 4.5) return y;
+      const tit = tam * 2.6, F = flujo(d.notas.length, altoNota, ancho, fin - y - tit, tam, min); if (!F) return y;
+      t(T('NOTAS DEL PROYECTO'), x, y + tam * 1.4, tam * .95, true, '#444444');
+      F.pos.forEach(([c, yy], i) => { const q = d.notas[i], tm = F.tam, x1 = x + c * (F.cw + GAPC), y1 = y + tit + yy, rN = tm * .78, ns = String(q.n);
+        if (S.circ) { S.circ(x1 + rN, y1 + rN, rN, '#266096'); t(ns, x1 + rN - anchoHelv(ns, tm * .9, true) / 2, y1 + rN + tm * .32, tm * .9, true, '#FFFFFF'); }
+        parrafo(q.texto, F.cw - tm * 2.36, tm).forEach((l, j) => t(l, x1 + rN * 2 + tm * .8, y1 + tm * 1.1 + j * tm * 1.5, tm, false, '#13212B')); });
+      if (F.resto) { const tx = `+ ${F.resto} ${T(F.resto === 1 ? 'nota más' : 'notas más')}`; t(tx, x + ancho - anchoHelv(tx, tam * .85, true), y + tam * 1.4, tam * .85, true, '#C2410C'); }
+      return y + tit + F.usado; };
+    const herrajes = (x, y, ancho, fin, tam, min = tam * .7) => { if (!d.herrajes.length || fin - y < tam * 4.5) return y;
+      const tit = tam * 2.4, F = flujo(d.herrajes.length, (i, tm) => tm * 1.6, ancho, fin - y - tit, tam, min); if (!F) return y;
+      t(T('HERRAJES'), x, y + tam * 1.4, tam * .95, true, '#444444');
+      F.pos.forEach(([c, yy], i) => { const [nom, cn] = d.herrajes[i], tm = F.tam, x1 = x + c * (F.cw + GAPC), y1 = y + tit + yy, q = String(cn), wq = anchoHelv(q, tm, true);
+        t(corta(T(nom), F.cw - wq - 2 * k, tm, false), x1, y1 + tm, tm, false); t(q, x1 + F.cw - wq, y1 + tm, tm, true); });
+      if (F.resto) { const tx = `+ ${F.resto}`; t(tx, x + ancho - anchoHelv(tx, tam * .85, true), y + tam * 1.4, tam * .85, true, '#C2410C'); }
+      return y + tit + F.usado; };
+    /* la letra comun de herrajes y notas en la banda vertical: la mayor con la que caben una tras otra */
+    const tamComun = (ancho, h, max, min) => { for (let tm = max; tm >= min - 1e-9; tm *= .93) {
+        const hH = d.herrajes.length ? tm * 2.4 + d.herrajes.length * tm * 1.6 + 1.5 * k : 0, hN = d.notas && d.notas.length ? tm * 2.6 + d.notas.reduce((a, q, i) => a + altoNota(i, tm, ancho), 0) : 0;
+        if (hH + hN <= h) return tm; } return min; };
     const general = (x, y, ancho, fin, tam) => { const ls = parrafo(notaGeneral, ancho - 2 * k, tam), hB = tam * 3 + ls.length * tam * 1.4; if (y + hB > fin) return y;
       S.rc(x - k, y, ancho + 2 * k, hB, 0, '#FFFFFF'); t(T('NOTA GENERAL'), x, y + tam * 1.7, tam * .95, true, '#6B7680'); let yy = y + tam * 2.7; ls.forEach(l => { t(l, x, yy + tam * .3, tam, false, '#6B7680'); yy += tam * 1.4; }); return y + hB; };
-    S.rc(m, m, H.ancho - 2 * m, H.alto - 2 * m, .5, null);   /* el marco */
+    /* A333: sin marco ni marialuisa; la banda va de borde a borde de la hoja (menos el borde de impresion) */
     if (H.estilo === 'vertical') {
       const x0 = H.ancho - m - H.franja, y0 = m, w = H.franja, h = H.alto - 2 * m, pad = 3 * k, ancho = w - 2 * pad, cx = x0 + w / 2;
-      S.rc(x0, y0, w, h, 0, '#ECEEF0'); ln(x0, y0, x0, y0 + h, .35);
+      S.rc(x0, y0, w, h, 0, '#ECEEF0');
       const R = Math.min(ancho / 2, 15 * k), cy = y0 + pad + R; if (S.circ) S.circ(cx, cy, R, '#FFFFFF', '#9AA3AB', .3); logoEn(cx, cy, R * 1.45, R * 1.05);
-      let y = cy + R + 4 * k; const hT = Math.min(72 * k, h * .3);
+      let y = cy + R + 4 * k; const hT = Math.min(72 * k, h * .3, Math.max(30 * k, anchoHelv(val('proyecto') || '—', 7.2 * k) + 8 * k));   /* A333: el bloque girado, al largo del nombre */
       if (S.tv) { S.tv(T('PROYECTO'), x0 + pad + 2.4 * k, y + hT, 2.2 * k, true, '#6B7680'); S.tv(corta(val('proyecto') || '—', hT, 7.2 * k, false), x0 + pad + 11 * k, y + hT, 7.2 * k, false, val('proyecto') ? '#13212B' : '#9AA3AB'); }
       campo('proyecto', x0, y, w, hT); y += hT + 3 * k; ln(x0 + pad, y, x0 + w - pad, y, .25, '#9AA3AB'); y += 1.5 * k;
       d.campos.filter(c => c[2] !== 'proyecto').forEach(([etq, v, clave]) => { campo(clave, x0, y, w, 9 * k); t(T(etq), x0 + pad, y + 3.4 * k, 1.8 * k, true, '#6B7680');
         t(corta(v || '—', ancho, 2.8 * k, false), x0 + pad, y + 7.4 * k, 2.8 * k, false, v ? '#000000' : '#9AA3AB'); y += 9.2 * k; });
-      const fin = y0 + h - 24 * k; y += 2 * k; y = herrajes(x0 + pad, y, ancho, fin, 2.1 * k); y = notas(x0 + pad, y + 1.5 * k, ancho, fin, 2.1 * k); general(x0 + pad, y + 1.5 * k, ancho, fin, 1.8 * k);
+      const fin = y0 + h - 24 * k; y += 2 * k; const tc = tamComun(ancho, fin - y - 1.5 * k, 2.1 * k, 1.3 * k);   /* A333 */
+      if (d.herrajes.length && d.notas && d.notas.length) { const hH = tc * 2.4 + d.herrajes.length * tc * 1.6; y = herrajes(x0 + pad, y, ancho, Math.min(fin, y + Math.max(hH, (fin - y) * .35)), tc, tc); }
+      else y = herrajes(x0 + pad, y, ancho, fin, tc, tc);
+      y = notas(x0 + pad, y + 1.5 * k, ancho, fin, tc, tc); general(x0 + pad, y + 1.5 * k, ancho, fin, 1.8 * k);
       ln(x0 + pad, fin, x0 + w - pad, fin, .3); t(T(d.hojaDe ? 'CLAVE' : 'HOJA'), x0 + pad, fin + 5.6 * k, 2 * k, true, '#6B7680'); if (d.hojaDe) t(d.hojaDe, x0 + w - pad - anchoHelv(d.hojaDe, 2 * k), fin + 5.6 * k, 2 * k, false, '#6B7680');
       t(corta(d.hoja, ancho, 9.5 * k, true), x0 + pad, fin + 17 * k, 9.5 * k, true); campo('clave', x0, fin, w, 24 * k, d.hoja); return; }
     /* horizontal: [logo | notas y herrajes | 4 x 2 datos | hoja] */
     const xL = m, hB = H.pie, yB = H.alto - m - hB, W = H.ancho - 2 * m, pad = 2.6 * k, cLogo = 46 * k, cHoja = 36 * k, cDat = Math.min(150 * k, W * .42), cNot = W - cLogo - cHoja - cDat;
-    S.rc(xL, yB, W, hB, 0, '#F4F5F7'); ln(xL, yB, xL + W, yB, .35);
+    S.rc(xL, yB, W, hB, 0, '#F4F5F7');   /* A333: sin linea de marco */
     const xN = xL + cLogo, xD = xN + cNot, xH = xD + cDat; [xN, xD, xH].forEach(x => ln(x, yB, x, yB + hB, .25, '#9AA3AB'));
     logoEn(xL + cLogo / 2, yB + hB / 2, cLogo - 2 * pad, hB - 2 * pad);
-    { const conH = d.herrajes.length > 0, wN = conH ? cNot * .62 : cNot - 2 * pad, fin = yB + hB - pad;
-      let y = notas(xN + pad, yB + pad * .6, wN - pad, fin, 1.9 * k); if (!conH) general(xN + pad, y + k, wN - pad, fin, 1.7 * k);
-      if (conH) { const xh = xN + cNot * .62; ln(xh, yB + pad, xh, yB + hB - pad, .15, '#C5CBD1'); const yy = herrajes(xh + pad, yB + pad * .6, cNot * .38 - 2 * pad, fin, 1.9 * k); general(xh + pad, yy + k, cNot * .38 - 2 * pad, fin, 1.6 * k); } }
+    { const conH = d.herrajes.length > 0, conN = !!(d.notas && d.notas.length), fin = yB + hB - pad;
+      /* A333: el area se reparte segun lo que hay: los herrajes toman el ancho de su renglon mas largo (20 a 50 %) y las notas el resto */
+      const needH = conH ? Math.max(...d.herrajes.map(([nom, c]) => anchoHelv(T(nom), 1.9 * k) + anchoHelv(String(c), 1.9 * k, true) + 3 * k)) + 2 * pad : 0;
+      const wN = !conH ? cNot : !conN ? 0 : cNot - Math.max(cNot * .2, Math.min(cNot * .5, needH));   /* los herrajes, solo el ancho que piden */
+      if (conN || !conH) { const y = notas(xN + pad, yB + pad * .6, wN - 2 * pad, fin, 1.9 * k, 1.9 * k * .62); if (!conH) general(xN + pad, y + k, wN - 2 * pad, fin, 1.7 * k); }
+      if (conH) { const xh = xN + wN; if (conN) ln(xh, yB + pad, xh, yB + hB - pad, .15, '#C5CBD1'); const yy = herrajes(xh + pad, yB + pad * .6, cNot - wN - 2 * pad, fin, 1.9 * k); general(xh + pad, yy + k, cNot - wN - 2 * pad, fin, 1.6 * k); } }
     const celdasD = [['proyecto', 2], ['cliente', 1], ['autor', 1], ['fecha', 1], ['dibujo', 1], ['escala', 1], ['revision', 1]], cw = cDat / 4, rh = hB / 2;
     let col = 0, fila = 0; celdasD.forEach(([clave, span]) => { if (col + span > 4) { col = 0; fila++; } const c = d.campos.find(q => q[2] === clave) || ['', '', clave];
       const x = xD + col * cw, y = yB + fila * rh, ww = cw * span; if (col > 0) ln(x, y + 1.5 * k, x, y + rh - 1.5 * k, .12, '#C5CBD1');
