@@ -303,6 +303,13 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A370. [Master hecho 21/10; SketchUp y Revit pendientes (la caja del cajon cambia en el plan de piezas)] (usuario 21/10: «sigamos el del libro»; resuelve el punto 1 de A168)
+       Caja del cajon como la del manual «El Cocinator»: fondo de 6 mm (PLAN_CAJA.piso, antes 12 mm) que entra en una ranura a 5 mm del borde inferior de
+       los costados (PLAN_CAJA.ranura, nuevo): el piso de la caja sube 5 mm sobre el borde de los costados. En la cocina (cajon de bajo y de alto), en la barra y en la caja en V del
+       esquinero diagonal. Costados sin cambio en 1.5 cm: el libro no da su espesor (el cuerpo es de 18 mm; si el usuario lo quiere igual, PLAN_CAJA.lado = 1.8).
+       No toca el bote del cesto (B.piso es suyo). Quedan igual: la corredera (PLAN_CORREDERA.centro) y la holgura de 1.3 cm por lado. El fondo real del libro
+       entra 5 mm en cada costado (no se dibuja: queda oculto en la ranura); la lista de corte, cuando exista, debe sumarlo. A168: el punto 1 queda
+       decidido a favor del libro, no de LEGRABOX/antaro.
    A369. [Master hecho 21/10; SketchUp y Revit: no aplica (solo texto del panel)] (usuario 21/10, manual «El Cocinator», ANALISIS_EL_COCINATOR.md)
        Consejos de fabricacion en el panel del lavavajillas y del refrigerador: regatones y canto sellado (llegan al piso sin zoclo), tablero resistente a
        la humedad (RH) hacia la tarja, paso de agua, drenaje y cable. Pendiente de la lista de corte (E17-E20, despues del lanzamiento): columnas de cantos
@@ -4319,7 +4326,7 @@ const cuerpoFondo = () => cfg.espesorFondo > 0 ? cfg.espesorFondo : cfg.region =
    en el muro, dentro del backsplash que sube detras de ella; va delante de el (y en el isometrico ya no queda tapada) */
 const yCampana = sep => Math.max(sep, cfg.backsplash ? cfg.espesorBacksplash || 0 : 0);
 const PLAN_PATA = { borde: 5, clip: 4.5, seisDesde: 76.5, placa: [9.2, 7.9, 2.5], columna: 3.5, base: 7.8, baseAlto: 1.2, lados: 12, tuerca: { entreCaras: 4.6, alto: 1.4 } };   /* A326: tuerca de ajuste */
-const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3, libreGola: .5 };   /* caja de cajon dentro de la carcasa */
+const PLAN_CAJA = { lado: 1.5, piso: .6, ranura: .5, holgura: 1.3, retiro: 2, libreArriba: 3, libreGola: .5 };   /* caja de cajon dentro de la carcasa. A370 (usuario 21/10, manual «El Cocinator»): fondo de 6 mm que entra en una ranura a 5 mm del borde inferior de los costados (antes piso de 12 mm al ras) */
 /* A140 (usuario, 11/10): holgura de 3 mm entre la cara posterior de puertas y cajones y el canto de la carcasa (la de la bisagra);
    la carcasa con frentes termina 3 mm antes y los frentes no se mueven. Saque del cajon oculto del cesto: rebaje en el canto inferior
    de su tapa para meter los dedos. Perforacion de la cazoleta en la puerta: 35 mm, 12 mm de hondo */
@@ -4752,7 +4759,7 @@ function planDePiezas(c = cfg){
       lado('lado:der', 'Lado', x1 - c.lado, x1, y0, y1, z0, z1);
       lado('frente', 'Frente', x0 + c.lado, x1 - c.lado, y1 - c.lado, y1, z0, z1);
       lado('trasera', 'Trasera', x0 + c.lado, x1 - c.lado, y0, y0 + c.lado, z0, z1);
-      lado('piso', 'Piso', x0 + c.lado, x1 - c.lado, y0 + c.lado, y1 - c.lado, z0, z0 + c.piso);
+      lado('piso', 'Piso', x0 + c.lado, x1 - c.lado, y0 + c.lado, y1 - c.lado, z0 + c.ranura, z0 + c.ranura + c.piso);   /* A370 */
     };
     /* A138: el especiero y el cesto llevan su propio herraje en lugar de la caja de cajon: no pasan por el ajuste de la gola (B18) y
        sus correderas van en los lados que se dan aqui */
@@ -5536,7 +5543,7 @@ function planDePiezas(c = cfg){
         if ((g.z0 + g.z1)/2 < (z0 + z1)/2) a = Math.max(a, g.z1 + PLAN_CAJA.libreGola); else b = Math.min(b, g.z0 - PLAN_CAJA.libreGola); });
       if (a === z0 && b === z1) return;
       if (b - a < 4) b = a + 4;
-      qs.forEach(q => { const sq = saques.get(q.id) || 0; if (q.tipo === 'Piso') q.z = r2(a); else { q.z = r2(a - sq); q.alto = r2(b - a + sq); } });
+      qs.forEach(q => { const sq = saques.get(q.id) || 0; if (q.tipo === 'Piso') q.z = r2(a + PLAN_CAJA.ranura); else { q.z = r2(a - sq); q.alto = r2(b - a + sq); } });   /* A370: el piso sigue 5 mm sobre el borde */
     });
     /* B17 Interactuar (como en Revit): cada frente que abre (puerta, cajon o elevable, no fijo) junta sus piezas (tablero o marcos,
        jaladera, bisagras, juntas, zoclo de puerta oculta, caja de cajon) con frente = id del frente; la pieza principal lleva abre:
@@ -8353,7 +8360,7 @@ function esquinerosPlan(add, r2, sep, tf){
         const qa = qF + e1 + C9.holgura, qb = qE - e1 - C9.holgura, pa = ef + C9.retiro, pf = pB - tf, z0c = Math.max(za, zc0 + e1 + .5), z1c = Math.min(Math.max(z0c + 4, zz - C9.libreArriba), zc1 - .5), mc = gm('Interior');
         if (qb - qa > 4 && pf - pa > 4) { bL(n + ':caja:lado:0', 'caja', 'Lado', pa, pf, qa, qa + C9.lado, z0c, z1c, mc, 'gabinetes'); bL(n + ':caja:lado:1', 'caja', 'Lado', pa, pf, qb - C9.lado, qb, z0c, z1c, mc, 'gabinetes');
           bL(n + ':caja:frente', 'caja', 'Frente', pf - C9.lado, pf, qa + C9.lado, qb - C9.lado, z0c, z1c, mc, 'gabinetes'); bL(n + ':caja:trasera', 'caja', 'Trasera', pa, pa + C9.lado, qa + C9.lado, qb - C9.lado, z0c, z1c, mc, 'gabinetes');
-          bL(n + ':caja:piso', 'caja', 'Piso', pa + C9.lado, pf - C9.lado, qa + C9.lado, qb - C9.lado, z0c, z0c + C9.piso, mc, 'gabinetes');
+          bL(n + ':caja:piso', 'caja', 'Piso', pa + C9.lado, pf - C9.lado, qa + C9.lado, qb - C9.lado, z0c + C9.ranura, z0c + C9.ranura + C9.piso, mc, 'gabinetes');   /* A370 */
           /* su par de correderas en la holgura entre la caja y los laterales: la fija en el lateral, la movil con el cajon */
           [[qF + e1, qa, 0], [qb, qE - e1, 1]].forEach(([a9, b9, j]) => { const mid = (a9 + b9)/2, zr = z0c + 1;
             bL(n + ':corredera:' + j, 'herraje', 'Corredera', pa, pf - 1, j ? mid : a9, j ? b9 : mid, zr, zr + 4.5, null, 'herrajes');
@@ -8559,7 +8566,7 @@ function esquinerosPlan(add, r2, sep, tf){
       if (sd === 'cajones') { const nC = cajonesDiagEsq(e), H = zfD - zb, caja0 = insetPoly(innerE, PLAN_CAJA.holgura);   /* A223: cajones con caja en V */
         for (let k = 0; k < nC; k++) { const fz0 = zb + k*H/nC + (k ? hol : 0), fz1 = zb + (k + 1)*H/nC - (k < nC - 1 ? hol : 0), bz0 = fz0 + 1, bz1 = Math.max(bz0 + 6, fz1 - PLAN_CAJA.libreArriba);
           frenteDiag(id + ':cajon:' + k, 'Cajon', wA, wB, fA, fB, fz0, fz1, modB);   /* A246: sale a 45 (abre.direccion); antes fijo */
-          losa(id + ':cajon:' + k + ':piso', 'panel', 'Piso', modB, insetPoly(caja0, PLAN_CAJA.lado), bz0, bz0 + PLAN_CAJA.piso, mat, 'gabinetes');
+          losa(id + ':cajon:' + k + ':piso', 'panel', 'Piso', modB, insetPoly(caja0, PLAN_CAJA.lado), bz0 + PLAN_CAJA.ranura, bz0 + PLAN_CAJA.ranura + PLAN_CAJA.piso, mat, 'gabinetes');   /* A370 */
           paredesPoly(caja0, PLAN_CAJA.lado).forEach((q, j) => losa(id + ':cajon:' + k + ':lado:' + j, 'panel', 'Lado', modB, q, bz0, bz1, mat, 'gabinetes')); } }
       else if (sd === 'tarja') { const hF = altoFijoTarja(); frenteDiag(id + ':fijo', 'Frente fijo', wA, wB, fA, fB, zfD - hF + hol, zfD, modB); puertaDiag(id, wA, wB, fA, fB, zb, zfD - hF - hol, modB); }   /* A223 */
       else puertaDiag(id, wA, wB, fA, fB, zb, zfD, modB);
