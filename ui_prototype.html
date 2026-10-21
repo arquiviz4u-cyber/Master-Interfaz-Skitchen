@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A327. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «los pistones en el detalle de conteo de
+       herrajes deberian representarse mas acercados al modelo 3D como ya lo tenemos con las bisagras de cazoleta, anadido que las bisagras
+       especiales que ya tenemos integradas deberian mostrarse similares en angulo y estilo») En la tarjeta de herrajes el piston ya no es un
+       dibujo generico: es el isometrico de sus piezas del plan (cuerpo, vastago y soportes, abierto), en el mismo angulo y estilo que la
+       bisagra (escenaHerraje + ventanaIso). Las bisagras van en una tarjeta por uso y apertura (como la tabla del pie): las comunes con la
+       bisagra de cazoleta aprobada y las especiales (esquinero, 155, plegable, libro) con el isometrico de sus propias piezas.
    A326. [Master hecho 20/10; SketchUp: construye la tuerca (perfil eje z) y el pie escalonado; Revit pendiente] (usuario 20/10: «en lamina de
        torres tambien deben incluir el zoclo perteneciente a su respectivo ancho y su acotado contemplando el zoclo; aun si son de patas
        niveladoras representarlas fielmente en alzados, se ven mal y redondas, investiga medidas y dibujalas tal cual el estandar; tambien en
@@ -13173,15 +13179,19 @@ const LAM = (() => {
     const lineasBis = Object.keys(dist).sort().map(c => `${c} ${T('por puerta')} × ${dist[c]}`).join(' · ');
     const pu = piezasCara(plan, cara).find(p => p.abre && p.abre.tipo === 'Puerta' && f(p, cara)), grados = pu && pu.abre.grados ? pu.abre.grados : 90;
     const B = typeof PLAN_BISAGRA === 'object' ? PLAN_BISAGRA : { cazoleta: 3.5, hondo: 1.2, canto: 2.25 };
-    const items = [['bisagra', cuenta('Bisagra'), 'piezas', [`${T('Bisagra de cazoleta')} Ø ${Math.round(B.cazoleta * 100) / 10} mm`, `${T('Apertura')} ${grados}°`, `${T('Cazoleta a')} ${Math.round(B.canto * 100) / 10} mm ${T('del canto')}`]],   /* A188: sin el desglose «2 por puerta × n» */
+    /* A327: una tarjeta por bisagra (uso y apertura, como la tabla del pie): las especiales con su propio dibujo */
+    const gB = gruposBisagra(hs), bisagras = gB.length ? gB.map(([uso, a, n]) => ['bisagra', n, 'piezas', [`${T('Bisagra')} ${T(USOS_BISAGRA[uso] || uso)}`, `${T('Apertura')} ${fmtGrados(a)}`,
+      USOS_COMUNES.has(uso) ? `${T('Cazoleta')} Ø ${Math.round(B.cazoleta * 100) / 10} mm, ${T('a')} ${Math.round(B.canto * 100) / 10} mm ${T('del canto')}` : T('Bisagra especial')], { uso, apertura: a }])
+      : [['bisagra', cuenta('Bisagra'), 'piezas', [`${T('Bisagra de cazoleta')} Ø ${Math.round(B.cazoleta * 100) / 10} mm`, `${T('Apertura')} ${grados}°`, `${T('Cazoleta a')} ${Math.round(B.canto * 100) / 10} mm ${T('del canto')}`]]];
+    const items = [...bisagras,   /* A188: sin el desglose «2 por puerta × n» */
       ['corredera', Math.round(cuenta('Corredera') / 2), 'juegos', [T('Correderas de extracción total'), `${T('juegos')}: ${Math.round(cuenta('Corredera') / 2)} · ${T('piezas')}: ${cuenta('Corredera')}`]],
       ['jaladera', cuenta('Jaladera') + cuenta('Boton'), 'piezas', [T('Jaladeras')]], ['piston', cuenta('Piston'), 'piezas', [T('Pistones de gas')]]].filter(q => q[1] > 0);
     if (!items.length) throw new Error(T('Este conjunto no lleva herrajes'));
     const BW = 214, BH = 218, GAP = 16, cols = Math.max(1, Math.min(items.length, +o.cols || items.length)), filasG = Math.ceil(items.length / cols), zoom = 1 / Math.max(1, Math.min(1.5, +o.escalaFija || 1)),   /* A201: hasta 67 %: los textos siguen legibles */
       g = new Grabador((cols * (BW + GAP) + 20) * zoom, (filasG * (BH + GAP) + 20 - GAP) * zoom), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
-    const icono = (k, cx, cy) => { g.save(); g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.fillStyle = plano ? '#FFFFFF' : '#9AA3AB'; g.lineWidth = 1.2; g.lineJoin = 'round';
+    const icono = (k, cx, cy, ex) => { g.save(); g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.fillStyle = plano ? '#FFFFFF' : '#9AA3AB'; g.lineWidth = 1.2; g.lineJoin = 'round';
       if (k === 'bisagra') { g.restore();   /* A190: la bisagra aprobada: sus tres partes del modelo, a la medida de la ventana */
-        let eb = null; try { eb = escenaBisagra(o); } catch (x) { eb = null; }
+        let eb = null; try { eb = ex && ex.uso && !USOS_COMUNES.has(ex.uso) ? escenaHerraje(o, p => esBisagraCerrada(p) && p.bisagra && p.bisagra.uso === ex.uso && Math.abs(p.bisagra.apertura - ex.apertura) < .05, TIPOS_BISAGRA) : escenaBisagra(o); } catch (x) { eb = null; }   /* A327: la especial, sus piezas */
         if (eb) { const w = eb.w, h = eb.h, sb = Math.min(150 / w, 96 / h); ventanaIso(g, eb, w, h, sb, cx - w * sb / 2, cy - h * sb / 2 + 4, plano); return; }
         g.drawImage(IMGS.bisagra_3d, cx - 76, cy - 46, 152, 152 * IMGS.bisagra_3d.h / IMGS.bisagra_3d.w); return; }
       if (k === 'corredera') { g.restore();   /* las tres partes del modelo en su sitio: fija, media y movil (isometrico) */
@@ -13191,6 +13201,9 @@ const LAM = (() => {
           ids.forEach(i => dibujarSim(g, i, false, px, py, sc2, plano)); return; }
         g.save(); g.fillStyle = plano ? '#FFFFFF' : '#9AA3AB'; g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.beginPath(); g.rect(cx - 40, cy - 6, 80, 12); g.fill(); g.stroke(); g.restore(); return; }
       if (k === 'piston') { g.restore();   /* cuerpo cilindrico, vastago y las dos rotulas, en isometrico */
+        /* A327: el piston del plan (cuerpo, vastago y sus soportes) en el mismo isometrico que la bisagra; sin el, el dibujo de antes */
+        let ep = null; try { ep = escenaHerraje(o, p => p.tipo === 'Piston' && p.estado === 'abierto', ['Piston', 'Vastago', 'PistonSoporte', 'PistonSoportePuerta'], /:piston:0:/); } catch (x) { ep = null; }   /* uno solo, grande */
+        if (ep) { const sb = Math.min(150 / ep.w, 96 / ep.h); ventanaIso(g, ep, ep.w, ep.h, sb, cx - ep.w * sb / 2, cy - ep.h * sb / 2 + 4, plano); return; }
         const ux = Math.cos(Math.PI / 6), uy = -Math.sin(Math.PI / 6), nx = -uy, ny = ux, P = (t, r) => [cx - 52 * ux + t * ux + r * nx, cy + 22 - 52 * uy + t * uy + r * ny];
         const faja = (t0, t1, r, col) => { const a = P(t0, -r), b = P(t1, -r), c = P(t1, r), d2 = P(t0, r); g.fillStyle = col; g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.lineTo(d2[0], d2[1]); g.closePath(); g.fill(); g.stroke(); };
         g.save(); g.strokeStyle = plano ? '#222222' : '#3A3F45'; g.lineWidth = .9; g.lineJoin = 'round';
@@ -13204,9 +13217,9 @@ const LAM = (() => {
       g.restore(); };
     g.scale(zoom, zoom);
     try {
-      items.forEach(([k, cant, unidad, lineas], i) => { const x = 10 + (i % cols) * (BW + GAP), y = 10 + Math.floor(i / cols) * (BH + GAP);
+      items.forEach(([k, cant, unidad, lineas, ex], i) => { const x = 10 + (i % cols) * (BW + GAP), y = 10 + Math.floor(i / cols) * (BH + GAP);
         g.save(); g.strokeStyle = '#6B7680'; g.lineWidth = 1; g.setLineDash([5, 4]); g.beginPath(); g.roundRect(x, y, BW, BH, 16); g.stroke(); g.restore();
-        icono(k, x + BW / 2, y + 52);
+        icono(k, x + BW / 2, y + 52, ex);
         g.save(); g.fillStyle = '#111111'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
         g.font = "600 12px 'Inter'"; g.fillText(`${T('Cantidad')}: ${cant} ${T(unidad)}`, x + BW / 2, y + 134);
         g.font = "400 10px 'Inter'"; g.fillStyle = '#333333'; lineas.filter(Boolean).forEach((t, j) => g.fillText(t, x + BW / 2, y + 152 + j * 14)); g.restore(); });
@@ -13267,6 +13280,24 @@ const LAM = (() => {
     const c = esc.proy([p0.x + p0.ancho / 2, -(p0.y + p0.fondo / 2), p0.z + p0.alto / 2]);
     return { esc, p0, c, w: 30, h: 22, cant: pa.filter(p => p.frente === fid).length / 2 };
   }
+  /* A327 (usuario 20/10: «los pistones en el detalle de conteo de herrajes deberian representarse mas acercados al modelo 3D, como las bisagras
+     de cazoleta; las bisagras especiales deberian mostrarse similares en angulo y estilo»): escena de solo las piezas de un herraje de un
+     frente abierto (sus modelos, simbolos y formas reales, en el mismo isometrico que la bisagra) y la ventana que las encierra */
+  function escenaHerraje(o, elige, tipos, soloId = null){
+    const plan = planDeConj(o), cara = o.grupo === 'isla' ? 0 : (o.cara || 0), f = filtroConjunto(o.grupo, cara), todas = piezasCara(plan, cara);
+    const p0 = todas.find(p => f(p, cara) && p.frente && elige(p)); if (!p0) return null; const fid = p0.frente, z0 = p0.z + p0.alto / 2;
+    const esc = isoEscena({ abiertos: new Set([fid]), cotas: false, plan: o.grupo === 'isla' && o.planIsla ? o.planIsla.plan : undefined,
+      filtro: (p, ci) => ci === cara && p.frente === fid && p.rol === 'herraje' && tipos.includes(p.tipo) && (!soloId || soloId.test(p.id)) && (soloId || Math.abs(p.z + p.alto / 2 - z0) < 9) });   /* una sola bisagra: las piezas a su altura */
+    const xs = [], ys = [];
+    esc.tri.forEach(t => { if (t.pr) t.pr.forEach(q => { xs.push(q[0]); ys.push(q[1]); }); if (t.segs) t.segs.forEach(sg => { xs.push(sg[0][0], sg[1][0]); ys.push(sg[0][1], sg[1][1]); });
+      if (t.t === 'sim' && HSYM[t.id]) { const c = HSYM[t.id], q = esc.proy(t.O), k = t.flip ? -1 : 1; xs.push(q[0] + k * c.u0 / 100, q[0] + k * (c.u0 + c.w) / 100); ys.push(q[1] + c.v0 / 100, q[1] + (c.v0 + c.h) / 100); } });
+    (esc.herr || []).forEach(h => { const c = HSYM[h.id]; if (!c) return; const q = esc.proy(h.O), k = h.flip ? -1 : 1; xs.push(q[0] + k * c.u0 / 100, q[0] + k * (c.u0 + c.w) / 100); ys.push(q[1] + c.v0 / 100, q[1] + (c.v0 + c.h) / 100); });
+    if (!xs.length) return null;
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    return { esc, c: [(x0 + x1) / 2, (y0 + y1) / 2], w: x1 - x0 + 1.2, h: y1 - y0 + 1.2 };
+  }
+  const TIPOS_BISAGRA = ['Bisagra', 'Cazoleta', 'Brazo', 'Eslabon', 'BisagraAla', 'CalzaBisagra', 'Placa'];
+  const USOS_COMUNES = new Set(['traslape', 'embutida', 'elevable', 'puerta oculta']);
   function capturaDetalle3D(o, eb, vista, titulo, lineas){
     const plano = !!o.plano, s = (10 / o.escalaFija) / PX_MM, M = 30, Wc = eb.w, Hc = eb.h;
     const g = new Grabador(M * 2 + Math.max(Wc * s, 300), M * 2 + 22 + Hc * s + 24 + lineas.length * 15), previoC = Object.assign({}, C); Object.assign(C, LIGHT);
