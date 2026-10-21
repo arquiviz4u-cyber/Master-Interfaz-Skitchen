@@ -6752,10 +6752,12 @@ function recalcularCara(){
     const raw = cfg.longitud - (cfg.tapetaIzq ? cfg.reservaIzq : 0) - (cfg.tapetaDer ? cfg.reservaDer : 0) - base.filter(m => m.fijo).reduce((t, m) => t + m.ancho, 0);
     let residual = Math.round((raw - Math.floor(raw/u + 1e-7)*u)*1e4)/1e4; if (residual < 1e-4 || u - residual < 1e-4) residual = 0;
     /* A138 (usuario, 11/10): sin tapetas no hay error; el sobrante va al ultimo gabinete automatico de la fila (la «sobra» del reparto) */
-    cfg.compensacion = cfg.tapetaIzq || cfg.tapetaDer ? Math.max(0, residual) : 0;
+    /* A383: la cascada de la peninsula es la unica tapeta de su cara y conserva su grueso: el sobrante va al ultimo gabinete */
+    const tapFlex = (cfg.tapetaIzq || cfg.tapetaDer) && !(multiCara() && cfg.peninsula && cfg.penCascada);
+    cfg.compensacion = tapFlex ? Math.max(0, residual) : 0;
     /* A87: con tapetas y reparto parejo (no adaptado) en metrico, los pasos que sobran al dividir entre los automaticos van a las tapetas */
     const flexB = base.filter(m => !m.fijo), pasos = Math.round((raw - cfg.compensacion)/u);
-    const resto = cfg.region !== 'US' && cfg.repartoAdaptado !== 'plantilla' && (cfg.tapetaIzq || cfg.tapetaDer) && flexB.length > 1 ? pasos % flexB.length : 0;
+    const resto = cfg.region !== 'US' && cfg.repartoAdaptado !== 'plantilla' && tapFlex && flexB.length > 1 ? pasos % flexB.length : 0;
     /* A89 (usuario, 08/10): las tapetas no pasan de su tope (cfg.topeTapeta).
        A311 (usuario 20/10: «el reparto de los anchos no tiene que variar por cm; esos sobrantes o faltantes los absorben o ceden las tapetas
        respetando su propio ancho minimo; ayudara a optimizar el despiece»): los automaticos quedan todos iguales. Los pasos que sobran los
