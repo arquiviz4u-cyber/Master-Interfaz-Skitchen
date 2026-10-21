@@ -303,6 +303,20 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A351. [Master hecho 21/10; SketchUp: construye las golas del plan; Revit pendiente] (usuario 21/10: «las puertas en hornos no muestran la
+       gola para abrirlas en estilo moderno») En moderno la torre de hornos lleva gola en sus puertas: sobre las de abajo (bajo los hornos,
+       perfil superior) y bajo las de arriba (sobre los hornos, perfil C); la elevable de piston abre por su canto, sin gola. Los frentes se acortan lo que mide la gola
+       (golaStrips y fronts); el plan pone el perfil y las muescas como en los bajos.
+   A350. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (alzado del editor y laminas)] (usuario 21/10: «alzado de torre de hornos
+       interior: los hornos no se muestran para ver las repisas internas») Sin puertas (editor y alzado interior del conjunto en Presentar)
+       el horno y el microondas van en proyeccion: contorno punteado y su nombre; se ve el hueco de montaje, sus rellenos y la rejilla.
+   A349. [Master hecho 21/10; SketchUp y Revit: sin cambio (el plan no lleva division)] (usuario 21/10: «la caja de puertas bajo los hornos en
+       vista sin puertas muestra una division al centro») La linea al centro era la junta de las dos puertas (torre abajo o arriba, gabinete
+       del refrigerador): ya solo se dibuja con las puertas a la vista.
+   A348. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (alzado del editor y laminas)] (usuario 21/10: «las torres al tener
+       especiero muestran debajo de la general una cota subdividida de la torre (el ancho de hornos/alacena y el ancho del especiero)») En
+       el alzado, bajo la cadena de anchos, la columna con especiero anexado (torre de hornos, alacena, refrigerador) lleva su cota partida:
+       el cuerpo y el especiero, del lado que va.
    A347. [Master hecho 21/10; SketchUp: construye las correderas del plan (ids :corredera:<lado>:<k>); Revit pendiente] (usuario 21/10:
        «opcion para modificar los juegos de correderas en especieros (bajo y de torre); por default el especiero de torre tendra 3 juegos de
        correderas (mostrar este cambio en isometrico)») El especiero extraible de madera lleva J juegos de correderas (1 a 4) repartidos en
@@ -3985,9 +3999,12 @@ function fronts(m){
       else if (m.superiorRefri) door(e + hol, m.ancho - e - hol, m.huecoRefri + hol, top - hol, m.dosPuertas, m.invertir); }
     else if (isTower(m)) {
       const ti = m.torreInferior, ts = m.torreSuperior, a = ins + hol, b = m.ancho - ins - hol;
-      if (ti === 'Puertas' || ti === '2 puertas') door(a, b, zb + hol, zb + bodyH(m) - hol, ti === '2 puertas', m.invertir);
-      if (ts === 'Puertas' || ts === '2 puertas') door(a, b, towerTopStart(m) + hol, top - hol, ts === '2 puertas', m.invertir);
-      else if (ts === 'Pistón') r.push({ kind: 'Elevable', x0: a, x1: b, z0: towerTopStart(m) + hol, z1: top - hol });   /* A160: como el alto de piston */
+      /* A351 (usuario 21/10: «las puertas en hornos no muestran la gola para abrirlas en estilo moderno»): en moderno las puertas de abajo
+         terminan bajo su gola (arriba, bajo los hornos) y las de arriba empiezan sobre la suya (abajo, sobre los hornos) */
+      const gm = cfg.style === 'Moderna', gIn = gm ? topGap(m) : hol, gSu = gm && (ts === 'Puertas' || ts === '2 puertas') ? agarreEntre() : hol;   /* el piston abre por su canto */
+      if (ti === 'Puertas' || ti === '2 puertas') door(a, b, zb + hol, zb + bodyH(m) - gIn, ti === '2 puertas', m.invertir);
+      if (ts === 'Puertas' || ts === '2 puertas') door(a, b, towerTopStart(m) + gSu, top - hol, ts === '2 puertas', m.invertir);
+      else if (ts === 'Pistón') r.push({ kind: 'Elevable', x0: a, x1: b, z0: towerTopStart(m) + gSu, z1: top - hol });   /* A160: como el alto de piston */
       else if (towerLift(m)) r.push({ kind: 'Elevable', x0: a, x1: b, z0: top - towerLiftHeight(m) + hol, z1: top - hol });
     } else {
       /* el frente que lleva gola encima (TopGola) termina bajo ella; el especiero extraible tambien, salvo en el ultimo cuerpo */
@@ -4060,6 +4077,10 @@ function golaStrips(m){
     if (m.tipo === 'C') s.push([zb + split(m, 1) - gE, gE]);
   }
   if (m.tipo === 'Alacena') { const hs = pantryHeights(m); let at = pantryStart(m); hs.forEach((h, b) => { if (pantryTopGola(m, b, hs.length)) s.push([at + h - gT, gT]); at += h; }); }
+  if (isTower(m)) {   /* A351: la gola de las puertas de la torre: sobre las de abajo y bajo las de arriba (las de cajones ya van arriba) */
+    if (m.torreInferior === 'Puertas' || m.torreInferior === '2 puertas') s.unshift([zb + bodyH(m) - topGap(m), topGap(m)]);
+    if (['Puertas', '2 puertas'].includes(m.torreSuperior)) s.push([towerTopStart(m), gE]);
+  }
   return s;
 }
 /* division vertical interna: altos con dos puertas o abiertos; bajos de puertas con dos hojas y sin tarja */
@@ -7073,6 +7094,11 @@ function drawElevation(){
      cadena barra / libre / altos a la derecha, largo abajo */
   const yTop = top - 26, first = lows.length ? lows : highs;
   let x = ajusteIzq(); first.forEach(m => { dim(X(x), yTop, X(x + m.ancho), yTop, fmt(m.ancho), 'width:' + m.id); x += m.ancho; });
+  /* A348 (usuario 21/10: «las torres al tener especiero muestran debajo de la general una cota subdividida de la torre: el ancho de
+     hornos/alacena y el ancho del especiero») */
+  x = ajusteIzq(); lows.forEach(m => { const A = !m.upper && m.anexo; if (A && A.ancho > .01) { const izq = A.lado === 'Izquierda', wT = m.ancho - A.ancho, yS = yTop + 16;
+      const tramos = izq ? [[x, x + A.ancho], [x + A.ancho, x + m.ancho]] : [[x, x + wT], [x + wT, x + m.ancho]];
+      tramos.forEach(([a0, a1]) => dim(X(a0), yS, X(a1), yS, fmt(a1 - a0), null)); } x += m.ancho; });
   const differ = lows.length && highs.length && (highs.length !== lows.length || highs.some((h, i) => h.ancho !== lows[i].ancho));
   if (differ) { x = ajusteIzq(); highs.forEach(m => { if (m.ancho > .01) dim(X(x), yTop - 25, X(x + m.ancho), yTop - 25, fmt(m.ancho), 'width:' + m.id); x += m.ancho; });   /* A144: la columna del anexo no lleva alto */ }
   /* A306 (usuario 20/10: «al seleccionar mas de dos columnas en las cotas me salga una cota de EQ como en Revit para homogenizar los anchos») */
@@ -8803,7 +8829,7 @@ function drawSpecial(m, x0, RX, Z, post){
     const ys = Z(m.huecoRefri);
     if (m.superiorRefri) { up = { x: il, y: r.y, w: W, h: ys - r.y }; panel('superior', up); }
     stroke(); line(il, ys, ir, ys); edgeY(ys);
-    if (m.superiorRefri && m.dosPuertas && !m.pistonRefri && !ext) line((il + ir)/2, r.y, (il + ir)/2, ys);   /* A152: ensanchado, sus frentes marcan la junta */
+    if (m.superiorRefri && m.dosPuertas && !m.pistonRefri && !ext && showDoors) line((il + ir)/2, r.y, (il + ir)/2, ys);   /* A152: ensanchado, sus frentes marcan la junta */
     { const fw = anchoRefri(m)*scale, fx = (il + ir)/2 - fw/2, fy = ys + 2*scale; ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.strokeRect(fx, fy, fw, Z(0) - fy); ctx.restore();   /* refrigerador generico con su holgura */
       ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('Refri', fx + 4, ys + 12); ctx.textBaseline = 'alphabetic';
       if (sel) dim(fx, Z(0) - 14, fx + fw, Z(0) - 14, fmt(anchoRefri(m)), null); }
@@ -8813,17 +8839,20 @@ function drawSpecial(m, x0, RX, Z, post){
     low = { x: il, y: Z(zb + bodyH(m)), w: W, h: bodyH(m)*scale };
     panel('inferior', low);
     if (hasDrawers(m)) splitLines(low);
-    if (m.torreInferior === '2 puertas') { stroke(); line(low.x + low.w/2, low.y, low.x + low.w/2, low.y + low.h); }
+    if (m.torreInferior === '2 puertas' && showDoors) { stroke(); line(low.x + low.w/2, low.y, low.x + low.w/2, low.y + low.h); }   /* A349: la junta de las puertas; sin ellas no hay division */
     if (m.torreInferior === 'Repisas') drawShelves(low, zoneShelves(m, 'inferior'), m, 'inferior', false, sel);
     up = { x: il, y: r.y, w: W, h: Z(towerTopStart(m)) - r.y };
     panel('superior', up);
-    if (m.torreSuperior === '2 puertas' && !ext) { stroke(); line(up.x + up.w/2, up.y, up.x + up.w/2, up.y + up.h); }
+    if (m.torreSuperior === '2 puertas' && !ext && showDoors) { stroke(); line(up.x + up.w/2, up.y, up.x + up.w/2, up.y + up.h); }   /* A349 */
     if (m.torreSuperior === 'Repisas') drawShelves(unir(up), zoneShelves(m, 'superior'), m, 'superior', false, sel);
     if (towerLift(m)) {
       const lp = towerLiftHeight(m)*scale, niche = { x: up.x, y: up.y + lp, w: up.w, h: up.h - lp };
       piston = { x: up.x, y: up.y, w: up.w, h: lp }; panel('piston', piston);
       drawShelves(unir(niche), zoneShelves(m, 'superior'), m, 'superior', false, sel); stroke(); line(up.x, up.y + lp, up.x + up.w, up.y + lp);
     }
+    /* A350 (usuario 21/10: «alzado de torre de hornos interior: los hornos no se muestran para ver las repisas internas»): sin puertas los
+       equipos van en proyeccion (contorno punteado y su nombre) y se ve el hueco de montaje */
+    const verEq = m.mostrarEquipos && showDoors;
     for (const [name, h] of [['Horno', m.altoHorno], ['Micro', m.microondas ? m.altoMicro : 0]]) {
       if (!h) continue;
       const counter = name === 'Micro' && m.microSobreponer;
@@ -8847,16 +8876,17 @@ function drawSpecial(m, x0, RX, Z, post){
           else { ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(lq.x, lq.y, lq.w, lq.h); stroke(); ctx.strokeRect(lq.x, lq.y, lq.w, lq.h); } }
         const jn = hornosJuntos(m), sJ = sepFrentes()/2, pB = jn && name === 'Horno' ? start + h + m.espesorLaterales/2 - sJ : start + h, pA = jn && name === 'Micro' ? start - m.espesorLaterales/2 + sJ : start + lift;   /* A275 */
         pq = { x: il + (W - pw*scale)/2, y: Z(pB), w: pw*scale, h: (pB - pA)*scale };
-        if (m.mostrarEquipos) { ctx.fillStyle = C.metal; ctx.fillRect(pq.x, pq.y, pq.w, pq.h); stroke(); ctx.strokeRect(pq.x, pq.y, pq.w, pq.h); } }
+        if (verEq) { ctx.fillStyle = C.metal; ctx.fillRect(pq.x, pq.y, pq.w, pq.h); stroke(); ctx.strokeRect(pq.x, pq.y, pq.w, pq.h); }
+        else if (m.mostrarEquipos) post.push(() => { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.proj || C.muted; ctx.lineWidth = 1; ctx.strokeRect(pq.x, pq.y, pq.w, pq.h); ctx.restore(); }); }   /* A350 */
       stroke(); ctx.strokeRect(eq.x, eq.y, eq.w, eq.h - abajo);
       const ek = (name === 'Horno' ? 'oven:' : 'micro:') + m.id; partHits.push({ rect: eq, key: ek, active: true });
       if (selectedPart === ek) post.push(() => outline(eq, C.select, 2)); else if (hover === 'part:' + ek) post.push(() => outline(eq, C.hoverPart, 1.5));
       if (counter) drawShelves(eq, 0, m, 'micro', false, sel);
-      if (counter && m.mostrarEquipos) {   /* microondas de sobreponer: caja centrada en el nicho, con ventana y panel de control */
+      if (counter && verEq) {   /* microondas de sobreponer: caja centrada en el nicho, con ventana y panel de control */
         const cw = Math.min(m.microAncho, m.ancho - 2*m.espesorLaterales - 1)*scale, ch = m.microAlto*scale, cx = il + W/2 - cw/2, cy = y + eq.h - ch;
         ctx.fillStyle = C.metal; ctx.fillRect(cx, cy, cw, ch); stroke(); ctx.strokeRect(cx, cy, cw, ch);
         ctx.fillStyle = C.glass; ctx.fillRect(cx + cw*.06, cy + ch*.15, cw*.62, ch*.7); ctx.fillRect(cx + cw*.74, cy + ch*.15, cw*.2, ch*.7);
-      } else if (m.mostrarEquipos) {   /* A273: la ventana y el tirador en el panel */
+      } else if (verEq) {   /* A273: la ventana y el tirador en el panel */
         ctx.fillStyle = C.glass; ctx.fillRect(pq.x + pq.w*.1, pq.y + pq.h*.25, pq.w*.8, pq.h*.6);
         stroke(); line(pq.x + 5, pq.y + pq.h*.16, pq.x + pq.w - 5, pq.y + pq.h*.16);
       }
@@ -13160,7 +13190,7 @@ const LAM = (() => {
     const x0 = Math.min(...ps.map(p => p.x)), x1 = Math.max(...ps.map(p => p.x + p.ancho)), z0 = Math.min(...ps.map(p => p.z)), z1 = Math.max(...ps.map(p => p.z + p.alto));
     const sc = (10 / o.escalaFija) / PX_MM, M = 38, X = x => M + (x - x0) * sc, Y = z => M + (z1 - z) * sc;
     const g = new Grabador((x1 - x0) * sc + 2 * M, (z1 - z0) * sc + 2 * M), previoC = Object.assign({}, C); Object.assign(C, LIGHT); const J = juegoCotas(g, o);
-    let zonas = null, xmap = null;
+    let zonas = null, xmap = null; const proyEq = [];
     try {
       ps.slice().sort((a, b) => (a.y + a.fondo) - (b.y + b.fondo) || a.z - b.z).forEach(p => {
         if (p.tipo === 'Pata') { caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? '#FFFFFF' : '#3A3D42', plano ? '#222222' : '#1F2226', .7); return; }   /* A326: la pata de perfil, como es */
@@ -13168,10 +13198,13 @@ const LAM = (() => {
           g.save(); g.lineCap = 'round'; const x1 = X(p.x + p.forma.de[0]), y1 = Y(p.z + p.forma.de[2]), x2 = X(p.x + p.forma.a[0]), y2 = Y(p.z + p.forma.a[2]), dd = Math.max(1.6, (p.forma.diametro || 1) * sc);
           g.strokeStyle = plano ? '#222222' : '#4A5057'; g.lineWidth = dd + 1.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
           g.strokeStyle = plano ? '#FFFFFF' : '#B9C0C7'; g.lineWidth = dd; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.restore(); return; }
+        if (!conPuertas && p.rol === 'equipo' && ['Horno', 'Microondas'].includes(p.tipo)) { proyEq.push(p); return; }   /* A350: sin puertas, en proyeccion */
         caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? (p.rol === 'frente' ? '#FFFFFF' : '#F2F4F6') : colorPieza(p), plano ? '#222222' : '#4A5057', p.rol === 'frente' ? 1 : .7, { p, sc, plano });
         if (p.rol === 'equipo' && ['Horno', 'Microondas', 'Estufa', 'Lavavajillas'].includes(p.tipo)) detalleEquipo(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, p.tipo, plano); });
       herrajes.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'f', mo.espejo); if (q) dibujarSim(g, q.id, q.flip, X(mo.origen[0]), Y(mo.origen[2]), sc, plano); });
       giradas.forEach(p => dibujarSimGiro(g, p, X(p.modelo.origen[0]), Y(p.modelo.origen[2]), sc, plano));
+      proyEq.forEach(p => { g.save(); g.setLineDash([4, 3]); g.strokeStyle = '#6B7680'; g.lineWidth = .8; g.strokeRect(X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc);   /* A350 */
+        g.setLineDash([]); g.fillStyle = '#6B7680'; g.font = `400 ${Math.max(7, 9)}px Helvetica, Arial, sans-serif`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(T(p.tipo), X(p.x) + 3, Y(p.z + p.alto) + 3); g.restore(); });
       const cuerpos = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
       const ext = {}; cuerpos.forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || { a: 1e9, b: -1e9, id: p.modulo }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
       const mods = Object.values(ext).sort((a, b) => a.a - b.a);
