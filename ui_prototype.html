@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A325. [Master hecho 20/10; SketchUp: sin cambio (Presentar es del master); Revit pendiente (Presentar)] (usuario 20/10: «herramienta acotar
+       en presentar») Boton «Acotar» en la barra de Presentar: clic en un punto y clic en otro; la cota sale horizontal o vertical (segun el
+       movimiento) con la medida real en la escala de la vista donde empieza (sin vista, en mm de papel). Se arrastra para separarla, Supr la
+       quita, Esc termina el modo, y se deshace como lo demas. Viven en L.cotas.__manual (se guardan con la disposicion) y se dibujan con la
+       hoja: salen en el lienzo y en el PDF.
    A324. [Master hecho 20/10; SketchUp: sin cambio; Revit pendiente (Presentar)] (usuario 20/10: «las puertas con piston no se representan
        bien en isometrico, aparecen artefactos sobre las puertas (entre juntas) y al abrirlas aparecen cajas, ademas que los pistones no se
        representan correctamente») Los soportes del piston (del lateral y de la puerta) y su calza no estaban entre las piezas interiores: con
@@ -2689,6 +2694,7 @@
       <button class="btn btn-icon" id="presNext" title="Hoja siguiente">&#9654;</button>
       <span class="sep"></span>
       <button class="btn" id="presReacomodar" title="Acomoda las vistas encendidas en filas, sin cambiar sus escalas (si no caben, sube la escala). Cada clic muestra otra opción de acomodo. Mayús + clic en las vistas las selecciona para moverlas juntas">Reacomodar</button>
+      <button class="btn" id="presAcotar" title="Acotar: clic en un punto y clic en otro (horizontal o vertical). La medida sale en la escala de la vista donde empieza. Arrastra la cota para separarla; Supr la quita; Esc termina">Acotar</button>
       <button class="btn" id="presAjustar" title="Muestra la hoja completa en la ventana">Ajustar</button>
       <button class="btn btn-icon" id="presMenos" title="Alejar">&minus;</button>
       <span id="presZoom" style="min-width:48px;text-align:center;font-size:12px"></span>
@@ -13824,6 +13830,7 @@ const LAM = (() => {
       if (esc2) t(esc2, c.x + c.w - c.pad - anchoHelv(esc2, 2.6 * k) + te.dx, yT + te.dy, 2.6 * k, false, '#555555');
 
     });
+    dibujarCotasManual(S, d.cotasManual);   /* A325 */
     if (H.estilo === 'vertical' || H.estilo === 'horizontal') { pieNuevo(S, d, H, corta, parrafo); return; }   /* A318 */
     /* marco y franja de rotulo */
     const x0 = H.ancho - H.margen - H.franja, y0 = H.margen, w = H.franja, h = H.alto - 2 * H.margen, pad = 3.6 * k, ancho = w - 2 * pad;
@@ -13865,6 +13872,30 @@ const LAM = (() => {
     t(T(d.hojaDe ? 'CLAVE' : 'HOJA'), x0 + pad, fin + 6 * k, 2.2 * k, false, '#6B7680'); if (d.hojaDe) t(d.hojaDe, x0 + w - pad - anchoHelv(d.hojaDe, 2.2 * k), fin + 6 * k, 2.2 * k, false, '#6B7680');   /* A317 */
     t(corta(d.hoja, ancho, 9.5 * k, true), x0 + pad, fin + 15.5 * k, 9.5 * k, true); if (S.campo) S.campo('clave', x0, fin, w, 21 * k, d.hoja);
   }
+  /* A325 (usuario 20/10: «herramienta acotar en presentar»): cotas puestas a mano sobre la lamina. Viven en L.cotas.__manual (se guardan
+     y se deshacen con la disposicion): { id, hoja, a: [x, y], b: [x, y] (mm de hoja), dir: 'h' | 'v', off (mm, separacion de la linea), n
+     (escala de la vista donde empieza; sin vista, mm de papel) }. Se dibujan con la hoja (lienzo y PDF) */
+  const cotaManualGeo = c => { const h = c.dir !== 'v', off = c.off || 0;
+    const p1 = h ? [c.a[0], c.a[1] + off] : [c.a[0] + off, c.a[1]], p2 = h ? [c.b[0], c.a[1] + off] : [c.a[0] + off, c.b[1]];
+    const largo = h ? Math.abs(c.b[0] - c.a[0]) : Math.abs(c.b[1] - c.a[1]), valor = c.n ? largo * c.n / 10 : largo;
+    return { h, p1, p2, e1: [c.a, p1], e2: [h ? [c.b[0], c.b[1]] : [c.b[0], c.b[1]], p2], texto: c.n ? fmt(Math.round(valor * 10) / 10) : `${Math.round(largo * 10) / 10} mm` }; };
+  function dibujarCotasManual(S, lista){
+    (lista || []).forEach(c => { const G = cotaManualGeo(c), k = HOJA.k, AZ = '#266096', t = 2.6 * k;
+      S.ln(G.e1[0][0], G.e1[0][1], G.e1[1][0], G.e1[1][1], .12, AZ); S.ln(G.e2[0][0], G.e2[0][1], G.e2[1][0], G.e2[1][1], .12, AZ);
+      S.ln(G.p1[0], G.p1[1], G.p2[0], G.p2[1], .2, AZ); [G.p1, G.p2].forEach(q => S.ln(q[0] - 1, q[1] + 1, q[0] + 1, q[1] - 1, .3, AZ));
+      const w = anchoHelv(G.texto, t), mx = (G.p1[0] + G.p2[0]) / 2, my = (G.p1[1] + G.p2[1]) / 2;
+      if (G.h) S.t(G.texto, mx - w / 2, my - .9 * k, t, false, AZ); else if (S.tv) S.tv(G.texto, mx - .9 * k, my + w / 2, t, false, AZ); else S.t(G.texto, mx + .9 * k, my, t, false, AZ); });
+  }
+  const cotasManualDe = (L, h) => ((L.cotas && L.cotas.__manual) || []).filter(c => c.hoja === h);
+  function presHitCotaManual(L, mx, my, tol){
+    return cotasManualDe(L, L.hoja).slice().reverse().find(c => { const G = cotaManualGeo(c), [x1, y1] = G.p1, [x2, y2] = G.p2, dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy || 1;
+      const u = Math.max(0, Math.min(1, ((mx - x1) * dx + (my - y1) * dy) / L2)); return Math.hypot(mx - (x1 + u * dx), my - (y1 + u * dy)) <= tol + .8; }) || null; }
+  function presAgregarCotaManual(L, a, b){
+    const dx = b[0] - a[0], dy = b[1] - a[1], dir = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'; if ((dir === 'h' ? Math.abs(dx) : Math.abs(dy)) < 1) return null;
+    const it = presHit(L, a[0], a[1]), c = { id: 'cm' + Date.now().toString(36), hoja: L.hoja, a: a.map(v => Math.round(v * 10) / 10), b: b.map(v => Math.round(v * 10) / 10), dir, off: -6 * HOJA.k, n: it && it.n ? it.n : null };
+    if (!L.cotas) L.cotas = {}; L.cotas.__manual = (L.cotas.__manual || []).concat([c]); return c; }
+  function presMoverCotaManual(L, id, mx, my){ const c = cotasManualDe(L, L.hoja).find(q => q.id === id); if (!c) return; c.off = Math.round((c.dir === 'v' ? mx - c.a[0] : my - c.a[1]) * 10) / 10; }
+  function presQuitarCotaManual(L, id){ if (L.cotas && L.cotas.__manual) L.cotas.__manual = L.cotas.__manual.filter(c => c.id !== id); }
   /* A318: los pies 'vertical' y 'horizontal'. Mismos datos que la franja clasica: logo (movible, A317), campos editables, herrajes, notas
      numeradas, nota general y clave de la hoja */
   function pieNuevo(S, d, H, corta, parrafo){
@@ -14593,7 +14624,7 @@ const LAM = (() => {
     else { const u = h.u || [0, -1]; q.d = r((b.d || 0) + ddx * u[0] + ddy * u[1]); }   /* isometrico: solo sobre sus extensiones */
   }
   const presOcultarCota = (L, h) => { const id = h.id !== undefined ? h.id : h.i, o = ((L.cotas = L.cotas || {})[h.it.id] = L.cotas[h.it.id] || {}); (o[id] = o[id] || {}).oculta = true; };
-  const presRestablecerCotas = L => { L.cotas = {}; };
+  const presRestablecerCotas = L => { const man = L.cotas && L.cotas.__manual; L.cotas = man ? { __manual: man } : {}; };   /* A325: las puestas a mano se quedan */
   /* trazos sobre una vista (globos y marcas), en px de su captura: para el lienzo, el PDF y el DXF */
   function opsSobre(L, it, gs, ms){
     const cap = it.cap, gr = new Grabador(Math.max(cap.w, cap.bb.x1 + 600), Math.max(cap.h, cap.bb.y1 + 900));
@@ -14859,7 +14890,7 @@ const LAM = (() => {
       }
       const its = ordenLectura(enHoja(L).filter(it => it.on && it.cap));
       if (L.marcos !== false) { g.save(); g.setLineDash([4, 4]); its.forEach(it => { g.strokeStyle = 'rgba(38,96,150,.28)'; g.lineWidth = 1; g.strokeRect(X(it.x), Y(it.y), it.w * Z, it.h * Z); }); g.restore(); }   /* A186: los marcos se apagan con las lineas de proyeccion */
-      const datos = Object.assign({}, L.datos, { hoja, hojaDe: ch0.de });
+      const datos = Object.assign({}, L.datos, { hoja, hojaDe: ch0.de, cotasManual: cotasManualDe(L, pag) });   /* A325 */
       let k3 = 0;
       const pg = { datos, vistas: its.map(it => ({ celda: celdaDe(it), num: it.cap.sinTitulo ? '' : String(++k3).padStart(2, '0'), n: it.cap.n, nombre: tituloItem(L, it), tt: it.tt, te: it.te, sinEscala: !!it.cap.sinEscala, sinTitulo: !!it.cap.sinTitulo })) };
       const recorteMM = it => { const c = celdaDe(it), b = it.bbEf || it.cap.bb; return { x: c.x + c.pad + (c.caja.w - b.w * PX_MM) / 2, y: c.y + c.pad + (c.caja.h - b.h * PX_MM) / 2, w: b.w * PX_MM, h: b.h * PX_MM }; };
@@ -14911,7 +14942,7 @@ const LAM = (() => {
             if (it.rec) ops = [{ t: 'q' }, { t: 'clip', ruta: [{ pts: [[bE.x0, bE.y0], [bE.x1, bE.y0], [bE.x1, bE.y1], [bE.x0, bE.y1]], cerrada: true }] }].concat(ops, [{ t: 'Q' }]);
             return Object.assign({}, it.cap, { ops, bb: bE }); };
           const cs = its.map(it => ({ it, cap: conSobre(it) })); cs.forEach(c => todos.push(c));
-          paginas.push(paginaComposicion(cs.map(c => ({ cap: c.cap, celda: celdaDe(c.it), nombre: tituloItem(L, c.it), tt: c.it.tt, te: c.it.te })), Object.assign({}, datos, { hoja: hoja(paginas.length + 1), hojaDe: hojaDe(paginas.length + 1) })));
+          paginas.push(paginaComposicion(cs.map(c => ({ cap: c.cap, celda: celdaDe(c.it), nombre: tituloItem(L, c.it), tt: c.it.tt, te: c.it.te })), Object.assign({}, datos, { hoja: hoja(paginas.length + 1), hojaDe: hojaDe(paginas.length + 1), cotasManual: cotasManualDe(L, h) })));   /* A325 */
         }
       } finally { L.hoja = previa; }
       if (!paginas.length) throw new Error(T('No hay vistas en la lámina: enciende al menos una.'));
@@ -15115,7 +15146,7 @@ const LAM = (() => {
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
-    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE,
+    abiertos, isoEscena, isoPintar, isoClick, isoHit, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo,
     presNueva, presRefrescar, presReacomodar, presCrearModulosCloset, presAcomodarConjunto, presMoverHoja, presReordenarHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
@@ -15149,7 +15180,7 @@ function entregarLaminas(r){
    blanco y negro); se pueden duplicar vistas y agregar mas de un corte (con su marca en el alzado y la planta). El PDF sale igual
    que se ve, con las hojas de detalle por unidad. La disposicion se guarda en prefs.lamLayoutJson (del usuario; falta llevarla
    al archivo del proyecto). Ctrl+Z deshace y Ctrl+Y rehace las ediciones de la lamina. */
-const PRES = { abierto: false, L: null, Z: 1, ox: 0, oy: 0, sel: null, selG: null, selM: null, selC: null, hoverC: null, drag: null, guias: [], tmr: 0, pag: 0, hist: [], fut: [], pend: null, edita: null };
+const PRES = { abierto: false, L: null, Z: 1, ox: 0, oy: 0, sel: null, selG: null, selM: null, selC: null, selCM: null, modo: null, cotaA: null, cotaB: null,   /* A325 */ hoverC: null, drag: null, guias: [], tmr: 0, pag: 0, hist: [], fut: [], pend: null, edita: null };
 const presEl = id => document.getElementById(id);
 const PRES_CAMPOS = ['proyecto', 'cliente', 'autor', 'fecha', 'dibujo', 'escala', 'revision', 'clave', 'logoDx', 'logoDy', 'logoEsc', 'estiloPie'];   /* A317; A318 */
 const presPref = k => 'lam' + k[0].toUpperCase() + k.slice(1);
@@ -15191,6 +15222,8 @@ function presAjustar(){
   PRES.Z = Math.max(.2, Math.min((r.width - 48) / w, (r.height - 48) / h)); PRES.ox = (r.width - w * PRES.Z) / 2; PRES.oy = (r.height - h * PRES.Z) / 2;
   presDibujar();
 }
+/* A325: herramienta acotar encendida o apagada */
+function presModoAcotar(on){ PRES.modo = on ? 'acotar' : null; PRES.cotaA = PRES.cotaB = null; const b = presEl('presAcotar'); if (b) b.classList.toggle('btn-primary', !!on); const cv = presEl('presCanvas'); if (cv) cv.style.cursor = on ? 'crosshair' : 'default'; setStatus(on ? 'Acotar: clic en el primer punto y clic en el segundo · Esc termina' : ''); presDibujar(); }
 function presDibujar(rapido){
   const L = PRES.L, cv = presEl('presCanvas'); if (!PRES.abierto || !L) return;
   const r = presEl('presLienzo').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
@@ -15201,6 +15234,14 @@ function presDibujar(rapido){
   if (PRES.pag < L.hojas.length) L.hoja = PRES.pag;
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
   LAM.presPintar(g, L, { Z: PRES.Z, ox: PRES.ox, oy: PRES.oy, dpr, sel: PRES.sel, multi: PRES.multi || [], selG: PRES.selG, selM: PRES.selM, hoverC: PRES.hoverC, guias: PRES.guias, rapido: !!rapido, pag: PRES.pag });
+  /* A325: la cota elegida y la que se esta trazando */
+  const cmSel = PRES.selCM && ((L.cotas && L.cotas.__manual) || []).find(c => c.id === PRES.selCM && c.hoja === PRES.pag);
+  const trazo = PRES.modo === 'acotar' && PRES.cotaA && PRES.cotaB ? (() => { const dx = PRES.cotaB[0] - PRES.cotaA[0], dy = PRES.cotaB[1] - PRES.cotaA[1], dir = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+    return { a: PRES.cotaA, b: PRES.cotaB, dir, off: 0, n: (LAM.presHit(L, PRES.cotaA[0], PRES.cotaA[1]) || {}).n || null }; })() : null;
+  [cmSel, trazo].forEach((c, i) => { if (!c) return; const G = LAM.cotaManualGeo(c), X = v => PRES.ox + v * PRES.Z, Yy = v => PRES.oy + v * PRES.Z;
+    g.save(); g.strokeStyle = i ? '#E8590C' : '#1E90FF'; g.lineWidth = i ? 1.2 : 2.4; g.globalAlpha = i ? 1 : .45; g.beginPath(); g.moveTo(X(G.p1[0]), Yy(G.p1[1])); g.lineTo(X(G.p2[0]), Yy(G.p2[1])); g.stroke();
+    if (i) { g.globalAlpha = 1; g.fillStyle = '#E8590C'; g.font = "600 12px 'Inter'"; g.fillText(G.texto, X((G.p1[0] + G.p2[0]) / 2) + 6, Yy((G.p1[1] + G.p2[1]) / 2) - 6); }
+    g.restore(); });
   const rq = PRES.drag && PRES.drag.k === 'recuadro' ? PRES.drag : null;   /* A315: el recuadro de seleccion */
   if (rq) { const x = PRES.ox + Math.min(rq.x0, rq.x1) * PRES.Z, y = PRES.oy + Math.min(rq.y0, rq.y1) * PRES.Z, w = Math.abs(rq.x1 - rq.x0) * PRES.Z, h = Math.abs(rq.y1 - rq.y0) * PRES.Z;
     g.save(); g.fillStyle = 'rgba(30,144,255,.08)'; g.strokeStyle = '#1E90FF'; g.lineWidth = 1; g.setLineDash([4, 3]); g.fillRect(x, y, w, h); g.strokeRect(x + .5, y + .5, w, h); g.restore(); }
@@ -15359,6 +15400,12 @@ function presCargarLogo(){
     if (!PRES.L) return; presCerrarEdicion(true);
     try { cv.setPointerCapture(e.pointerId); } catch (x) { /* sin captura */ }
     const L = PRES.L, p = pos(e), m = mmDe(p), tol = 6 / PRES.Z;
+    /* A325: herramienta acotar: primer clic, segundo clic (horizontal o vertical segun el movimiento) */
+    if (PRES.modo === 'acotar' && PRES.pag < L.hojas.length) { if (!PRES.cotaA) { PRES.cotaA = [m.x, m.y]; PRES.cotaB = [m.x, m.y]; presDibujar(true); return; }
+      presAntes(); const c = LAM.presAgregarCotaManual(L, PRES.cotaA, [m.x, m.y]); PRES.cotaA = PRES.cotaB = null; if (!c) { PRES.hist.pop(); presDibujar(); return; }
+      PRES.selCM = c.id; presGuardar(); presDibujar(); return; }
+    if (PRES.pag < L.hojas.length) { const cm = LAM.presHitCotaManual(L, m.x, m.y, tol); if (cm) { PRES.selCM = cm.id; PRES.sel = null; PRES.selG = null; PRES.selC = null; PRES.pend = presSnap(); PRES.drag = { k: 'cotaManual', id: cm.id, movido: false }; presDibujar(); return; } }
+    PRES.selCM = null;
     if (PRES.pag < L.hojas.length) {
       const eh = PRES.sel && LAM.presHitEsquina(L, PRES.sel, m.x, m.y, tol);   /* A190: arrastrar una esquina de la vista elegida cambia su escala */
       if (eh && eh.c >= 4) { PRES.pend = presSnap(); PRES.drag = { k: 'recorte', it: PRES.sel, eh, ini: { x: PRES.sel.x, y: PRES.sel.y, w: PRES.sel.w, h: PRES.sel.h, rec: PRES.sel.rec ? Object.assign({}, PRES.sel.rec) : undefined }, movido: false }; return; }
@@ -15405,6 +15452,7 @@ function presCargarLogo(){
   });
   cv.addEventListener('pointermove', e => {
     const d = PRES.drag, p = pos(e), m = mmDe(p);
+    if (PRES.modo === 'acotar') { cv.style.cursor = 'crosshair'; if (PRES.cotaA) { PRES.cotaB = [m.x, m.y]; presDibujar(true); } return; }   /* A325 */
     if (!d && PRES.pag < PRES.L.hojas.length) {   /* ⇄ del corte: solo con el puntero sobre la vista */
       const it0 = LAM.presHit(PRES.L, m.x, m.y), hv = it0 && it0.vista === 'Corte' ? it0.id : null;
       if (hv !== PRES.hoverC) { PRES.hoverC = hv; presDibujar(true); } }
@@ -15414,6 +15462,7 @@ function presCargarLogo(){
       cv.style.cursor = PRES.pag < PRES.L.hojas.length && (LAM.presHitCota(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitTexto(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitLey(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitGlobo(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitMarca(PRES.L, m.x, m.y, 6 / PRES.Z)) ? 'pointer'
       : (PRES.L.camposHoja || []).some(c => m.x >= c.x && m.x <= c.x + c.w && m.y >= c.y && m.y <= c.y + c.h) ? 'text' : PRES.pag < PRES.L.hojas.length && LAM.presHit(PRES.L, m.x, m.y) ? 'grab' : 'default'; return; }
     if (d.k === 'pan') { PRES.ox = d.ox + p.x - d.px; PRES.oy = d.oy + p.y - d.py; presDibujar(true); return; }
+    if (d.k === 'cotaManual') { d.movido = true; LAM.presMoverCotaManual(PRES.L, d.id, m.x, m.y); presDibujar(true); return; }   /* A325 */
     if (d.k === 'logo') { d.movido = true; cv.style.cursor = 'grabbing'; LAM.presRotulo(PRES.L, 'logoDx', String(Math.round((d.dx0 + m.x - d.mx) * 10) / 10)); LAM.presRotulo(PRES.L, 'logoDy', String(Math.round((d.dy0 + m.y - d.my) * 10) / 10)); presDibujar(true); return; }   /* A317 */
     if (d.k === 'recuadro') { d.x1 = m.x; d.y1 = m.y; const a = Math.min(d.x0, d.x1), b = Math.max(d.x0, d.x1), c = Math.min(d.y0, d.y1), f = Math.max(d.y0, d.y1);   /* A315 */
       const vs = LAM.enHoja(PRES.L, PRES.pag).filter(q => q.on && q.cap && q.x < b && q.x + q.w > a && q.y < f && q.y + q.h > c);
@@ -15536,6 +15585,7 @@ function presCargarLogo(){
     if (d.popt) { presAntes(); const k = d.popt; if (k === 'detalle' || k === 'dxf') { L[k] = t.checked; presGuardar(); presLado(); presDibujar(); } else { L[k] = t.checked; presRefrescar(false); } return; }
     if (d.prot) { presAntes(); LAM.presRotulo(L, d.prot, t.value.trim()); presGuardar(); presDibujar(); }
   });
+  presEl('presAcotar').addEventListener('click', () => presModoAcotar(PRES.modo !== 'acotar'));   /* A325 */
   presEl('presReacomodar').addEventListener('click', () => { presAntes(); const r = LAM.presReacomodar(PRES.L, PRES.L.hoja, true); presGuardar(); presLado(); presDibujar();
     if (r) setStatus(r.de > 1 ? `Opción de acomodo ${r.i} de ${r.de}` : 'Solo hay una forma de acomodar estas vistas en la hoja'); });
   presEl('presAjustar').addEventListener('click', presAjustar);
@@ -15551,6 +15601,7 @@ function presCargarLogo(){
   document.addEventListener('keydown', e => {
     if (!PRES.abierto || presEl('modal').classList.contains('open')) return;
     const enCampo = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
+    if (e.key === 'Escape' && !enCampo && PRES.modo === 'acotar') { e.preventDefault(); presModoAcotar(false); return; }   /* A325: Esc termina de acotar, no cierra */
     if (e.key === 'Escape' && !enCampo) { e.preventDefault(); presCerrar(); return; }
     if ((e.ctrlKey || e.metaKey) && !enCampo) {
       const k = e.key.toLowerCase();
@@ -15559,6 +15610,8 @@ function presCargarLogo(){
       if (k === 'a' && !enCampo && PRES.pag < PRES.L.hojas.length) { e.preventDefault(); const vs = LAM.enHoja(PRES.L, PRES.pag).filter(q => q.on && q.cap); PRES.multi = vs.map(q => q.id); PRES.sel = vs[0] || null; presLado(); presDibujar(); return; }   /* A315 */
     }
     if (enCampo) return;
+    if (PRES.modo === 'acotar' && e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); presModoAcotar(false); return; }   /* A325 */
+    if (PRES.selCM && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); presAntes(); LAM.presQuitarCotaManual(PRES.L, PRES.selCM); PRES.selCM = null; presGuardar(); presDibujar(); return; }
     if (PRES.selC && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); presAntes(); LAM.presOcultarCota(PRES.L, { it: { id: PRES.selC.it }, i: PRES.selC.i }); PRES.selC = null; presGuardar(); presDibujar(); return; }
     if (PRES.selG && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); const id = PRES.selG.id; PRES.selG = null; editaNota(id, false, ''); return; }
     /* A315 (usuario 20/10: «supr quita la vista seleccionada»): la vista elegida, o todas las de la seleccion multiple */
