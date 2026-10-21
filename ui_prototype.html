@@ -303,6 +303,11 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A369. [Master hecho 21/10; SketchUp y Revit: no aplica (solo texto del panel)] (usuario 21/10, manual «El Cocinator», ANALISIS_EL_COCINATOR.md)
+       Consejos de fabricacion en el panel del lavavajillas y del refrigerador: regatones y canto sellado (llegan al piso sin zoclo), tablero resistente a
+       la humedad (RH) hacia la tarja, paso de agua, drenaje y cable. Pendiente de la lista de corte (E17-E20, despues del lanzamiento): columnas de cantos
+       (el canto suma a la medida), taladros del Sistema 32, cajon por dentro (fondo de 6 mm en ranura a 5 mm; hoy PLAN_CAJA usa su propio piso y lado, sin
+       cambiar) y nomenclatura a-apv-6 como exportacion opcional.
    A368. [Master hecho 21/10; SketchUp y Revit: no aplica (solo texto del panel)] (usuario 21/10, manual «El Cocinator», ANALISIS_EL_COCINATOR.md)
        Seccion «Consejos» informativa en el panel del refrigerador, de la torre, del esquinero y de la estufa o gabinete con parrilla: ubicacion,
        ventilacion, alturas del microondas y del horno, altura maxima de torre (244 cm), tira de relleno, jaladera a 5 cm de la esquina, ventana y cubertero
@@ -8154,7 +8159,8 @@ const consejosRefri = () => consejosHtml([
   `No va en la esquina interna de una L o U: si su puerta abre hacia ella, déjale al menos ${medida(45)} de la pared perpendicular.`,
   `Déjale al menos ${medida(15)} a una ventana (el sol lo calienta) y ${medida(30)} a la estufa si son contiguos.`,
   `Necesita aire: de ${medida(5)} a ${medida(10)} atrás y ${medida(5)} arriba, salvo que la ficha del fabricante pida otra cosa.`,
-  `Deja ${medida(90)} libres al frente para abrir la puerta y tomar cosas sin estorbar.`]);
+  `Deja ${medida(90)} libres al frente para abrir la puerta y tomar cosas sin estorbar.`,
+  `Llega al piso sin zoclo: sella el canto inferior de los costados del mueble y ponle regatones (patitas) para que no absorba humedad.`]);
 const consejosTorre = () => consejosHtml([
   `Una torre mide como máximo ${medida(244)} (el largo del tablero estándar); si necesitas más, se parte en dos muebles superpuestos.`,
   `Microondas: su centro a ${medida(150)} del piso (entre ${medida(140)} y ${medida(160)}).`,
@@ -8170,7 +8176,11 @@ const consejosEstufa = () => consejosHtml([
   `Deja ${medida(30)} de cubierta a cada lado para apoyar ollas calientes, y ${medida(60)} o más hasta la tarja.`,
   `Debajo no pongas un cubertero metálico: se calienta por radiación; usa material aislante o deja aire.`,
   `Si tiene una tapa de cristal que se levanta, comprueba que no choque con la campana ni con el mueble alto al abrirla.`]);
-const consejosDe = m => isRefri(m) ? consejosRefri() : isTower(m) ? consejosTorre() : (m.tipo === 'Estufa' || !m.upper && !esAparato(m) && m.parrilla) ? consejosEstufa() : '';
+const consejosLava = () => consejosHtml([
+  `Llega al piso sin zoclo: sella el canto inferior de los costados del mueble y ponle regatones (patitas) para que no absorba humedad.`,
+  `En el costado que da a la tarja conviene tablero resistente a la humedad (melamina RH), y su canto bien sellado.`,
+  `Deja paso para el agua, el drenaje y el cable entre el mueble de la tarja y el lavavajillas antes de fabricar.`]);
+const consejosDe = m => m.tipo === 'Lavavajillas' && !m.upper ? consejosLava() : isRefri(m) ? consejosRefri() : isTower(m) ? consejosTorre() : (m.tipo === 'Estufa' || !m.upper && !esAparato(m) && m.parrilla) ? consejosEstufa() : '';
 /* A134: esquineros en el plan de piezas. Cada esquina k se arma en la cara k (la de su izquierda; la esquina en su extremo derecho,
    x = LA) en ejes de esa cara (y desde el muro). La cara de la derecha recorta su zoclo, su cubierta y su backsplash al llegar a la
    esquina (los pone la cara k). Medio detalle (B19): tableros, puertas, charolas y repisas; sin herrajes de catalogo */
@@ -11837,6 +11847,9 @@ const EN_T = [
   ["Déjale al menos {0} a una ventana (el sol lo calienta) y {1} a la estufa si son contiguos.", "Leave at least {0} to a window (the sun warms it) and {1} to the range if they are side by side."],
   ["Necesita aire: de {0} a {1} atrás y {2} arriba, salvo que la ficha del fabricante pida otra cosa.", "It needs air: {0} to {1} behind and {2} above, unless the manufacturer’s spec sheet says otherwise."],
   ["Deja {0} libres al frente para abrir la puerta y tomar cosas sin estorbar.", "Leave {0} clear in front to open the door and take things out without being in the way."],
+  ["Llega al piso sin zoclo: sella el canto inferior de los costados del mueble y ponle regatones (patitas) para que no absorba humedad.", "It reaches the floor with no toe kick: seal the bottom edge of the cabinet sides and add leveling feet so it does not soak up moisture."],
+  ["En el costado que da a la tarja conviene tablero resistente a la humedad (melamina RH), y su canto bien sellado.", "On the side facing the sink, a moisture-resistant board (RH melamine) with a well-sealed edge is a good idea."],
+  ["Deja paso para el agua, el drenaje y el cable entre el mueble de la tarja y el lavavajillas antes de fabricar.", "Leave a way through for water, drain and cable between the sink cabinet and the dishwasher before building."],
   ["Una torre mide como máximo {0} (el largo del tablero estándar); si necesitas más, se parte en dos muebles superpuestos.", "A tower is at most {0} tall (the length of a standard board); if you need more, split it into two stacked cabinets."],
   ["Microondas: su centro a {0} del piso (entre {1} y {2}).", "Microwave: its center at {0} from the floor (between {1} and {2})."],
   ["Horno: su rejilla central a {0} del piso (entre {1} y {2}).", "Oven: its middle rack at {0} from the floor (between {1} and {2})."],
