@@ -303,6 +303,23 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A357. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «opciones de alacena
+       (cajones bajos, cuerpos de repisas, invertir abatimiento) ponerlo debajo de funcion en columna») En el panel de la alacena su seccion
+       «Alacena» va justo bajo Funcion (antes de Especiero anexado y Medidas).
+   A356. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (isometrico)] (usuario 21/10: «opcion de mostrar campana sin gabinete en
+       un borde no se aprecia bien en el isometrico») La campana (visera y chimenea) va en un acero mas oscuro (#8E99A4) que los demas equipos
+       para que se distinga del muro y el backsplash. Ademas la campana (y su chimenea) empezaba en el muro, dentro del backsplash que sube
+       detras de ella: en el borde izquierdo el backsplash se pintaba encima y la tapaba. Ahora empieza delante del backsplash (yCampana),
+       tambien en el plan.
+   A355. [Master hecho 21/10; SketchUp: no aplica (materiales en su modelo); Revit pendiente (isometrico del editor)] (usuario 21/10:
+       «arrastrar materiales en elementos funciona en isometrico; los listones de ajuste laterales y superiores se seleccionan en
+       isometrico») En el isometrico, soltar un material sobre una pieza lo aplica como en el alzado: gabinete (o los elegidos), piezas de
+       ajuste (Tapetas), cubierta, zoclo, backsplash o gola; mientras se arrastra se resalta lo que recibira el material, y en vacio no
+       pinta nada. Un clic en una pieza de ajuste (lateral o superior), la cubierta, el zoclo, el backsplash o la gola la elige (su panel,
+       como en el alzado) y se resalta. isoPieza da la pieza de la cara de encima; isoResaltar acepta una regla por cara.
+   A354. [Master hecho 21/10; SketchUp: no aplica (construye todo); Revit pendiente (isometrico)] (usuario 21/10: «las repisas en gabinete
+       abierto no se muestran en el isometrico (altos y bajos)») Con puertas, lo interior (repisas, divisiones, cajas) solo se oculta si un
+       frente cerrado de su modulo lo tapa; el gabinete abierto, la caja de repisas y el inferior con repisas muestran sus repisas.
    A353. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (isometrico del editor)] (usuario 21/10: «la seleccion se ve extraña en
        el isometrico, ¿podemos cambiarla por una mas dinamica/estetica y legible?») En lugar del velo azul sobre las caras: contorno exterior
        de la silueta del gabinete (2.5 px, del color de seleccion; isoResaltar une sus caras y dibuja solo el borde de la union), un tinte
@@ -4230,6 +4247,9 @@ const cuerpoFondo = () => cfg.espesorFondo > 0 ? cfg.espesorFondo : cfg.region =
    atornillada bajo el piso, columna de 3.5 y base de 7.8 de diametro; altura de 9 a 12 cm con la de 10 (y 11.5 a 14.5 con la de
    12.5). Cuatro por gabinete y seis cuando pasa de 76 cm (30"), con el eje a 5 cm de los laterales y del trasero; las delanteras
    con el eje 4.5 cm detras del zoclo (el clip abraza la columna y la base de 7.8 queda libre del zoclo) */
+/* A356 (usuario 21/10: «coloca la campana y las repisas en el otro borde y descubriras que se ve mal en el isometrico»): la campana empezaba
+   en el muro, dentro del backsplash que sube detras de ella; va delante de el (y en el isometrico ya no queda tapada) */
+const yCampana = sep => Math.max(sep, cfg.backsplash ? cfg.espesorBacksplash || 0 : 0);
 const PLAN_PATA = { borde: 5, clip: 4.5, seisDesde: 76.5, placa: [9.2, 7.9, 2.5], columna: 3.5, base: 7.8, baseAlto: 1.2, lados: 12, tuerca: { entreCaras: 4.6, alto: 1.4 } };   /* A326: tuerca de ajuste */
 const PLAN_CAJA = { lado: 1.5, piso: 1.2, holgura: 1.3, retiro: 2, libreArriba: 3, libreGola: .5 };   /* caja de cajon dentro de la carcasa */
 /* A140 (usuario, 11/10): holgura de 3 mm entre la cara posterior de puertas y cajones y el canto de la carcasa (la de la bisagra);
@@ -4939,8 +4959,8 @@ function planDePiezas(c = cfg){
         if (m.reserved || m.esquina) { x += m.ancho; continue; }   /* A134: el esquinero en 3D, etapa siguiente */
         if (isSpecial(m) || esAparato(m)) { especial(m, x); x += m.ancho; continue; }
         if (upper && soloCamp(m)) {   /* A81: solo la campana; A283: la chimenea hasta el tope */
-          if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana,
-            equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), topeCampanaSola(), sep + m.fondoCampana, sep));
+          if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), yCampana(sep), sep + m.fondoCampana,
+            equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), topeCampanaSola(), sep + m.fondoCampana, yCampana(sep)));
           x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
            interior del primero (BodyLead) y a todo el ancho del grupo */
@@ -5002,8 +5022,8 @@ function planDePiezas(c = cfg){
               q.forma = { tipo: 'perfil', eje: 'z', puntos: P.map(([u, v]) => [r2(u - X0), r2(v - Y0)]) }; continue; }
             piezas.splice(i, 1, ...[[X0, a, ''], [b, X1, ':der']].filter(([u0, u1]) => u1 - u0 > .3).map(([u0, u1, sf]) => Object.assign({}, q, { id: q.id + sf, x: r2(u0), ancho: r2(u1 - u0) }))); } }   /* trasera, riel */
         /* campana (drawCampana): en el hueco bajo el alto, del muro a su fondo y casi a todo el ancho */
-        if (hasCampana(m) && m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), sep, sep + m.fondoCampana,
-            equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + Math.max(huecoAlto(m), bodyH(m)), sep + m.fondoCampana, sep));
+        if (hasCampana(m) && m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), yCampana(sep), sep + m.fondoCampana,
+            equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + Math.max(huecoAlto(m), bodyH(m)), sep + m.fondoCampana, yCampana(sep)));
         /* gola: franja de perfil en cada hueco de agarre (golaStrips), detras del plano de los frentes */
         gola(m, x, x + m.ancho);
         /* modulo superior del alto doble (drawCap): uno por grupo de columnas unidas, del primero y a todo su ancho */
@@ -9309,6 +9329,11 @@ function planGeneral(){
 
 /* arrastre de material: destino resaltado y rotulo «Material → destino» (MaterialTab.DrawMaterialDrag) */
 function materialTarget(p){
+  /* A355: en el isometrico, la pieza de encima: una parte (su grupo de material) o su gabinete; en vacio, nada */
+  if (view === 'Isometrico') { const pc = LAM.isoPieza(p), parte = parteIso(pc);
+    if (parte) return { key: GRUPO_PARTE[parte], rects: [], iso: h => parteIso(h.p) === parte };
+    if (pc && pc.modulo && byId(pc.modulo)) { const multi = selection.has(pc.modulo), ids = multi ? [...selection] : [pc.modulo]; return { key: 'mod:' + pc.modulo, multi, count: ids.length, rects: [], iso: ids }; }
+    return { key: null, rects: [], nada: true }; }
   /* A137 (usuario 11/10): Ctrl + soltar sobre una puerta de bajos, de altos o un cajon: todas las de su clase, en todas las caras */
   if (p.ctrl) { const fh = frontHits.find(h => inside(p, h.rect)); if (fh) { const cl = claseFrente(fh); return { key: 'frentes:' + cl, rects: frontHits.filter(h => claseFrente(h) === cl).map(h => h.rect) }; } }
   const onMod = view === 'Planta' && hits.find(h => inside(p, h.rect));
@@ -9338,7 +9363,8 @@ function drawMaterialDrag(){
   const t = materialTarget(matDrag);
   ctx.fillStyle = C.swapFill;
   if (t.rects.length) t.rects.forEach(r => { ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.accent, 2); });
-  else outline({ x: 2, y: 2, w: cssW - 4, h: cssH - 4 }, C.accent, 2);
+  else if (!t.iso && !t.nada) outline({ x: 2, y: 2, w: cssW - 4, h: cssH - 4 }, C.accent, 2);
+  if (t.nada) { label('Suelta sobre un gabinete o una pieza', Math.min(cssW - 220, matDrag.x + 14), matDrag.y - 18, C.muted, "500 12px 'Inter'"); return; }   /* A355 */
   const sw = mat(matDrag.id);
   label((sw ? sw.nombre : 'Original') + ' → ' + etiqueta(t.key) + (t.multi && t.count > 1 ? ` (${t.count})` : ''), Math.min(cssW - 180, matDrag.x + 14), matDrag.y - 18, C.ink, "500 12px 'Inter'");
 }
@@ -9459,6 +9485,8 @@ canvas.addEventListener('mousedown', e => {
   canvas.focus();
   if (view === 'Isometrico') { e.preventDefault();   /* A170: doble clic (A183) abre o cierra los frentes; A339: cada frente */
     if (dbl) { if (LAM.isoClick(p, e.shiftKey)) render(); return; }
+    /* A355: una pieza de ajuste, la cubierta, el zoclo, el backsplash o la gola se eligen como en el alzado */
+    const parte = parteIso(LAM.isoPieza(p)); if (parte && !e.ctrlKey) { selection = new Set(); selectedPart = parte; focusPanel = null; render(); return; }
     /* A340: un clic elige el gabinete (Ctrl: varios) y su panel se edita como en el alzado; en vacio, nada elegido */
     const id = LAM.isoModulo(p), m = id && byId(id);
     if (m) { if (e.ctrlKey || e.metaKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); } else selection = new Set([id]); }
@@ -9553,7 +9581,7 @@ canvas.addEventListener('mousedown', e => {
 });
 canvas.addEventListener('mousemove', e => {
   const p = pt(e);
-  if (view === 'Isometrico') { const hm = LAM.isoModulo(p), hv = hm && byId(hm) ? hm : null; canvas.style.cursor = LAM.isoHit(p) || hv ? 'pointer' : 'default';   /* A170; A340 */
+  if (view === 'Isometrico') { const pa = parteIso(LAM.isoPieza(p)), hm = LAM.isoModulo(p), hv = pa ? 'parte:' + pa : hm && byId(hm) ? hm : null; canvas.style.cursor = LAM.isoHit(p) || hv ? 'pointer' : 'default';   /* A170; A340; A355 */
     if (hv !== isoHover) { isoHover = hv; drawCanvas(); } return; }   /* A353: el contorno tenue sigue al puntero */
   if (drag && drag.kind === 'module') {
     const h = hits.find(h => h.module.id !== drag.id && inside(p, h.rect)), next = h ? columnaPar(drag.id, h.module.id) : null;   /* A160: por columna */
@@ -9661,7 +9689,7 @@ canvas.addEventListener('dragleave', () => { if (matDrag) { matDrag = null; draw
 canvas.addEventListener('drop', e => {
   e.preventDefault();
   const id = e.dataTransfer.getData('text/swatch'), q = pt(e); q.ctrl = e.ctrlKey; const t = materialTarget(q); matDrag = null;   /* A137 */
-  if (id) applyMaterial(id, t.key); else drawCanvas();
+  if (id && !t.nada) applyMaterial(id, t.key); else drawCanvas();   /* A355: en el isometrico, en vacio no pinta toda la cocina */
 });
 
 /* ---- cotas editables (BeginDimension / CommitDimension) ---- */
@@ -10067,6 +10095,9 @@ function specialPanel(m){
   if (valid) return focusPanelHtml(m, zone, chip);
   let html = head(nombreModulo(m), chip);
   html += section('Función', tiles('tipo', tilesBajo(), tileTipo(m.tipo)), 'plegable');
+  /* A357 (usuario 21/10: «opciones de alacena (cajones bajos, cuerpos de repisas, invertir abatimiento) ponerlo debajo de funcion en columna») */
+  if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en un cuerpo o en la cajonera para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`
+    + chk('inv', m.invertir, 'Invertir abatimiento') + `<div class="note-sm">Las puertas abren hacia el borde ${alacenaBordeDer(m) ? 'derecho' : 'izquierdo'}${alacenaBordeDer(m) ? ' (la alacena está en el borde derecho de la fila)' : ''}${m.invertir ? '; invertido' : ''}.</div>`);   /* A261 */
   /* A344 (usuario 21/10: «teniendo seleccionada una columna de torre, la siguiente opcion despues de funcion deberia ser especiero anexado») */
   if (torreAnexable(m)) html += section('Especiero anexado', anexoOpciones(m));
   html += section('Medidas', (m.tipo === 'EspecieroTorre' ? '' : anchoFijo(m.fijo, 'fijoLibre'))
@@ -10080,8 +10111,7 @@ function specialPanel(m){
       + (m.superiorRefri ? `<div style="margin-top:8px">${sel('refriSup', FUNCIONES_REFRI, refriSup(m))}</div>` + (refriSup(m) !== 'Puertas' ? '' : `<div class="sub">${chk('inv', m.invertir, 'Invertir abatimiento')}</div>`)
         + `<div class="grid-2" style="margin-top:10px">${num('repRefri', 'Repisas gabinete superior', zoneShelves(m, 'superior'), 'u', 0, MAX_REPISAS, 1)}</div>` + shelfNote(zoneH(m, 'superior'), zoneShelves(m, 'superior'), showDoors ? ' Detrás de las puertas se ven en la vista Interior.' : '') : ''));
   }
-  else if (m.tipo === 'Alacena') html += section('Alacena', `<div class="note-sm" style="margin-top:0">Doble clic en un cuerpo o en la cajonera para configurarlos.</div>` + chk('cajAl', m.cajonesAlacena, 'Cajones bajos') + `<div class="grid-2" style="margin-top:10px">${num('cuerpos', 'Cuerpos de puertas', m.cuerposAlacena, 'u', 1, 3, 1)}</div>`
-    + chk('inv', m.invertir, 'Invertir abatimiento') + `<div class="note-sm">Las puertas abren hacia el borde ${alacenaBordeDer(m) ? 'derecho' : 'izquierdo'}${alacenaBordeDer(m) ? ' (la alacena está en el borde derecho de la fila)' : ''}${m.invertir ? '; invertido' : ''}.</div>`);   /* A261 */
+  else if (m.tipo === 'Alacena') { /* A357: va justo bajo Funcion */ }
   else html += section('Especiero', `<div class="note-sm">Especiero anexado a la torre: del zoclo al cuerpo de arriba de la torre, que se ensancha y lo cubre.</div>` + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
     + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas apiladas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')
     + (m.extraible && m.especieroHerraje !== 'Condimentero' ? `<div class="grid-2" style="margin-top:8px">${num('espJuegos', 'Juegos de correderas', juegosEspeciero(m), 'u', 1, 4, 1)}</div>` : '')   /* A347 */
@@ -12681,6 +12711,10 @@ const LAM = (() => {
     todas.forEach(p => { if (p.frente && p.abre) abres[p.frente] = p.abre; });
     const open = new Set([...(o.abiertos || abiertos)].filter(f => f in abres));   /* ids que ya no existen se ignoran */
     const modAbierto = new Set(todas.filter(p => p.frente && open.has(p.frente)).map(p => p.modulo));
+    /* A354 (usuario 21/10: «las repisas en gabinete abierto no se muestran en el isometrico (altos y bajos)»): lo interior solo se oculta si
+       un frente cerrado de su modulo lo tapa (su centro cae en el frente); sin frente delante (abierto, caja de repisas, inferior con repisas) se ve */
+    const frentesMod = new Map(); caras.forEach((c, ci) => c.piezas.forEach(p => { if (p.rol === 'frente' && p.modulo) { const k = ci + '|' + p.modulo; if (!frentesMod.has(k)) frentesMod.set(k, []); frentesMod.get(k).push(p); } }));
+    const tapado = (p, ci) => (frentesMod.get(ci + '|' + p.modulo) || []).some(f => !open.has(f.frente) && p.x + p.ancho/2 >= f.x - .5 && p.x + p.ancho/2 <= f.x + f.ancho + .5 && p.z + p.alto/2 >= f.z - .5 && p.z + p.alto/2 <= f.z + f.alto + .5);
     const cajas = [], herr = [], cazF = [];
     const SX = (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, og = (plan.caras || []).map(c => c.origen[0]);
       return og.length && og.reduce((a, b) => a + b, 0) / og.length > centro ? -1 : 1; })();   /* observador en el cuarto y del lado contrario a las demas caras */
@@ -12697,7 +12731,7 @@ const LAM = (() => {
       if (z1 - z0 < 1 || piezas.some(q => q !== p && q.modulo === p.modulo && q.rol !== 'luz' && q.z + q.alto > z0 + .5 && q.z < z1 - .5)) return [p];
       const mx = mapaEstirar(E.zonas.x, E.medida[0], M.medida[0]), my = mapaEstirar(E.zonas.y, E.medida[1], M.medida[1]);
       const x0 = O[0] + mx(E.chimenea.x[0]), x1 = O[0] + mx(E.chimenea.x[1]), y0 = O[1] - my(E.chimenea.y[1]), y1 = O[1] - my(E.chimenea.y[0]);
-      return [p, Object.assign({}, p, { id: p.id + ':chimenea', x: x0, ancho: x1 - x0, y: Math.max(0, y0), fondo: y1 - Math.max(0, y0), z: z0, alto: z1 - z0, modelo: undefined })]; });
+      return [p, Object.assign({}, p, { id: p.id + ':chimenea', x: x0, ancho: x1 - x0, y: Math.max(p.y, y0), fondo: y1 - Math.max(p.y, y0), z: z0, alto: z1 - z0, modelo: undefined })]; });   /* A356: delante del backsplash, como la campana */
     caras.forEach((cara, ci) => conChimenea(trocear(cara.piezas, ci)).forEach(p0 => {
       let p = p0;
       if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
@@ -12708,7 +12742,7 @@ const LAM = (() => {
       const abierto = !!(conPuertas && p.frente && open.has(p.frente));
       const interior = p.rol === 'caja' || p.rol === 'repisa' || p.rol === 'division' || (p.rol === 'herraje' && INTERIOR.has(p.tipo));
       if (p.tipo === 'Cazoleta' && !(fs && modeloCad(p))) return;   /* la cazoleta es la perforacion de la puerta: circulo al abrirla; con modelo, el modelo */
-      if (interior && conPuertas && !abierto && !modAbierto.has(p.modulo)) return;   /* con puertas cerradas lo interior no se ve */
+      if (interior && conPuertas && !abierto && !modAbierto.has(p.modulo) && tapado(p, ci)) return;   /* con puertas cerradas lo interior no se ve; A354: sin frente delante, si */
       if (conPuertas && !abierto && p.frente && p.rol === 'herraje' && ['Bisagra', 'Cazoleta', 'CalzaBisagra'].includes(p.tipo)) return;   /* A189: la bisagra de una puerta cerrada queda tras ella, aunque otro frente del modulo este abierto */
       if (p.estado && p.frente && (p.estado === 'abierto') !== abierto) return;      /* variantes cerrado / abierto de bisagras y correderas */
       const m = abierto && p.estado !== 'abierto' ? movimientoDe(abres[p.frente]) : null;   /* A184: el brazo abierto ya esta en su sitio */
@@ -12960,7 +12994,7 @@ const LAM = (() => {
       }
       g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
       if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && t.q.p.frente) isoHits.push({ pr, frente: t.q.p.frente, modulo: t.q.p.modulo });
-      if (o.hits && t.t === 'cara' && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null });   /* A340; A353: todas, en orden de pintado (cubierta, zoclo: sin modulo) */
+      if (o.hits && t.t === 'cara' && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null, p: t.q.p });   /* A355: y su pieza */   /* A340; A353: todas, en orden de pintado (cubierta, zoclo: sin modulo) */
     });
     (esc.herr || []).forEach(h => { const pr = esc.proy(h.O); dibujarSim(g, h.id, h.flip, X(pr[0]), Y(pr[1]), s, plano); });
     if (o.cotas !== false) esc.cotas.forEach(c => {
@@ -12979,19 +13013,21 @@ const LAM = (() => {
   function isoHit(p){ for (let i = isoHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoHits[i].pr)) return isoHits[i]; return null; }
   /* A340 (usuario 21/10: «elementos se seleccionan y se pueden editar en el isometrico»): el modulo de la cara de encima en el punto, y el
      resalte de los elegidos (sus caras visibles con un velo del color de seleccion, en una sola pasada para que no se oscurezca) */
-  function isoModulo(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].modulo; return null; }   /* la cara de encima; la cubierta no elige el bajo */
+  function isoModulo(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].modulo; return null; }
+  function isoPieza(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].p; return null; }   /* A355 */   /* la cara de encima; la cubierta no elige el bajo */
   /* A353 (usuario 21/10: «la seleccion se ve extraña en el isometrico, ¿podemos cambiarla por una mas dinamica, estetica y legible?»): el
      contorno exterior de la silueta del modulo (union de sus caras visibles: mascara dilatada menos la mascara), un tinte muy suave adentro
      y, por modulo, su caja en pantalla (para la etiqueta). o.ancho: grueso del contorno en px; o.tinte: opacidad del tinte */
   function isoResaltar(g, ids, color, o = {}){
-    const set = new Set(ids), por = new Map(); isoModHits.forEach(h => { if (h.modulo && set.has(h.modulo)) { if (!por.has(h.modulo)) por.set(h.modulo, []); por.get(h.modulo).push(h); } });
+    const set = new Set(typeof ids === 'function' ? [] : ids), esMio = typeof ids === 'function' ? ids : h => h.modulo && set.has(h.modulo);   /* A355: o una regla sobre la cara (piezas sueltas) */
+    const por = new Map(); isoModHits.forEach(h => { if (esMio(h)) { const k = typeof ids === 'function' ? '__' : h.modulo; if (!por.has(k)) por.set(k, []); por.get(k).push(h); } });
     if (!por.size) return [];
     const W = g.canvas.width, H = g.canvas.height, T = g.getTransform(), k = Math.hypot(T.a, T.b) || 1, r = (o.ancho || 2.5) * k;
     const lienzo = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
     const masc = lienzo(), mg = masc.getContext('2d'); mg.setTransform(T); mg.fillStyle = '#000'; mg.strokeStyle = '#000'; mg.lineWidth = 2.2 / k; mg.lineJoin = 'round';
     /* cada cara por su cuenta (un solo trazo con caras encimadas de giro opuesto dejaba huecos) y con su borde, que cierra las rendijas */
     /* en orden de pintado: lo de los elegidos suma; lo que otra pieza pinta encima despues, se borra (solo queda lo visible) */
-    let hay = false; isoModHits.forEach(h => { const mio = h.modulo && set.has(h.modulo); if (!mio && !hay) return; hay = true;
+    let hay = false; isoModHits.forEach(h => { const mio = esMio(h); if (!mio && !hay) return; hay = true;
       mg.globalCompositeOperation = mio ? 'source-over' : 'destination-out'; mg.beginPath(); h.pr.forEach((q, i) => i ? mg.lineTo(q[0], q[1]) : mg.moveTo(q[0], q[1])); mg.closePath(); mg.fill(); if (mio) mg.stroke(); });
     mg.globalCompositeOperation = 'source-over';
     const anillo = lienzo(), ag = anillo.getContext('2d');
@@ -13136,6 +13172,7 @@ const LAM = (() => {
         cap.dims = dims; cap.bb = { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 }; return cap; } };
   }
   const colorPieza = p => { const m = p.material ? mat(p.material) : null; if (m) return rgbOf(m); const e = p.etiqueta;
+    if (p.tipo === 'Campana') return '#8E99A4';   /* A356: acero de la campana, mas oscuro que los demas equipos para que se distinga del muro */
     return e === 'frentes' ? C.front : e === 'cubierta' ? '#C8B99F' : e === 'zoclo' ? '#4A4F55' : e === 'backsplash' ? C.backsplash : e === 'herrajes' ? C.metal : e === 'equipos' ? '#B7BEC5' : C.board; };
   /* A186: pz = { p, sc, plano }: con un material de patron (madera, piedra...) la pieza lleva su trama, como en el alzado del editor */
   const caja2D = (g, x, y, w, h, fill, stroke, lw = .8, pz) => { g.save(); g.fillStyle = fill; g.strokeStyle = stroke; g.lineWidth = lw; g.beginPath(); g.rect(x, y, Math.max(.4, w), Math.max(.4, h)); g.fill();
@@ -15575,7 +15612,7 @@ const LAM = (() => {
     return fallas;
   }
   return { Grabador, VISTAS, HOJA, ESCALAS, PX_MM, capturar, escribirPdf, escribirDxf, pagina, generar, pruebas, anchoHelv, rgbDe,
-    abiertos, isoEscena, isoPintar, isoClick, isoHit, isoModulo, isoResaltar, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos, cotasManualDe,
+    abiertos, isoEscena, isoPintar, isoClick, isoHit, isoModulo, isoPieza, isoResaltar, PAPELES, PAPEL_TXT, hojaDe, celdas, datosHoja, notasAuto, notasFinales, claveDesde, ESTILOS_PIE, presHitCotaManual, presAgregarCotaManual, presMoverCotaManual, presQuitarCotaManual, cotaManualGeo, imanCota, imanPuntos, cotasManualDe,
     presNueva, presRefrescar, presReacomodar, presCrearModulosCloset, presAcomodarConjunto, presMoverHoja, presReordenarHoja, disponibleConj, presMover, presMoverGrupo, presHitEsquina, presRecortar, presHit, presPintar, presArchivos, presLimpiar, presRotulo, NOMBRES, ordenLectura,
     islasGuardadas, planIsla, islaGeom, presHitIsla, presMoverIsla, presIslaPorDefecto, frenteCocina,
     presHitCota, presMoverCota, presOcultarCota, presRestablecerCotas, presHitFlecha, dirCorte, geomCotas, presHitTexto, presMoverTexto, presGrupoCota, cajasTexto, copiaVista, presHitLey, presMoverLey, presAlternarLey, cajaLeyenda,
@@ -15587,7 +15624,12 @@ const pruebasLaminas = () => LAM.pruebas();
 /* preview isometrico del editor (A170): el mismo dibujo que se exporta, con clic para abrir o cerrar puertas y cajones */
 /* A338 (usuario 21/10: «zoom en el isometrico con scroll del mouse (no aplica en presentar)»): k = acercamiento sobre el ajuste a la ventana
    (1 a 12) y dx, dy = corrimiento en px; la rueda acerca hacia el puntero, el boton central arrastra. Al exportar no cuenta */
-let isoZoom = { k: 1, dx: 0, dy: 0, base: null }, isoPan = null, isoHover = null;   /* A353: modulo bajo el puntero */
+let isoZoom = { k: 1, dx: 0, dy: 0, base: null }, isoPan = null, isoHover = null;
+/* A355 (usuario 21/10: «arrastrar materiales en elementos funciona en isometrico; los listones de ajuste laterales y superiores se seleccionan
+   en isometrico»): la parte del editor que es una pieza del plan (piezas de ajuste, cubierta, zoclo, backsplash, gola) y su grupo de material */
+const parteIso = p => !p ? null : p.rol === 'tapeta' ? (/^tapeta:izq/.test(p.id) ? 'fillerI' : /^tapeta:der/.test(p.id) ? 'fillerD' : 'fillerTop')
+  : p.rol === 'cubierta' ? 'cover' : p.rol === 'zoclo' ? 'plinth' : p.rol === 'backsplash' ? 'backsplash' : p.tipo === 'Gola' || p.tipo === 'Perfil' ? 'gola' : null;
+const GRUPO_PARTE = { fillerI: 'Tapetas', fillerD: 'Tapetas', fillerTop: 'Tapetas', cover: 'Cubierta', plinth: 'Zoclo', backsplash: 'Backsplash', gola: 'Gola' };   /* A353: modulo bajo el puntero */
 function drawIsometrico(){
   title('ISOMÉTRICO', '');
   frame = { scale: 1, ox: 0, ground: 0, X: x => x, Z: z => z, W: 0 };
@@ -15600,7 +15642,9 @@ function drawIsometrico(){
   if (!exporting) isoZoom.base = { L, T, aw, ah, w, h, fit };   /* A338 */
   LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true });
   /* A353: el que esta bajo el puntero, contorno tenue; los elegidos, contorno y etiqueta (nombre y ancho) sobre su silueta */
-  if (!exporting && isoHover && !selection.has(isoHover)) LAM.isoResaltar(ctx, [isoHover], C.accent, { ancho: 1.5, alfa: .55, tinte: 0 });
+  if (!exporting && isoHover && !selection.has(isoHover)) LAM.isoResaltar(ctx, typeof isoHover === 'string' && isoHover.startsWith('parte:') ? (h => parteIso(h.p) === isoHover.slice(6)) : [isoHover], C.accent, { ancho: 1.5, alfa: .55, tinte: 0 });
+  if (!exporting && selectedPart && GRUPO_PARTE[selectedPart]) LAM.isoResaltar(ctx, h => parteIso(h.p) === selectedPart, C.accent);   /* A355: la pieza elegida */
+  if (!exporting && matDrag) { const t = materialTarget(matDrag); if (t.iso) LAM.isoResaltar(ctx, t.iso, C.accent, { tinte: .18 }); }
   if (!exporting && selection.size) LAM.isoResaltar(ctx, [...selection], C.accent).forEach(b => { const m = byId(b.id); if (!m) return;
     const tx = `${nombreModulo(m)} · ${fmt(m.ancho)}${uS()}`; ctx.save(); ctx.font = "600 11px 'Inter'"; const tw = ctx.measureText(tx).width, cx = (b.x0 + b.x1) / 2;
     const x = Math.max(4, Math.min(cssW - tw - 20, cx - tw / 2 - 8)), y = Math.max(4, b.y0 - 26);
