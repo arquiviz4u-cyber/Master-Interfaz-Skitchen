@@ -303,6 +303,12 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A353. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (isometrico del editor)] (usuario 21/10: «la seleccion se ve extraña en
+       el isometrico, ¿podemos cambiarla por una mas dinamica/estetica y legible?») En lugar del velo azul sobre las caras: contorno exterior
+       de la silueta del gabinete (2.5 px, del color de seleccion; isoResaltar une sus caras y dibuja solo el borde de la union), un tinte
+       muy suave adentro y una etiqueta redondeada sobre el con su nombre y ancho. Al pasar el puntero, el gabinete de debajo lleva un
+       contorno tenue (isoHover), para saber que se va a elegir. Solo cuenta lo visible: lo que otra pieza pinta encima (la cubierta, el
+       vecino) se borra de la silueta, y un clic en la cubierta ya no elige el bajo de debajo.
    A352. [Master hecho 21/10; SketchUp: construye el elevable del plan; Revit pendiente] (usuario 21/10: «las puertas de los inferiores
        tambien se pueden convertir en elevables (mostrar boton en opciones)») En el alto inferior + superior, Opciones lleva el interruptor
        «Inferior elevable» (m.inferiorElevable): el modulo inferior pasa a un frente elevable de piston a todo su ancho, con sus pistones y
@@ -9547,7 +9553,8 @@ canvas.addEventListener('mousedown', e => {
 });
 canvas.addEventListener('mousemove', e => {
   const p = pt(e);
-  if (view === 'Isometrico') { canvas.style.cursor = LAM.isoHit(p) || LAM.isoModulo(p) ? 'pointer' : 'default'; return; }   /* A170; A340 */
+  if (view === 'Isometrico') { const hm = LAM.isoModulo(p), hv = hm && byId(hm) ? hm : null; canvas.style.cursor = LAM.isoHit(p) || hv ? 'pointer' : 'default';   /* A170; A340 */
+    if (hv !== isoHover) { isoHover = hv; drawCanvas(); } return; }   /* A353: el contorno tenue sigue al puntero */
   if (drag && drag.kind === 'module') {
     const h = hits.find(h => h.module.id !== drag.id && inside(p, h.rect)), next = h ? columnaPar(drag.id, h.module.id) : null;   /* A160: por columna */
     drag.x = p.x; drag.y = p.y; canvas.style.cursor = 'grabbing';
@@ -12953,7 +12960,7 @@ const LAM = (() => {
       }
       g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
       if (o.hits && t.t === 'cara' && t.q.p.rol === 'frente' && t.q.p.frente) isoHits.push({ pr, frente: t.q.p.frente, modulo: t.q.p.modulo });
-      if (o.hits && t.t === 'cara' && t.q && t.q.p.modulo && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo });   /* A340 */
+      if (o.hits && t.t === 'cara' && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null });   /* A340; A353: todas, en orden de pintado (cubierta, zoclo: sin modulo) */
     });
     (esc.herr || []).forEach(h => { const pr = esc.proy(h.O); dibujarSim(g, h.id, h.flip, X(pr[0]), Y(pr[1]), s, plano); });
     if (o.cotas !== false) esc.cotas.forEach(c => {
@@ -12972,10 +12979,32 @@ const LAM = (() => {
   function isoHit(p){ for (let i = isoHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoHits[i].pr)) return isoHits[i]; return null; }
   /* A340 (usuario 21/10: «elementos se seleccionan y se pueden editar en el isometrico»): el modulo de la cara de encima en el punto, y el
      resalte de los elegidos (sus caras visibles con un velo del color de seleccion, en una sola pasada para que no se oscurezca) */
-  function isoModulo(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].modulo; return null; }
-  function isoResaltar(g, ids, color){ const set = new Set(ids), hs = isoModHits.filter(h => set.has(h.modulo)); if (!hs.length) return;
-    g.save(); g.beginPath(); hs.forEach(h => { h.pr.forEach((q, i) => i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1])); g.closePath(); });
-    g.globalAlpha = .22; g.fillStyle = color; g.fill('nonzero'); g.restore(); }
+  function isoModulo(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].modulo; return null; }   /* la cara de encima; la cubierta no elige el bajo */
+  /* A353 (usuario 21/10: «la seleccion se ve extraña en el isometrico, ¿podemos cambiarla por una mas dinamica, estetica y legible?»): el
+     contorno exterior de la silueta del modulo (union de sus caras visibles: mascara dilatada menos la mascara), un tinte muy suave adentro
+     y, por modulo, su caja en pantalla (para la etiqueta). o.ancho: grueso del contorno en px; o.tinte: opacidad del tinte */
+  function isoResaltar(g, ids, color, o = {}){
+    const set = new Set(ids), por = new Map(); isoModHits.forEach(h => { if (h.modulo && set.has(h.modulo)) { if (!por.has(h.modulo)) por.set(h.modulo, []); por.get(h.modulo).push(h); } });
+    if (!por.size) return [];
+    const W = g.canvas.width, H = g.canvas.height, T = g.getTransform(), k = Math.hypot(T.a, T.b) || 1, r = (o.ancho || 2.5) * k;
+    const lienzo = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+    const masc = lienzo(), mg = masc.getContext('2d'); mg.setTransform(T); mg.fillStyle = '#000'; mg.strokeStyle = '#000'; mg.lineWidth = 2.2 / k; mg.lineJoin = 'round';
+    /* cada cara por su cuenta (un solo trazo con caras encimadas de giro opuesto dejaba huecos) y con su borde, que cierra las rendijas */
+    /* en orden de pintado: lo de los elegidos suma; lo que otra pieza pinta encima despues, se borra (solo queda lo visible) */
+    let hay = false; isoModHits.forEach(h => { const mio = h.modulo && set.has(h.modulo); if (!mio && !hay) return; hay = true;
+      mg.globalCompositeOperation = mio ? 'source-over' : 'destination-out'; mg.beginPath(); h.pr.forEach((q, i) => i ? mg.lineTo(q[0], q[1]) : mg.moveTo(q[0], q[1])); mg.closePath(); mg.fill(); if (mio) mg.stroke(); });
+    mg.globalCompositeOperation = 'source-over';
+    const anillo = lienzo(), ag = anillo.getContext('2d');
+    for (let a = 0; a < 16; a++) ag.drawImage(masc, Math.cos(a * Math.PI / 8) * r, Math.sin(a * Math.PI / 8) * r);
+    ag.globalCompositeOperation = 'destination-out'; ag.drawImage(masc, 0, 0);
+    ag.globalCompositeOperation = 'source-in'; ag.fillStyle = color; ag.fillRect(0, 0, W, H);
+    g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+    if (o.tinte !== 0) { const tm = lienzo(), tg = tm.getContext('2d'); tg.drawImage(masc, 0, 0); tg.globalCompositeOperation = 'source-in'; tg.fillStyle = color; tg.fillRect(0, 0, W, H);
+      g.globalAlpha = o.tinte ?? .07; g.drawImage(tm, 0, 0); }
+    g.globalAlpha = o.alfa ?? 1; g.drawImage(anillo, 0, 0); g.restore();
+    return [...por].map(([id, hs]) => { const xs = hs.flatMap(h => h.pr.map(q => q[0])), ys = hs.flatMap(h => h.pr.map(q => q[1]));
+      return { id, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }; });
+  }
   /* clic en el preview: abre o cierra el frente (y los que se mueven con el, como Interactuar); Mayus: todos. true si cambio algo */
   function isoClick(p, todos){
     const plan = planCocina(), piezas = plan.piezas.concat((plan.caras || []).flatMap(c => c.piezas)), abres = {}, porModulo = {};
@@ -15558,7 +15587,7 @@ const pruebasLaminas = () => LAM.pruebas();
 /* preview isometrico del editor (A170): el mismo dibujo que se exporta, con clic para abrir o cerrar puertas y cajones */
 /* A338 (usuario 21/10: «zoom en el isometrico con scroll del mouse (no aplica en presentar)»): k = acercamiento sobre el ajuste a la ventana
    (1 a 12) y dx, dy = corrimiento en px; la rueda acerca hacia el puntero, el boton central arrastra. Al exportar no cuenta */
-let isoZoom = { k: 1, dx: 0, dy: 0, base: null }, isoPan = null;
+let isoZoom = { k: 1, dx: 0, dy: 0, base: null }, isoPan = null, isoHover = null;   /* A353: modulo bajo el puntero */
 function drawIsometrico(){
   title('ISOMÉTRICO', '');
   frame = { scale: 1, ox: 0, ground: 0, X: x => x, Z: z => z, W: 0 };
@@ -15570,7 +15599,13 @@ function drawIsometrico(){
   const ox = L + 15 + (aw - w*s)/2 + (exporting ? 0 : isoZoom.dx), oy = T + 15 + (ah - h*s)/2 + (exporting ? 0 : isoZoom.dy);
   if (!exporting) isoZoom.base = { L, T, aw, ah, w, h, fit };   /* A338 */
   LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true });
-  if (!exporting && selection.size) LAM.isoResaltar(ctx, [...selection], C.accent);   /* A340 */
+  /* A353: el que esta bajo el puntero, contorno tenue; los elegidos, contorno y etiqueta (nombre y ancho) sobre su silueta */
+  if (!exporting && isoHover && !selection.has(isoHover)) LAM.isoResaltar(ctx, [isoHover], C.accent, { ancho: 1.5, alfa: .55, tinte: 0 });
+  if (!exporting && selection.size) LAM.isoResaltar(ctx, [...selection], C.accent).forEach(b => { const m = byId(b.id); if (!m) return;
+    const tx = `${nombreModulo(m)} · ${fmt(m.ancho)}${uS()}`; ctx.save(); ctx.font = "600 11px 'Inter'"; const tw = ctx.measureText(tx).width, cx = (b.x0 + b.x1) / 2;
+    const x = Math.max(4, Math.min(cssW - tw - 20, cx - tw / 2 - 8)), y = Math.max(4, b.y0 - 26);
+    ctx.fillStyle = C.accent; ctx.beginPath(); ctx.roundRect(x, y, tw + 16, 20, 10); ctx.fill();
+    ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(tx, x + 8, y + 10.5); ctx.restore(); });
   frame = { scale: s, ox, ground: oy + h*s, X: x => ox + x*s, Z: z => oy + h*s - z*s, W: w };
 }
 /* dialogo y entrega de las laminas (A169): en SketchUp Ruby pide la carpeta y guarda los bytes (como Exportar vistas); en el navegador se descargan */
