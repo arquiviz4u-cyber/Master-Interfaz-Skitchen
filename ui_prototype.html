@@ -303,6 +303,9 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A342. [Master hecho 21/10; SketchUp: no aplica; Revit pendiente (Presentar)] (usuario 21/10: «en el panel izquierdo de presentar las
+       vistas de lamina se minimiza la pestaña») «Vistas de esta lámina» es plegable como «Hoja y opciones» y las demas (abierta de fabrica;
+       recuerda si se plego).
    A341. [Master hecho 21/10; SketchUp: no aplica (usa el panel del master); Revit pendiente (editor)] (usuario 21/10: «al seleccionar 2 o
        mas gabinetes se pueden editar sus opciones y funciones compartidas») Con varios gabinetes elegidos de la misma fila y la misma
        funcion, el panel muestra las opciones del primero y cada cambio se aplica a todos (multiAplica: la accion corre para cada uno como si
@@ -15635,7 +15638,8 @@ function presLado(){
   const pie = estPie + campos + lgCtl + `<div class="note-sm" style="margin-top:8px">Clave de plano: haz clic en la hoja (abajo del pie) y escribe la clave de esa lámina, p. ej. «MB-01»; las demás se numeran solas.</div>` + `<div style="display:flex;gap:6px;margin-top:6px"><button class="btn" id="presLogo" title="Sin logo, el pie lleva el nombre del producto. También puedes hacer clic en un dato del pie, sobre la hoja, para editarlo.">${prefs.lamLogo ? 'Cambiar logo…' : 'Cargar logo…'}</button>${prefs.lamLogo ? '<button class="btn" id="presLogoQuitar">Quitar logo</button>' : ''}</div>`;
   const entrega = chk('detalle', 'Hojas de detalle por unidad', L.detalle) + chk('dxf', 'Un DXF por vista', L.dxf);
   const hayIsla = !(cfg.isla || cfg.closet) && (guardadas.length || (is && is.id));
-  presEl('presLado').innerHTML = crear + '<h4>Vistas de esta lámina</h4>' + filas + agregar +
+  /* A342 (usuario 21/10: «en el panel izquierdo de presentar las vistas de lamina se minimiza la pestaña»): plegable como las demas */
+  presEl('presLado').innerHTML = crear + det('vistas', 'Vistas de esta lámina', filas + agregar, true) +
     det('hoja', 'Hoja y opciones', opciones) + (hayIsla ? det('isla', 'Isla guardada', islaHtml.replace(/<h4>.*?<\/h4>/, '')) : '') + det('notas', 'Notas y cotas', notasHtml) + det('pie', 'Pie de lámina', pie) + det('entrega', 'Entrega', entrega) +
     '<div class="note-sm" style="margin-top:10px" title="Arrastra una vista para moverla; se imanta a los márgenes y a las demás. Flechas: 1 mm (Mayús, 5 mm). Mayús + clic: varias vistas. Esquinas: escala; bordes: recorte. Rueda: acercar; arrastrar el fondo: desplazar. Doble clic en un frente del isométrico lo abre; en un interior, cota de entrepaños. Ctrl+Z deshace.">Arrastra para mover · esquinas: escala · bordes: recorte (pasa el puntero para más)</div>';
   trUI();
