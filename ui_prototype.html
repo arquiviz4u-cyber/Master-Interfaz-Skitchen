@@ -303,6 +303,15 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A316. [Master hecho 20/10; SketchUp: sin cambio (Presentar es del master); Revit pendiente (Presentar)] (usuario 20/10: «en el panel izquierdo
+       las notas deberian presentar el numero que se asocia a cada globo y se debe poder agregar o eliminar las que yo elija; si se agrega una
+       nota nueva aparece un globo nuevo y dependiendo de la palabra clave de la descripcion el globo selecciona el elemento en isometrico y
+       en alzado (incluye electrodomesticos, tarjas y grifos); por default esta bien como lo tenemos») En «Notas y cotas» cada nota lleva el
+       numero de su globo (punteado si esta oculta). «Agregar» crea una nota del usuario (notasEd.__extra) con su numero y su globo: anclaNota
+       busca en la descripcion una palabra clave (horno, micro, refri, frigobar, lavavajillas, campana, parrilla/induccion, tarja, grifo,
+       cubierta, zoclo, backsplash, jaladera, bisagra, corredera, gola, piston, cajon, repisa, especiero, cesto, moldura, LED, pata, pieza de
+       ajuste, lateral, puerta) y senala esa pieza en el isometrico y, si se ve de frente, en el alzado. Sin palabra clave la nota va en la
+       lista sin globo. Las del usuario se quitan con ×; las automaticas se ocultan con su casilla, como antes.
    A315. [Master hecho 20/10; SketchUp: sin cambio (Presentar es del master); Revit pendiente (Presentar)] (usuario 20/10: «supr quita la vista
        seleccionada; opcion de seleccionar mas de una vista») En Presentar, Supr (o Retroceso) quita la vista elegida o todas las de la
        seleccion multiple (con deshacer). Ademas de Mayus / Ctrl + clic (A189), Mayus / Ctrl + arrastrar en un vacio de la hoja dibuja un recuadro
@@ -2357,6 +2366,8 @@
   .pres-opc { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-left: 22px; }   /* A194: las casillas de la vista en su propia linea */
   .pres-lado details { border-top: 1px solid var(--line); margin-top: 10px; }
   .pres-lado summary { cursor: pointer; padding: 8px 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6B7680; font-weight: 600; }
+  .pres-lado .pres-num { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1px solid #333; font: 600 10px/16px 'Inter', sans-serif; text-align: center; color: #333; background: #fff; }
+  .pres-lado .pres-num.off { border-style: dashed; color: #9AA3AB; border-color: #9AA3AB; }
   .pres-lado .pres-linea { display: flex; gap: 6px; align-items: end; } .pres-lado .pres-linea > * { flex: 1 1 0; min-width: 0; margin: 0; }
   .pres-fila.sel { background: var(--ink-soft); border-color: var(--ink); }
   .pres-fila .pres-av { flex-basis: 100%; font-size: 11px; color: #C2410C; }
@@ -13577,9 +13588,30 @@ const LAM = (() => {
     return out.filter(q => q.texto);
   }
   /* aplica lo que el usuario edito: ed = { id: { oculta, texto } }; numera las que quedan */
+  /* A316 (usuario 20/10: «las notas deberian presentar el numero de cada globo; poder agregar o eliminar las que yo elija; una nota nueva crea
+     un globo nuevo y, segun la palabra clave de la descripcion, el globo senala el elemento en el isometrico y en el alzado (incluye
+     electrodomesticos, tarjas y grifos)»): las notas del usuario viven en ed.__extra = [{ id, texto }]; anclaNota busca la pieza que nombran */
+  const CLAVES_NOTA = [
+    [/horno/i, q => q.rol === 'equipo' && q.tipo === 'Horno'], [/micro/i, q => q.rol === 'equipo' && q.tipo === 'Microondas'], [/refri/i, q => q.rol === 'equipo' && q.tipo === 'Refrigerador'],
+    [/frigobar|cava/i, q => q.rol === 'equipo' && q.tipo === 'Frigobar'], [/lavavajillas|lavaplatos/i, q => q.rol === 'equipo' && q.tipo === 'Lavavajillas'], [/campana|extractor/i, q => q.rol === 'equipo' && q.tipo === 'Campana'],
+    [/parrilla|inducci|estufa|quemador/i, q => q.tipo === 'Parrilla' || q.rol === 'equipo' && q.tipo === 'Estufa'], [/tarja|fregadero|lavabo/i, q => /:tarja:fondo$/.test(q.id) || q.rol === 'equipo' && q.tipo === 'Tarja'],
+    [/grifo|monomando|llave|mezcladora/i, q => q.tipo === 'Monomando'], [/cubierta|encimera|mes[oó]n/i, q => q.rol === 'cubierta' && q.tipo === 'Losa'], [/zoclo/i, q => q.rol === 'zoclo'],
+    [/backsplash|salpicadero/i, q => q.rol === 'backsplash'], [/jaladera|tirador|bot[oó]n|manija/i, q => q.tipo === 'Jaladera' || q.tipo === 'Boton'], [/bisagra/i, q => q.tipo === 'Bisagra' || q.tipo === 'Cazoleta'],
+    [/corredera/i, q => q.tipo === 'Corredera'], [/gola/i, q => q.tipo === 'Gola'], [/pist[oó]n/i, q => q.tipo === 'Piston'], [/caj[oó]n|gaveta/i, q => q.abre && q.abre.tipo === 'Cajon' && q.rol === 'frente'],
+    [/repisa|entrepa/i, q => q.rol === 'repisa'], [/especiero/i, q => /especiero/i.test(q.id)], [/cesto|basura|bote/i, q => q.tipo === 'Bote'], [/moldura|corona/i, q => q.tipo === 'Moldura'],
+    [/led|luz|ilumina/i, q => q.tipo === 'LED'], [/pata|nivelador/i, q => /pata/i.test(q.tipo || '')], [/ajuste|tapeta/i, q => q.rol === 'tapeta'],
+    [/lateral|carcasa|costado|cuerpo/i, q => q.rol === 'panel' && q.tipo === 'Lateral' && q.alto > 40], [/puerta|frente/i, q => q.rol === 'frente']];
+  const ALZ_NOTA = new Set(['frente', 'cubierta', 'zoclo', 'backsplash', 'equipo']);
+  function anclaNota(texto, P){
+    for (const [re, f] of CLAVES_NOTA) { if (!re.test(texto)) continue; const q = P.find(f); if (!q) continue;
+      const arriba = q.rol === 'cubierta' || q.tipo === 'Parrilla' || /:tarja:/.test(q.id) || q.tipo === 'Monomando';
+      return { p: q, fx: .5, fy: arriba ? .5 : 1, fz: arriba ? 1 : .5, alz: ALZ_NOTA.has(q.rol) && q.tipo !== 'Tarja' || ['Jaladera', 'Boton', 'Monomando', 'Gola', 'Parrilla'].includes(q.tipo), clave: re.source }; }
+    return null; }
   function notasFinales(ed = {}){
-    let k = 0;
-    return notasAuto().filter(a => !(ed[a.id] && ed[a.id].oculta)).map(a => Object.assign({}, a, { texto: (ed[a.id] && ed[a.id].texto) || a.texto, n: ++k }));
+    const auto = notasAuto().filter(a => !(ed[a.id] && ed[a.id].oculta)).map(a => Object.assign({}, a, { texto: (ed[a.id] && ed[a.id].texto) || a.texto }));
+    let P = []; if ((ed.__extra || []).length) try { const pl = planCocina(); P = pl.piezas.concat((pl.caras || []).flatMap(c => c.piezas)); } catch (e) { /* closet */ }
+    const extra = (ed.__extra || []).filter(x => x && String(x.texto || '').trim()).map(x => Object.assign({ id: x.id, texto: String(x.texto).trim(), manual: true, p: null, fx: .5, fy: .5, fz: .5, alz: false }, anclaNota(x.texto, P) || {}));
+    return auto.concat(extra).map((a, i) => Object.assign(a, { n: i + 1 }));
   }
   /* globos numerados con su guia: puntos = [{n, x, y}] en px de la captura; se separan hacia afuera del conjunto y entre si */
   const R_GLOBO = 7.5;
@@ -14267,7 +14299,7 @@ const LAM = (() => {
   const dePx = (cap, x, y) => cap.iso ? [(x - cap.iso.M) / cap.iso.s + cap.iso.u0, (y - cap.iso.M) / cap.iso.s + cap.iso.v0]
     : [(x - cap.marco.x0) / cap.marco.kx, (y - cap.marco.z0) / cap.marco.kz];
   function anclaAuto(cap, q){
-    const p = q.p;
+    const p = q.p; if (!p) return null;   /* A316: una nota del usuario sin pieza que nombre: sin globo */
     if (cap.iso && cap.vista === 'Isometrico') { const e = cap.iso.esc, m = p.frente && e.open.has(p.frente) ? movimientoDe(e.abres[p.frente]) : null;
       return e.proy(mover([p.x + q.fx * p.ancho, -(p.y + q.fy * p.fondo), p.z + q.fz * p.alto], m)); }
     if (cap.marco && cap.vista === 'AlzadoPuertas' && q.alz) return [p.x + q.fx * p.ancho, p.z + q.fz * p.alto];
@@ -15049,9 +15081,16 @@ function presLado(){
   }).join('');
   const campos = [['proyecto', 'Proyecto'], ['cliente', 'Cliente'], ['autor', 'Autor'], ['fecha', 'Fecha de emisión'], ['dibujo', 'Dibujo (descripción)'], ['escala', 'Escala (texto)'], ['revision', 'Revisión']]
     .map(([k, t]) => `<label class="pf"><span>${e2(t)}</span><input type="text" data-prot="${k}" value="${e2(L.rotulo[k] || '')}"></label>`).join('');
+  /* A316: cada nota con el numero de su globo; las del usuario se quitan con ×; abajo, una nota nueva */
+  const finales = LAM.notasFinales(L.notasEd), numDe = id => { const q = finales.find(f => f.id === id); return q ? q.n : ''; };
+  const badge = (n, sinGlobo) => `<span class="pres-num${n ? '' : ' off'}" title="${n ? (sinGlobo ? 'Número de la nota (sin globo: su texto no nombra una pieza del dibujo)' : 'Número de su globo') : 'Oculta'}">${n || '–'}</span>`;
   const notas = LAM.notasAuto().map(a => { const ed = L.notasEd[a.id] || {};
-    return `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-pnv="${a.id}"${ed.oculta ? '' : ' checked'}>` +
-      `<input type="text" data-pnt="${a.id}" value="${e2(ed.texto || a.texto)}" style="flex:1;min-width:0"></label>`; }).join('');
+    return `<label style="display:flex;gap:8px;align-items:center;margin:4px 0">${badge(numDe(a.id))}<input type="checkbox" data-pnv="${a.id}"${ed.oculta ? '' : ' checked'} title="Mostrar u ocultar">` +
+      `<input type="text" data-pnt="${a.id}" value="${e2(ed.texto || a.texto)}" style="flex:1;min-width:0"></label>`; }).join('')
+    + ((L.notasEd.__extra || []).map(x => { const f = finales.find(q => q.id === x.id);
+      return `<div style="display:flex;gap:8px;align-items:center;margin:4px 0">${badge(f ? f.n : '', f && !f.p)}<input type="text" data-pxt="${x.id}" value="${e2(x.texto)}" style="flex:1;min-width:0" title="Si nombra una pieza (horno, tarja, grifo, cubierta, jaladera…) su globo la señala">` +
+        `<button class="btn btn-icon pres-mini" data-pxd="${x.id}" title="Quitar esta nota">&#10005;</button></div>`; }).join(''))
+    + `<div class="pres-linea" style="margin-top:6px"><input type="text" id="presNotaNueva" placeholder="Nota nueva (p. ej. «Horno empotrado de 60 cm»)" style="flex:3 1 0"><button class="btn" id="presNotaAgregar" style="flex:1 1 0">Agregar</button></div>`;
   const chk = (id, t, on) => `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-popt="${id}"${on ? ' checked' : ''}><span>${e2(t)}</span></label>`;
   const hojasHtml = L.hojas.map((h, i) => `<div class="pres-fila${i === L.hoja ? ' sel' : ''}" data-hoja="${i}"${i > 0 ? ' draggable="true" title="Arrastra para cambiar el orden"' : ''}>${i > 0 ? '<span class="pres-asa">&#8942;&#8942;</span>' : ''}<span style="flex:1;min-width:0">${i + 1}. ${e2(h.nombre)}</span>` +
     (i > 0 ? `<button class="btn btn-icon pres-mini" data-phdel="${i}" title="Quitar esta lámina">&#10005;</button>` : '') + '</div>').join('');
@@ -15277,6 +15316,9 @@ function presCargarLogo(){
   lado.addEventListener('click', e => {
     const t = e.target.closest('button'), L = PRES.L;
     if (t) {
+      if (t.id === 'presNotaAgregar') { const inp = presEl('presNotaNueva'), tx = inp ? inp.value.trim() : ''; if (!tx) { if (inp) inp.focus(); return; }   /* A316 */
+        presAntes(); L.notasEd.__extra = (L.notasEd.__extra || []).concat([{ id: 'u' + Date.now().toString(36), texto: tx }]); presRefrescar(false); return; }
+      if (t.dataset.pxd) { presAntes(); L.notasEd.__extra = (L.notasEd.__extra || []).filter(x => x.id !== t.dataset.pxd); presRefrescar(false); return; }
       if (t.id === 'presRestGlobos') { presAntes(); LAM.presRestablecer(L); PRES.selG = null; presGuardar(); presDibujar(); return; }
       if (t.id === 'presRestCotas') { presAntes(); LAM.presRestablecerCotas(L); PRES.selC = null; presGuardar(); presDibujar(); return; }
       if (t.id === 'presLogo') { presCargarLogo(); return; }
@@ -15302,10 +15344,12 @@ function presCargarLogo(){
     if (fila.dataset.hoja !== undefined) { PRES.pag = +fila.dataset.hoja; PRES.sel = PRES.selG = PRES.selM = null; L.hoja = PRES.pag; presLado(); presDibujar(); return; }
     const it = L.vistas[+fila.dataset.i]; PRES.sel = it.on ? it : null; presLado(); presDibujar();
   });
+  lado.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'presNotaNueva') { e.preventDefault(); const b = presEl('presNotaAgregar'); if (b) b.click(); } });   /* A316 */
   lado.addEventListener('change', e => {
     const t = e.target, L = PRES.L, d = t.dataset;
     if (d.pnv) { const inp = lado.querySelector(`[data-pnt="${d.pnv}"]`); editaNota(d.pnv, t.checked, inp ? inp.value : ''); return; }
     if (d.pnt) { const c = lado.querySelector(`[data-pnv="${d.pnt}"]`); editaNota(d.pnt, c ? c.checked : true, t.value); return; }
+    if (d.pxt) { const x = (L.notasEd.__extra || []).find(q => q.id === d.pxt); if (x && x.texto !== t.value) { presAntes(); x.texto = t.value; presRefrescar(false); } return; }   /* A316 */
     if (d.pon !== undefined) { presAntes(); const it = L.vistas[+d.pon]; it.on = t.checked; presRefrescar(it.on && !isFinite(it.x)); return; }
     if (d.ppl !== undefined) { presAntes(); L.vistas[+d.ppl].plano = t.checked; presRefrescar(false); return; }
     if (d.pcv !== undefined) { presAntes(); L.vistas[+d.pcv].cotasV = t.checked; presRefrescar(false); return; }
