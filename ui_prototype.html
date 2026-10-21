@@ -303,6 +303,10 @@
        Falta: notas con linea guia sobre las vistas (material, herraje), hoja de detalle por unidad (piezas con medida y espesor,
        cantidades), isometrico explotado, varias hojas si hay mas de seis vistas, el rotulo como dato del proyecto, y el alzado
        interior a mayor escala (a 1:50 sus cotas de repisa se amontonan). [Revit] aceptar .pdf y .dxf (A169).
+   A315. [Master hecho 20/10; SketchUp: sin cambio (Presentar es del master); Revit pendiente (Presentar)] (usuario 20/10: «supr quita la vista
+       seleccionada; opcion de seleccionar mas de una vista») En Presentar, Supr (o Retroceso) quita la vista elegida o todas las de la
+       seleccion multiple (con deshacer). Ademas de Mayus / Ctrl + clic (A189), Mayus / Ctrl + arrastrar en un vacio de la hoja dibuja un recuadro
+       que elige las vistas que toca, y Ctrl + A elige todas las de la hoja; arrastrar una de ellas mueve el grupo.
    A314. [Master hecho 20/10; SketchUp: los componentes siguen como DLB_Tapeta (nombre interno); Revit pendiente (textos del editor)] (usuario
        20/10: «la tapeta la llamaremos "pieza de ajuste" lateral derecho/izquierdo/superior») En el editor, los avisos, el panel, los
        materiales y el despiece la tapeta se llama «pieza de ajuste» (izquierda, derecha, superior; «Las dos piezas de ajuste»); las claves
@@ -15006,6 +15010,9 @@ function presDibujar(rapido){
   if (PRES.pag < L.hojas.length) L.hoja = PRES.pag;
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
   LAM.presPintar(g, L, { Z: PRES.Z, ox: PRES.ox, oy: PRES.oy, dpr, sel: PRES.sel, multi: PRES.multi || [], selG: PRES.selG, selM: PRES.selM, hoverC: PRES.hoverC, guias: PRES.guias, rapido: !!rapido, pag: PRES.pag });
+  const rq = PRES.drag && PRES.drag.k === 'recuadro' ? PRES.drag : null;   /* A315: el recuadro de seleccion */
+  if (rq) { const x = PRES.ox + Math.min(rq.x0, rq.x1) * PRES.Z, y = PRES.oy + Math.min(rq.y0, rq.y1) * PRES.Z, w = Math.abs(rq.x1 - rq.x0) * PRES.Z, h = Math.abs(rq.y1 - rq.y0) * PRES.Z;
+    g.save(); g.fillStyle = 'rgba(30,144,255,.08)'; g.strokeStyle = '#1E90FF'; g.lineWidth = 1; g.setLineDash([4, 3]); g.fillRect(x, y, w, h); g.strokeRect(x + .5, y + .5, w, h); g.restore(); }
   presEl('presZoom').textContent = Math.round(PRES.Z * 25.4 / 96 * 100) + ' %';
   presEl('presPagTxt').textContent = PRES.pag < L.hojas.length ? `${PRES.pag === 0 || L.hojas[PRES.pag].general ? 'Lámina' : 'Conjunto'} · ${PRES.pag + 1} de ${tot}` : `Detalle · ${PRES.pag + 1} de ${tot}`;
   presEl('presDeshacer').disabled = !PRES.hist.length; presEl('presRehacer').disabled = !PRES.fut.length;
@@ -15189,7 +15196,8 @@ function presCargarLogo(){
     } else if (!it || !PRES.multi.includes(it.id)) PRES.multi = [];
     PRES.sel = it;
     const grupo = it ? PRES.multi.length > 1 && PRES.multi.includes(it.id) ? L.vistas.filter(q => PRES.multi.includes(q.id) && q.on && q.cap && q.hoja === it.hoja) : null : null;
-    PRES.drag = it ? { k: 'mover', it, grupo, dx: m.x - it.x, dy: m.y - it.y, movido: false } : { k: 'pan', px: p.x, py: p.y, ox: PRES.ox, oy: PRES.oy };
+    /* A315 (usuario 20/10: «opcion de seleccionar mas de una vista»): Mayus o Ctrl + arrastrar en vacio dibuja un recuadro que elige las vistas que toca */
+    PRES.drag = it ? { k: 'mover', it, grupo, dx: m.x - it.x, dy: m.y - it.y, movido: false } : (e.shiftKey || e.ctrlKey || e.metaKey) && PRES.pag < L.hojas.length ? { k: 'recuadro', x0: m.x, y0: m.y, x1: m.x, y1: m.y, base: [...PRES.multi] } : { k: 'pan', px: p.x, py: p.y, ox: PRES.ox, oy: PRES.oy };
     if (it) PRES.pend = presSnap();
     presLado(); presDibujar();
   });
@@ -15204,6 +15212,9 @@ function presCargarLogo(){
       cv.style.cursor = PRES.pag < PRES.L.hojas.length && (LAM.presHitCota(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitTexto(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitLey(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitGlobo(PRES.L, m.x, m.y, 6 / PRES.Z) || LAM.presHitMarca(PRES.L, m.x, m.y, 6 / PRES.Z)) ? 'pointer'
       : (PRES.L.camposHoja || []).some(c => m.x >= c.x && m.x <= c.x + c.w && m.y >= c.y && m.y <= c.y + c.h) ? 'text' : PRES.pag < PRES.L.hojas.length && LAM.presHit(PRES.L, m.x, m.y) ? 'grab' : 'default'; return; }
     if (d.k === 'pan') { PRES.ox = d.ox + p.x - d.px; PRES.oy = d.oy + p.y - d.py; presDibujar(true); return; }
+    if (d.k === 'recuadro') { d.x1 = m.x; d.y1 = m.y; const a = Math.min(d.x0, d.x1), b = Math.max(d.x0, d.x1), c = Math.min(d.y0, d.y1), f = Math.max(d.y0, d.y1);   /* A315 */
+      const vs = LAM.enHoja(PRES.L, PRES.pag).filter(q => q.on && q.cap && q.x < b && q.x + q.w > a && q.y < f && q.y + q.h > c);
+      PRES.multi = [...new Set([...d.base, ...vs.map(q => q.id)])]; PRES.sel = vs[0] || PRES.L.vistas.find(q => q.id === PRES.multi[0]) || null; presDibujar(true); return; }
     if (d.k === 'recorte') {
       const it = d.it, ini = d.ini, lado = d.eh.c; let pos = lado % 2 === 0 ? m.y : m.x;
       /* A193: el borde se imanta a los bordes y centros de las demas vistas, con lineas guia */
@@ -15242,7 +15253,7 @@ function presCargarLogo(){
     else { cv.style.cursor = 'grabbing'; PRES.guias = LAM.presMover(PRES.L, d.it, m.x - d.dx, m.y - d.dy); }
     presDibujar(true);
   });
-  const fin = () => { const d = PRES.drag; PRES.drag = null; PRES.guias = []; cv.style.cursor = 'default';
+  const fin = () => { const d = PRES.drag; PRES.drag = null; PRES.guias = []; cv.style.cursor = 'default'; if (d && d.k === 'recuadro') { presLado(); presDibujar(); return; }
     if (d && d.movido && PRES.pend) { confirmaDrag(); PRES.pend = null; if (d.k === 'marca' || d.k === 'isla') { presRefrescar(false); return; } presGuardar(); }
     presDibujar(); };
   cv.addEventListener('pointerup', fin); cv.addEventListener('pointercancel', fin);
@@ -15332,10 +15343,15 @@ function presCargarLogo(){
       const k = e.key.toLowerCase();
       if (k === 'z') { e.preventDefault(); if (e.shiftKey) presRehacer(); else presDeshacer(); return; }
       if (k === 'y') { e.preventDefault(); presRehacer(); return; }
+      if (k === 'a' && !enCampo && PRES.pag < PRES.L.hojas.length) { e.preventDefault(); const vs = LAM.enHoja(PRES.L, PRES.pag).filter(q => q.on && q.cap); PRES.multi = vs.map(q => q.id); PRES.sel = vs[0] || null; presLado(); presDibujar(); return; }   /* A315 */
     }
     if (enCampo) return;
     if (PRES.selC && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); presAntes(); LAM.presOcultarCota(PRES.L, { it: { id: PRES.selC.it }, i: PRES.selC.i }); PRES.selC = null; presGuardar(); presDibujar(); return; }
     if (PRES.selG && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); const id = PRES.selG.id; PRES.selG = null; editaNota(id, false, ''); return; }
+    /* A315 (usuario 20/10: «supr quita la vista seleccionada»): la vista elegida, o todas las de la seleccion multiple */
+    if (PRES.sel && PRES.pag < PRES.L.hojas.length && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); presAntes();
+      const ids = new Set([PRES.sel.id, ...((PRES.multi || []).length > 1 ? PRES.multi : [])]); PRES.L.vistas.filter(q => ids.has(q.id)).forEach(q => LAM.presQuitar(PRES.L, q));
+      PRES.sel = null; PRES.multi = []; presRefrescar(false); return; }
     const it = PRES.sel, d = e.shiftKey ? 5 : 1, mv = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
     if (it && mv && PRES.pag < PRES.L.hojas.length) { e.preventDefault(); presAntes();
       const gr = (PRES.multi || []).length > 1 && PRES.multi.includes(it.id) ? PRES.L.vistas.filter(q => PRES.multi.includes(q.id) && q.on && q.cap && q.hoja === it.hoja) : null;
