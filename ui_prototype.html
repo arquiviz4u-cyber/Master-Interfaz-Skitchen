@@ -365,6 +365,11 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A412. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente] (usuario 21/10: «no veo la union a 45 en golas de esquina») En el
+       esquinero ciego del bajo con gola, la gola del ciego empezaba en el frente de la otra cara y la de la otra cara en el limite de la
+       columna: no se tocaban. Ahora las dos llegan a la esquina dentro de la columna (alma y aleta) y se cortan a 45, como en el esquinero en
+       L (A258): :gola y :gola:perfil en la cara duena, :gola:b y :gola:b:perfil en la otra hasta el limite de su columna. La tapeta del
+       frente del ciego se parte (:tapeta bajo la gola, :tapeta:2) y la tapeta de ajuste de la otra cara queda detras del alma de su gola.
    A411. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente] (usuario 21/10, ya probado en SketchUp: «el liston deberia llegar hasta la
        parte superior de las fajas que soportan la cubierta considerando el recorte que llevaria por las golas cuando el estilo moderno este
        prendido») El liston de la bisagra del ciego (A410) sube hasta el canto de arriba de las fajas (con tapa, hasta bajo ella) y la faja del
@@ -6490,6 +6495,8 @@ function pruebasPlanMX(){
     ['esquinero en L con 2 repisas (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; c.esquinas[0].sub = 'repisas'; c.esquinas[0].repisasL = 2; } finally { cfg = prev; } return c; }],
     ['esquinero ciego angosto, puerta de 30 (A295)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: false }); anchoEsquina(0, true, ciegoDueno(0).w0 - 15); } finally { cfg = prev; } return c; }],
     ['esquinero ciego con charolas de esquina (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'ciego'; c.esquinas[0].herraje = true; } finally { cfg = prev; } return c; }],
+    ['ciego con gola a 45 en la esquina, moderna (A412)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.style = 'Moderna'; Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: true }); } finally { cfg = prev; } return c; }],
+    ['ciego con gola a 45, cara B duena, sin charolas, moderna (A412)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.style = 'Moderna'; Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: false, duena: 1 }); } finally { cfg = prev; } return c; }],
     ['charolas de esquina con la puerta sin invertir (A409)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: true, invertir: false }); } finally { cfg = prev; } return c; }],
     ['charolas de esquina en el ciego mas ancho, cara B duena (A409)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: true, duena: 1, anchoB: 200 }); } finally { cfg = prev; } return c; }],
     ['cocina en L con carrusel y alto con tapeta (A134)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; c.esquinas[0].union = 'tapeta'; } finally { cfg = prev; } return c; }],
@@ -9120,7 +9127,7 @@ function esquinerosPlan(add, r2, sep, tf){
     for (let i = 1; i <= 6; i++) { const z = zs + (tope - zs)*i/7; bL(':repisero:' + i, 'repisa', 'Repisa', pB + 1 + e1, wP - e1, ef, ef + fr, z, z + e1, gm('Repisas'), 'gabinetes'); }
   };
   /* ciego en ejes locales: u a lo largo de la cara duena desde la esquina, v desde su muro */
-  const ciego = (pre, duenaA, w, fOwn, fOtra, z0, z1, modulo, herraje, gola = false, fajas = false, op = null) => {   /* A226: op (alto con tapeta): { cierre, unero } */   /* A163: fajas en lugar de tapa */
+  const ciego = (pre, duenaA, w, fOwn, fOtra, z0, z1, modulo, herraje, gola = false, fajas = false, op = null, bOtra = 0) => {   /* A412: bOtra, limite de la columna en la otra cara */   /* A226: op (alto con tapeta): { cierre, unero } */   /* A163: fajas en lugar de tapa */
     /* A165 (usuario, por Skitchen for sketchup): la caja y la gola quedan PLAN_HOLGURA_PUERTA detras de la cara posterior de los frentes,
        como en los bajos y torres; fF es el plano de los frentes */
     const fF = fOwn; fOwn = fOwn - PLAN_HOLGURA_PUERTA;   /* A143: gola en el bajo */
@@ -9162,8 +9169,19 @@ function esquinerosPlan(add, r2, sep, tf){
       if (cfg.style !== 'Moderna' && P >= 8 && hP9 >= 8) { const J9 = PLAN_JALADERA, bt = cfg.jaladera === 'Boton', L9 = cfg.largoJaladera, ck = cantoJaladera(P, hP9), cz = jalZ({ kind: 'Puerta', x0: 0, x1: P, z0, z1: zf }, L9, ck), [hw, hh] = bt ? [J9.boton, J9.boton] : [J9.grueso, L9];
         const uJ = !op && ciegoInvertido(cfg.esquinas[k]) ? w - ck : w - P + ck;   /* A409: invertida, junto al canto del lateral */
         bx(':puerta:jaladera', 'herraje', bt ? 'Boton' : 'Jaladera', uJ - hw/2, uJ + hw/2, fF + tf + rh9, fF + tf + rh9 + (bt ? J9.boton : J9.salida), cz - hh/2, cz + hh/2, groupMaterial('Jaladeras') || null, 'herrajes'); } }
-    bx(':tapeta', 'tapeta', 'Compensacion', op || penSGk ? 0 : gola ? fOtra - golaHondo(true) : fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara; A232: con gola llega detras de la tapeta retirada */
-    if (gola) { const ug = penSGk ? e1 : fOtra + tf; bx(':gola', 'herraje', 'Gola', ug, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', ug, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
+    /* A412 (usuario 21/10: «no veo la union a 45 en golas de esquina»): en el bajo con gola, la gola del ciego y la de la otra cara (dentro
+       de la columna, hasta bOtra) llegan a la esquina y se cortan a 45, como en el esquinero en L (A258); la tapeta del frente queda bajo la
+       gola donde pasa la de la otra cara */
+    const inglete = gola && !op && !penSGk && bOtra > 0;
+    if (inglete) { const ut = fOtra + tf; bx(':tapeta', 'tapeta', 'Compensacion', fOtra - golaHondo(true), ut, fF, fF + tf, z0, zg, gm('Tapetas'), 'tapetas'); bx(':tapeta:2', 'tapeta', 'Compensacion', ut, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas'); }
+    else bx(':tapeta', 'tapeta', 'Compensacion', op || penSGk ? 0 : gola ? fOtra - golaHondo(true) : fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara; A232: con gola llega detras de la tapeta retirada */
+    if (inglete) { const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], mG = groupMaterial('Gola') || null, fB2 = fOtra + tf - PLAN_HOLGURA_PUERTA;
+      const uA = fB2 - hondo, uF = uA + eG, vA = fOwn - hondo, vF = vA + eG, L = q => q.map(([u, v]) => pt(u, v));
+      losa(pre + ':gola', 'herraje', 'Gola', modulo, L([[w, vA], [uA, vA], [uF, vF], [w, vF]]), zg, z1, mG, 'herrajes');
+      losa(pre + ':gola:perfil', 'herraje', 'Perfil', modulo, L([[w, vF], [uF, vF], [fB2, fOwn], [w, fOwn]]), zg, zg + eG, mG, 'herrajes');
+      losa(pre + ':gola:b', 'herraje', 'Gola', modulo, L([[uA, vA], [uA, bOtra], [uF, bOtra], [uF, vF]]), zg, z1, mG, 'herrajes');
+      losa(pre + ':gola:b:perfil', 'herraje', 'Perfil', modulo, L([[uF, vF], [uF, bOtra], [fB2, bOtra], [fB2, fOwn]]), zg, zg + eG, mG, 'herrajes'); }
+    else if (gola) { const ug = penSGk ? e1 : fOtra + tf; bx(':gola', 'herraje', 'Gola', ug, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', ug, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
     if (herraje) { /* A231; A407: magic corner de dos anclajes (el modelo del usuario): poste, liston y soporte fijos; cada charola con sus dos brazos */
       /* el marco del archivo en el ciego: la cara interior del lateral de la bisagra en w - e1, el plano del frente en fOwn (la cara del liston), el piso
          sobre el de la caja; en Z las piezas se colocan a la escala del alto (kz) y solo poste, liston y soporte se estiran */
@@ -9295,11 +9313,12 @@ function esquinerosPlan(add, r2, sep, tf){
     losa(pre + ':gola', 'herraje', 'Gola', modulo, franja(hondo - eG, hondo), zg, z1, mt, 'herrajes');
     losa(pre + ':gola:perfil', 'herraje', 'Perfil', modulo, franja(0, hondo - eG), zg, zg + eG, mt, 'herrajes'); };
   const modB = mb ? mb.id : id, modU = mu ? mu.id : id;
-  if (e.tipo === 'ciego') { const duenaA = e.duena !== 1; ciego(id, duenaA, duenaA ? wA : wB, duenaA ? fA : fB, duenaA ? fB : fA, zb, z1, modB, !!e.herraje, golaEsquina(e), cfg.generarCubierta);   /* A163: fajas */
+  if (e.tipo === 'ciego') { const duenaA = e.duena !== 1; ciego(id, duenaA, duenaA ? wA : wB, duenaA ? fA : fB, duenaA ? fB : fA, zb, z1, modB, !!e.herraje, golaEsquina(e), cfg.generarCubierta, null, duenaA ? wB : wA);   /* A163: fajas */
     /* A151: tapeta de ajuste de la cara no duena, en su plano de frentes, del frente del ciego al primer gabinete */
     const hT = golaEsquina(e) ? golaHondo(true) : 0;   /* A232: con gola, retirada al fondo de la gola, apoyada en el lateral del vecino */
-    if (duenaA) caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - fB - tf + hT, LA - fB + hT, fA + (hT ? tf : 0), wB, zb, z1, gm('Tapetas'), 'tapetas');
-    else caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB - (hT ? tf : 0), fA - hT, fA - hT + tf, zb, z1, gm('Tapetas'), 'tapetas'); }
+    const hT2 = hT ? hT + PLAN_HOLGURA_PUERTA : 0;   /* A412: detras del alma de la gola de esa cara, que ahora llega a la esquina */
+    if (duenaA) caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - fB - tf + hT2, LA - fB + hT2, fA + (hT ? tf : 0), wB, zb, z1, gm('Tapetas'), 'tapetas');
+    else caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB - (hT ? tf : 0), fA - hT2, fA - hT2 + tf, zb, z1, gm('Tapetas'), 'tapetas'); }
   else if (oculta) {
     const duenaA = e.duena !== 1, tope = topeAltos(), repC = interiorAlacena(e) === 'repisas';
     esquinaL(id, wA, wB, fA, fB, 0, tope, modB, false, repC ? repisasAlacena(e) : 0, true, 0, 0, 0, false, repC ? [fondoRepisasEsq(e), fondoRepisasEsq(e)] : null, false);   /* A157: sin piso, al suelo */   /* A150 */
