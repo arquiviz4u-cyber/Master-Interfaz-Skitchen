@@ -365,6 +365,18 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A407. [Master hecho 21/10; SketchUp: modelos nuevos magic_corner_poste/_liston/_soporte/_charola/_brazo_poste/_brazo_lateral (G:\Sketchup\Kitchen\Herrajes bajo
+       esquina\partidos; por caja con espejo y giro, sin estirar) y abre.camino en Interactuar; fuera magic_corner_charolas/_charola_baja/_charola_alta; Revit pendiente]
+       (usuario 21/10, con un video del herraje: «esta girando en un solo eje y en realidad lleva dos ejes de anclaje que la hace girar oblicuamente»; «ya reemplace por el modelo
+       con los dos anclajes»; «hay un liston lateral que te da la referencia del inicio de puerta hasta la bisagra de anclaje que es el final de la puerta») El magic corner
+       pasa al modelo nuevo del usuario (Magic+Corner.skp, piezas sin regenerar: PruebaEquipos/partir_magic.py). Cada charola cuelga de dos brazos: uno gira sobre el poste
+       y otro sobre el soporte del lateral (la bisagra de anclaje): un mecanismo de cuatro barras (MAGIC: pivotes O1, O2 y puntas P1, P2 del archivo; magicPose lo resuelve).
+       La charola sale oblicua como en el video: primero casi paralela al frente y luego gira; abre con el brazo del lateral 50 grados (la charola gira -90 y sale ~48 cm). Montaje:
+       el soporte contra la cara interior del lateral de la bisagra, el liston al inicio de la puerta con su cara en el plano del frente, todo sobre el piso; en Z las piezas
+       van a la escala del alto (poste, liston y soporte se estiran). La puerta del ciego es la del mecanismo (magicPuerta: del lateral al liston, 50.2 cm) y el ciego se ajusta
+       a ella (ya no se busca donde cabe la charola: fuera buscaMagic y la charola de rinon dibujada; el contorno de los dibujos es el de la charola del modelo). Movimiento:
+       abre.camino = cuadros [x, y, grados] (cada 2.5 grados del brazo, el giro desde cerrada que da la pose; se interpolan x, y y grados entre cuadros: poseCamino) en la
+       charola y en cada brazo, los tres con el mismo grupo (abren juntos con un clic; solo e independiente). Desajuste del camino interpolado en la union charola-brazo: 1 mm.
    A406. [Master hecho 21/10; SketchUp: modelos nuevos corredera_oculta_externa, _intermedia, _interna y _seguro (G:\Sketchup\Kitchen\Correderas\partidos), fuera los tandem_*; Revit pendiente]
        (usuario 21/10: «no me gusto el resultado; reemplazala por esta corredera que si esta separada por piezas» y «de momento no vamos a incluir nombres de marcas comerciales en los
        nombres dentro del generador») La corredera oculta pasa al modelo de cuatro piezas del usuario (PruebaEquipos/partir_excel.py copia cada componente del original sin regenerar):
@@ -3852,11 +3864,6 @@ const altoFijoTarja = () => cfg.region === 'US' ? inch(6) : 15;   /* A223: frent
 const areaPoly = q => q.reduce((s, a, i) => { const b = q[(i + 1) % q.length]; return s + a[0]*b[1] - b[0]*a[1]; }, 0)/2;
 function insetPoly(q, d){ const s = Math.sign(areaPoly(q)) || 1, n = q.length, L = q.map((a, i) => { const b = q[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [[a[0] - dy/l*s*d, a[1] + dx/l*s*d], [dx, dy]]; });
   return L.map((l1, i) => { const [p0, v0] = L[(i + n - 1) % n], [p1, v1] = l1, den = v0[0]*v1[1] - v0[1]*v1[0]; if (Math.abs(den) < 1e-9) return p1; const k = ((p1[0] - p0[0])*v1[1] - (p1[1] - p0[1])*v1[0])/den; return [p0[0] + v0[0]*k, p0[1] + v0[1]*k]; }); }
-/* A231: contorno de charola de riñon (Magic corner) de largo L y fondo D: x de 0 (lado del poste) a L, y de -D/2 a D/2 */
-const charolaRinon = (L, D) => { const n = 18, el = (x, c, a) => Math.sqrt(Math.max(0, 1 - ((x - c)/a)**2)), g = x => Math.max(el(x, .24*L, .24*L), el(x, .7*L, .3*L), x > .24*L && x < .7*L ? .62 : 0);
-  const xs = Array.from({ length: n + 1 }, (_, i) => L*(1 - Math.cos(Math.PI*i/n))/2), o = [...xs.map(x => [x, D/2*g(x)]), ...xs.slice().reverse().map(x => [x, -D/2*g(x)])], r = [];
-  o.forEach(p => { const q = r[r.length - 1]; if (!q || Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) > .05) r.push(p); });
-  if (r.length > 1 && Math.abs(r[0][0] - r[r.length - 1][0]) + Math.abs(r[0][1] - r[r.length - 1][1]) < .05) r.pop(); return r; };
 const paredesPoly = (q, g) => { const r = insetPoly(q, g); return q.map((a, i) => [a, q[(i + 1) % q.length], r[(i + 1) % q.length], r[i]]); };
 function recortaPoly(q, f){ const o = []; q.forEach((a, i) => { const b = q[(i + 1) % q.length], fa = f(a), fb = f(b); if (fa >= 0) o.push(a); if ((fa >= 0) !== (fb >= 0)) { const k = fa/(fa - fb); o.push([a[0] + (b[0] - a[0])*k, a[1] + (b[1] - a[1])*k]); } }); return o; }
 const altoEsquina = e => e.tipo === 'alacena' || e.penin ? 'ninguno' : e.alto && e.alto !== 'auto' ? e.alto : { ciego: 'ciego', carrusel: 'L', diagonal: 'diagonal' }[e.tipo] || 'L';
@@ -3877,55 +3884,43 @@ const anchoCiegoMin = () => cfg.region === 'US' ? inch(37.5) : 95;
 const ciegoDueno = k => { const e = cfg.esquinas[k], R = reg().esquina, duenaA = e.duena !== 1, fOtra = fondoCara(caraDe(duenaA ? k + 1 : k), false),
   w0 = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)), v = duenaA ? e.anchoA : e.anchoB;
   const wTope = w0 + (R.ciegoMax - R.ciego), wBase = Math.min(w0, Math.max(anchoCiegoMin(), w0 - (R.ciegoPuerta - puertaCiegoMin())));
-  const wMin = e.herraje ? Math.min(wTope, magicAnchoMin(fondoCara(caraDe(duenaA ? k : k + 1), false), fOtra, w0, wBase, wTope)) : wBase, wMax = Math.max(wMin, wTope);
+  if (e.herraje) { const wm = Math.max(w0 + magicPuerta() - R.ciegoPuerta, magicAnchoMin());   /* A407: la puerta es la del mecanismo; el ciego no se ensancha ni se angosta */
+    return { w0, wMin: wm, wMax: wm, w: wm }; }
+  const wMin = wBase, wMax = Math.max(wMin, wTope);
   return { w0, wMin, wMax, w: Math.max(wMin, v > 0 ? Math.min(wMax, v) : w0) }; };
-/* A400 (usuario 21/10: «asi se ve el magic corner, mal, fuera de escala»): las charolas van siempre a la medida del modelo (87 x 49, la
-   del herraje real); ya no se encogen para caber girando sobre el poste (A302 las bajaba hasta 45 cm). Como el mecanismo real, cada charola
-   sale con dos giros a la vez: el brazo sobre el poste (g2) y la charola sobre la punta del brazo (q, en la charola cerrada; g1), 90 entre
-   los dos, al reves que la puerta (A298). En los ejes locales del ciego (u desde la esquina por la cara duena, v desde su muro), sin piezas,
-   se busca donde va la charola cerrada (uO), la punta del brazo y el reparto del giro con los que, en todo el camino, queda dentro de la caja,
-   cruza el frente solo por el hueco de la puerta (sin la bisagra, A300) y afuera no entra a la otra cara ni a la puerta abierta; de esos, el
-   que la deja mas afuera. w ancho del ciego, P su puerta, fF el plano de los frentes de su cara, fOtra el fondo de la otra cara. null: no
-   sale (el ciego es angosto). existe: basta una (para el ancho minimo). Memo por medidas */
-const MAGIC_MEMO = new Map();
+/* A407 (usuario 21/10, con un video del herraje: «esta girando en un solo eje y en realidad lleva dos ejes de anclaje que la hace girar
+   oblicuamente»; «hay un liston lateral que te da la referencia del inicio de puerta hasta la bisagra de anclaje que es el final de la
+   puerta»): el magic corner del modelo del usuario (Magic+Corner.skp, piezas en PruebaEquipos/partir_magic.py), en cm y en el marco del archivo:
+   X a lo largo del frente hacia el lateral de la bisagra, Y hacia el fondo, Z arriba. Cada charola cuelga de dos brazos: uno gira sobre el
+   poste (O1) y otro sobre el soporte del lateral (O2); son un mecanismo de cuatro barras y la charola sale oblicua: primero casi paralela al
+   frente y luego gira. ref: cara interior del lateral de la bisagra (X), plano del frente (Y, cara del liston) y piso (Z). El nivel alto es el
+   bajo nivel cm mas arriba. abre: giro del brazo del lateral al abrir (grados, en el marco del archivo); paso: cada cuanto un cuadro del camino */
 const giroPunto = ([x, y], [cx, cy], g) => { const t = g*Math.PI/180, c = Math.cos(t), sn = Math.sin(t); return [cx + (x - cx)*c - (y - cy)*sn, cy + (x - cx)*sn + (y - cy)*c]; };
-/* A400: centro del giro unico de g grados que lleva a hasta a2 (la pose final del giro en dos tiempos) */
+/* A400: centro del giro unico de g grados que lleva a hasta a2 */
 const centroGiro = (a, a2, g) => { const t = g*Math.PI/180, c = Math.cos(t), sn = Math.sin(t), r = [a2[0] - (a[0]*c - a[1]*sn), a2[1] - (a[0]*sn + a[1]*c)], d = (1 - c)**2 + sn**2;
   return [((1 - c)*r[0] - sn*r[1])/d, (sn*r[0] + (1 - c)*r[1])/d]; };
-/* A400: planta de una charola del modelo en sus ejes (a desde su extremo, b desde el frente del modelo), con puntos a 2 cm o menos */
-const plantaCharola = pa => { const q = charolaRinon(pa.medida[0], pa.medida[1]).map(([x, y]) => [pa.desde[0] + x, pa.desde[1] + pa.medida[1]/2 - y]), o = [];
-  q.forEach((a, i) => { const b = q[(i + 1) % q.length], n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1])/2); for (let j = 0; j < n; j++) o.push([a[0] + (b[0] - a[0])*j/n, a[1] + (b[1] - a[1])*j/n]); }); return o; };
-const ORDEN_MAGIC = [16, 8, 4, 12, 2, 6, 10, 14, 1, 3, 5, 7, 9, 11, 13, 15].map(i => i/16);   /* primero las poses que mas descartan */
-function buscaMagic(w, P, fF, fOtra, existe = false){
-  const tf = espFrente(), ef = cuerpoFondo(), e1 = PLAN_CUERPO.lateral, u0 = 0, key = [w, P, fF, fOtra, tf, ef, e1].map(v => Math.round(v*100)).join(',') + (existe ? ':e' : '');
-  if (existe && MAGIC_MEMO.has(key.slice(0, -2))) return MAGIC_MEMO.get(key.slice(0, -2));
-  if (MAGIC_MEMO.has(key)) return MAGIC_MEMO.get(key);
-  const MMm = MODELO_EQUIPOS.magic_corner, PO = MMm.poste, CB = MMm.partes.charola_baja, L = CB.medida[0], fOwn = fF - PLAN_HOLGURA_PUERTA, vMax = fOwn - 1;
-  const vFr = fF + tf, uRoom = fOtra + tf, uLo = w - P + .5, uHi = w - e1 - .5;
-  const dentro = (u, v) => v < ef - .01 ? false : u > w - e1 - 4.1 && v > fF - 7.5 ? false   /* A300: la bisagra de la puerta (brazo cerrado y abierto) */
-    : v <= vMax + .5 ? u >= u0 + e1 - .01 && u <= w - e1 + .01 : v <= vFr + .5 ? u >= uLo && u <= uHi : u >= uRoom && u <= w - 4;
-  const base = plantaCharola(CB), bMin = CB.desde[1], bMax = CB.desde[1] + CB.medida[1], cB = [L/2, bMin + CB.medida[1]/2];
-  const pasa = (pts, Q, Pp, g1, g2, fs) => fs.every(f => pts.every(p => { const [u, v] = giroPunto(giroPunto(p, Q, g1*f), Pp, g2*f); return dentro(u, v); }));
-  const fino = Array.from({ length: 90 }, (_, i) => (i + 1)/90), cand = [];
-  for (let uO = u0 + e1; uO + L <= w - e1 + .01; uO += 2) { const pts = base.map(([a, b]) => [uO + a, vMax - b]), ralo = pts.filter((_, i) => i % 4 === 0), Pp = [uO + PO[0], vMax - PO[1]];
-    if (!pts.every(([u, v]) => dentro(u, v))) continue;
-    for (const g2 of [150, 135, 120, 105, 90, 60, 30]) { const g1 = 90 - g2;
-      for (let qa = 0; qa <= L + 1e-9; qa += 3) for (let qb = bMin; qb <= bMax + 1e-9; qb += 3) { const Q = [uO + qa, vMax - qb];
-        const c = giroPunto(giroPunto([uO + cB[0], vMax - cB[1]], Q, g1), Pp, g2); if (c[1] <= vFr + 5) continue;   /* abierta, fuera del frente */
-        if (!pasa(ralo, Q, Pp, g1, g2, ORDEN_MAGIC) || !pasa(pts, Q, Pp, g1, g2, ORDEN_MAGIC)) continue;
-        const k = { uO, q: Q, g1, g2, sale: c[1] - vFr, pts, Pp }; if (existe && pasa(pts, Q, Pp, g1, g2, fino)) { MAGIC_MEMO.set(key, k); return k; } cand.push(k); } } }
-  if (existe) { MAGIC_MEMO.set(key, null); return null; }
-  cand.sort((a, b) => b.sale - a.sale || Math.abs(a.g2) - Math.abs(b.g2));
-  const h = cand.find(c => pasa(c.pts, c.q, c.Pp, c.g1, c.g2, fino)), mc = h ? { uO: h.uO, q: h.q, g1: h.g1, g2: h.g2, sale: h.sale } : null;
-  MAGIC_MEMO.set(key, mc); return mc;
-}
-/* A302/A400: el ancho minimo del ciego con magic corner: el menor (de medio en medio cm, desde wBase) con el que la charola del modelo sale
-   entera; puede pasar del maximo de fabrica (hasta 40 cm mas); si ni asi, el maximo */
-function magicAnchoMin(fF, fOtra, w0, wBase, wTope){ const R = reg().esquina;
-  const cabe = w => !!buscaMagic(w, R.ciegoPuerta + (w - w0), fF, fOtra, true);
-  if (cabe(wBase)) return wBase; let lo = wBase, hi = wTope; while (!cabe(hi)) { if (hi >= wTope + 40) return wTope; lo = hi; hi += 5; }
-  while (hi - lo > .5) { const m = Math.round((lo + hi)/2*2)/2; if (m <= lo || m >= hi) break; if (cabe(m)) hi = m; else lo = m; }
-  return hi; }
+const MAGIC = { ref: [116.13, 24.51, 5.49], alto: 71.02, nivel: 28.61, liston: 67.73, abre: 50, paso: 2.5,
+  O1: [63.549, 29.41], P1: [39.479, 53.935], O2: [114.386, 27.082], P2: [76.773, 39.761],
+  piezas: { poste: [[60.69, 26.45, 5.51], [66.63, 34.08, 76.5]], liston: [[67.73, 24.51, 5.49], [69.63, 32.51, 76.51]], soporte: [[115.78, 27.21, 5.51], [116.13, 32.21, 55.51]],
+    charola: [[25.92, 30.73, 14.4], [106.41, 71.59, 19.69]], brazo_poste: [[38.49, 27.67, 9.37], [65.3, 54.92, 17.37]], brazo_lateral: [[75.79, 25.54, 9.65], [116.21, 40.75, 19.65]] },
+  contornoZ: 17.425, contorno: [[77.5,33.3],[102.7,32.9],[105.0,34.2],[106.3,36.6],[106.1,42.3],[104.7,49.1],[102.2,55.6],[99.9,59.7],[96.3,64.5],[93.3,67.3],[89.7,69.5],[85.8,70.8],[79.5,71.6],[72.3,71.0],[67.1,69.7],[58.6,66.4],[55.7,66.0],[47.0,65.7],[40.9,63.9],[35.4,60.5],[33.0,58.4],[29.1,53.2],[26.6,47.3],[25.9,43.3],[26.7,39.3],[29.4,35.9],[31.7,34.0],[36.9,31.4],[41.2,30.7],[50.2,32.3],[58.8,35.6],[66.6,40.3],[68.7,37.7],[71.3,35.6],[74.3,34.1]] };
+/* A407: la puerta del ciego con magic corner va del lateral de la bisagra (su cara de afuera) al liston; la charola cerrada cabe con 5 mm */
+const magicPuerta = () => PLAN_CUERPO.lateral + MAGIC.ref[0] - MAGIC.liston;
+const magicAnchoMin = () => 2*PLAN_CUERPO.lateral + MAGIC.ref[0] - MAGIC.piezas.charola[0][0] + .5;
+/* A407: las poses del mecanismo (marco del archivo) con el brazo del lateral girado a grados: [p1, p2] (las puntas de los brazos en la charola) */
+function magicPose(a){ const M = MAGIC, d0 = Math.atan2(M.P2[1] - M.O2[1], M.P2[0] - M.O2[0]), L2 = Math.hypot(M.P2[0] - M.O2[0], M.P2[1] - M.O2[1]);
+  const L1 = Math.hypot(M.P1[0] - M.O1[0], M.P1[1] - M.O1[1]), LC = Math.hypot(M.P2[0] - M.P1[0], M.P2[1] - M.P1[1]);
+  let p1 = M.P1; const out = [];
+  for (let g = 0; g <= a + 1e-9; g += .5) { const t = d0 + g*Math.PI/180, p2 = [M.O2[0] + L2*Math.cos(t), M.O2[1] + L2*Math.sin(t)], dx = p2[0] - M.O1[0], dy = p2[1] - M.O1[1], d = Math.hypot(dx, dy);
+    const k = (L1*L1 - LC*LC + d*d)/(2*d), h = Math.sqrt(Math.max(0, L1*L1 - k*k)), u = [dx/d, dy/d], c = [M.O1[0] + k*u[0], M.O1[1] + k*u[1]];
+    const s1 = [c[0] - h*u[1], c[1] + h*u[0]], s2 = [c[0] + h*u[1], c[1] - h*u[0]];
+    p1 = Math.hypot(s1[0] - p1[0], s1[1] - p1[1]) <= Math.hypot(s2[0] - p1[0], s2[1] - p1[1]) ? s1 : s2; out.push([g, p1, p2]); }
+  return out; }
+/* A407: pose de un camino (cuadros [x, y, grados]: el giro desde cerrado que da la pose, a fracciones iguales) a la fraccion f: se interpolan
+   x, y y grados entre los dos cuadros vecinos (como SketchUp). Sin camino, el giro unico */
+const poseCamino = (a, f) => { const C = a.camino; if (!C) return P => giroPunto(P, [a.x, a.y], a.grados*f);
+  const t = Math.min(1, Math.max(0, f))*(C.length - 1), i = Math.min(C.length - 2, Math.floor(t)), s = t - i, A = C[i], B = C[i + 1];
+  return P => giroPunto(P, [A[0] + (B[0] - A[0])*s, A[1] + (B[1] - A[1])*s], A[2] + (B[2] - A[2])*s); };
 const ciegoExtra = k => { const e = cfg.esquinas[k]; if (!e || e.tipo !== 'ciego') return 0; const c = ciegoDueno(k); return Math.round((c.w - c.w0)*1000)/1000; };
 /* A226: alto de la esquina armado con tapeta. Lado s (0: cara k, 1: cara k + 1) con tapeta: el no dueno del ciego; los dos del L y del diagonal */
 /* A227: el alto ciego es siempre recto (armado con tapeta) */
@@ -4962,17 +4957,11 @@ const MODELO_EQUIPOS = {
     chimenea: { x: [23.2, 55], y: [25.35, 50.15] }, zonas: { x: [[2.8, 10], [18.45, 25.65], [27.6, 35], [43.45, 50.35], [52.3, 60], [68.45, 75.15]], y: [[9.85, 25.3], [25.55, 37.9]] } },
   frigobar_vinos: { medida: [60.96, 73.622, 86.36], minimo: [28.11, 13.27, 27.33], cara: 8.9 },
   lavavajillas: { medida: [59, 60.143, 78], minimo: [42.04, 12.2, 33.84], cara: 0 },
-  magic_corner: { medida: [86.97, 51.692, 76.2], escala: true, poste: [27.5, 7.02],   /* A289: el eje del poste del modelo (ejes normalizados) */
-    /* A290: partido en el mecanismo (poste y base, fijo) y las charolas (salen): donde cae cada pieza en los ejes del modelo entero y su medida */
-    partes: { poste: { desde: [20.474, 0, 0], medida: [14.06, 14.06, 76.2] }, charolas: { desde: [0, 2.814, .703], medida: [86.97, 48.877, 50.01] },
-      charola_baja: { desde: [0, 2.814, .703], medida: [86.97, 48.877, 11.91] }, charola_alta: { desde: [0, 5.277, 41.615], medida: [86.97, 46.415, 9.099] } } },   /* A293: cada charola */
   carrusel: { medida: [113.78, 113.78, 75.5], escala: true, poste: [56.89, 56.89], radio: 56.29,   /* A288: la canasta alta del modelo, centrada sobre el poste */
     /* A290: partido en el poste y una canasta (la baja; la alta es la misma a otra altura) */
     partes: { poste: { desde: [46.89, 46.89, 0], medida: [20, 20, 75.5] }, canasta: { desde: [0, 0, 5.3], alta: 42.43, medida: [113.78, 113.78, 8.6] } } },
   /* A290: las piezas de los herrajes de esquina (solo se escalan) */
   carrusel_poste: { medida: [20, 20, 75.5], escala: true }, carrusel_canasta: { medida: [113.78, 113.78, 8.6], escala: true },
-  magic_corner_poste: { medida: [14.06, 14.06, 76.2], escala: true }, magic_corner_charolas: { medida: [86.97, 48.877, 50.01], escala: true },
-  magic_corner_charola_baja: { medida: [86.97, 48.877, 11.91], escala: true }, magic_corner_charola_alta: { medida: [86.97, 46.415, 9.099], escala: true },
   /* A253 (usuario 17/10): tarjas (a lo ancho y fondo se escalan; las coladeras van enteras), llave de tarja (base: centro de su base en
      planta, ejes del modelo) y rejilla de la torre (la de 60, cara perforada al frente) */
   tarja_doble: { medida: [84.03, 53.973, 16.535], minimo: [1, 1, 15.05], cara: 0 },
@@ -6688,7 +6677,7 @@ function pruebasPlanMX(){
     /* A252: cada modelo estirable es de la biblioteca, con sus ejes y nunca bajo su minimo; lo de soloDibujo lo sustituye un modelo */
     p.piezas.filter(q => q.modelo && q.modelo.estirar).forEach(q => { const E = MODELO_EQUIPOS[q.modelo.archivo];
       ok(E && q.modelo.medida.length === 3 && q.modelo.ejes && (E.escala || q.modelo.medida.every((v, k) => v >= E.minimo[k] - .01)), nombre + ': modelo estirable fuera de su medida ' + q.id); });
-    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && (q.modelo.estirar || /^bisagra_libro_/.test(q.modelo.archivo))), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');   /* A395: la bisagra de libro dibujada la sustituye su modelo */
+    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && (q.modelo.estirar || /^bisagra_libro_|^magic_corner_charola$/.test(q.modelo.archivo))), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');   /* A395: la bisagra de libro dibujada la sustituye su modelo; A407: la charola del magic corner */
     /* A260: torre de hornos con canal de ventilacion detras (lecho y divisiones de los equipos lejos del trasero) y el horno sobre sus patines */
     c.modulos.filter(m => !m.upper && isTower(m)).forEach(m => { const tr = p.piezas.find(q => q.id === m.id + ':trasero'), le = p.piezas.find(q => q.id === m.id + ':lecho:horno');
       const vH = m.ventilacionHorno ?? 5, pa = p.piezas.filter(q => q.id.startsWith(m.id + ':lecho:horno:patin:')), ho = p.piezas.find(q => q.id === m.id + ':horno');
@@ -6729,10 +6718,8 @@ function pruebasPlanMX(){
         if (f.tipo === 'Cajon') ok(cp.some(q => q.id === f.id + ':caja:piso' && q.frente === f.id), nombre + ': el cajon ' + f.id + ' de la barra sin su caja'); });
       cp.filter(q => /^esq\d+:bajo:(cajon|puerta):\d+:marco:\d$/.test(q.id)).forEach(q => ok(q.frente === q.id.replace(/:marco:\d$/, ''), nombre + ': el marco ' + q.id + ' no va con su frente')); });
     /* A293: cada charola del magic corner gira 90 sobre el poste con su clic y, abierta, su caja no cruza tableros de la cocina */
-      [p.piezas].concat((p.caras || []).map(q => q.piezas)).forEach(cp => cp.filter(q => q.modelo && /^magic_corner_charola_/.test(q.modelo.archivo)).forEach(q => { const a = q.abre;
-        ok(a && a.tipo === 'Giro' && Math.abs(a.grados) === 90 && a.solo && q.frente === q.id, nombre + ': la charola ' + q.id + ' no gira sola sobre el poste');
-        const pu = tp.find(o => o.id === q.id.replace(/:bandeja:\d+$/, ':puerta') && o.abre);   /* A298: al reves que la puerta del ciego */
-        if (a && pu) ok(Math.sign(a.grados) === (pu.abre.lado === 'izquierda' ? -1 : 1), nombre + ': la charola ' + q.id + ' gira como su puerta (A298)');
+      [p.piezas].concat((p.caras || []).map(q => q.piezas)).forEach(cp => cp.filter(q => q.modelo && q.modelo.archivo === 'magic_corner_charola').forEach(q => { const a = q.abre;   /* A407: con su camino de cuatro barras y sus dos brazos en su grupo */
+        ok(a && a.tipo === 'Giro' && a.camino && a.camino.length > 2 && a.solo && a.grupo === q.id && q.frente === q.id && ['brazo_poste', 'brazo_lateral'].every(n => cp.some(o => o.id === q.id + ':' + n && o.abre && o.abre.grupo === q.id && o.abre.camino && o.abre.camino.length === a.camino.length)), nombre + ': la charola ' + q.id + ' no sale con su mecanismo');
         if (!a) return; const g = a.grados*Math.PI/180, rot = ([x, y]) => [a.x + (x - a.x)*Math.cos(g) - (y - a.y)*Math.sin(g), a.y + (x - a.x)*Math.sin(g) + (y - a.y)*Math.cos(g)];
         const esq = [[q.x + .5, q.y + .5], [q.x + q.ancho - .5, q.y + .5], [q.x + q.ancho - .5, q.y + q.fondo - .5], [q.x + .5, q.y + q.fondo - .5]].map(rot), xs = esq.map(e => e[0]), ys = esq.map(e => e[1]);
         const bx = { x: Math.min(...xs), y: Math.min(...ys), X: Math.max(...xs), Y: Math.max(...ys) };
@@ -6748,7 +6735,7 @@ function pruebasPlanMX(){
           .map(o => ({ id: o.id, pts: poly(o).map(pu && o.frente === pu.id && o.estado !== 'abierto' ? gira(pu.abre, gP) : P => P) }));
         const libres = (A, B) => [A, B].some(Pl => Pl.some((v, i) => { const w = Pl[(i + 1) % Pl.length], nx = -(w[1] - v[1]), ny = w[0] - v[0], L = Math.hypot(nx, ny) || 1, pa = A.map(q => (q[0]*nx + q[1]*ny)/L), pb = B.map(q => (q[0]*nx + q[1]*ny)/L);
           return Math.min(...pa) >= Math.max(...pb) - .2 || Math.min(...pb) >= Math.max(...pa) - .2; }));
-        const pl = t.abre.pliegue, pose = f => pl ? P => gira({ x: pl.ejeX, y: pl.ejeY }, pl.ejeGrados*f)(gira(pl, pl.grados*f)(P)) : gira(t.abre, t.abre.grados*f);   /* A400: el giro en dos tiempos */
+        const pose = f => poseCamino(t.abre, f);   /* A407: el camino de cuatro barras */
         /* A400: la charola con su planta de rinon (la de su dibujo; no es convexa): choca si sus aristas cruzan las del tablero o uno queda dentro del otro */
         const dib = tp.find(o => o.id === t.id.replace(/:bandeja:(\d+)$/, ':charola:$1') && o.forma && o.forma.puntos), planta = dib ? dib.forma.puntos.map(([a, b]) => [dib.x + a, dib.y + b]) : poly(t);
         const lado = (a, b, c) => (b[0] - a[0])*(c[1] - a[1]) - (b[1] - a[1])*(c[0] - a[0]), dentroDe = (P, Pl) => Pl.every((v, i) => lado(v, Pl[(i + 1) % Pl.length], P) > .2*Math.hypot(Pl[(i + 1) % Pl.length][0] - v[0], Pl[(i + 1) % Pl.length][1] - v[1])) || Pl.every((v, i) => lado(v, Pl[(i + 1) % Pl.length], P) < -.2*Math.hypot(Pl[(i + 1) % Pl.length][0] - v[0], Pl[(i + 1) % Pl.length][1] - v[1]));
@@ -6756,7 +6743,7 @@ function pruebasPlanMX(){
         const chocan = (A, R) => libres(A, R) ? false : cortan(A, R) || A.some(P => dentroDe(P, R)) || (([x, y]) => { let d = false; for (let i = 0, j = A.length - 1; i < A.length; j = i++) if ((A[i][1] > y) !== (A[j][1] > y) && x < (A[j][0] - A[i][0])*(y - A[i][1])/(A[j][1] - A[i][1]) + A[i][0]) d = !d; return d; })(R.reduce((m, P) => [m[0] + P[0]/R.length, m[1] + P[1]/R.length], [0, 0]));
         let choque = null; for (let d = 0; d <= 60 && !choque; d++) { const pts = planta.map(pose(d/60)); const o = obst.find(o => chocan(pts, o.pts)); if (o) choque = Math.round(d/60*100) + ' % con ' + o.id; }
         ok(!choque, nombre + ': la charola ' + t.id + ' choca al girar a ' + choque + ' (A300)'); });
-      tp.filter(q => q.tipo === 'MagicCorner' && /:poste$/.test(q.id)).forEach(q => ok(!q.noSale, nombre + ': las charolas de ' + q.id + ' no caben girando por la puerta')); }
+      }
     /* A287: el soporte del piston en la puerta queda dentro de ella, a 1.4 cm o mas de su canto, y no toca repisas */
     p.piezas.filter(q => q.tipo === 'PistonSoportePuerta').forEach(q => { const fs = p.piezas.filter(r => r.rol === 'frente' && (r.id === q.frente || r.id.startsWith(q.frente + ':marco')));
       if (!fs.length) return; const a = Math.min(...fs.map(r => r.x)), b = Math.max(...fs.map(r => r.x + r.ancho));
@@ -6929,7 +6916,7 @@ function pruebasPlanMX(){
       ok(tapa && piso && !tapa.ranura && piso.z - tapa.z >= PLAN_SAQUE - .01, nombre + ': la tapa del cajon oculto no baja su saque en ' + m.id); });   /* A141 */
     /* A138: herrajes tal cual: cada pieza con modelo de la biblioteca y caja positiva; cada bisagra cerrada con su abierta (las dos
        con estado y su puerta) y la puerta girando cerca de la placa; cada corredera media en sus dos estados */
-    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'corredera_oculta_externa', 'corredera_oculta_intermedia', 'corredera_oculta_interna', 'corredera_oculta_seguro', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252; A396: los de la TANDEM */
+    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'corredera_oculta_externa', 'corredera_oculta_intermedia', 'corredera_oculta_interna', 'corredera_oculta_seguro', 'magic_corner_poste', 'magic_corner_liston', 'magic_corner_soporte', 'magic_corner_charola', 'magic_corner_brazo_poste', 'magic_corner_brazo_lateral', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252; A396: los de la TANDEM */
     p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada' && !q.modelo.ejes).forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
@@ -9108,37 +9095,31 @@ function esquinerosPlan(add, r2, sep, tf){
         bx(':puerta:jaladera', 'herraje', bt ? 'Boton' : 'Jaladera', w - P + ck - hw/2, w - P + ck + hw/2, fF + tf + rh9, fF + tf + rh9 + (bt ? J9.boton : J9.salida), cz - hh/2, cz + hh/2, groupMaterial('Jaladeras') || null, 'herrajes'); } }
     bx(':tapeta', 'tapeta', 'Compensacion', op || penSGk ? 0 : gola ? fOtra - golaHondo(true) : fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara; A232: con gola llega detras de la tapeta retirada */
     if (gola) { const ug = penSGk ? e1 : fOtra + tf; bx(':gola', 'herraje', 'Gola', ug, w, fOwn - hondo, fOwn - hondo + eG, zg, z1, groupMaterial('Gola') || null, 'herrajes'); bx(':gola:perfil', 'herraje', 'Perfil', ug, w, fOwn - hondo + eG, fOwn, zg, zg + eG, groupMaterial('Gola') || null, 'herrajes'); }   /* A163: hasta el limite de la columna, a la profundidad de las caras */
-    if (herraje) { /* A231: charolas Magic corner (rinon de dos niveles, barandal y poste junto a la puerta) */
-      /* A293 (usuario 18/10: «el magic corner sale completo, no gira; lo que tenias que resolver era la posicion del poste y el giro de las
-         charolas»): el poste va en el limite de la parte ciega y la puerta, con el brazo largo de las charolas hacia lo ciego (modelo espejado):
-         cada charola gira 90 grados sobre el poste y su brazo largo sale por el hueco de la puerta. Se busca la escala mayor y el lugar del poste
-         con los que, abierta, la charola queda dentro de la caja, cruza el frente solo por el hueco de la puerta y afuera no entra a la otra cara;
-         con un esquinero mas ancho (puerta mas ancha) caben charolas mas grandes. Cada charola con su clic (solo); el mecanismo se queda */
-      const vMax = fOwn - 1;
-      const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], dU = duenaA ? [-1, 0] : [0, 1], dV = duenaA ? [0, 1] : [-1, 0];
-      const MMm = MODELO_EQUIPOS.magic_corner, MM = MMm.medida, PO = MMm.poste, PM = MMm.partes;
-      /* A400: a la medida del modelo (sin escala en planta; el poste se estira al alto del mueble). buscaMagic da donde va la charola cerrada y
-         su giro en dos tiempos; si no sale (noSale), cerrada contra la parte ciega y girando sobre el poste. La planta de la cara duena es un
-         espejo de (u, v) con la cara k duena: ahi los giros cambian de signo */
-      const mc = buscaMagic(w, P, fF, fOtra), uO = mc ? mc.uO : u0 + e1 + 3, uP = uO + PO[0], sO = duenaA ? -1 : 1;
-      const map = (a, b) => [uO + a, vMax - b];
-      const ej9 = [[dU[0], dU[1], 0], [-dV[0], -dV[1], 0], [0, 0, 1]];
-      const o9 = pt(uO, vMax), pvU = [uP, vMax - PO[1]], piv = pt(...pvU), hP = r2(z1 - z0 - 2*e1), oM = [o9[0], sep + o9[1], z0 + e1], kM = [1, 1, hP/MM[2]];
-      const abreMC = { tipo: 'Giro', x: r3(piv[0]), y: r3(sep + piv[1]), grados: sO*90, independiente: true, solo: true };
-      if (mc) { const g = mc.g1 + mc.g2, aU = [uO, vMax], C = pt(...centroGiro(aU, giroPunto(giroPunto(aU, mc.q, mc.g1), pvU, mc.g2), g)), Q = pt(...mc.q);
-        Object.assign(abreMC, { x: r3(C[0]), y: r3(sep + C[1]), grados: sO*g, pliegue: { x: r3(Q[0]), y: r3(sep + Q[1]), grados: sO*mc.g1, ejeX: r3(piv[0]), ejeY: r3(sep + piv[1]), ejeGrados: sO*mc.g2 } }); }
-      add({ id: pre + ':poste', rol: 'herraje', modulo, tipo: 'MagicCorner', x: r2(piv[0] - 1.5), y: r2(sep + piv[1] - 1.5), z: z0 + e1, ancho: 3, fondo: 3, alto: hP, material: null, etiqueta: 'herrajes',
-        forma: { tipo: 'cilindro', de: [1.5, 1.5, 0], a: [1.5, 1.5, hP], diametro: 3, lados: 12 }, noSale: mc ? undefined : true,
-        modelo: parteModelo('magic_corner_poste', oM, ej9, kM, PM.poste.desde, PM.poste.medida) });
-      [['baja', PM.charola_baja], ['alta', PM.charola_alta]].forEach(([k, pa], i) => {
-        const fid = pre + ':bandeja:' + i, SD = { soloDibujo: true, frente: fid }, zc = z0 + e1 + pa.desde[2]*kM[2];   /* A400: el dibujo a la altura del modelo */
-        const contorno = charolaRinon(pa.medida[0], pa.medida[1]).map(([x, y]) => pt(...map(pa.desde[0] + x, pa.desde[1] + pa.medida[1]/2 - y)));
+    if (herraje) { /* A231; A407: magic corner de dos anclajes (el modelo del usuario): poste, liston y soporte fijos; cada charola con sus dos brazos */
+      /* el marco del archivo en el ciego: la cara interior del lateral de la bisagra en w - e1, el plano del frente en fOwn (la cara del liston), el piso
+         sobre el de la caja; en Z las piezas se colocan a la escala del alto (kz) y solo poste, liston y soporte se estiran */
+      const M = MAGIC, pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], hP = r2(z1 - z0 - 2*e1), kz = hP/M.alto;
+      const pl = ([X, Y]) => pt(w - e1 - (M.ref[0] - X), fOwn - (Y - M.ref[1])), pp = P => { const q = pl(P); return [q[0], sep + q[1]]; }, zM = Z => z0 + e1 + (Z - M.ref[2])*kz;
+      const mod = archivo => ({ archivo, espejo: duenaA, giro: duenaA ? 0 : 270 });   /* el archivo tiene la habitacion hacia -Y, como la cocina */
+      const cajaM = ([mn, mx], estira, dz = 0) => { const q = [[mn[0], mn[1]], [mx[0], mn[1]], [mx[0], mx[1]], [mn[0], mx[1]]].map(pp), xs = q.map(c => c[0]), ys = q.map(c => c[1]);
+        return { x: r3(Math.min(...xs)), y: r3(Math.min(...ys)), z: r3(zM(mn[2] + dz)), ancho: r3(Math.max(...xs) - Math.min(...xs)), fondo: r3(Math.max(...ys) - Math.min(...ys)), alto: r3(estira ? (mx[2] - mn[2])*kz : mx[2] - mn[2]) }; };
+      [['poste', 'magic_corner_poste'], ['liston', 'magic_corner_liston'], ['soporte', 'magic_corner_soporte']].forEach(([n, archivo]) =>
+        add(Object.assign({ id: pre + ':' + n, rol: 'herraje', modulo, tipo: 'MagicCorner', material: null, etiqueta: 'herrajes', modelo: mod(archivo) }, cajaM(M.piezas[n], true))));
+      /* el camino (cuadros cada M.paso grados del brazo del lateral): la charola, el giro desde cerrada que lleva sus dos puntas a su lugar; cada brazo, su giro sobre su pivote */
+      const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0])*180/Math.PI, sigue = (g, prev) => { while (g - prev > 180) g -= 360; while (g - prev < -180) g += 360; return g; };
+      const A0 = pp(M.P1), B0 = pp(M.P2), Q1 = pp(M.O1), Q2 = pp(M.O2), cam = { charola: [], brazo_poste: [], brazo_lateral: [] };
+      let gC = 0, gA = 0, gB = 0;
+      magicPose(M.abre).filter(([g]) => Math.abs(g/M.paso - Math.round(g/M.paso)) < 1e-6).forEach(([, p1, p2]) => { const a1 = pp(p1), b1 = pp(p2);
+        gC = sigue(ang(a1, b1) - ang(A0, B0), gC); gA = sigue(ang(Q1, a1) - ang(Q1, A0), gA); gB = sigue(ang(Q2, b1) - ang(Q2, B0), gB);
+        cam.charola.push([Math.abs(gC) > 1e-6 ? centroGiro(A0, a1, gC) : null, gC]); cam.brazo_poste.push([Q1, gA]); cam.brazo_lateral.push([Q2, gB]); });
+      cam.charola[0][0] = cam.charola[1][0];
+      const abreDe = (c, grupo) => { const C = c.map(([q, g]) => [r3(q[0]), r3(q[1]), r3(g)]), u = C[C.length - 1]; return { tipo: 'Giro', x: u[0], y: u[1], grados: u[2], camino: C, independiente: true, solo: true, grupo }; };
+      [0, 1].forEach(i => { const dz = i*M.nivel, fid = pre + ':bandeja:' + i, SD = { soloDibujo: true, frente: fid }, zc = zM(M.contornoZ + dz) - 1.2, contorno = M.contorno.map(pl);
         losa(pre + ':charola:' + i, 'herraje', 'MagicCorner', modulo, contorno, zc, zc + 1.2, null, 'herrajes', SD);
         paredesPoly(contorno, .5).forEach((q, j) => losa(pre + ':charola:' + i + ':borde:' + j, 'herraje', 'MagicCorner', modulo, q, zc + 1.2, zc + 5, null, 'herrajes', SD));
-        /* A398/A400: la charola a la medida del modelo en los tres ejes, a la misma altura de apoyo que el poste estirado */
-        const kC = [1, 1, 1], oC = [oM[0], oM[1], oM[2] + pa.desde[2]*(kM[2] - 1)];
-        const mCh = parteModelo('magic_corner_charola_' + k, oC, ej9, kC, pa.desde, pa.medida);
-        add(Object.assign({ id: fid, frente: fid, abre: { ...abreMC, pliegue: abreMC.pliegue && { ...abreMC.pliegue } }, rol: 'herraje', modulo, tipo: 'MagicCorner', material: null, etiqueta: 'herrajes', modelo: mCh, soloModelo: true }, cajaParte(mCh))); }); }
+        add(Object.assign({ id: fid, frente: fid, abre: abreDe(cam.charola, fid), rol: 'herraje', modulo, tipo: 'MagicCorner', material: null, etiqueta: 'herrajes', modelo: mod('magic_corner_charola'), soloModelo: true }, cajaM(M.piezas.charola, false, dz)));
+        [['brazo_poste', 'magic_corner_brazo_poste'], ['brazo_lateral', 'magic_corner_brazo_lateral']].forEach(([n, archivo]) => { const id = fid + ':' + n;
+          add(Object.assign({ id, frente: id, abre: abreDe(cam[n], fid), rol: 'herraje', modulo, tipo: 'MagicCorner', material: null, etiqueta: 'herrajes', modelo: mod(archivo), soloModelo: true }, cajaM(M.piezas[n], false, dz))); }); }); }
   };
   /* L y diagonal en ejes de la cara k: ala A x en [LA - a, LA], ala B y en [0, b]; fa, fb fondos de cada ala */
   const esquinaL = (pre, a, b, fa, fb, z0, z1, modulo, conDiag, repisas, techo = true, cd = 0, unero = 0, canal = 0, repisasL = false, rep = null, piso = true, fajas = false, led = false, alFrente = false) => {
