@@ -378,6 +378,15 @@
        se ve continuo y las aristas vivas siguen marcadas (las mismas 40 grados).
        3) Velocidad: en pantalla rasteriza solo lo que cae en el lienzo, a 1.5 pixeles por pixel, sin divisiones en el ciclo, y guarda la
        imagen mientras no cambie la vista (40-60 ms la cocina a escala normal; 160 ms muy acercada).
+   A441. [Master hecho 22/10; SketchUp y Revit: sin cambio (solo cambia el contenido del .dxf que el master entrega)] (usuario 22/10: «revisa por
+       favor para que la calidad del dxf o cad salga aceptable y manejable»; referencia: SU Drawing Manager de YOOOX, que conserva lineas
+       continuas, capas, cotas y arcos): escribirDxf entrega una entidad por figura (polilinea cerrada en rectangulos y paneles, CIRCLE en
+       circulos completos, LINE en lo demas), sin duplicados ni segmentos de largo cero, capas por tipo de trazo (DLB_Corte, Contorno,
+       Detalle, Proyeccion, Cotas, Texto, Herrajes, Relleno, Rotulo y DLB_Trama, congelada: la veta de los materiales), el dibujo con su
+       esquina inferior izquierda en (0, 0) y $EXTMIN /
+       $EXTMAX / $LIMMIN / $LIMMAX. El recorder de dibujo ya no marca elipses como circulos. Pruebas: polilineas y SEQEND parejos.
+       Limites: arcos parciales como polilineas (R12 no tiene LWPOLYLINE ni ELLIPSE); cotas como LINE y TEXT, no DIMENSION; una capa
+       por tipo de trazo, no por pieza.
    A438. [Master hecho 22/10; SketchUp: sin cambio (dos equipos Campana sin modelo); Revit pendiente] (usuario 22/10: «construye la campana de
        isla»; plan Pro): campana de isla tipo chimenea rectangular sobre la parrilla de la isla o de la peninsula (m.campanaIsla,
        m.campanaIslaAncho 60/90/120): caja de acero a 70 de la cubierta, de 10 de alto y hasta 60 de fondo, y chimenea de 32 x 32 hasta el
@@ -14109,7 +14118,7 @@ const LAM = (() => {
       for (let i = 0; i <= n; i++) { const a = a0 + d * i / n; pts.push(this.P(x + r * Math.cos(a), y + r * Math.sin(a))); }
       const solo = !this.sub || !this.sub.pts.length;
       if (solo) this.nuevo(pts[0]); this.sub.pts.push(...(solo ? pts.slice(1) : pts));
-      if (solo && Math.abs(d) >= TAU - 1e-9) this.sub.circulo = { c: this.P(x, y), r: r * this.ec };
+      if (solo && Math.abs(d) >= TAU - 1e-9 && Math.abs(Math.hypot(this.m[0], this.m[1]) - Math.hypot(this.m[2], this.m[3])) < 1e-6 * this.ec) this.sub.circulo = { c: this.P(x, y), r: r * this.ec };   /* A441: no las elipses */
     }
     roundRect(x, y, w, h, r = 0){
       const q = Math.max(0, Math.min((Array.isArray(r) ? r[0] : r) || 0, Math.abs(w) / 2, Math.abs(h) / 2)), H = Math.PI / 2;
@@ -15669,46 +15678,83 @@ const LAM = (() => {
     return partes.join('');
   }
 
-  /* ---- DXF R12: LINE, TEXT y SOLID; modelo a 1:1 en mm; capas DLB_ ---- */
+  /* ---- DXF R12: POLYLINE, LINE, CIRCLE, TEXT y SOLID; modelo a 1:1 en mm; capas DLB_ ---- */
+  /* A441 (usuario 22/10: «que la calidad del dxf o cad salga aceptable y manejable»): cada figura es una sola entidad (los rectangulos y
+     paneles, una polilinea cerrada; los circulos, CIRCLE; antes eran 4 o 36 LINE sueltas), sin duplicados ni segmentos de largo cero, con
+     capas por tipo de trazo (corte, contorno, detalle, proyeccion, cotas, herrajes, texto, relleno, rotulo) para asignar grosores al
+     imprimir, el dibujo llevado al origen (0, 0) y $EXTMIN / $EXTMAX para que «zoom extensión» abra bien. R12 sin LWPOLYLINE ni ELLIPSE:
+     los arcos parciales quedan como polilineas de 10 grados. */
   const ACI = [[255, 0, 0, 1], [255, 255, 0, 2], [0, 255, 0, 3], [0, 255, 255, 4], [0, 0, 255, 5], [255, 0, 255, 6], [0, 0, 0, 7], [128, 128, 128, 8], [192, 192, 192, 9]];
   const aci = s => { const c = rgbDe(s); let b = 7, d = 1e12; ACI.forEach(a => { const q = (a[0] - c[0]) ** 2 + (a[1] - c[1]) ** 2 + (a[2] - c[2]) ** 2; if (q < d) { d = q; b = a[3]; } }); return b; };
+  const DXF_CAPAS = [['DLB_Corte', 7, 'CONTINUOUS'], ['DLB_Contorno', 7, 'CONTINUOUS'], ['DLB_Detalle', 8, 'CONTINUOUS'], ['DLB_Proyeccion', 8, 'DASHED'], ['DLB_Cotas', 5, 'CONTINUOUS'],
+    ['DLB_Texto', 7, 'CONTINUOUS'], ['DLB_Herrajes', 8, 'CONTINUOUS'], ['DLB_Relleno', 9, 'CONTINUOUS'], ['DLB_Rotulo', 7, 'CONTINUOUS'], ['DLB_Trama', 8, 'CONTINUOUS', true]];   /* la trama del material va congelada */
   function escribirDxf(cap){
-    const n = cap.n, k = PX_MM * n, Yh = cap.h, px = v => v * k, py = v => (Yh - v) * k;
-    const par = []; const p = (c, v) => { par.push(String(c), typeof v === 'string' ? lat1(v) : String(v)); };
-    const nm = v => String(Math.round(v * 1000) / 1000);
-    const CAPAS = [['DLB_Contorno', 7, 'CONTINUOUS'], ['DLB_Proyeccion', 8, 'DASHED'], ['DLB_Cotas', 5, 'CONTINUOUS'], ['DLB_Texto', 7, 'CONTINUOUS'], ['DLB_Relleno', 9, 'CONTINUOUS'], ['DLB_Rotulo', 7, 'CONTINUOUS'], ['DLB_Herrajes', 8, 'CONTINUOUS']];
+    const n = cap.n, k = PX_MM * n, Yh = cap.h, px = v => v * k, py = v => (Yh - v) * k, RD = 100;
     const azul = c => { const v = rgbDe(c); return v[2] > v[0] + 40 && v[2] >= v[1]; };
-    const ent = [];
-    const linea = (capa, a, b) => { ent.push(['0', 'LINE', '8', capa, '10', nm(px(a[0])), '20', nm(py(a[1])), '30', '0.0', '11', nm(px(b[0])), '21', nm(py(b[1])), '31', '0.0']); };
-    const texto = (capa, s, x, y, h, ang, hAl, vAl) => { const e = ['0', 'TEXT', '8', capa, '10', nm(x), '20', nm(y), '30', '0.0', '40', nm(h), '1', lat1(s)]; if (ang) e.push('50', nm(ang));
-      if (hAl || vAl) e.push('72', String(hAl), '11', nm(x), '21', nm(y), '31', '0.0', '73', String(vAl)); ent.push(e); };
-    let recorte = 0;
+    const claro = c => { const v = rgbDe(c); return (v[0] + v[1] + v[2]) / 3 > 150; };
+    /* capa de un trazo: proyeccion (discontinuo), cotas (azul), corte (grueso: muro y linea de corte), detalle (fino o gris claro) o contorno */
+    const capaDe = o => o.dash.length ? 'DLB_Proyeccion' : azul(o.color) ? 'DLB_Cotas' : o.ancho >= 1.5 ? 'DLB_Corte' : (o.ancho < .7 || claro(o.color)) ? 'DLB_Detalle' : 'DLB_Contorno';
+    const formas = [], vistas = new Set();   /* formas: { capa, pts: [[x, y]] en mm, cerrada, c, r }; vistas: claves ya escritas */
+    const q2 = v => Math.round(v * RD) / RD, clave = pt => q2(pt[0]) + ',' + q2(pt[1]);
+    const canon = (pts, cerrada) => {
+      if (!cerrada) { const a = pts.map(clave).join('|'), b = pts.slice().reverse().map(clave).join('|'); return a < b ? a : b; }
+      const ks = pts.map(clave); let m = 0; ks.forEach((c, i) => { if (c < ks[m]) m = i; });
+      const rot = ks.slice(m).concat(ks.slice(0, m)), inv = [rot[0]].concat(rot.slice(1).reverse()); const a = rot.join('|'), b = inv.join('|'); return a < b ? a : b; };
+    const forma = (capa, pts, cerrada) => {
+      pts = pts.filter((v, i) => !i || clave(v) !== clave(pts[i - 1]));   /* sin puntos repetidos (segmentos de largo cero) */
+      if (pts.length > 2 && clave(pts[0]) === clave(pts[pts.length - 1])) { pts = pts.slice(0, -1); cerrada = true; }
+      if (pts.length < 2 || (pts.length === 2 && cerrada)) cerrada = false;
+      if (pts.length < 2) return;
+      const key = capa + '#' + (cerrada ? 'c' : 'a') + '#' + canon(pts, cerrada); if (vistas.has(key)) return; vistas.add(key);
+      formas.push({ capa, pts, cerrada }); };
+    const rellenos = [], textos = [];
     cap.ops.forEach(o => {
-      if (o.t === 'clip') recorte++;
       if (o.t === 'stroke') {
-        const capa = o.dash.length ? 'DLB_Proyeccion' : azul(o.color) ? 'DLB_Cotas' : 'DLB_Contorno';
-        o.ruta.forEach(s => { for (let i = 1; i < s.pts.length; i++) linea(capa, s.pts[i - 1], s.pts[i]); if (s.cerrada && s.pts.length > 2) linea(capa, s.pts[s.pts.length - 1], s.pts[0]); });
+        /* la veta o trama de un material son cientos de segmentos de dos puntos en un solo trazo: capa aparte, congelada de fabrica */
+        const capa = o.ruta.length >= 40 && o.ruta.every(sr => sr.pts.length === 2 && !sr.circulo) ? 'DLB_Trama' : capaDe(o);
+        o.ruta.forEach(sr => {
+          if (sr.circulo) { const c = [px(sr.circulo.c[0]), py(sr.circulo.c[1])], r = q2(sr.circulo.r * k), key = capa + '#o#' + clave(c) + ',' + r; if (!vistas.has(key) && r > 0) { vistas.add(key); formas.push({ capa, c, r }); } return; }
+          forma(capa, sr.pts.map(v => [px(v[0]), py(v[1])]), !!sr.cerrada); });
       } else if (o.t === 'fill' && !cap.plano) {
-        o.ruta.forEach(s => { if (s.pts.length === 4 && s.cerrada) { const [a, b, c, d] = s.pts; ent.push(['0', 'SOLID', '8', 'DLB_Relleno', '62', String(aci(o.color)),
-          '10', nm(px(a[0])), '20', nm(py(a[1])), '30', '0.0', '11', nm(px(b[0])), '21', nm(py(b[1])), '31', '0.0', '12', nm(px(d[0])), '22', nm(py(d[1])), '32', '0.0',
-          '13', nm(px(c[0])), '23', nm(py(c[1])), '33', '0.0']); } });
+        o.ruta.forEach(sr => { if (sr.pts.length === 4 && sr.cerrada) { const pts = sr.pts.map(v => [px(v[0]), py(v[1])]), c = aci(o.color), key = 'R#' + c + '#' + pts.map(clave).sort().join('|');
+          if (!vistas.has(key)) { vistas.add(key); rellenos.push({ aci: c, pts }); } } });   /* sin rellenos repetidos */
       } else if (o.t === 'sym') {
         const c = HSYM[o.id], sg = o.flip ? -1 : 1;
-        if (c) [c.k, c.v].forEach(cs => cs.forEach(ch => { for (let i = 2; i < ch.length; i += 2)
-          linea('DLB_Herrajes', [o.x + sg * ch[i - 2] / 100 * o.s, o.y + ch[i - 1] / 100 * o.s], [o.x + sg * ch[i] / 100 * o.s, o.y + ch[i + 1] / 100 * o.s]); }));
+        if (c) [c.k, c.v].forEach(cs => cs.forEach(ch => { const pts = []; for (let i = 0; i < ch.length; i += 2) pts.push([px(o.x + sg * ch[i] / 100 * o.s), py(o.y + ch[i + 1] / 100 * o.s)]); forma('DLB_Herrajes', pts, false); }));
       } else if (o.t === 'text') {
         const h = o.tam * k * .72, hAl = o.al === 'center' ? 1 : (o.al === 'right' || o.al === 'end') ? 2 : 0, vAl = o.bl === 'middle' ? 2 : (o.bl === 'top' || o.bl === 'hanging') ? 3 : o.bl === 'bottom' ? 1 : 0;
-        texto(azul(o.color) ? 'DLB_Cotas' : 'DLB_Texto', o.s, px(o.x), py(o.y), h, -o.ang * 180 / Math.PI, hAl, vAl);
+        const t = { capa: azul(o.color) ? 'DLB_Cotas' : 'DLB_Texto', s: o.s, x: px(o.x), y: py(o.y), h, ang: -o.ang * 180 / Math.PI, hAl, vAl }, key = 'T#' + t.capa + '#' + t.s + '#' + clave([t.x, t.y]) + '#' + q2(t.ang);
+        if (!vistas.has(key)) { vistas.add(key); textos.push(t); }   /* sin textos repetidos (el halo de una cota) */
       }
     });
-    p(0, 'SECTION'); p(2, 'HEADER'); p(9, '$ACADVER'); p(1, 'AC1009'); p(9, '$DWGCODEPAGE'); p(3, 'ANSI_1252'); p(0, 'ENDSEC');
+    /* al origen: la esquina inferior izquierda del dibujo pasa a (0, 0) */
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const ext = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+    formas.filter(f => f.capa !== 'DLB_Trama').forEach(f => f.pts ? f.pts.forEach(v => ext(v[0], v[1])) : (ext(f.c[0] - f.r, f.c[1] - f.r), ext(f.c[0] + f.r, f.c[1] + f.r)));   /* la veta, congelada y sin recorte, no cuenta para el encuadre */
+    rellenos.forEach(f => f.pts.forEach(v => ext(v[0], v[1]))); textos.forEach(t => ext(t.x, t.y));
+    if (!isFinite(x0)) { x0 = y0 = 0; x1 = y1 = 1; }
+    const nm = v => String(Math.round(v * 1000) / 1000), X = v => nm(v - x0), Y = v => nm(v - y0);
+    const par = []; const p = (c, v) => { par.push(String(c), typeof v === 'string' ? lat1(v) : String(v)); };
+    const ent = [];
+    formas.forEach(f => {
+      if (!f.pts) ent.push(['0', 'CIRCLE', '8', f.capa, '10', X(f.c[0]), '20', Y(f.c[1]), '30', '0.0', '40', nm(f.r)]);
+      else if (f.pts.length === 2) ent.push(['0', 'LINE', '8', f.capa, '10', X(f.pts[0][0]), '20', Y(f.pts[0][1]), '30', '0.0', '11', X(f.pts[1][0]), '21', Y(f.pts[1][1]), '31', '0.0']);
+      else { ent.push(['0', 'POLYLINE', '8', f.capa, '66', '1', '10', '0.0', '20', '0.0', '30', '0.0', '70', f.cerrada ? '1' : '0']);
+        f.pts.forEach(v => ent.push(['0', 'VERTEX', '8', f.capa, '10', X(v[0]), '20', Y(v[1]), '30', '0.0'])); ent.push(['0', 'SEQEND', '8', f.capa]); } });
+    rellenos.forEach(f => { const [a, b, c, d] = f.pts; ent.push(['0', 'SOLID', '8', 'DLB_Relleno', '62', String(f.aci), '10', X(a[0]), '20', Y(a[1]), '30', '0.0', '11', X(b[0]), '21', Y(b[1]), '31', '0.0',
+      '12', X(d[0]), '22', Y(d[1]), '32', '0.0', '13', X(c[0]), '23', Y(c[1]), '33', '0.0']); });
+    textos.forEach(t => { const e = ['0', 'TEXT', '8', t.capa, '10', X(t.x), '20', Y(t.y), '30', '0.0', '40', nm(t.h), '1', lat1(t.s)]; if (t.ang) e.push('50', nm(t.ang));
+      if (t.hAl || t.vAl) e.push('72', String(t.hAl), '11', X(t.x), '21', Y(t.y), '31', '0.0', '73', String(t.vAl)); ent.push(e); });
+    p(0, 'SECTION'); p(2, 'HEADER'); p(9, '$ACADVER'); p(1, 'AC1009'); p(9, '$DWGCODEPAGE'); p(3, 'ANSI_1252');
+    p(9, '$EXTMIN'); p(10, nm(0)); p(20, nm(0)); p(30, nm(0)); p(9, '$EXTMAX'); p(10, nm(x1 - x0)); p(20, nm(y1 - y0)); p(30, nm(0));
+    p(9, '$LIMMIN'); p(10, nm(0)); p(20, nm(0)); p(9, '$LIMMAX'); p(10, nm(x1 - x0)); p(20, nm(y1 - y0)); p(0, 'ENDSEC');
     p(0, 'SECTION'); p(2, 'TABLES');
     p(0, 'TABLE'); p(2, 'LTYPE'); p(70, 2);
     p(0, 'LTYPE'); p(2, 'CONTINUOUS'); p(70, 0); p(3, 'Solid line'); p(72, 65); p(73, 0); p(40, '0.0');
     p(0, 'LTYPE'); p(2, 'DASHED'); p(70, 0); p(3, 'Dashed'); p(72, 65); p(73, 2); p(40, nm(6 * n)); p(49, nm(4 * n)); p(49, nm(-2 * n));
     p(0, 'ENDTAB');
-    p(0, 'TABLE'); p(2, 'LAYER'); p(70, CAPAS.length);
-    CAPAS.forEach(c => { p(0, 'LAYER'); p(2, c[0]); p(70, 0); p(62, c[1]); p(6, c[2]); });
+    p(0, 'TABLE'); p(2, 'LAYER'); p(70, DXF_CAPAS.length);
+    DXF_CAPAS.forEach(c => { p(0, 'LAYER'); p(2, c[0]); p(70, c[3] ? 1 : 0); p(62, c[1]); p(6, c[2]); });   /* 70 = 1: capa congelada */
     p(0, 'ENDTAB');
     p(0, 'TABLE'); p(2, 'STYLE'); p(70, 1); p(0, 'STYLE'); p(2, 'STANDARD'); p(70, 0); p(40, '0.0'); p(41, '1.0'); p(50, '0.0'); p(71, 0); p(42, '2.5'); p(3, 'txt'); p(4, ''); p(0, 'ENDTAB');
     p(0, 'ENDSEC');
@@ -17269,7 +17315,13 @@ const LAM = (() => {
       const dxf = escribirDxf(cap), lin = dxf.split('\n'); if (lin[lin.length - 1] === '') lin.pop();
       ok(lin.length % 2 === 0 && lin[lin.length - 2] === '0' && lin[lin.length - 1] === 'EOF', `${id}: DXF mal cerrado`);
       ok(sinNaN(dxf), `${id}: DXF con NaN`);
-      ok(/\nLINE\n/.test(dxf), `${id}: DXF sin lineas`);
+      ok(/\n(LINE|POLYLINE)\n/.test(dxf), `${id}: DXF sin lineas`);
+      const nPol = (dxf.match(/\nPOLYLINE\n/g) || []).length, nFin = (dxf.match(/\nSEQEND\n/g) || []).length;
+      ok(nPol === nFin, `${id}: DXF con ${nPol} polilineas y ${nFin} SEQEND`);   /* A441 */
+      const fil = dxf.split('\n'), bloques = []; let en = false, cur = null, pol = null;   /* A441: se lee por pares codigo / valor; una polilinea junta sus VERTEX hasta el SEQEND */
+      const cierra = () => { if (!cur) return; const t = cur.join('\n'); if (cur[1] === 'POLYLINE') pol = [t]; else if (cur[1] === 'VERTEX' && pol) pol.push(t); else if (cur[1] === 'SEQEND' && pol) { bloques.push(pol.join('|')); pol = null; } else bloques.push(t); cur = null; };
+      for (let i = 0; i + 1 < fil.length; i += 2) { const c = fil[i], v = fil[i + 1]; if (c === '2' && v === 'ENTITIES') { en = true; continue; } if (!en) continue; if (c === '0') { cierra(); if (v === 'ENDSEC') break; cur = ['0', v]; } else if (cur) cur.push(c, v); }
+      ok(new Set(bloques).size === bloques.length, `${id}: DXF con entidades repetidas`);   /* A441 */
       if (plano) {   /* plano: blanco, grises y fondos translucidos (la interfaz deja los grises del muro y de los rotulos); nada de color de material */
         const rell = new Set(cap.ops.filter(o => o.t === 'fill').map(o => String(o.color).toLowerCase()));
         const neutro = c => { const m = /^rgba\((\d+), ?(\d+), ?(\d+), ?([\d.]+)/.exec(c); if (m) return +m[4] <= .5 || Math.max(+m[1], +m[2], +m[3]) - Math.min(+m[1], +m[2], +m[3]) <= 20;
