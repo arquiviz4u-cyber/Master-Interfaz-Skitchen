@@ -370,6 +370,15 @@
        Gratis, Pro y Premium; planUsuario (sketchupPlan o ?plan= en el prototipo; de fabrica premium = todo abierto); PLAN_FUNCION con el
        plan de cada funcion (sigue a licencia_reglas.json); tagPlan en tiles, radios, chk y estilos; botones Render IA (Premium) y Exportar
        PDF de Presentar (Pro) con data-req-plan. La bisagra intermedia ya no dice «(Pro)» en el texto: lo marca la etiqueta.
+   A423. [Master hecho 22/10; SketchUp: modelos basura_colgante_movil y basura_colgante_fija (herramientas/basura_colgante.py rehecho;
+       fuera basura_colgante); Revit pendiente] (usuario 22/10, con captura del herraje abierto: «los botes colgantes no estan mostrando todo
+       el modelo base (corredera, cubos y tapa de amarre al frente del cajon), ademas esta simulando mal su funcionamiento; este modulo ya
+       incluye su propia corredera, solo hay que colocarlo respetando su ancho») A419 giraba el modelo 180 (el archivo ya tenia el frente
+       hacia la habitacion: la placa de amarre quedaba atras) y lo movia entero con el frente. Ahora va en dos piezas en los ejes del archivo:
+       la fija (patas de alambre en U y tapa) se queda en el gabinete y la movil (botes, laterales con su corredera y placa de amarre al
+       frente) sale con el frente el recorrido de su corredera (47 cm, el del archivo). A su medida, sin escalar (A421 lo estiraba a lo
+       ancho): cabe si el interior lo deja pasar (gabinete de 45; mas ancho, centrado; mas angosto, el de bastidor). Dibujos por partes
+       (fija: tapa, faldones y alambres; movil: botes huecos, laterales y placa).
    A422. [Master hecho 22/10; SketchUp: sin cambio; Revit pendiente] (usuario 22/10: «una version mas, la mas chica que encontraste»; «solo avisa, no bloquees») Cuarto tamano de las
        charolas de esquina: puerta de 400 mm (e.charolasPuerta = 40, k = 0.8, charola de 64 x 33 cm; la clase del LeMans 40 de las fichas, abertura de 356 mm con marco y 362 sin marco,
        el comercial estandar mas chico que se hallo; datos de listados, sin ficha oficial). Ancho minimo del ciego con fondos de 60: 105 sin invertir y 111 invertida; fondo minimo del
@@ -4957,10 +4966,17 @@ const MODELO = {
      correderas (el modelo del usuario, herramientas/basura_colgante.py; para el interior de un gabinete de 45 cm). En cm, ejes del archivo:
      X a lo ancho, Y desde el frente hacia el fondo, Z arriba; caja del modelo y partes para los dibujos del master (botes, laterales con su
      corredera, trasera y los soportes de alambre en U bajo los botes) */
-  basuraColgante: { caja: [[-1.007, -.42, -2.313], [40.048, 50.28, 41.13]], holgura: 3, juego: .17, anchoMin: 26,   /* A421: se ajusta al ancho del gabinete (juego por lado); interior minimo */
-    botes: [[[2.74, 2.16, -.01], [36.83, 25.63, 35.49]], [[2.74, 26.02, -.01], [36.83, 49.48, 35.49]]],
-    lados: [[[-.51, .16, 29.44], [3.21, 49.86, 35.58]], [[35.83, .16, 29.44], [39.55, 49.86, 35.58]]], trasera: [[-1.007, 49.88, 29.03], [40.048, 50.28, 41.13]],
-    alambres: [[6.46, 8.26], [43.16, 44.96]], alambreX: [-.6, 39.64], alambreZ: [-2.313, 29.49], alambreGrueso: 1 },
+  /* A423 (usuario 22/10, con captura del herraje abierto: «no estan mostrando todo el modelo base (corredera, cubos y tapa de amarre al
+     frente del cajon), ademas esta simulando mal su funcionamiento; este modulo ya incluye su propia corredera, solo hay que colocarlo
+     respetando su ancho»): el modelo va en dos piezas, en los ejes del archivo del usuario (X a lo ancho, Y del frente (-0.42, la placa de
+     amarre) hacia el fondo, Z arriba): la fija (patas de alambre en U y tapa) se queda en el gabinete; la movil (botes, laterales con su
+     corredera y placa de amarre) sale con el frente su recorrido (47, el del archivo). A su ancho, sin escalar. Partes para los dibujos */
+  basuraColgante: { caja: [[-1.007, -.42, -2.313], [40.048, 50.28, 41.13]], recorrido: 47,
+    fija: [[-.95, 0, -2.313], [40, 49.7, 38.587]], movil: [[-1.007, -.42, -.009], [40.048, 50.28, 41.13]],
+    botes: [[[2.21, .38, -.01], [36.3, 23.84, 35.49]], [[2.21, 24.23, -.01], [36.3, 47.7, 35.49]]],
+    lados: [[[-.51, -.3, 29.44], [4.93, 50.28, 35.58]], [[34.11, -.3, 29.44], [39.55, 50.28, 35.58]]], placa: [[-1.007, -.42, 29.03], [40.048, -.02, 41.13]],
+    tapa: [[-.95, 0, 37.6], [40, 49.7, 38.587]], faldon: [[[-.95, 0, 28.99], [-.45, 49.7, 37.6]], [[39.5, 0, 28.99], [40, 49.7, 37.6]]],
+    alambres: [[4.9, 6.7], [41.6, 43.4]], alambreX: [-.6, 39.65], alambreZ: [-2.313, 29.49], alambreGrueso: 1 },
   especiero: { tira: 1.31, tiraAlto: 5, tiraSobre: 3, tablero: 1.5, nivel: 20 } };
 /* caja del plan de una parte de un modelo: X = refX va a x = ox (espejo: X crece hacia -x), Y = refY a y = oy (la habitacion es -Y en
    el archivo y +y en el plan; sy estira a lo largo), Z = refZ a z = oz (sz escala el alto) */
@@ -5051,7 +5067,8 @@ const cajaModeloG = ([mn, mx], { ox, refZ = 0, oy, refY = 0, oz, refX = 0 }) => 
    si caben (si no, sencillo) */
 /* A419: el cesto con botes colgantes (m.cestoTipo 'colgante'): el modelo va a su medida, asi que el interior del gabinete (entre laterales)
    debe medir su ancho mas hasta 3 cm de holgura (de fabrica, gabinete de 45 cm); si no, va el de bastidor */
-const colganteCabe = m => m.ancho - 2*PLAN_CUERPO.lateral >= MODELO.basuraColgante.anchoMin;   /* A421: se ajusta al ancho; solo pide un interior minimo */
+/* A423: el modelo va a su ancho (41.06): cabe si el interior entre laterales lo deja pasar; mas ancho, centrado */
+const colganteCabe = m => { const C = MODELO.basuraColgante.caja; return m.ancho - 2*PLAN_CUERPO.lateral >= C[1][0] - C[0][0] - .01; };
 const cestoColgante = m => m.tipo === 'Basura' && m.cestoTipo === 'colgante' && colganteCabe(m);
 const cestoBotesDe = (m, ancho, fondo) => { const B = MODELO.bote;
   return m.cestoBotes === 'Doble' && ancho >= B.doble[0] + 1 && fondo >= B.frenteDoble + 2*B.doble[1] + B.entre + .5 ? 'Doble' : 'Sencillo'; };
@@ -5412,16 +5429,17 @@ function planDePiezas(c = cfg){
     /* A419: los botes colgantes del usuario: el modelo (con sus correderas) a su medida, centrado entre los laterales, con su frente en el del
        extraible y sobre el piso del gabinete; va con el frente. En los dibujos del master, sus partes (soloDibujo) */
     const cestoColganteDe = (m, base, h, f, frenteId) => {
-      /* A421 (usuario 22/10: «no se ha integrado el modelo de botes colgantes»): solo cabia en el gabinete de 45 y en otro ancho salia el de
-         bastidor sin que se notara; ahora se ajusta al ancho del gabinete (escala solo a lo ancho: botes y travesanos; fondo y alto, los suyos) */
-      const M = MODELO.basuraColgante, [mn, mx] = M.caja, W0 = mx[0] - mn[0], D = mx[1] - mn[1], H = mx[2] - mn[2], W = (h.x1 - h.x0) - 2*M.juego, kx = W/W0;
-      const x0 = (h.x0 + h.x1)/2 - W/2, yF = h.yF ?? h.y1, z0 = h.z0 + .5;
-      piezaDe(m, base + ':colgante', frenteId, { rol: 'herraje', tipo: 'BasuraColgante', etiqueta: 'herrajes', modelo: { archivo: 'basura_colgante' }, soloModelo: true,
-        x: r2(x0), y: r2(yF - D), z: r2(z0), ancho: r2(W), fondo: r2(D), alto: r2(H) });
-      const X = v => x0 + (v - mn[0])*kx;   /* X del archivo al plan, con la escala a lo ancho */
-      const dib = (k, [a, b], extra = {}) => piezaDe(m, base + ':colgante:' + k, frenteId, Object.assign({ rol: 'herraje', tipo: 'BasuraColgante', etiqueta: 'herrajes', soloDibujo: true,
-        x: r2(X(a[0])), y: r2(yF - (b[1] - mn[1])), z: r2(z0 + a[2] - mn[2]), ancho: r2((b[0] - a[0])*kx), fondo: r2(b[1] - a[1]), alto: r2(b[2] - a[2]) }, extra));
-      M.botes.forEach(([a, b], i) => boteDibujo(m, base + ':colgante:bote:' + i, frenteId, X(a[0]), yF - (b[1] - mn[1]), z0 + a[2] - mn[2], (b[0] - a[0])*kx, b[1] - a[1], b[2] - a[2])); M.lados.forEach((q, i) => dib('lado:' + i, q)); dib('trasera', M.trasera);
+      /* A423: el modelo a su medida (sin escalar; A421 lo estiraba a lo ancho), centrado entre los laterales, la placa de amarre en la cara
+         posterior del frente, sobre el piso del gabinete. La pieza fija (patas y tapa) sin frente; la movil, con el frente del extraible */
+      const M = MODELO.basuraColgante, [mn, mx] = M.caja, W = mx[0] - mn[0], x0 = (h.x0 + h.x1)/2 - W/2, yF = h.yF ?? h.y1, z0 = h.z0 + .5;
+      const enPlan = ([a, b]) => ({ x: r2(x0 + a[0] - mn[0]), y: r2(yF - (b[1] - mn[1])), z: r2(z0 + a[2] - mn[2]), ancho: r2(b[0] - a[0]), fondo: r2(b[1] - a[1]), alto: r2(b[2] - a[2]) });
+      const pieza = (k, fd, datos) => piezaDe(m, base + ':colgante' + k, fd, Object.assign({ rol: 'herraje', tipo: 'BasuraColgante', etiqueta: 'herrajes' }, datos));
+      pieza('', frenteId, Object.assign({ modelo: { archivo: 'basura_colgante_movil' }, soloModelo: true }, enPlan(M.movil)));
+      pieza(':fija', undefined, Object.assign({ modelo: { archivo: 'basura_colgante_fija' }, soloModelo: true }, enPlan(M.fija)));
+      const dib = (k, q, fd) => pieza(':' + k, fd, Object.assign({ soloDibujo: true }, enPlan(q)));
+      M.botes.forEach(([a, b], i) => { const c = enPlan([a, b]); boteDibujo(m, base + ':colgante:bote:' + i, frenteId, c.x, c.y, c.z, c.ancho, c.fondo, c.alto); });
+      M.lados.forEach((q, i) => dib('lado:' + i, q, frenteId)); dib('placa', M.placa, frenteId);
+      dib('tapa', M.tapa); M.faldon.forEach((q, i) => dib('faldon:' + i, q));
       const g = M.alambreGrueso, [ax, bx] = M.alambreX, [az, bz] = M.alambreZ;
       M.alambres.forEach(([y0, y1], i) => { dib('alambre:' + i + ':abajo', [[ax, y0, az], [bx, y1, az + g]]);
         dib('alambre:' + i + ':izq', [[ax, y0, az + g], [ax + g, y1, bz]]); dib('alambre:' + i + ':der', [[bx - g, y0, az + g], [bx, y1, bz]]); });
@@ -6236,7 +6254,7 @@ function planDePiezas(c = cfg){
       principal.abre = principal.tipo === 'Puerta' ? Object.assign({ tipo: 'Puerta', lado: principal.bisagraDerecha ? 'derecha' : 'izquierda', x: r2(principal.bisagraDerecha ? x1 : x0) },
           adentro ? { y: r2(Math.min(...fr.map(q => q.y))), sentido: 'adentro' } : { y: r2(y) })
         : principal.tipo === 'Elevable' ? { tipo: 'Elevable', z: r2(z1), y: r2(y) }
-        : { tipo: 'Cajon', recorrido: r2(cajas.length ? Math.max(...cajas.map(q => q.fondo))*.8 : 40) };
+        : { tipo: 'Cajon', recorrido: qs.some(q => q.modelo && q.modelo.archivo === 'basura_colgante_movil') ? MODELO.basuraColgante.recorrido : r2(cajas.length ? Math.max(...cajas.map(q => q.fondo))*.8 : 40) };   /* A423: el colgante, el recorrido de su corredera */
       /* A106 (usuario, 08/10): en el especiero y el cesto cada frente se abre por su cuenta al Interactuar; el cajon oculto se
          cierra con el frente que lo cubre */
       const mod = cfg.modulos.find(q => q.id === principal.modulo);
@@ -6877,7 +6895,7 @@ function pruebasPlanMX(){
     /* A252: cada modelo estirable es de la biblioteca, con sus ejes y nunca bajo su minimo; lo de soloDibujo lo sustituye un modelo */
     p.piezas.filter(q => q.modelo && q.modelo.estirar).forEach(q => { const E = MODELO_EQUIPOS[q.modelo.archivo];
       ok(E && q.modelo.medida.length === 3 && q.modelo.ejes && (E.escala || q.modelo.medida.every((v, k) => v >= E.minimo[k] - .01)), nombre + ': modelo estirable fuera de su medida ' + q.id); });
-    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && (q.modelo.estirar || /^bisagra_libro_|^charolas_esquina_charola$|^basura_colgante$|^bote$/.test(q.modelo.archivo))), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');   /* A419: los botes colgantes */   /* A395: la bisagra de libro dibujada la sustituye su modelo; A407: la charola del magic corner */
+    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && (q.modelo.estirar || /^bisagra_libro_|^charolas_esquina_charola$|^basura_colgante_|^bote$/.test(q.modelo.archivo))), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');   /* A419: los botes colgantes */   /* A395: la bisagra de libro dibujada la sustituye su modelo; A407: la charola del magic corner */
     /* A260: torre de hornos con canal de ventilacion detras (lecho y divisiones de los equipos lejos del trasero) y el horno sobre sus patines */
     c.modulos.filter(m => !m.upper && isTower(m)).forEach(m => { const tr = p.piezas.find(q => q.id === m.id + ':trasero'), le = p.piezas.find(q => q.id === m.id + ':lecho:horno');
       const vH = m.ventilacionHorno ?? 5, pa = p.piezas.filter(q => q.id.startsWith(m.id + ':lecho:horno:patin:')), ho = p.piezas.find(q => q.id === m.id + ':horno');
@@ -7116,7 +7134,7 @@ function pruebasPlanMX(){
       ok(tapa && piso && !tapa.ranura && piso.z - tapa.z >= PLAN_SAQUE - .01, nombre + ': la tapa del cajon oculto no baja su saque en ' + m.id); });   /* A141 */
     /* A138: herrajes tal cual: cada pieza con modelo de la biblioteca y caja positiva; cada bisagra cerrada con su abierta (las dos
        con estado y su puerta) y la puerta girando cerca de la placa; cada corredera media en sus dos estados */
-    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'corredera_oculta_externa', 'corredera_oculta_intermedia', 'corredera_oculta_interna', 'corredera_oculta_seguro', 'charolas_esquina_poste', 'charolas_esquina_liston', 'charolas_esquina_soporte', 'charolas_esquina_charola', 'charolas_esquina_brazo_poste', 'charolas_esquina_brazo_lateral', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS), 'basura_colgante'];   /* A252; A396: los de la TANDEM */
+    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'corredera_oculta_externa', 'corredera_oculta_intermedia', 'corredera_oculta_interna', 'corredera_oculta_seguro', 'charolas_esquina_poste', 'charolas_esquina_liston', 'charolas_esquina_soporte', 'charolas_esquina_charola', 'charolas_esquina_brazo_poste', 'charolas_esquina_brazo_lateral', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS), 'basura_colgante_movil', 'basura_colgante_fija'];   /* A252; A396: los de la TANDEM */
     p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada' && !q.modelo.ejes).forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
@@ -7151,11 +7169,15 @@ function pruebasPlanMX(){
     c.modulos.filter(m => m.tipo === 'Basura' && !m.reserved).forEach(m => { const n = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Bote').length;
       const prev = cfg; cfg = c; let col; try { col = cestoColgante(m); } finally { cfg = prev; }
       /* A419: con botes colgantes, el modelo (uno, con el frente del extraible y sin correderas aparte) y sin botes de bastidor */
-      if (col) { const cg = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'BasuraColgante' && !q.soloDibujo);
-        ok(!n && cg.length === 1 && cg[0].modelo && cg[0].modelo.archivo === 'basura_colgante' && cg[0].frente && p.piezas.some(q => q.id === cg[0].frente && q.abre) && !p.piezas.some(q => q.frente === cg[0].frente && /Corredera/.test(q.tipo)),
-          nombre + ': el cesto colgante ' + m.id + ' no lleva su modelo con el frente (o le quedan botes o correderas aparte)');
+      if (col) { const cg = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'BasuraColgante' && !q.soloDibujo), mv = cg.find(q => q.modelo && q.modelo.archivo === 'basura_colgante_movil'), fj = cg.find(q => q.modelo && q.modelo.archivo === 'basura_colgante_fija');
+        /* A423: la movil con el frente (abre el recorrido de su corredera) y la fija sin el; las dos a su medida, la placa en la cara posterior del frente */
+        const ab = mv && p.piezas.find(q => q.id === mv.frente && q.abre), Cm = MODELO.basuraColgante;
+        ok(!n && cg.length === 2 && mv && fj && !fj.frente && ab && ab.abre.recorrido === Cm.recorrido && !p.piezas.some(q => q.frente === mv.frente && /Corredera/.test(q.tipo))
+          && Math.abs(mv.ancho - (Cm.movil[1][0] - Cm.movil[0][0])) < .02 && Math.abs(fj.fondo - (Cm.fija[1][1] - Cm.fija[0][1])) < .02 && Math.abs(fj.y + fj.fondo + (Cm.fija[0][1] - Cm.caja[0][1]) - (mv.y + mv.fondo)) < .02,
+          nombre + ': el cesto colgante ' + m.id + ' no lleva su parte fija y su parte movil (con el frente y su recorrido) a su medida, o le quedan botes o correderas aparte');
+        const cg0 = mv || cg[0];
         const lat = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Lateral'), xs = lat.map(q => [q.x, q.x + q.ancho]).sort((a, b) => a[0] - b[0]);
-        if (xs.length >= 2) ok(cg[0].x >= xs[0][1] - .01 && cg[0].x + cg[0].ancho <= xs[xs.length - 1][0] + .01, nombre + ': el cesto colgante ' + m.id + ' no cabe entre los laterales');
+        if (xs.length >= 2 && cg0) ok(cg0.x >= xs[0][1] - .01 && cg0.x + cg0.ancho <= xs[xs.length - 1][0] + .01, nombre + ': el cesto colgante ' + m.id + ' no cabe entre los laterales');
         return; }
       ok(n === 1 || (m.cestoBotes === 'Doble' && n === 2), nombre + ': ' + n + ' botes en el cesto ' + m.id); });
     /* A106: la caja de cada cajon llega a la cara posterior de su frente (con o sin gola) */
@@ -11291,7 +11313,8 @@ function modulePanel(m){
   if (m.tipo === 'Basura') html += section('Cesto de basura', radios('cesto', [['extraible', 'Solo extraíble'], ['cajon', 'Cajón chico arriba'], ['oculto', 'Cajón oculto']], m.cestoVariante || 'extraible')
     /* A419: segunda opcion, los botes colgantes con sus correderas (para gabinete de 45 cm) */
     + `<div style="margin-top:10px">${radios('cestoTipo', [['bastidor', 'Piso y bastidor con botes'], ['colgante', 'Botes colgantes con correderas']], m.cestoTipo === 'colgante' ? 'colgante' : 'bastidor')}</div>`
-    + (m.cestoTipo === 'colgante' ? `<div class="note-sm">Dos botes colgados uno tras otro, con sus correderas, al ancho del gabinete (el herraje original es para gabinete de ${medida(45)}).${colganteCabe(m) ? '' : ` Este gabinete es muy angosto (${medida(m.ancho)}): va el de bastidor.`}</div>` : '')
+    + (m.cestoTipo === 'colgante' ? (() => { const C = MODELO.basuraColgante.caja, W = C[1][0] - C[0][0], i = m.ancho - 2*PLAN_CUERPO.lateral;   /* A423 */
+      return `<div class="note-sm">Dos botes colgados uno tras otro con su propia corredera, patas y tapa; va a su medida (${medida(W)} de ancho, para gabinete de ${medida(45)}).${!colganteCabe(m) ? ` Este gabinete es angosto (${medida(m.ancho)}): va el de bastidor.` : i - W > 1 ? ` En este gabinete queda centrado con ${medida(r2((i - W)/2))} por lado.` : ''}</div>`; })() : '')
     + (m.cestoTipo === 'colgante' ? '' : `<div style="margin-top:10px">${radios('cestoBotes', [['Sencillo', 'Sencillo (un bote de dos compartimentos)'], ['Doble', 'Doble (dos botes)']], m.cestoBotes === 'Doble' ? 'Doble' : 'Sencillo')}</div>`)   /* A138: los botes del usuario tal cual */
     + `<div class="note-sm">Extraíble a todo el ancho con piso, bastidor y ${cestoBotesDe(m, m.ancho - 2*PLAN_CUERPO.lateral - 2*PLAN_CAJA.holgura, m.fondo - 2) === 'Doble' ? 'dos botes' : 'un bote'}.${m.cestoBotes === 'Doble' && cestoBotesDe(m, m.ancho - 2*PLAN_CUERPO.lateral - 2*PLAN_CAJA.holgura, m.fondo - 2) !== 'Doble' ? ` El doble pide ${medida(MODELO.bote.doble[0] + 1 + 2*(PLAN_CUERPO.lateral + PLAN_CAJA.holgura))} de ancho: va sencillo.` : ''} ${m.cestoVariante === 'cajon' ? `Cajón visible de ${medida(PLAN_CESTO.cajon)} arriba.` : m.cestoVariante === 'oculto' ? `Cajón oculto de ${medida(PLAN_CESTO.oculto)} tras el frente, sale con el extraíble.` : ''}</div>`);
   if (m.tipo === 'Lavavajillas') html += section('Lavavajillas', chk('lavaComp', m.lavavajillasCompacto, `Compacto (${medida(reg().lavaCompacto)})`)
