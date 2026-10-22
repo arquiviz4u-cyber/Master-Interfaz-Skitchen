@@ -365,6 +365,11 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A431. [Master hecho 22/10; SketchUp: sin cambio; Revit pendiente] (usuario 22/10: «en Presentar poner leyenda de cajon oculto en alzado
+       como proyeccion y en despiece para identificarlo») La tapa del cajon oculto del cesto (abre dentro del frente del extraible, A106) en
+       el alzado del conjunto con puertas va en proyeccion (punteado) con la leyenda «Cajon oculto» y su medida, y no cuenta en las medidas
+       de los frentes que se ven; en el despiece de frentes es su propio grupo, «Cajon oculto», y en el esquema va punteada con su tono
+       detras del frente que la cubre (sin triangulo de abatimiento).
    A430. [Master hecho 22/10; SketchUp: sin cambio; Revit pendiente] (usuario 22/10: «se ven ya en la posicion correcta pero se sobreponen
        entre las piezas de correderas, bastidores etc, esta cerca pero sigue sin verse bien») El orden de pintor del isometrico va por cajas y
        el bote atraviesa el bastidor (ninguna queda detras de la otra). La forma 'malla' lleva marco (la caja de la malla entera) y se recorta
@@ -12937,7 +12942,7 @@ const EN = {
   'Muro y colocación': 'Wall and placement',
   'Cubierta y tarja': 'Countertop and sink',
   'Zoclos': 'Toe kicks',
-  'Tapeta izquierda': 'Left filler', 'Pieza de ajuste izquierda': 'Left filler', 'Pieza de ajuste derecha': 'Right filler', 'Pieza de ajuste superior': 'Top filler', 'Pieza de ajuste': 'Filler', 'Piezas de ajuste': 'Fillers', 'Piezas de ajuste laterales': 'Side fillers', 'Las dos piezas de ajuste': 'Both fillers',
+  'Tapeta izquierda': 'Left filler', 'Pieza de ajuste izquierda': 'Left filler', 'Pieza de ajuste derecha': 'Right filler', 'Pieza de ajuste superior': 'Top filler', 'Pieza de ajuste': 'Filler', 'Cajón oculto': 'Hidden drawer', 'Piezas de ajuste': 'Fillers', 'Piezas de ajuste laterales': 'Side fillers', 'Las dos piezas de ajuste': 'Both fillers',
   'Tapeta derecha': 'Right filler',
   'Franja gola': 'Gola strip',
   'Base altos': 'Wall cabinet bottom',
@@ -14707,7 +14712,10 @@ const LAM = (() => {
       out.push(q); });
     return out;
   }
-  const TAPETA_OCULTA = new Set(['Regreso', 'Cierre']);   /* A322: piezas de la pieza de ajuste que no se ven de frente (A310) */
+  const TAPETA_OCULTA = new Set(['Regreso', 'Cierre']);
+  /* A431 (usuario 22/10: «en Presentar poner leyenda de cajon oculto en alzado como proyeccion y en despiece para identificarlo»): la tapa de un
+     cajon oculto (abre dentro de otro frente, A106) no se ve de frente: en el alzado va en proyeccion con su leyenda y en el despiece aparte */
+  const frenteOculto = p => p.rol === 'frente' && !!(p.abre && p.abre.dentroDe);   /* A322: piezas de la pieza de ajuste que no se ven de frente (A310) */
   /* A193: luces entre tableros (piso, repisas, cama, techo) de cada gabinete en la columna que cruza la posicion x (cm).
      A320 (usuario 20/10: «las cotas generadas con doble clic en interiores se generan por columna y por gabinete (alto o bajo); eliminar las
      cotas interiores entre cajones, son confusas, en su lugar cotas entre golas»): con z (cm) solo el cuerpo que la contiene (el modulo
@@ -14781,12 +14789,14 @@ const LAM = (() => {
           g.strokeStyle = plano ? '#222222' : '#4A5057'; g.lineWidth = dd + 1.2; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
           g.strokeStyle = plano ? '#FFFFFF' : '#B9C0C7'; g.lineWidth = dd; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); g.restore(); return; }
         if (!conPuertas && p.rol === 'equipo' && ['Horno', 'Microondas'].includes(p.tipo)) { proyEq.push(p); return; }   /* A350: sin puertas, en proyeccion */
+        if (frenteOculto(p)) { proyEq.push(p); return; }   /* A431: el cajon oculto, en proyeccion */
         caja2D(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, plano ? (p.rol === 'frente' ? '#FFFFFF' : '#F2F4F6') : colorPieza(p), plano ? '#222222' : '#4A5057', p.rol === 'frente' ? 1 : .7, { p, sc, plano });
         if (p.rol === 'equipo' && ['Horno', 'Microondas', 'Estufa', 'Lavavajillas'].includes(p.tipo)) detalleEquipo(g, X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc, p.tipo, plano); });
       herrajes.forEach(p => { const mo = modeloCad(p), q = simDe(mo.archivo, 'f', mo.espejo); if (q) dibujarSim(g, q.id, q.flip, X(mo.origen[0]), Y(mo.origen[2]), sc, plano); });
       giradas.forEach(p => dibujarSimGiro(g, p, X(p.modelo.origen[0]), Y(p.modelo.origen[2]), sc, plano));
       proyEq.forEach(p => { g.save(); g.setLineDash([4, 3]); g.strokeStyle = '#6B7680'; g.lineWidth = .8; g.strokeRect(X(p.x), Y(p.z + p.alto), p.ancho * sc, p.alto * sc);   /* A350 */
-        g.setLineDash([]); g.fillStyle = '#6B7680'; g.font = `400 ${Math.max(7, 9)}px Helvetica, Arial, sans-serif`; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(T(p.tipo), X(p.x) + 3, Y(p.z + p.alto) + 3); g.restore(); });
+        g.setLineDash([]); g.fillStyle = '#6B7680'; g.font = `400 ${Math.max(7, 9)}px Helvetica, Arial, sans-serif`; g.textAlign = 'left'; g.textBaseline = 'top';
+        g.fillText(frenteOculto(p) ? `${T('Cajón oculto')} ${fmt(p.ancho)} × ${fmt(p.alto)}` : T(p.tipo), X(p.x) + 3, Y(p.z + p.alto) + 3); g.restore(); });   /* A431: con su medida */
       const cuerpos = ps.filter(p => p.modulo && ['panel', 'frente', 'caja', 'repisa', 'division'].includes(p.rol));
       const ext = {}; cuerpos.forEach(p => { const e = ext[p.modulo] = ext[p.modulo] || { a: 1e9, b: -1e9, id: p.modulo }; e.a = Math.min(e.a, p.x); e.b = Math.max(e.b, p.x + p.ancho); });
       const mods = Object.values(ext).sort((a, b) => a.a - b.a);
@@ -14805,7 +14815,7 @@ const LAM = (() => {
         J.V(M - 28, Y(z1), Y(z0), medida(z1 - z0));
       } else J.V(M - 16, Y(z1), Y(z0), medida(z1 - z0));
       if (conPuertas) {   /* despiece: la medida de cada puerta y cajon distinto, una vez, con cuantos hay */
-        const todosFr = ps.filter(p => p.rol === 'frente'), yFr = Math.max(...todosFr.map(p => p.y + p.fondo)), fr = todosFr.filter(p => p.y + p.fondo >= yFr - 6), grupos = new Map();   /* solo los del lado que se ve (la isla tiene dos) */
+        const todosFr = ps.filter(p => p.rol === 'frente' && !frenteOculto(p)), yFr = Math.max(...todosFr.map(p => p.y + p.fondo)), fr = todosFr.filter(p => p.y + p.fondo >= yFr - 6), grupos = new Map();   /* solo los del lado que se ve (la isla tiene dos) */
         fr.forEach(p => { const k = `${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = grupos.get(k) || { p, n: 0 }; q.n++; if (p.x < q.p.x - .01 || (Math.abs(p.x - q.p.x) < .01 && p.z < q.p.z)) q.p = p; grupos.set(k, q); });
         grupos.forEach(q => { const t = `${fmt(q.p.ancho)} × ${fmt(q.p.alto)}${q.n > 1 ? ` (×${q.n})` : ''}`, w = q.p.ancho * sc, h = q.p.alto * sc;
           g.save(); g.fillStyle = '#1F2A33'; g.font = "500 9px 'Inter'"; g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -14908,7 +14918,8 @@ const LAM = (() => {
   const tonoGrupo = (i, plano, grupo) => plano ? hslHex(0, 0, 42 + (i * 17) % 38) : hslHex(((BASE_TONO[grupo] ?? 210) + 120 * (i % 3) + 25 * Math.floor(i / 3)) % 360, 55, 48 + (Math.floor(i / 3) % 2) * 10);
   function agruparDespiece(fr, tap){
     const gr = new Map();
-    fr.forEach(p => { const k = `f${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`; const q = gr.get(k) || { p, w: p.ancho, h: p.alto, e: p.fondo, n: 0, ps: [] }; q.n++; q.ps.push(p); gr.set(k, q); });
+    fr.forEach(p => { const oc = frenteOculto(p), k = `${oc ? 'o' : 'f'}${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}`;   /* A431: el cajon oculto aparte, con su nombre */
+      const q = gr.get(k) || Object.assign({ p, w: p.ancho, h: p.alto, e: p.fondo, n: 0, ps: [] }, oc ? { nom: T('Cajón oculto'), oculto: true } : {}); q.n++; q.ps.push(p); gr.set(k, q); });
     tap.forEach(p => { const k = `t${Math.round(p.ancho * 10)}x${Math.round(p.alto * 10)}x${Math.round(p.fondo * 10)}`; const q = gr.get(k) || { p, w: p.ancho, h: p.alto, e: p.fondo, n: 0, nom: T('Pieza de ajuste'), ps: [] }; q.n++; q.ps.push(p); gr.set(k, q); });
     return [...gr.values()].sort((a, b) => b.h - a.h || b.w - a.w);
   }
@@ -14963,10 +14974,13 @@ const LAM = (() => {
         const ks = Math.min(220 / Math.max(1, xb - xa), 190 / Math.max(1, zb - za)), ke = ks, ox = M + 24, oy = M + 14 + (iconos.length ? 30 : 0);
         g.save(); g.lineWidth = .5; g.strokeStyle = '#6B7680';
         eqs.forEach(p => { g.fillStyle = '#D5DADF'; g.fillRect(ox + (p.x - xa) * ks, oy + (zb - p.z - p.alto) * ke, p.ancho * ks, p.alto * ke); g.strokeRect(ox + (p.x - xa) * ks, oy + (zb - p.z - p.alto) * ke, p.ancho * ks, p.alto * ke); });
-        lista.forEach(q => { g.fillStyle = q.tono; q.ps.forEach(p => { const rx = ox + (p.x - xa) * ks, rw = Math.max(1.2, p.ancho * ks), ry = oy + (zb - p.z - p.alto) * ke, rh = Math.max(1.2, p.alto * ke); g.fillRect(rx, ry, rw, rh); g.strokeRect(rx, ry, rw, rh);  }); });
+        lista.filter(q => !q.oculto).forEach(q => { g.fillStyle = q.tono; q.ps.forEach(p => { const rx = ox + (p.x - xa) * ks, rw = Math.max(1.2, p.ancho * ks), ry = oy + (zb - p.z - p.alto) * ke, rh = Math.max(1.2, p.alto * ke); g.fillRect(rx, ry, rw, rh); g.strokeRect(rx, ry, rw, rh);  }); });
+        /* A431: el cajon oculto, detras de su frente: punteado con su tono */
+        g.save(); g.setLineDash([3, 2]); g.lineWidth = 1.4; lista.filter(q => q.oculto).forEach(q => { g.strokeStyle = q.tono;
+          q.ps.forEach(p => g.strokeRect(ox + (p.x - xa) * ks, oy + (zb - p.z - p.alto) * ke, Math.max(1.2, p.ancho * ks), Math.max(1.2, p.alto * ke))); }); g.restore();
         /* A193: la proyeccion de abatimiento de los frentes: puerta, triangulo hacia su bisagra; puerta elevable, lambda; el cajon no abate */
         g.setLineDash([3, 2]); g.strokeStyle = '#1F2A33'; g.lineWidth = .7;
-        fr.forEach(p => { if (!p.abre) return; const rx = ox + (p.x - xa) * ks, rw = Math.max(1.2, p.ancho * ks), ry = oy + (zb - p.z - p.alto) * ke, rh = Math.max(1.2, p.alto * ke);
+        fr.forEach(p => { if (!p.abre || frenteOculto(p)) return; const rx = ox + (p.x - xa) * ks, rw = Math.max(1.2, p.ancho * ks), ry = oy + (zb - p.z - p.alto) * ke, rh = Math.max(1.2, p.alto * ke);
           if (rw < 3 || rh < 3) return;
           g.beginPath();
           if (p.abre.tipo === 'Puerta') { const der = p.abre.lado === 'derecha', xf = der ? rx : rx + rw, xb = der ? rx + rw : rx; g.moveTo(xf, ry); g.lineTo(xb, ry + rh / 2); g.lineTo(xf, ry + rh); }
