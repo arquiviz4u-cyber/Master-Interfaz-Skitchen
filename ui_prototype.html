@@ -365,6 +365,17 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A443. [Master hecho 22/10; SketchUp: el panel es el master; Revit pendiente] (usuario 22/10) 1) «Las sub opciones parecen lista de mercado;
+       meter un orden visual o por titulo»: dentro de una seccion cada grupo de opciones lleva su subtitulo y sus notas, separado por una
+       linea fina (grupo(titulo, html), .p-grupo, .p-sub): cesto de basura (Cajon, Sistema de botes, Botes o Ancho del gabinete),
+       especiero (Apertura, Junto al especiero, Cajones) y esquinero (Herraje, Puerta, Tamano de las charolas; Repisas, Cajones o Tarja; el
+       Superior del alto doble; cada cara del alto con tapeta y la puerta del ciego). 2) «El mueble de esquina muestra sus opciones en
+       isometrico»: un clic en el esquinero del isometrico abre sus opciones como en el alzado (esqFoco). 3) «Las soluciones en esquina no se
+       podran intercambiar de columna»: columnaEsquina; ni se arrastran ni reciben otra columna (alzado e isometrico). 4) «Colocar los anchos
+       minimos por defecto en automatico cada que se seleccione o cambie el tipo»: esqAnchosMinimos al elegir tipo, herraje, tamano de
+       charolas, cara del ciego, alto o armado: el ciego a su ancho minimo util, la L con hojas de 30 cm sin bajar del de fabrica, el alto a
+       su lado minimo; en la peninsula el ciego va en la cara del muro. 5) «La pieza de ajuste en ciego de cara b o peninsula al minimo de
+       5 cm»: ya no baja de 5 cm (escrita o arrastrada).
    A440. [Master hecho 22/10; SketchUp: el panel es el mismo master; Revit pendiente] (usuario 22/10: «la linea borde azul de seleccion no
        cuadra con los colgantes en isometrico; el panel de la derecha empieza a ampliarse y en una vista no maximizada hay que recorrer el
        slide para ver lo que queda fuera; que las listas de funciones se adapten al ancho») 1) El resalte y el clic de una malla (z-buffer)
@@ -3142,6 +3153,9 @@
      cabe; las del renglon se reparten el ancho. Una opcion mas ancha que el panel parte su texto entre palabras; el panel nunca se
      desplaza a lo ancho */
   .radios { display: flex; flex-wrap: wrap; gap: 8px; }
+  .p-grupo + .p-grupo { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }   /* A443 */
+  .p-sub { font-size: 11.5px; font-weight: 600; color: #5A6570; margin-bottom: 6px; }
+  .p-grupo .note-sm:last-child { margin-bottom: 0; }
   .opt .t, .opt .d { overflow-wrap: break-word; }
   .tab-body { overflow-x: hidden; }
   #side, #side > * { min-width: 0; }
@@ -4236,7 +4250,7 @@ function huellaEsquina(k){
   /* A151 (usuario 11/10): en la cara no duena del ciego la columna es el fondo del ciego (con su frente) mas una tapeta de ajuste: de
      fabrica 5 cm (US 2"), minimo sugerido; se puede escribir otra (hasta 0) o arrastrar en el alzado */
   if (e.tipo === 'ciego') { const fOtra = duenaA ? fB : fA, w = ciegoDueno(k).w, fOwn = (duenaA ? fA : fB) + espFrente(),
-      v = duenaA ? e.anchoB : e.anchoA, otro = v > 0 ? Math.max(fOwn, Math.min(fOwn + 60, v)) : fOwn + tapetaCiego();
+      v = duenaA ? e.anchoB : e.anchoA, otro = v > 0 ? Math.max(fOwn + tapetaCiego(), Math.min(fOwn + 60, v)) : fOwn + tapetaCiego();   /* A443: la pieza de ajuste no baja de 5 cm (antes hasta 0) */
     return duenaA ? [w, otro] : [otro, w]; }
   /* A140 (usuario 11/10): la alacena de esquina admite su ancho en cada cara (anchoA, anchoB); sin el, el de fabrica. A143 (usuario 11/10):
      tambien el carrusel y el diagonal, y se arrastra en el alzado. El minimo es el borde de la barra perpendicular (su fondo + el frente):
@@ -7802,6 +7816,21 @@ function repartirJerarquia(r, d, excl, fuera = null){
   if (Math.abs(d) >= q - 1e-9) throw new Error(d < 0 ? `No cabe: faltan ${medida(-d)} y ninguna columna puede ceder más sin bajar de su mínimo.` : `Sobran ${medida(d)} y ninguna columna puede tomarlos sin pasar de su máximo.`);
 }
 /* A221: el ancho del esquinero en una cara (a: la cara k, su lado derecho) tambien gasta la tapeta y despues la columna vecina */
+/* A443 (usuario 22/10: «en las soluciones de esquineros bajos y altos colocar los anchos minimos por defecto en automatico para su
+   correcto funcionamiento en puertas cada que se seleccione o cambie el tipo»): al elegir tipo, herraje, tamano de charolas o cara del ciego,
+   el esquinero vuelve a su ancho minimo que funciona: el ciego, el menor con puerta util (o con el que salen las charolas); la L, el que deja
+   hojas de al menos 30 cm (consejos de la esquina) sin bajar del de fabrica; el diagonal y la alacena, el de fabrica; el alto, su lado minimo
+   y sin cortes. En la peninsula el ciego va en la cara del muro (la peninsula lleva la pieza de ajuste) */
+function esqAnchosMinimos(k, soloAlto = false){
+  const e = cfg.esquinas[k]; if (!e) return; const R = reg().esquina;
+  e.altoA = e.altoB = e.cierreAlto = e.ladoAlto = null;
+  if (soloAlto) return;
+  e.anchoA = e.anchoB = null;
+  if (e.tipo === 'ciego') { if (e.penin) e.duena = caraDe(k).peninsula ? 1 : 0; const w = ciegoDueno(k).wMin; if (e.duena === 1) e.anchoB = w; else e.anchoA = w; }
+  else if (e.tipo === 'carrusel') { const fA = fondoCara(caraDe(k), false), fB = fondoCara(caraDe(k + 1), false), paso = cfg.region === 'US' ? inch(.5) : .5, hoja = cfg.region === 'US' ? inch(12) : 30;
+    const min = f => Math.max(R.lado, Math.ceil((f + espFrente() + sepFrentes() + hoja)/paso)*paso); e.anchoA = min(fB); e.anchoB = min(fA); }
+  [true, false].forEach(a => { const m = cfg.modulos.find(q => q.esquina && q.esquina.k === k && !q.upper && (q.esquina.lado === 'der') === a); if (m && !cfg.isla) anchoEsquina(k, a, a ? e.anchoA : e.anchoB); });
+}
 function anchoEsquina(k, a, v){
   const e = cfg.esquinas[k], m = cfg.modulos.find(q => q.esquina && q.esquina.k === k && !q.upper && (q.esquina.lado === 'der') === a), antes = m ? m.ancho : 0;
   if (a) e.anchoA = v; else e.anchoB = v;
@@ -7820,8 +7849,12 @@ function setFixed(id, value){
    la otra fila sigue los anchos de columna */
 /* A160 (usuario): se arrastra por columna: soltar sobre el alto o el bajo de otra columna la cambia con la del modulo arrastrado
    (el de su misma fila en esa columna); sin filas alineadas, solo dentro de su fila */
+/* A443 (usuario 22/10: «las soluciones en esquina o muebles esquineros bajos no se podran intercambiar de columna con los otros
+   intermedios para no generar errores»): una columna con esquinero (bajo o alto) no se arrastra ni recibe otra */
+const columnaEsquina = m => { if (!m) return false; if (m.esquina) return true; const r = row(m.upper), o = row(!m.upper); return r.length === o.length && !!(o[r.indexOf(m)] || {}).esquina; };
 function columnaPar(sourceId, targetId){
   const src = byId(sourceId), tgt = byId(targetId); if (!src || !tgt) return null;
+  if (columnaEsquina(src) || columnaEsquina(tgt)) return null;
   if (src.upper === tgt.upper) return tgt.id;
   const a = row(tgt.upper), b = row(src.upper), q = a.length === b.length ? b[a.indexOf(tgt)] : null;
   return q && q.id !== src.id ? q.id : null;
@@ -7830,6 +7863,7 @@ function swap(sourceId, targetId){
   change(() => {
     const src = byId(sourceId), tgt = byId(columnaPar(sourceId, targetId) || targetId);
     if (src.upper !== tgt.upper) throw new Error('Intercambia módulos dentro de su fila.');
+    if ([...selection, sourceId].map(byId).some(columnaEsquina) || columnaEsquina(tgt)) throw new Error('Los esquineros se quedan en su esquina: no se intercambian con otras columnas.');   /* A443 */
     const r = row(src.upper), delta = r.indexOf(tgt) - r.indexOf(src); if (!delta) return;
     cfg.modulos.forEach(m => m.peso = m.ancho);   /* A306: sin reparto adaptado; los fijos conservan su ancho y los automaticos siguen parejos */
     const picked = new Set([...selection, sourceId]);
@@ -10930,6 +10964,7 @@ canvas.addEventListener('mousedown', e => {
     const id = LAM.isoModulo(p), m = id && (byId(id) || moduloOtraCara(id));   /* A389: tambien los de otra cara (la peninsula) */
     if (m) { if (e.ctrlKey || e.metaKey) { if (selection.has(id)) selection.delete(id); else selection.add(id); } else { selection = new Set([id]); drag = { kind: 'module', id, over: null, x: p.x, y: p.y, x0: p.x, y0: p.y, iso: true }; } }   /* A362: arrastrar intercambia */
     else if (!e.ctrlKey) selection = new Set();
+    esqFoco = m && m.esquina && !(e.ctrlKey || e.metaKey) ? id : null;   /* A443 (usuario 22/10: «el mueble de esquina muestra sus opciones de charolas o tipo de esquina en isometrico»): como en el alzado, un clic basta */
     selectedPart = null; focusPanel = null; render(); return; }
   /* A45: sin preventDefault el clic termina dando el foco al lienzo, el campo pierde el foco (blur) y se cierra al instante */
   const mh = miraHits.find(q => inside(p, q.rect)); if (mh) { e.preventDefault(); const mm = moduloEn(false, mh.xc) || moduloEn(true, mh.xc); seccionMira = mm ? { id: mm.id, dir: -miraCorte(mh.xc) } : null; render(); return; }   /* A159 */
@@ -10944,7 +10979,7 @@ canvas.addEventListener('mousedown', e => {
     const cg = ee.tipo === 'ciego';   /* A151: en el ciego el iman va a la tapeta de 5 cm y se puede bajar hasta 0 */
     if (cg && (ee.duena === 1 ? 1 : 0) === (der ? 0 : 1)) { const cd = ciegoDueno(k);   /* A295: la cara duena del ciego: recorre su puerta, iman al de fabrica */
       drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn: cd.wMin, mx: cd.wMax, snaps: [cd.w0], una: null, cg: false, puertaCiego: reg().esquina.ciegoPuerta - cd.w0, snapped: false }; return; }
-    drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn, snaps: cg ? [mn + tapetaCiego()] : [mn, reg().esquina.lado], una: !cg && !esquinaDiag(ee) ? mn : null, cg, snapped: false }; return; }
+    drag = { kind: 'esqAncho', id: m.id, k, der, outer: der ? eg.xi + m.ancho : eg.xi - m.ancho, w: m.ancho, mn: cg ? mn + tapetaCiego() : mn, snaps: cg ? [mn + tapetaCiego()] : [mn, reg().esquina.lado], una: !cg && !esquinaDiag(ee) ? mn : null, cg, snapped: false }; return; }   /* A443: en el ciego, desde 5 cm de pieza de ajuste */
   const pc = planCaraHits.find(q => inside(p, q.rect)); if (pc) { e.preventDefault(); if (dbl && caraDe(pc.k).peninsula) { penAbrir(); return; } ACT.cara(String(pc.k)); selection = new Set([pc.id]); selectedPart = null; render(); return; }   /* A140 */
   const d = dimHits.find(q => inside(p, q.rect)); if (d) { e.preventDefault(); if (d.key === 'eq') { igualarColumnas(); return; } beginDimension(d.key, d.rect); return; }   /* A306 */
   const g = gripHits.find(q => inside(p, q.rect));
@@ -11350,6 +11385,9 @@ const crownCards = cur => `<div class="crown-cards">${CROWN_PERFILES.map(([v, t]
   + crownEscena(v, v === cur) + `<div style="min-width:0"><div class="t">${t}</div><div class="d"><b>${CROWN_ALTO[v][1]}</b> · caída ${CROWN_ALTO[v][0]} cm</div><div class="d">${CROWN_DESC[v]}</div></div></label>`).join('')}</div>`;
 const radios = (act, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${v === cur ? ' on' : ''}"><input type="radio" name="${act}" data-act="${act}" value="${v}" ${v === cur ? 'checked' : ''}><div><div class="t">${t}${tagPlan(act, v)}</div></div></label>`).join('')}</div>`;   /* A416 */
 const section = (label, html, cls = '') => `<div class="p-section${cls ? ' ' + cls : ''}">${label ? `<div class="p-label">${label}</div>` : ''}${html}</div>`;
+/* A443 (usuario 22/10: «las sub opciones parecen lista de mercado; meter un orden visual o por titulo (tipo de cajon, tipos de botes,
+   subtipos)»): dentro de una seccion, cada grupo de opciones lleva su subtitulo y sus notas; entre grupos, una linea fina */
+const grupo = (titulo, html) => html ? `<div class="p-grupo">${titulo ? `<div class="p-sub">${titulo}</div>` : ''}${html}</div>` : '';
 const head = (titleText, chip) => `<div class="p-section"><div class="m-head"><div class="m-title">${titleText}</div>${chip ? `<span class="chip">${chip}</span>` : ''}</div></div>`;
 
 function renderSide(){
@@ -11444,12 +11482,12 @@ function esquinaPanel(m){
     html += section('Ancho de la alacena', `<div class="grid-2">${sq === 0 ? num('esqAnchoA', `En cara ${letraCara(k)}`, hh[0], 'cm', 40, 200) : num('esqAnchoB', `En cara ${letraCara(k + 1)}`, hh[1], 'cm', 40, 200)}</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   if (SUB_ESQ[e.tipo]) { const sE = subEsquina(e);   /* A223: subcategoria */
-    html += section(e.tipo === 'diagonal' ? 'Función' : 'Interior', radios('esqSub', SUB_ESQ[e.tipo], sE)
-      + (e.tipo === 'carrusel' && sE === 'repisas' ? `<div class="grid-2" style="margin-top:10px">${num('esqRepL', 'Repisas', repisasLEsq(e), '', 0, 3, 1)}</div>` : '')
-      + (e.tipo === 'diagonal' && sE === 'cajones' ? `<div class="grid-2" style="margin-top:10px">${num('esqCajDiag', 'Cajones', cajonesDiagEsq(e), '', 2, 4, 1)}</div><div class="note-sm">Cajas en V que siguen el diamante.</div>` : '')
-      + (e.tipo === 'diagonal' && sE === 'tarja' ? `<div style="margin-top:10px">${radios('esqTarjaTipo', [['1', 'Sencilla'], ['2', 'Doble']], String(e.tarjaTipo === 2 ? 2 : 1))}</div><div class="note-sm">La tarja de la cocina va en la cubierta diamante; abajo, frente fijo y puerta a 45°.</div>` : '')
-      + (e.tipo === 'ciego' ? `<div style="margin-top:10px">${chk('esqInv', ciegoInvertido(e), 'Invertir abatimiento')}</div><div class="note-sm">${ciegoInvertido(e) ? 'La bisagra va del lado de la parte ciega' : 'La bisagra va del lado del lateral'}${e.herraje ? '; con charolas de esquina va invertida de fábrica' : ''}.</div>` + (e.herraje ? `<div class="p-label" style="margin-top:12px">Tamaño de las charolas (puerta de)</div>${radios('esqCharolasTam', [['40', '400 mm'], ['45', '450 mm'], ['50', '500 mm'], ['60', '600 mm']], String(charolasTam(e)))}<div class="note-sm">El herraje se escala por igual; el ancho mínimo del ciego se ajusta a su tamaño.</div>${(() => { const fF = fondoCara(caraDe(e.duena === 1 ? k + 1 : k), false), fm = charolasFondoMin(charolasEsc(charolasTam(e))); return fF + .01 < fm ? `<div class="note-sm" style="color:#C2410C">Con este tamaño el gabinete necesita ${medida(fm)} de fondo y tiene ${medida(fF)}: las charolas rozan la trasera. Se genera igual.</div>` : ''; })()}` : '') : '')   /* A409; A420 */
-      + (e.tipo === 'ciego' ? `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()}; el lado ciego va en la cara elegida y en la otra queda una tapeta de ajuste de ${fmt(R.tapeta)}${uS()}.</div>` : '')); }
+    html += section(e.tipo === 'diagonal' ? 'Función' : 'Interior', grupo(e.tipo === 'ciego' ? 'Herraje' : '', radios('esqSub', SUB_ESQ[e.tipo], sE))   /* A443: en grupos */
+      + (e.tipo === 'carrusel' && sE === 'repisas' ? grupo('Repisas', `<div class="grid-2">${num('esqRepL', 'Repisas', repisasLEsq(e), '', 0, 3, 1)}</div>`) : '')
+      + (e.tipo === 'diagonal' && sE === 'cajones' ? grupo('Cajones', `<div class="grid-2">${num('esqCajDiag', 'Cajones', cajonesDiagEsq(e), '', 2, 4, 1)}</div><div class="note-sm">Cajas en V que siguen el diamante.</div>`) : '')
+      + (e.tipo === 'diagonal' && sE === 'tarja' ? grupo('Tarja', `${radios('esqTarjaTipo', [['1', 'Sencilla'], ['2', 'Doble']], String(e.tarjaTipo === 2 ? 2 : 1))}<div class="note-sm">La tarja de la cocina va en la cubierta diamante; abajo, frente fijo y puerta a 45°.</div>`) : '')
+      + (e.tipo === 'ciego' ? grupo('Puerta', chk('esqInv', ciegoInvertido(e), 'Invertir abatimiento') + `<div class="note-sm">${ciegoInvertido(e) ? 'La bisagra va del lado de la parte ciega' : 'La bisagra va del lado del lateral'}${e.herraje ? '; con charolas de esquina va invertida de fábrica' : ''}.</div>`) + (e.herraje ? grupo('Tamaño de las charolas (puerta de)', `${radios('esqCharolasTam', [['40', '400 mm'], ['45', '450 mm'], ['50', '500 mm'], ['60', '600 mm']], String(charolasTam(e)))}<div class="note-sm">El herraje se escala por igual; el ancho mínimo del ciego se ajusta a su tamaño.</div>${(() => { const fF = fondoCara(caraDe(e.duena === 1 ? k + 1 : k), false), fm = charolasFondoMin(charolasEsc(charolasTam(e))); return fF + .01 < fm ? `<div class="note-sm" style="color:#C2410C">Con este tamaño el gabinete necesita ${medida(fm)} de fondo y tiene ${medida(fF)}: las charolas rozan la trasera. Se genera igual.</div>` : ''; })()}`) : '') : '')   /* A409; A420 */
+      + (e.tipo === 'ciego' ? grupo('', `<div class="note-sm">El lado ciego va en la cara elegida; en la otra queda una pieza de ajuste de ${medida(tapetaCiego())} como mínimo.</div>`) : '')); }
   if (e.tipo === 'ciego' && (e.duena === 1 ? 1 : 0) === sq) { const cd = ciegoDueno(k), dA = e.duena !== 1, R9 = reg().esquina;   /* A221: ancho del ciego en su cara duena */
     html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.wMin, cd.wMax)}</div>`
       + `<div class="note-sm">De ${medida(cd.wMin)} a ${medida(cd.wMax)} (de fábrica ${medida(cd.w0)}): cambian la caja y su puerta; la parte ciega queda igual. También se arrastra en el alzado.${e.herraje ? ` Con charolas de esquina el mínimo es el ancho con el que la charola, a su medida real, sale entera por la puerta sin tocar la otra cara.` : ''}</div>`
@@ -11461,7 +11499,7 @@ function esquinaPanel(m){
   if (!alacena) html += section('Alto de la esquina', radios('esqAlto', [['auto', 'Igual que el bajo'], ['L', 'En L, puerta plegable'], ['diagonal', 'Diagonal'], ['ninguno', 'Sin alto']], e.alto || 'auto'));
   if (!alacena && altoEsquina(e) === 'L' && unionAlto(e) !== 'tapeta') { const fn = funcionAltoEsq(e);   /* A261 */
     html += section('Función del alto', radios('esqAltoFn', [['puertas', 'Puertas'], ['repisas', 'Repisas abiertas'], ['doble', 'Inferior + superior']], fn)
-      + (fn === 'doble' ? `<div class="grid-2" style="margin-top:10px">${num('esqAltoSup', 'Alto del superior', altoSupEsq(e), 'cm', DOBLE_MIN, 80)}</div>` + radios('esqSupFn', [['puertas', 'Superior con puertas'], ['repisas', 'Superior con repisas abiertas']], supAltoEsq(e)) : '')
+      + (fn === 'doble' ? grupo('Superior', `<div class="grid-2">${num('esqAltoSup', 'Alto del superior', altoSupEsq(e), 'cm', DOBLE_MIN, 80)}</div><div style="margin-top:8px">${radios('esqSupFn', [['puertas', 'Con puertas'], ['repisas', 'Con repisas abiertas']], supAltoEsq(e))}</div>`) : '')   /* A443 */
       + `<div class="note-sm">${fn === 'doble' ? 'Dos cajas en L: abajo con puertas, arriba con puertas o repisas, como el módulo superior de los demás altos.' : fn === 'repisas' ? 'Una caja en L abierta, con dos repisas.' : 'Una caja en L con sus puertas.'}</div>`); }
   if (!alacena && altoEsquina(e) === 'L' && !(unionAlto(e) !== 'tapeta' && funcionAltoEsq(e) === 'repisas')) html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 155°']], puertasL(e))) + bisIntHTML(e);   /* A232; A270 */
   if (!alacena && ['L', 'diagonal'].includes(altoEsquina(e))) { const mx = Math.min(h[0], h[1]), mn = Math.min(minLadoAlto(k), mx), v9 = Math.min(ladoAltoEsq(k), mx), rd = x => Math.round(x*10)/10;   /* A269 */
@@ -11474,14 +11512,14 @@ function esquinaPanel(m){
   if (!alacena && altoEsquina(e) !== 'ninguno' && unionAlto(e) === 'tapeta') { let h2 = '';   /* A226 */
     const cg = altoEsquina(e) === 'ciego';   /* A230: en el ciego, que se entienda que lado es cual */
     [0, 1].filter(s => s === sq && ladoTapetaAlto(e, s)).forEach(s => { const hu = huellaAlto(k)[s], hq = huecoEsqAlto(k, s);
-      h2 += `<div class="note-sm" style="margin-top:8px"><b>Cara ${letraCara(k + s)}${cg ? ', lado ciego' : ''}</b></div>`
+      h2 += `<div class="p-grupo"><div class="p-sub">Cara ${letraCara(k + s)}${cg ? ', lado ciego' : ''}</div>`   /* A443 */
         + (cg ? radios('esqLadoCiego', [['repisero', 'Repisero abierto'], ['tapa', 'Tapa ciega']], e.ladoCiego === 'tapa' ? 'tapa' : 'repisero')
           : radios(s ? 'esqRepB' : 'esqRepA', [['tapa', 'Tapa ciega'], ['repisero', 'Repisero abierto']], repiseroEsq(e, s) ? 'repisero' : 'tapa'))
         + `<div class="grid-2" style="margin-top:6px">${repiseroCiego(e, s) ? num('esqTapRep', 'Pieza de ajuste', tapetaRepisero(e), 'cm', cfg.region === 'US' ? inch(1) : 2.5, cfg.region === 'US' ? inch(2) : 5) : num(s ? 'esqAltoB' : 'esqAltoA', `Alto en cara ${letraCara(k + s)}`, hu, 'cm', cuerpoAlto(k, s), h[s])}</div>`
-        + (!cg && repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : ''); });
+        + (!cg && repiseroEsq(e, s) && hq < repiseroMin() - 1e-6 ? `<div class="note-sm">El hueco mide ${medida(Math.max(0, hq))}; el repisero necesita ${medida(repiseroMin())}: queda la tapa.</div>` : '') + '</div>'; });
     if (cg) h2 = `<div class="note-sm">El alto ciego es un gabinete recto en su cara, hasta el muro. El lado ciego cierra con un repisero (tapeta de ajuste junto al frente y el repisero hasta el borde de la columna del bajo) o con una tapa.</div>` + h2;
     if (cg && (e.duena === 1 ? 1 : 0) === sq) { const s = e.duena === 1 ? 1 : 0, d = cierreDef(k);
-      h2 += `<div class="note-sm" style="margin-top:10px"><b>Cara ${letraCara(k + s)}, puerta del ciego</b></div><div class="grid-2" style="margin-top:6px">${num('esqCierre', 'Cierre junto a la puerta', cierreAlto(k), 'cm', Math.min(tapetaCiego(), d), d)}</div><div class="note-sm">Al acortar el cierre crece la puerta; si pasa de ${medida(puertaMaxEsq())}, lleva dos puertas.</div>`; }
+      h2 += `<div class="p-grupo"><div class="p-sub">Cara ${letraCara(k + s)}, puerta del ciego</div><div class="grid-2">${num('esqCierre', 'Cierre junto a la puerta', cierreAlto(k), 'cm', Math.min(tapetaCiego(), d), d)}</div><div class="note-sm">Al acortar el cierre crece la puerta; si pasa de ${medida(puertaMaxEsq())}, lleva dos puertas.</div>`; }
     html += section(cg ? 'Alto ciego' : 'Alto con tapeta', h2 + (cg ? '' : `<div class="note-sm">El alto vecino toma lo que cede la esquina. También se arrastra en el alzado.</div>`)
       + (e.altoA > 0 || e.altoB > 0 || e.cierreAlto > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAltoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   return html;
@@ -11567,28 +11605,31 @@ function modulePanel(m){
       + (cfg.region !== 'US' ? `<div class="note-sm" style="color:#C2410C">En México se recomienda puerta en el mueble de la tarja, para llegar a las tuberías sin sacar los cajones.</div>` : '');   /* A373: el aviso solo en MX */
     html += section('Tarja', tj);
   }
-  if (m.tipo === 'Especiero') html += section('Especiero', alturaEspeciero(m) + chk('extr', m.extraible, 'Extraíble (abre como cajón)')
-    + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')   /* A138 */
-    + (m.extraible && m.especieroHerraje !== 'Condimentero' ? `<div class="grid-2" style="margin-top:8px">${num('espJuegos', 'Juegos de correderas', juegosEspeciero(m), 'u', 1, 4, 1)}</div>` : '')   /* A347 */
-    + `<div style="margin-top:10px">${radios('espCon', [['Nada', 'Solo'], ['Puerta', '+ Puerta'], ['Cajones', '+ Cajones']], espCon(m))}</div>`
-    + (espCon(m) !== 'Nada' ? `<div style="margin-top:8px">${radios('espLado', [['Izquierda', 'A la izquierda'], ['Derecha', 'A la derecha']], espIzq(m) ? 'Izquierda' : 'Derecha')}</div>`
-      + (espCon(m) === 'Cajones' ? `<div class="grid-2" style="margin-top:10px">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div><div style="margin-top:8px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>` : '')
-      + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones'} en el resto, en la misma carcasa.${espCon(m) === 'Cajones' ? ' Sus cajones se alinean con las cajoneras iguales.' : ''}</div>` : ''));
-  if (m.tipo === 'Basura') html += section('Cesto de basura', radios('cesto', [['extraible', 'Solo extraíble'], ['cajon', 'Cajón chico arriba'], ['oculto', 'Cajón oculto']], m.cestoVariante || 'extraible')
-    /* A419: segunda opcion, los botes colgantes con sus correderas (para gabinete de 45 cm) */
-    + `<div style="margin-top:10px">${radios('cestoTipo', [['bastidor', 'Piso y bastidor con botes'], ['colgante', 'Botes colgantes con correderas']], m.cestoTipo === 'colgante' ? 'colgante' : 'bastidor')}</div>`
-    + (m.cestoTipo === 'colgante' ? (() => { const C = MODELO.basuraColgante.caja, tam = colganteTam(m), W = (C[1][0] - C[0][0])*colganteK(tam), i = m.ancho - 2*PLAN_CUERPO.lateral;   /* A423; A428 */
-      return `<div class="p-label" style="margin-top:10px">Ancho del gabinete</div>${radios('cestoColgTam', [['30', '300 mm'], ['40', '400 mm'], ['45', '450 mm'], ['50', '500 mm']], String(tam))}`
-        + `<div class="note-sm">Dos botes colgados uno tras otro con su propia corredera, patas y tapa; el herraje se ajusta al ancho elegido (${medida(W)} de ancho). El de 600 mm llegará con Premium.${i - W > 1 && colganteCabe(m) ? ` En este gabinete queda centrado con ${medida(r2((i - W)/2))} por lado.` : ''}</div>`
-        + (!colganteCabe(m) ? `<div class="note-sm" style="color:#C2410C">Este gabinete mide ${medida(m.ancho)} y el colgante pide ${medida(minWidth(m))}: mientras no crezca va el de piso y bastidor.</div>` : ''); })() : '')   /* A426; A428 */
-    + (cestoColgante(m) ? '' : `<div style="margin-top:10px">${radios('cestoBotes', [['Sencillo', 'Sencillo (un bote de dos compartimentos)'], ['Doble', 'Doble (dos botes)']], m.cestoBotes === 'Doble' && cabeDoble(m) ? 'Doble' : 'Sencillo')}</div>`   /* A138: los botes del usuario tal cual */
-      /* A425: el doble solo si cabe entre los largueros (si no, aviso); corredera de bola (dos juegos) u oculta */
-      + (!cabeDoble(m) ? (() => { const B = MODELO.bote, pa = Math.ceil(m.ancho - anchoCesto(m) + B.doble[0] + 1), pf = Math.ceil(m.fondo - fondoCesto(m) + B.frenteDoble + 2*B.doble[1] + B.entre + .5);
-          const falta = [m.ancho < pa ? `${medida(pa)} de ancho (mide ${medida(m.ancho)})` : '', m.fondo < pf ? `${medida(pf)} de fondo (mide ${medida(m.fondo)})` : ''].filter(Boolean).join(' y ');
-          return `<div class="note-sm" style="color:#C2410C">El doble pide ${falta}: va sencillo.</div>`; })() : '')
-      )
-    + (cestoColgante(m) ? '' : `<div class="note-sm">Extraíble a todo el ancho con largueros, piso, bastidor y ${m.cestoBotes === 'Doble' && cabeDoble(m) ? 'dos botes' : 'un bote'}; ${cestoOculta(m) ? 'corredera oculta bajo el piso, como los cajones' : 'dos juegos de correderas: en los largueros de abajo y en los del bastidor'} (sigue el estilo de correderas de la cocina).</div>`)
-    + `<div class="note-sm">${m.cestoVariante === 'cajon' ? `Cajón visible de ${medida(PLAN_CESTO.cajon)} arriba.` : m.cestoVariante === 'oculto' ? `Cajón oculto de ${medida(PLAN_CESTO.oculto)} tras el frente, sale con el extraíble.` : ''}</div>`);
+  if (m.tipo === 'Especiero') html += section('Especiero', grupo('', alturaEspeciero(m))   /* A443: en grupos */
+    + grupo('Apertura', chk('extr', m.extraible, 'Extraíble (abre como cajón)')
+      + (m.extraible ? `<div style="margin-top:8px">${radios('espHerraje', [['Madera', 'De madera (niveles con tiras)'], ['Condimentero', 'Herraje condimentero (canastillas)']], m.especieroHerraje === 'Condimentero' ? 'Condimentero' : 'Madera')}</div>` : '')   /* A138 */
+      + (m.extraible && m.especieroHerraje !== 'Condimentero' ? `<div class="grid-2" style="margin-top:8px">${num('espJuegos', 'Juegos de correderas', juegosEspeciero(m), 'u', 1, 4, 1)}</div>` : ''))   /* A347 */
+    + grupo('Junto al especiero', radios('espCon', [['Nada', 'Solo'], ['Puerta', '+ Puerta'], ['Cajones', '+ Cajones']], espCon(m))
+      + (espCon(m) !== 'Nada' ? `<div style="margin-top:8px">${radios('espLado', [['Izquierda', 'Especiero a la izquierda'], ['Derecha', 'Especiero a la derecha']], espIzq(m) ? 'Izquierda' : 'Derecha')}</div>`
+        + `<div class="note-sm">Especiero de ${fmt(espAncho(m))}${uS()} y ${espCon(m) === 'Puerta' ? 'una puerta' : 'cajones'} en el resto, en la misma carcasa.${espCon(m) === 'Cajones' ? ' Sus cajones se alinean con las cajoneras iguales.' : ''}</div>` : ''))
+    + (espCon(m) === 'Cajones' ? grupo('Cajones', `<div class="grid-2">${num('nCaj', 'Cajones', m.numCajones, 'u', 1, 6, 1)}</div><div style="margin-top:8px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>`) : ''));
+  if (m.tipo === 'Basura') { const colg = cestoColgante(m), dob = m.cestoBotes === 'Doble' && cabeDoble(m);   /* A443: en grupos */
+    html += section('Cesto de basura',
+      grupo('Cajón', radios('cesto', [['extraible', 'Solo extraíble'], ['cajon', 'Cajón chico arriba'], ['oculto', 'Cajón oculto']], m.cestoVariante || 'extraible')
+        + (m.cestoVariante === 'cajon' ? `<div class="note-sm">Cajón visible de ${medida(PLAN_CESTO.cajon)} arriba.</div>` : m.cestoVariante === 'oculto' ? `<div class="note-sm">Cajón oculto de ${medida(PLAN_CESTO.oculto)} tras el frente, sale con el extraíble.</div>` : ''))
+      /* A419: segunda opcion, los botes colgantes con sus correderas (para gabinete de 45 cm) */
+      + grupo('Sistema de botes', radios('cestoTipo', [['bastidor', 'Piso y bastidor'], ['colgante', 'Colgantes con correderas']], m.cestoTipo === 'colgante' ? 'colgante' : 'bastidor')
+        + (!colg ? `<div class="note-sm">Extraíble a todo el ancho con largueros, piso, bastidor y ${dob ? 'dos botes' : 'un bote'}; ${cestoOculta(m) ? 'corredera oculta bajo el piso, como los cajones' : 'dos juegos de correderas: en los largueros de abajo y en los del bastidor'} (sigue el estilo de correderas de la cocina).</div>` : '')
+        + (m.cestoTipo === 'colgante' && !colganteCabe(m) ? `<div class="note-sm" style="color:#C2410C">Este gabinete mide ${medida(m.ancho)} y el colgante pide ${medida(minWidth(m))}: mientras no crezca va el de piso y bastidor.</div>` : ''))   /* A426 */
+      + (m.cestoTipo === 'colgante' ? (() => { const C = MODELO.basuraColgante.caja, tam = colganteTam(m), W = (C[1][0] - C[0][0])*colganteK(tam), i = m.ancho - 2*PLAN_CUERPO.lateral;   /* A423; A428 */
+        return grupo('Ancho del gabinete', radios('cestoColgTam', [['30', '300 mm'], ['40', '400 mm'], ['45', '450 mm'], ['50', '500 mm']], String(tam))
+          + `<div class="note-sm">Dos botes colgados uno tras otro con su propia corredera, patas y tapa; el herraje se ajusta al ancho elegido (${medida(W)} de ancho). El de 600 mm llegará con Premium.${i - W > 1 && colganteCabe(m) ? ` En este gabinete queda centrado con ${medida(r2((i - W)/2))} por lado.` : ''}</div>`); })() : '')
+      + (colg ? '' : grupo('Botes', radios('cestoBotes', [['Sencillo', 'Sencillo (dos compartimentos)'], ['Doble', 'Doble (dos botes)']], dob ? 'Doble' : 'Sencillo')   /* A138: los botes del usuario tal cual */
+        /* A425: el doble solo si cabe entre los largueros (si no, aviso) */
+        + (!cabeDoble(m) ? (() => { const B = MODELO.bote, pa = Math.ceil(m.ancho - anchoCesto(m) + B.doble[0] + 1), pf = Math.ceil(m.fondo - fondoCesto(m) + B.frenteDoble + 2*B.doble[1] + B.entre + .5);
+            const falta = [m.ancho < pa ? `${medida(pa)} de ancho (mide ${medida(m.ancho)})` : '', m.fondo < pf ? `${medida(pf)} de fondo (mide ${medida(m.fondo)})` : ''].filter(Boolean).join(' y ');
+            return `<div class="note-sm" style="color:#C2410C">El doble pide ${falta}: va sencillo.</div>`; })() : ''))));
+  }
   if (m.tipo === 'Lavavajillas') html += section('Lavavajillas', chk('lavaComp', m.lavavajillasCompacto, `Compacto (${medida(reg().lavaCompacto)})`)
     + `<div class="note-sm">Hueco de ${medida(m.ancho)} del piso a la cubierta; trae su propio zoclo.</div>` + avisoLavavajillas(m));
   if (!m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
@@ -12089,7 +12130,7 @@ const ACT = {
   mono: v => change(c => c.monomando = v), quitarTarja: () => { change(c => { c.moduloTarja = null; c.tipoTarja = 0; }); selectedPart = 'cover'; render(); },
   forma: v => { change(c => setForma(c, v)); selection.clear(); render(); },   /* A134 */
   cara: v => { const k = +v; if (!multiCara() || k === cfg.cara) return; guardarCara(); cargarCara(cfg, k); selection.clear(); selectedPart = null; cleanSelection(); render(); },
-  esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; }),
+  esqTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tipo = v; esqAnchosMinimos(byId(m.id).esquina.k); }),   /* A443: su ancho minimo */
   esqAnchoA: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, true, v)), esqAnchoB: (v, m) => change(() => anchoEsquina(byId(m.id).esquina.k, false, v)),   /* A221 */
   esqAnchoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.anchoA = e.anchoB = null; }),   /* A140 */
   esqBisInt: (v, m) => change(() => { esquinaDe(byId(m.id)).bisagraIntermedia = v; }),   /* A270 */
@@ -12104,15 +12145,15 @@ const ACT = {
   esqCierre: (v, m) => change(() => { const k = byId(m.id).esquina.k; cfg.esquinas[k].cierreAlto = Math.abs(v - cierreDef(k)) < .01 ? null : v; }),
   esqAltoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.altoA = e.altoB = e.cierreAlto = e.repiseroAncho = e.tapetaRepisero = null; }),
   esqRepAncho: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroAncho = v; }),   /* A227 */ esqTapRep: (v, m) => change(() => { esquinaDe(byId(m.id)).tapetaRepisero = v; }),   /* A228 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }), esqInterior: (v, m) => change(() => { esquinaDe(byId(m.id)).interior = v; }),
-  esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }),
+  esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; const k = byId(m.id).esquina.k, e = cfg.esquinas[k], w = ciegoDueno(k).wMin; e.anchoA = e.anchoB = null; if (e.duena === 1) e.anchoB = w; else e.anchoA = w; }),   /* A443 */
   esqInv: (v, m) => change(() => { esquinaDe(byId(m.id)).invertir = !!v; }),   /* A409 */
-  esqCharolasTam: (v, m) => change(() => { esquinaDe(byId(m.id)).charolasPuerta = +v; }),   /* A420 */
-  esqSub: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); if (e.tipo === 'ciego') { e.herraje = v === 'charolas'; return; } e.sub = v;   /* A223 */
+  esqCharolasTam: (v, m) => change(() => { esquinaDe(byId(m.id)).charolasPuerta = +v; esqAnchosMinimos(byId(m.id).esquina.k); }),   /* A420; A443 */
+  esqSub: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); if (e.tipo === 'ciego') { e.herraje = v === 'charolas'; esqAnchosMinimos(byId(m.id).esquina.k); return; } e.sub = v;   /* A223; A443 */
     if (e.tipo === 'diagonal' && v === 'tarja') { if (cfg.tipoTarja > 0) e.tarjaTipo = cfg.tipoTarja; cfg.moduloTarja = null; cfg.tipoTarja = 0; } }),
   esqRepL: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasL = v; }), esqCajDiag: (v, m) => change(() => { esquinaDe(byId(m.id)).cajonesDiag = v; }),
   esqTarjaTipo: (v, m) => change(() => { esquinaDe(byId(m.id)).tarjaTipo = +v; }), esqHerraje: (v, m) => change(() => { esquinaDe(byId(m.id)).herraje = v; }), esqRepAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasAlacena = Math.round(+v); }), esqRepBarra: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasBarra = Math.round(+v); }), esqBarraFn: (v, m) => change(() => { esquinaDe(byId(m.id)).barraFuncion = v; }), esqBarraCaj: (v, m) => change(() => { esquinaDe(byId(m.id)).barraCajones = Math.round(+v); }),   /* A166 */ esqRepPuerta: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasPuerta = Math.round(+v); }), esqFondoRep: (v, m) => change(() => { esquinaDe(byId(m.id)).fondoRepisas = +v; }), esqRepisas: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasDiag = +v; }),
-  esqAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).alto = v; }), esqRelleno: (v, m) => change(() => { esquinaDe(byId(m.id)).relleno = v === 'repisas' ? 'repisas' : 'puerta'; }),
-  esqUnion: (v, m) => change(() => { esquinaDe(byId(m.id)).union = v === 'tapeta' ? 'tapeta' : 'L'; }),
+  esqAlto: (v, m) => change(() => { esquinaDe(byId(m.id)).alto = v; esqAnchosMinimos(byId(m.id).esquina.k, true); }),   /* A443 */ esqRelleno: (v, m) => change(() => { esquinaDe(byId(m.id)).relleno = v === 'repisas' ? 'repisas' : 'puerta'; }),
+  esqUnion: (v, m) => change(() => { esquinaDe(byId(m.id)).union = v === 'tapeta' ? 'tapeta' : 'L'; esqAnchosMinimos(byId(m.id).esquina.k, true); }),   /* A443 */
   genZoc: v => change(c => c.generarZoclos = v), retZoc: v => change(c => c.retiroZoclo = v), tipoZoc: v => change(c => c.tipoZoclo = v === 'patas' ? 'patas' : 'madera'),   /* A84 */
   altoZoc: v => change(c => { const bar = altoBarra(); c.baseBajos = v; c.altoBajos = bar - v - paquete(); }, 'Revisar altura'),
   cerrI: v => change(c => c.cerrarZocloIzq = v), cerrD: v => change(c => c.cerrarZocloDer = v),
