@@ -378,6 +378,11 @@
        se ve continuo y las aristas vivas siguen marcadas (las mismas 40 grados).
        3) Velocidad: en pantalla rasteriza solo lo que cae en el lienzo, a 1.5 pixeles por pixel, sin divisiones en el ciclo, y guarda la
        imagen mientras no cambie la vista (40-60 ms la cocina a escala normal; 160 ms muy acercada).
+   A442. [Master hecho 22/10; SketchUp y Revit: sin cambio (las piezas de la campana de isla ahora llevan su modulo)] (usuario 22/10: «el master no me deja
+       seleccionarlas y no se arrastran con su modulo respectivo de parrilla/estufa»): 1) la campana decorativa se elige con un clic (su zona va
+       primero: hits con prio; el backsplash se extendia detras y ganaba el clic); 2) la campana de isla se dibuja en el alzado (caja y chimenea) y
+       en la planta (rayas), con su zona de clic = el modulo de la parrilla; sus piezas del plan llevan modulo (clic y arrastre en el isometrico);
+       campIslaMedidas es la geometria comun. Arrastrar el bajo mueve el alto de encima solo si las dos filas tienen las mismas columnas.
    A441. [Master hecho 22/10; SketchUp y Revit: sin cambio (solo cambia el contenido del .dxf que el master entrega)] (usuario 22/10: «revisa por
        favor para que la calidad del dxf o cad salga aceptable y manejable»; referencia: SU Drawing Manager de YOOOX, que conserva lineas
        continuas, capas, cotas y arcos): escribirDxf entrega una entidad por figura (polilinea cerrada en rectangulos y paneles, CIRCLE en
@@ -4463,6 +4468,10 @@ const CAMP_DECO = { banda: 12, talud: 45, cuello: 25 };
 /* A438 (usuario 22/10: «construye la campana de isla»; plan Pro): campana de isla tipo chimenea rectangular sobre la parrilla de la isla o
    de la peninsula: caja de acero (ancho 60, 90 o 120; fondo hasta 60) a 70 cm de la cubierta y chimenea de 32 x 32 hasta el techo */
 const CAMP_ISLA = { alto: 70, caja: 10, fondo: 60, chimenea: 32, anchos: [60, 90, 120] };
+/* medidas de la campana de isla de un modulo con parrilla (cm): caja z0..z1 de W x D y chimenea ch x ch hasta el techo; cx: el centro de la parrilla */
+const campIslaMedidas = m => { if (m.upper || !m.parrilla || !m.campanaIsla || !(cfg.isla || cfg.peninsula)) return null;
+  const pe = parrillaEn(m), W = m.campanaIslaAncho || 90, D = Math.min(CAMP_ISLA.fondo, W), z0 = altoBarra() + CAMP_ISLA.alto, z1 = z0 + CAMP_ISLA.caja;
+  return { pe, W, D, ch: CAMP_ISLA.chimenea, cx: (pe.x0 + pe.x1) / 2, z0, z1, techo: Math.max(z1 + 20, cfg.alturaMuro || 240) }; };
 const campIslaHTML = m => !(cfg.isla || cfg.peninsula) || !m.parrilla ? '' : `<div style="margin-top:10px">${chk('campIsla', !!m.campanaIsla, 'Campana de isla sobre la parrilla')}</div>`
   + (m.campanaIsla ? radios('campIslaW', CAMP_ISLA.anchos.map(w => [String(w), medida(w)]), String(m.campanaIslaAncho || 90))
     + `<div class="note-sm" style="margin-top:0">Caja de acero a ${medida(CAMP_ISLA.alto)} de la cubierta y chimenea hasta el techo (${medida(cfg.alturaMuro || 240)}).</div>` : '');   /* cm: banda inferior, alto del talud (con la banda), fondo del cuello */
@@ -6141,10 +6150,9 @@ function planDePiezas(c = cfg){
             equipoModelo('parrilla_induccion', pe.x0, pe.x1, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4, sepDe(m) + m.fondo - 4 - pd));
           if (piezas.length > n) piezas[n].hueco = { x: r2(lab), y: r2(lab), ancho: r2(pe.hueco), fondo: r2(pd - 2*lab) };
           if ((cfg.isla || cfg.peninsula) && m.campanaIsla) {   /* A438: centrada sobre la parrilla; sin modelo (dos cajas) */
-            const W = m.campanaIslaAncho || 90, D = Math.min(CAMP_ISLA.fondo, W), cx = (pe.x0 + pe.x1) / 2, cy = sepDe(m) + m.fondo - 4 - pd / 2;
-            const z0 = zBar + CAMP_ISLA.alto, z1 = z0 + CAMP_ISLA.caja, techo = Math.max(z1 + 20, cfg.alturaMuro || 240), ch = CAMP_ISLA.chimenea;
-            /* sin modulo: es mas ancha que su columna y cuelga del techo (como la cubierta, no es pieza del gabinete) */
-            const caja = (k, a, b2, c0, c1, d0, d1) => add({ id: 'campanaIsla:' + m.id + k, rol: 'equipo', tipo: 'Campana', x: a, y: c0, z: d0, ancho: b2 - a, fondo: c1 - c0, alto: d1 - d0, material: null, etiqueta: 'equipos' });
+            const { W, D, ch, cx, z0, z1, techo } = campIslaMedidas(m), cy = sepDe(m) + m.fondo - 4 - pd / 2;
+            /* A442: con su modulo (clic y arrastre en el isometrico); es mas ancha que su columna, asi que la prueba de la columna la salta (id campanaIsla:) */
+            const caja = (k, a, b2, c0, c1, d0, d1) => add({ id: 'campanaIsla:' + m.id + k, rol: 'equipo', modulo: m.id, tipo: 'Campana', x: a, y: c0, z: d0, ancho: b2 - a, fondo: c1 - c0, alto: d1 - d0, material: null, etiqueta: 'equipos' });
             caja('', cx - W / 2, cx + W / 2, cy - D / 2, cy + D / 2, z0, z1); caja(':chimenea', cx - ch / 2, cx + ch / 2, cy - ch / 2, cy + ch / 2, z1, techo); } }
         px += m.ancho; }); }
       if (cfg.backsplash && !pen) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;   /* A383: sin muro, sin backsplash */
@@ -6810,7 +6818,7 @@ function pruebasPlanMX(){
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
     ['esquinero con materiales propios en el bajo y el alto (A272)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const mb = c.modulos.find(m => m.esquina && !m.upper), mu = c.modulos.find(m => m.esquina && m.upper);
       const ids = (c.catalogo || []).map(q => q.id); if (ids.length > 2) { mb.material = ids[1]; mu.material = ids[2]; mu.materialesPaneles = { 'esquina.fondo': ids[1], 'esquina.repisa.1': ids[2] }; } } finally { cfg = prev; } return c; }],
-    ['isla con parrilla y campana de isla de 90 (A438)', c => { const d = defaultIsland(240, 105); d.catalogo = c.catalogo; d.modulos[2].parrilla = true;
+    ['isla con parrilla y campana de isla de 90 (A438; con su modulo, A442)', c => { const d = defaultIsland(240, 105); d.catalogo = c.catalogo; d.modulos[2].parrilla = true;
       Object.assign(d.modulos[2], { campanaIsla: true, campanaIslaAncho: 90 }); return d; }],
     ['campana sola decorativa inclinada con repisa (A437)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true, soloCampana: true, campanaTipo: 'inclinada', campanaRepisa: true }); return c; }],
     ['campana sola decorativa recta (A437)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true, soloCampana: true, campanaTipo: 'recta' }); return c; }],
@@ -6922,7 +6930,7 @@ function pruebasPlanMX(){
       ok(q.x >= -v - ext(false) - .01 && q.x + q.ancho <= c.longitud + v + ext(true) + .01, nombre + ': fuera del largo del tramo ' + q.id);
     });
     /* cada bajo ocupa exactamente su columna (cuerpo o carcasa, mas la tapeta del cesto) y la fila llega a la tapeta derecha */
-    const extension = (id, conAnexo = false) => { const qs = p.piezas.filter(q => q.modulo === id && ['modulo', 'panel', 'tapeta', 'equipo'].includes(q.rol) && q.tipo !== 'Parrilla');   /* A154: el especiero anexado esta dentro de su mueble */   /* A133: la parrilla vuela */
+    const extension = (id, conAnexo = false) => { const qs = p.piezas.filter(q => q.modulo === id && ['modulo', 'panel', 'tapeta', 'equipo'].includes(q.rol) && q.tipo !== 'Parrilla' && !q.id.startsWith('campanaIsla:'));   /* A154: el especiero anexado esta dentro de su mueble */   /* A133: la parrilla vuela */
       return qs.length ? [Math.min(...qs.map(q => q.x)), Math.max(...qs.map(q => q.x + q.ancho))] : null; };
     const aj = left => { const previo = cfg; cfg = c; try { return left ? ajusteIzq() : ajusteDer(); } finally { cfg = previo; } };
     let xb = aj(true);
@@ -8277,6 +8285,13 @@ function drawElevation(){
     if (m.parrilla) { const pe = parrillaEn(m), pw = m.parrillaAncho, h = Math.max(2, scale), q = { x: X(pe.x0), y: Z(zBar) - h, w: pw*scale, h };   /* A133: ancho real */
       ctx.fillStyle = C.stove; ctx.fillRect(q.x, q.y, q.w, q.h);
       ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('Inducción', q.x, q.y - 16); ctx.textBaseline = 'alphabetic'; }
+    const ci = campIslaMedidas(m);
+    if (ci) {   /* A442: la campana de isla en el alzado: caja y chimenea de acero; un clic elige el modulo de la parrilla */
+      const cj = { x: X(ci.cx - ci.W / 2), y: Z(ci.z1), w: ci.W * scale, h: (ci.z1 - ci.z0) * scale }, ck = { x: X(ci.cx - ci.ch / 2), y: Z(ci.techo), w: ci.ch * scale, h: (ci.techo - ci.z1) * scale };
+      ctx.fillStyle = flat ? C.flat : C.metal; ctx.fillRect(ck.x, ck.y, ck.w, ck.h); outline(ck, C.line, 1); ctx.fillRect(cj.x, cj.y, cj.w, cj.h); outline(cj, C.line, 1);
+      ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('Campana', cj.x, cj.y + cj.h + 2); ctx.textBaseline = 'alphabetic';
+      const un = unionRect(cj, ck); hits.unshift({ rect: un, module: m, prio: true });
+      if (selection.has(m.id)) post.push(() => outline(un, C.focus, 3)); else if (hover === 'mod:' + m.id) post.push(() => outline(un, C.hoverMod, 1.5)); }
     px += m.ancho; }); }
 
   post.forEach(f => f());
@@ -8903,9 +8918,10 @@ function centroLine(x, y0, y1){
 function drawIslandFront(){
   title('ALZADO FRONTAL', '· lado de los gabinetes');
   const sec = seccionVisible(), A = cfg.islaAncho, G = 110;   /* A115: la seccion transversal a la derecha, a la misma escala */
-  const W = cfg.longitud, scale = sec ? Math.min(islandScale(), Math.max(.1, cssW - 220 - G)/(W + A)) : islandScale();
+  const hood = row(false).some(m => campIslaMedidas(m)), altoH = altoBarra() + CAMP_ISLA.alto + CAMP_ISLA.caja + 24;   /* A442: con campana, el alzado reserva su alto (la chimenea sale como un tramo con quiebre) */
+  const W = cfg.longitud, scale0 = sec ? Math.min(islandScale(), Math.max(.1, cssW - 220 - G)/(W + A)) : islandScale(), scale = hood ? Math.min(scale0, Math.max(.5, (cssH - 190)/(altoH + 30))) : scale0;
   const ox = sec ? (cssW - (W + A)*scale - G)/2 - (cfg.islaBarraElevada ? 30 : 0) : (cssW - W*scale)/2 - 7;
-  const ground = sec ? islaSuelo(islaTopH()*scale, 57, 85, cssH - 105) : islaSuelo(altoBarra()*scale, 57, 34, cssH - 65);   /* el alzado no dibuja la barra elevada: su tope son las cotas de ancho sobre la cubierta */
+  const ground = sec ? islaSuelo((hood ? Math.max(islaTopH(), altoH) : islaTopH())*scale, 57, 85, cssH - 105) : islaSuelo((hood ? altoH : altoBarra())*scale, 57, 34, cssH - 65);   /* el alzado no dibuja la barra elevada: su tope son las cotas de ancho sobre la cubierta */
   const X = x => ox + x*scale, Z = z => ground - z*scale;
   const RX = (x0, x1, z0, z1) => { edges.push({ z: z0, id: edgeOwner }, { z: z1, id: edgeOwner }); return { x: X(x0), y: Z(z1), w: (x1-x0)*scale, h: (z1-z0)*scale }; };
   frame = { scale, ox, ground, X, Z, W };
@@ -8925,6 +8941,14 @@ function drawIslandFront(){
   }
   let x = aI; lows.forEach(m => { edgeOwner = m.id; drawModule(m, x, RX, X, Z, post); edgeOwner = null; x += m.ancho; });
   drawSinkTap(RX, X, Z, scale, post);
+  lows.forEach(m => { const ci = campIslaMedidas(m); if (!ci) return;   /* A442: la campana de isla en el alzado frontal; un clic elige el modulo de la parrilla */
+    const cj = { x: X(ci.cx - ci.W / 2), y: Z(ci.z1), w: ci.W * scale, h: (ci.z1 - ci.z0) * scale }, yTop = Z(ci.z1 + 24), corta = ci.techo > ci.z1 + 24;
+    const ck = { x: X(ci.cx - ci.ch / 2), y: yTop, w: ci.ch * scale, h: cj.y - yTop };
+    ctx.fillStyle = flat ? C.flat : C.metal; ctx.fillRect(ck.x, ck.y, ck.w, ck.h); outline(ck, C.line, 1); ctx.fillRect(cj.x, cj.y, cj.w, cj.h); outline(cj, C.line, 1);
+    if (corta) { ctx.strokeStyle = C.line; ctx.lineWidth = 1; line(ck.x - 3, yTop + 8, ck.x + ck.w + 3, yTop + 4); line(ck.x - 3, yTop + 14, ck.x + ck.w + 3, yTop + 10); }
+    ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('Campana de isla', cj.x + cj.w + 6, cj.y); ctx.textBaseline = 'alphabetic';
+    const un = unionRect(cj, ck); hits.unshift({ rect: un, module: m, prio: true });
+    if (selection.has(m.id)) post.push(() => outline(un, C.focus, 3)); else if (hover === 'mod:' + m.id) post.push(() => outline(un, C.hoverMod, 1.5)); });
   part('plinth', cfg.generarZoclos, cutRun(aI, W - aD, cortaZoclo).map(([a, b]) => RX(a, b, 0, zb)), paintZoclo, post);
   part('cover', cfg.generarCubierta, cutRun(cfg.cascadaIzq ? aI : -v, cfg.cascadaDer ? W - aD : W + v, cortaCubierta).map(([a, b]) => RX(a, b, zBar - paquete(), zBar)), paintCover, post);
   post.forEach(f => f());
@@ -8954,6 +8978,10 @@ function drawIslandPlan(){
     ipart({ x: X(x0), y: top0, w: Math.max(5, w*s), h: A*s }, left ? 'fillerI' : 'fillerD', casc);
   }
   let x = aI; lows.forEach(m => { outline({ x: X(x), y: Y(deep - m.fondo), w: m.ancho*s, h: m.fondo*s }, C.line, 1); x += m.ancho; });
+  lows.forEach(m => { const ci = campIslaMedidas(m); if (!ci) return;   /* A442: la campana de isla en rayas sobre la parrilla (a 4 cm del frente, arriba en esta planta) y su chimenea */
+    const pd = Math.min(52, m.fondo - 8), cy = Y(deep - m.fondo) + (4 + pd / 2) * s, caja = { x: X(ci.cx - ci.W / 2), y: cy - ci.D / 2 * s, w: ci.W * s, h: ci.D * s }, chim = { x: X(ci.cx - ci.ch / 2), y: cy - ci.ch / 2 * s, w: ci.ch * s, h: ci.ch * s };
+    ctx.save(); ctx.strokeStyle = C.metal; ctx.lineWidth = 1.2; ctx.setLineDash([5, 3]); ctx.strokeRect(caja.x, caja.y, caja.w, caja.h); ctx.setLineDash([]); ctx.strokeRect(chim.x, chim.y, chim.w, chim.h); ctx.restore();
+    hits.unshift({ rect: unionRect(caja, chim), module: m, prio: true }); });
   if (lows.length) part('plinth', cfg.generarZoclos, [{ x: X(aI), y: Y(cfg.retiroZoclo) - 2, w: (W - aI - aD)*s, h: 4 }], r => { ctx.fillStyle = C.zocBand; ctx.fillRect(r.x, r.y, r.w, r.h); }, post);
   if (cfg.islaBarraElevada) {
     const rx0 = X(barraX0()), rx1 = X(barraX1()), r = { x: rx0, y: bottom - barraFondo()*s, w: rx1 - rx0, h: barraFondo()*s }, bt = espesorBarra()*s;
@@ -10046,7 +10074,8 @@ function drawModule(m, x0, RX, X, Z, post){
     const full = RX(x0, x0 + m.ancho, baseAltos(), topeAltos()), free = RX(x0, x0 + m.ancho, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m)), sel = selection.has(m.id);
     const tope = RX(x0, x0 + m.ancho, baseAltos(), topeCampanaSola());   /* A283 */
     if (campDeco(m)) drawCampanaDeco(m, x0, RX); else drawCampana(m, tope, free);   /* A437 */
-    hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel); return; }
+    if (campDeco(m)) hits.unshift({ rect: full, module: m, prio: true }); else hits.push({ rect: full, module: m });   /* A442: la decorativa gana al backsplash que se extiende detras */
+    moduleChrome(m, full, post, sel); return; }
   if (m.penEsq && m.penEsq.costado) { drawCostado(m, x0, RX, post); return; }   /* A394 */
   const zb = cfg.baseBajos, z0 = m.upper ? baseAltos() + Math.min(0, elevAlto(m)) : zb, z1 = m.upper ? baseAltos() + bodyH(m) : zb + cfg.altoBajos;   /* A394: la alacena del borde desde la cubierta */
   const full = RX(x0, x0 + m.ancho, z0, z1), sel = selection.has(m.id), scale = frame.scale;
@@ -10652,7 +10681,11 @@ function drawPlan(){
     if (m.tipo === 'Estufa') hob(m.ancho - 4, m.ancho >= 70 ? 3 : 2, C.metal, C.stove);
     if (m.parrilla) { const pe = parrillaEn(m), lab = reg().parrilla.labio, pd = Math.min(52, m.fondo - 8);   /* A133: ancho real, encima de los vecinos */
       post.push(() => { hob(m.parrillaAncho, m.parrillaAncho >= 45 ? 2 : 1, C.stove, C.hobRing, pe.x0);
-        ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.hobRing; ctx.lineWidth = 1; ctx.strokeRect(X(pe.h0), Y(m.fondo - 4 - pd + lab), pe.hueco*scale, (pd - 2*lab)*scale); ctx.restore(); }); }
+        ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.hobRing; ctx.lineWidth = 1; ctx.strokeRect(X(pe.h0), Y(m.fondo - 4 - pd + lab), pe.hueco*scale, (pd - 2*lab)*scale);
+        const ci = campIslaMedidas(m);   /* A442: la campana de isla en rayas sobre la parrilla, con su chimenea */
+        if (ci) { const cyc = m.fondo - 4 - pd / 2; ctx.strokeStyle = C.metal; ctx.lineWidth = 1.2; ctx.strokeRect(X(ci.cx - ci.W / 2), Y(cyc - ci.D / 2), ci.W*scale, ci.D*scale);
+          ctx.setLineDash([]); ctx.strokeRect(X(ci.cx - ci.ch / 2), Y(cyc - ci.ch / 2), ci.ch*scale, ci.ch*scale); }
+        ctx.restore(); }); }
     hits.push({ rect: r, module: m });
     const hov = hover === 'mod:' + m.id, tgt = drag && drag.kind === 'module' && drag.over === m.id;
     if (tgt) post.push(() => { ctx.fillStyle = C.swapFill; ctx.fillRect(r.x, r.y, r.w, r.h); outline(r, C.accent, 3); });
@@ -10835,6 +10868,7 @@ const EQUIPOS = /^(oven|micro|grille|door|doorfiller|doortop|doorcap|adddoor|bac
 /* parte fija bajo el punto, en el orden de prioridad del real (en planta la cubierta queda debajo de los gabinetes) */
 function staticPartAt(p){
   if (view === 'Planta' && hits.some(h => inside(p, h.rect))) return null;
+  if (hits.some(h => h.prio && inside(p, h.rect))) return null;   /* A442: la campana (decorativa o de isla) se elige antes que el backsplash u otra parte suelta */
   for (const k of PART_ORDER) if (partHits.some(h => h.key === k && inside(p, h.rect))) return k;
   return null;
 }
