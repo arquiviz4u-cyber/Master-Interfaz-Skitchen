@@ -370,6 +370,14 @@
        Gratis, Pro y Premium; planUsuario (sketchupPlan o ?plan= en el prototipo; de fabrica premium = todo abierto); PLAN_FUNCION con el
        plan de cada funcion (sigue a licencia_reglas.json); tagPlan en tiles, radios, chk y estilos; botones Render IA (Premium) y Exportar
        PDF de Presentar (Pro) con data-req-plan. La bisagra intermedia ya no dice «(Pro)» en el texto: lo marca la etiqueta.
+   A420. [Master hecho 22/10; SketchUp: sin cambio (mismos tipos y archivos; las piezas van por caja, escaladas en planta); Revit pendiente] (usuario 22/10: «adaptar el modelo que ya
+       tenemos a la medida; skitchen pondra 3 opciones de anchos comerciales: puerta de 450, 500 y 600; escala todo mientras sea casi imperceptible») Las charolas de esquina se
+       adaptan a tres tamanos de puerta: e.charolasPuerta = 45, 50 (de fabrica, el modelo) o 60; el herraje se escala por igual en X e Y (k = tamano/50: 0.9, 1.0, 1.2) sobre el plano del
+       frente y la cara del lateral; la altura no se escala (charolasEsc). Escala uniforme porque el mecanismo de cuatro barras es rigido: escalando solo el ancho (probado) la charola
+       cruza el lateral o la trasera durante el camino. No se escalan el remetido, el liston de la bisagra ni su zona. charolasPose, charolasBarrido (clave con k), charolasAnchoMin y
+       charolasPuerta reciben el herraje escalado; el ancho minimo del ciego sale del barrido de cada tamano (con fondos de 60: 110.5 / 114.5 / 121.5 sin invertir y 116.5 / 120.5 / 129.5
+       invertida). Panel del esquinero: «Tamano de las charolas (puerta de)» con 450, 500 y 600 mm. Limite: el de 600 mm pide un gabinete de 65 de fondo (charolasFondoMin: el fondo de la
+       charola, el remetido, la trasera y la holgura; 50.5 / 55 / 64.5): con 60 el panel avisa y genera igual. Pruebas: casos de 450 y 600 mm con el recorrido completo de las charolas (A300).
    A419. [Master hecho 22/10; SketchUp: modelo basura_colgante (herramientas/basura_colgante.py, del PULLOUT+WASTE+BIN del usuario, sin
        regenerar: sin la copia corrida, nombres sin marca, frente hacia -Y) y tipo de pieza BasuraColgante; Revit pendiente] (usuario 22/10:
        «integrar el modulo de basura PULLOUT+WASTE+BIN, sera una segunda opcion; revisa que este bien representado en isometrico abierto y
@@ -3962,7 +3970,7 @@ const ciegoDueno = k => { const e = cfg.esquinas[k], R = reg().esquina, duenaA =
   const wTope = w0 + (R.ciegoMax - R.ciego), wBase = Math.min(w0, Math.max(anchoCiegoMin(), w0 - (R.ciegoPuerta - puertaCiegoMin())));
   /* A409 (usuario 21/10: «definir el ancho minimo para que salga bien»): con charolas, el minimo es el ancho con el que la charola sale entera
      (charolasAnchoMin); de ahi crece hasta el maximo de fabrica, como sin charolas */
-  if (e.herraje) { const wMin = charolasAnchoMin(fOtra, w0, ciegoInvertido(e)), wMax = Math.max(wMin, wTope);
+  if (e.herraje) { const wMin = charolasAnchoMin(fOtra, w0, ciegoInvertido(e), charolasEsc(charolasTam(e))), wMax = Math.max(wMin, wTope);
     return { w0, wMin, wMax, w: Math.max(wMin, v > 0 ? Math.min(wMax, v) : wMin) }; }
   const wMin = wBase, wMax = Math.max(wMin, wTope);
   return { w0, wMin, wMax, w: Math.max(wMin, v > 0 ? Math.min(wMax, v) : w0) }; };
@@ -3985,15 +3993,29 @@ const CHAROLAS = { ref: [116.13, 24.51, 5.49], alto: 71.02, nivel: 28.61, liston
   piezas: { poste: [[60.69, 26.45, 5.51], [66.63, 34.08, 76.5]], liston: [[67.73, 24.51, 5.49], [69.63, 32.51, 76.51]], soporte: [[115.78, 27.21, 5.51], [116.13, 32.21, 55.51]],
     charola: [[25.92, 30.73, 14.4], [106.41, 71.59, 19.69]], brazo_poste: [[38.49, 27.67, 9.37], [65.3, 54.92, 17.37]], brazo_lateral: [[75.79, 25.54, 9.65], [116.21, 40.75, 19.65]] },
   contornoZ: 17.425, contorno: [[77.5,33.3],[102.7,32.9],[105.0,34.2],[106.3,36.6],[106.1,42.3],[104.7,49.1],[102.2,55.6],[99.9,59.7],[96.3,64.5],[93.3,67.3],[89.7,69.5],[85.8,70.8],[79.5,71.6],[72.3,71.0],[67.1,69.7],[58.6,66.4],[55.7,66.0],[47.0,65.7],[40.9,63.9],[35.4,60.5],[33.0,58.4],[29.1,53.2],[26.6,47.3],[25.9,43.3],[26.7,39.3],[29.4,35.9],[31.7,34.0],[36.9,31.4],[41.2,30.7],[50.2,32.3],[58.8,35.6],[66.6,40.3],[68.7,37.7],[71.3,35.6],[74.3,34.1]] };
+/* A420 (usuario 22/10: «adaptar el modelo que ya tenemos a la medida; skitchen pondra 3 opciones de anchos comerciales: puerta de 450, 500 y
+   600; escala todo mientras sea casi imperceptible»): el herraje del modelo (puerta de 500) se escala por igual en planta (X e Y, con el mismo
+   factor: el mecanismo de cuatro barras es rigido y solo conserva su movimiento a escala uniforme) sobre el plano del frente y la cara del
+   lateral (ref); la altura no se escala. k = tamano / 50. Quedan fijos lo que no es del herraje: el remetido, el liston de la bisagra y su zona */
+CHAROLAS.k = 1;
+const CHAROLAS_TAM = [45, 50, 60], charolasTam = e => CHAROLAS_TAM.includes(e && e.charolasPuerta) ? e.charolasPuerta : 50;
+const CHAROLAS_ESC = new Map();
+const charolasEsc = tam => { if (tam === 50 || !CHAROLAS_TAM.includes(tam)) return CHAROLAS; if (CHAROLAS_ESC.has(tam)) return CHAROLAS_ESC.get(tam);
+  const C = CHAROLAS, k = tam/50, [rx, ry] = C.ref, sx = X => rx + (X - rx)*k, sy = Y => ry + (Y - ry)*k, sp = ([X, Y]) => [sx(X), sy(Y)], sb = ([a, b]) => [[sx(a[0]), sy(a[1]), a[2]], [sx(b[0]), sy(b[1]), b[2]]];
+  const piezas = {}; Object.keys(C.piezas).forEach(n => { piezas[n] = sb(C.piezas[n]); });
+  const M = Object.assign({}, C, { k, liston: sx(C.liston), O1: sp(C.O1), P1: sp(C.P1), O2: sp(C.O2), P2: sp(C.P2), piezas, contorno: C.contorno.map(sp) }); CHAROLAS_ESC.set(tam, M); return M; };
+/* A420: el fondo minimo del gabinete: lo que la charola mide hacia atras desde el plano del frente, el remetido, la trasera y la holgura de la puerta
+   (con el de 600 mm y fondos de 60 no cabe: pide 65; los de 450 y 500 caben). Se avisa, se genera igual */
+const charolasFondoMin = (M = CHAROLAS) => Math.ceil((M.piezas.charola[1][1] - M.ref[1] + M.remeter + cuerpoFondo() + PLAN_HOLGURA_PUERTA)*2)/2;
 /* A407: la puerta del ciego con magic corner va del lateral de la bisagra (su cara de afuera) al liston; la charola cerrada cabe con 5 mm */
-const charolasPuerta = () => PLAN_CUERPO.lateral + CHAROLAS.ref[0] - CHAROLAS.liston;
+const charolasPuerta = (M = CHAROLAS) => PLAN_CUERPO.lateral + M.ref[0] - M.liston;
 /* A409 (usuario 21/10: «el magic corner necesitamos quitarle el liston y definir el ancho minimo para que salga bien (no debe deformarse)»):
    el barrido de la charola en todo su camino (contorno del modelo, marco del archivo): lo menor en X que alcanza dentro de la caja (xi), al
    cruzar el plano del frente (xc) y ya en la habitacion (xr). Memo por el grueso del frente */
 const CHAROLAS_BARRIDO = new Map();
-function charolasBarrido(){ const M = CHAROLAS, tf = espFrente(), clave = tf + ':' + holF(); if (CHAROLAS_BARRIDO.has(clave)) return CHAROLAS_BARRIDO.get(clave);
+function charolasBarrido(M = CHAROLAS){ const tf = espFrente(), clave = tf + ':' + holF() + ':' + M.k; if (CHAROLAS_BARRIDO.has(clave)) return CHAROLAS_BARRIDO.get(clave);
   const Yf = M.ref[1] - M.remeter, Yr = Yf - PLAN_HOLGURA_PUERTA - tf, ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]), o = { xi: 1e9, xc: 1e9, xr: 1e9, pts: [] };   /* A410: el plano del frente, remetido */
-  charolasPose(M.abre).forEach(([, p1, p2]) => { const t = ang(p1, p2) - ang(M.P1, M.P2), c = Math.cos(t), sn = Math.sin(t);
+  charolasPose(M.abre, M).forEach(([, p1, p2]) => { const t = ang(p1, p2) - ang(M.P1, M.P2), c = Math.cos(t), sn = Math.sin(t);
     M.contorno.forEach(([X, Y]) => { const dx = X - M.P1[0], dy = Y - M.P1[1], x = p1[0] + dx*c - dy*sn, y = p1[1] + dx*sn + dy*c;
       if (y >= Yf) o.xi = Math.min(o.xi, x); else o.xc = Math.min(o.xc, x); if (y < Yr) o.xr = Math.min(o.xr, x); if (y < Yf + Math.max(M.listonFondo, M.bisagraFondo) + .5) o.pts.push([x, y]); }); });   /* pts: junto al frente (la zona de la bisagra y su liston) */
   /* la puerta minima con la bisagra en el canto de la parte ciega (invertida): el canto en X = ref - (P - lateral); lo que cruza el frente
@@ -4002,13 +4024,13 @@ function charolasBarrido(){ const M = CHAROLAS, tf = espFrente(), clave = tf + '
   const e1 = PLAN_CUERPO.lateral, hf = holF(); o.pInv = 0;
   for (let P = 20; P <= 120 && !o.pInv; P += .5) { const xd = M.ref[0] - (P - e1);
     if (o.pts.every(([x, y]) => y < Yf ? x - xd >= .5 + (y < Yr ? tf : M.bisagraAncho) : !(x - xd >= -hf - .5 && x - xd < M.bisagraAncho + .5 && y < Yf + M.bisagraFondo + .5))) o.pInv = P; }   /* A413: la zona del brazo de la 155 */
-  o.xi = Math.min(o.xi, CHAROLAS.piezas.charola[0][0]); CHAROLAS_BARRIDO.set(clave, o); return o; }
+  o.xi = Math.min(o.xi, M.piezas.charola[0][0]); CHAROLAS_BARRIDO.set(clave, o); return o; }
 /* A409: el ancho minimo del ciego con charolas (medio en medio cm), con 5 mm de holgura: 1) la charola y su barrido caben entre los laterales;
    2) la puerta (crece con el ciego desde la de fabrica) deja pasar lo que cruza el frente; 3) afuera no entra al frente de la otra cara.
    La charola va siempre a su medida (el modelo no se escala); el mecanismo se ancla al lateral de la bisagra. Con la puerta invertida (inv), su
    bisagra y su hoja abierta quedan en el canto de la parte ciega: lo que pasa junto al frente se aleja de ese canto la zona de la bisagra
    (4.1 cm, como la del lateral en A300) y lo que sale a la habitacion, el grueso de la hoja (charolasBarrido().pInv) */
-const charolasAnchoMin = (fOtra, w0, inv = false) => { const B = charolasBarrido(), X = CHAROLAS.ref[0], e1 = PLAN_CUERPO.lateral, h = .5, R = reg().esquina, tf = espFrente();
+const charolasAnchoMin = (fOtra, w0, inv = false, M = CHAROLAS) => { const B = charolasBarrido(M), X = M.ref[0], e1 = PLAN_CUERPO.lateral, h = .5, R = reg().esquina, tf = espFrente();
   const pMin = Math.max(e1 + X - B.xc + h, inv ? B.pInv || 120 : 0);
   const m = Math.max(2*e1 + X - B.xi + h, w0 - R.ciegoPuerta + pMin, fOtra + tf + h + e1 + X - B.xr);
   return Math.ceil(m*2)/2; };
@@ -4016,7 +4038,7 @@ const charolasAnchoMin = (fOtra, w0, inv = false) => { const B = charolasBarrido
    (invertida) de fabrica cuando lleva charolas; «Invertir abatimiento» en su panel (e.invertir) lo cambia con o sin charolas */
 const ciegoInvertido = e => !!e && (e.invertir === undefined || e.invertir === null ? !!e.herraje : !!e.invertir);
 /* A407: las poses del mecanismo (marco del archivo) con el brazo del lateral girado a grados: [p1, p2] (las puntas de los brazos en la charola) */
-function charolasPose(a){ const M = CHAROLAS, d0 = Math.atan2(M.P2[1] - M.O2[1], M.P2[0] - M.O2[0]), L2 = Math.hypot(M.P2[0] - M.O2[0], M.P2[1] - M.O2[1]);
+function charolasPose(a, M = CHAROLAS){ const d0 = Math.atan2(M.P2[1] - M.O2[1], M.P2[0] - M.O2[0]), L2 = Math.hypot(M.P2[0] - M.O2[0], M.P2[1] - M.O2[1]);
   const L1 = Math.hypot(M.P1[0] - M.O1[0], M.P1[1] - M.O1[1]), LC = Math.hypot(M.P2[0] - M.P1[0], M.P2[1] - M.P1[1]);
   let p1 = M.P1; const out = [];
   for (let g = 0; g <= a + 1e-9; g += .5) { const t = d0 + g*Math.PI/180, p2 = [M.O2[0] + L2*Math.cos(t), M.O2[1] + L2*Math.sin(t)], dx = p2[0] - M.O1[0], dy = p2[1] - M.O1[1], d = Math.hypot(dx, dy);
@@ -6570,6 +6592,7 @@ function pruebasPlanMX(){
     ['esquinero en L con 2 repisas (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'carrusel'; c.esquinas[0].sub = 'repisas'; c.esquinas[0].repisasL = 2; } finally { cfg = prev; } return c; }],
     ['esquinero ciego angosto, puerta de 30 (A295)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: false }); anchoEsquina(0, true, ciegoDueno(0).w0 - 15); } finally { cfg = prev; } return c; }],
     ['esquinero ciego con charolas de esquina (A223)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.esquinas[0].tipo = 'ciego'; c.esquinas[0].herraje = true; } finally { cfg = prev; } return c; }],
+    ...[45, 60].map(tam => ['esquinero ciego con charolas de esquina de puerta de ' + tam*10 + ' mm (A420)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: true, charolasPuerta: tam }); if (tam === 60) [c].concat(c.caras || []).forEach(q => q.modulos.forEach(m => { if (!m.upper && !m.esquina) m.fondo = 65; })); } finally { cfg = prev; } return c; }]),   /* el de 600 pide 65 de fondo (charolasFondoMin) */
     ['ciego con gola a 45 en la esquina, moderna (A412)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.style = 'Moderna'; Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: true }); } finally { cfg = prev; } return c; }],
     ['ciego con gola a 45, cara B duena, sin charolas, moderna (A412)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); c.style = 'Moderna'; Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: false, duena: 1 }); } finally { cfg = prev; } return c; }],
     ['charolas de esquina con la puerta sin invertir (A409)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); Object.assign(c.esquinas[0], { tipo: 'ciego', herraje: true, invertir: false }); } finally { cfg = prev; } return c; }],
@@ -9296,7 +9319,7 @@ function esquinerosPlan(add, r2, sep, tf){
     if (herraje) { /* A231; A407: magic corner de dos anclajes (el modelo del usuario): poste, liston y soporte fijos; cada charola con sus dos brazos */
       /* el marco del archivo en el ciego: la cara interior del lateral de la bisagra en w - e1, el plano del frente en fOwn (la cara del liston), el piso
          sobre el de la caja; en Z las piezas se colocan a la escala del alto (kz) y solo poste, liston y soporte se estiran */
-      const M = CHAROLAS, pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], hP = r2(z1 - z0 - 2*e1), kz = hP/M.alto;
+      const M = charolasEsc(charolasTam(cfg.esquinas[k])), pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], hP = r2(z1 - z0 - 2*e1), kz = hP/M.alto;   /* A420: a su tamano de puerta */
       const pl = ([X, Y]) => pt(w - e1 - (M.ref[0] - X), fOwn - (Y - M.ref[1]) - M.remeter), pp = P => { const q = pl(P); return [q[0], sep + q[1]]; }, zM = Z => z0 + e1 + (Z - M.ref[2])*kz;
       const mod = archivo => ({ archivo, espejo: duenaA, giro: duenaA ? 0 : 270 });   /* el archivo tiene la habitacion hacia -Y, como la cocina */
       const cajaM = ([mn, mx], estira, dz = 0) => { const q = [[mn[0], mn[1]], [mx[0], mn[1]], [mx[0], mx[1]], [mn[0], mx[1]]].map(pp), xs = q.map(c => c[0]), ys = q.map(c => c[1]);
@@ -9325,7 +9348,7 @@ function esquinerosPlan(add, r2, sep, tf){
       const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0])*180/Math.PI, sigue = (g, prev) => { while (g - prev > 180) g -= 360; while (g - prev < -180) g += 360; return g; };
       const A0 = pp(M.P1), B0 = pp(M.P2), Q1 = pp(M.O1), Q2 = pp(M.O2), cam = { charola: [], brazo_poste: [], brazo_lateral: [] };
       let gC = 0, gA = 0, gB = 0;
-      charolasPose(M.abre).filter(([g]) => Math.abs(g/M.paso - Math.round(g/M.paso)) < 1e-6).forEach(([, p1, p2]) => { const a1 = pp(p1), b1 = pp(p2);
+      charolasPose(M.abre, M).filter(([g]) => Math.abs(g/M.paso - Math.round(g/M.paso)) < 1e-6).forEach(([, p1, p2]) => { const a1 = pp(p1), b1 = pp(p2);
         gC = sigue(ang(a1, b1) - ang(A0, B0), gC); gA = sigue(ang(Q1, a1) - ang(Q1, A0), gA); gB = sigue(ang(Q2, b1) - ang(Q2, B0), gB);
         cam.charola.push([Math.abs(gC) > 1e-6 ? centroGiro(A0, a1, gC) : null, gC]); cam.brazo_poste.push([Q1, gA]); cam.brazo_lateral.push([Q2, gB]); });
       cam.charola[0][0] = cam.charola[1][0];
@@ -11108,7 +11131,7 @@ function esquinaPanel(m){
       + (e.tipo === 'carrusel' && sE === 'repisas' ? `<div class="grid-2" style="margin-top:10px">${num('esqRepL', 'Repisas', repisasLEsq(e), '', 0, 3, 1)}</div>` : '')
       + (e.tipo === 'diagonal' && sE === 'cajones' ? `<div class="grid-2" style="margin-top:10px">${num('esqCajDiag', 'Cajones', cajonesDiagEsq(e), '', 2, 4, 1)}</div><div class="note-sm">Cajas en V que siguen el diamante.</div>` : '')
       + (e.tipo === 'diagonal' && sE === 'tarja' ? `<div style="margin-top:10px">${radios('esqTarjaTipo', [['1', 'Sencilla'], ['2', 'Doble']], String(e.tarjaTipo === 2 ? 2 : 1))}</div><div class="note-sm">La tarja de la cocina va en la cubierta diamante; abajo, frente fijo y puerta a 45°.</div>` : '')
-      + (e.tipo === 'ciego' ? `<div style="margin-top:10px">${chk('esqInv', ciegoInvertido(e), 'Invertir abatimiento')}</div><div class="note-sm">${ciegoInvertido(e) ? 'La bisagra va del lado de la parte ciega' : 'La bisagra va del lado del lateral'}${e.herraje ? '; con charolas de esquina va invertida de fábrica' : ''}.</div>` : '')   /* A409 */
+      + (e.tipo === 'ciego' ? `<div style="margin-top:10px">${chk('esqInv', ciegoInvertido(e), 'Invertir abatimiento')}</div><div class="note-sm">${ciegoInvertido(e) ? 'La bisagra va del lado de la parte ciega' : 'La bisagra va del lado del lateral'}${e.herraje ? '; con charolas de esquina va invertida de fábrica' : ''}.</div>` + (e.herraje ? `<div class="p-label" style="margin-top:12px">Tamaño de las charolas (puerta de)</div>${radios('esqCharolasTam', [['45', '450 mm'], ['50', '500 mm'], ['60', '600 mm']], String(charolasTam(e)))}<div class="note-sm">El herraje se escala por igual; el ancho mínimo del ciego se ajusta a su tamaño.</div>${(() => { const fF = fondoCara(caraDe(e.duena === 1 ? k + 1 : k), false), fm = charolasFondoMin(charolasEsc(charolasTam(e))); return fF + .01 < fm ? `<div class="note-sm" style="color:#C2410C">Con este tamaño el gabinete necesita ${medida(fm)} de fondo y tiene ${medida(fF)}: las charolas rozan la trasera. Se genera igual.</div>` : ''; })()}` : '') : '')   /* A409; A420 */
       + (e.tipo === 'ciego' ? `<div class="note">Ciego de ${fmt(R.ciego)}${uS()} con puerta de ${fmt(R.ciegoPuerta)}${uS()}; el lado ciego va en la cara elegida y en la otra queda una tapeta de ajuste de ${fmt(R.tapeta)}${uS()}.</div>` : '')); }
   if (e.tipo === 'ciego' && (e.duena === 1 ? 1 : 0) === sq) { const cd = ciegoDueno(k), dA = e.duena !== 1, R9 = reg().esquina;   /* A221: ancho del ciego en su cara duena */
     html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.wMin, cd.wMax)}</div>`
@@ -11742,6 +11765,7 @@ const ACT = {
   esqRepAncho: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroAncho = v; }),   /* A227 */ esqTapRep: (v, m) => change(() => { esquinaDe(byId(m.id)).tapetaRepisero = v; }),   /* A228 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }), esqInterior: (v, m) => change(() => { esquinaDe(byId(m.id)).interior = v; }),
   esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; }),
   esqInv: (v, m) => change(() => { esquinaDe(byId(m.id)).invertir = !!v; }),   /* A409 */
+  esqCharolasTam: (v, m) => change(() => { esquinaDe(byId(m.id)).charolasPuerta = +v; }),   /* A420 */
   esqSub: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); if (e.tipo === 'ciego') { e.herraje = v === 'charolas'; return; } e.sub = v;   /* A223 */
     if (e.tipo === 'diagonal' && v === 'tarja') { if (cfg.tipoTarja > 0) e.tarjaTipo = cfg.tipoTarja; cfg.moduloTarja = null; cfg.tipoTarja = 0; } }),
   esqRepL: (v, m) => change(() => { esquinaDe(byId(m.id)).repisasL = v; }), esqCajDiag: (v, m) => change(() => { esquinaDe(byId(m.id)).cajonesDiag = v; }),
@@ -11986,7 +12010,7 @@ const EN = {
   "El alto de la esquina es un solo gabinete a toda la columna; la parte junto a la esquina lleva puerta o queda abierta con repisas.": "The corner wall cabinet is one cabinet across the whole column; the part next to the corner has a door or open shelves.",
   "Recta": "Straight", "En L": "L-shaped", "En U": "U-shaped", "Esquinero": "Corner cabinet", "Ciego": "Blind corner", "Carrusel en L": "L-shaped lazy Susan", "Diagonal": "Diagonal",
   "Alacena esquinera": "Corner pantry", "Alacena": "Pantry", "En L, puerta plegable": "L-shaped, bi-fold door", "Diagonal, una puerta": "Diagonal, single door",
-  "Oculta, puerta de piso a techo": "Hidden, floor-to-ceiling door", "Herraje": "Hardware", "Charolas de esquina": "Corner trays", "Ciego · Charolas de esquina": "Blind · Corner trays", "Diagonal (diamante)": "Diagonal (diamond)", "Sin nada": "Empty", "Cajas en V que siguen el diamante.": "V-shaped boxes that follow the diamond.", "La tarja de la cocina va en la cubierta diamante; abajo, frente fijo y puerta a 45°.": "The kitchen sink goes in the diamond countertop; below, a fixed front and a 45° door.", "Ancho del ciego": "Blind corner width",
+  "Oculta, puerta de piso a techo": "Hidden, floor-to-ceiling door", "Herraje": "Hardware", "Charolas de esquina": "Corner trays", "Tamaño de las charolas (puerta de)": "Tray size (door of)", "El herraje se escala por igual; el ancho mínimo del ciego se ajusta a su tamaño.": "The fitting scales evenly; the blind width minimum follows its size.", "Ciego · Charolas de esquina": "Blind · Corner trays", "Diagonal (diamante)": "Diagonal (diamond)", "Sin nada": "Empty", "Cajas en V que siguen el diamante.": "V-shaped boxes that follow the diamond.", "La tarja de la cocina va en la cubierta diamante; abajo, frente fijo y puerta a 45°.": "The kitchen sink goes in the diamond countertop; below, a fixed front and a 45° door.", "Ancho del ciego": "Blind corner width",
   "Alto de la esquina": "Corner wall cabinet", "Sigue al bajo": "Matches the base", "Sin alto": "No wall cabinet", "Gabinete ciego en": "Blind cabinet on", "Puerta en": "Door on",
   "Del zoclo al tope de los altos; no lleva alto encima.": "From the toe kick to the top of the wall cabinets; no wall cabinet above.",
   "Por dentro: bajo de cajones con cubierta, repisas con LED y repisero lateral.": "Inside: drawer base with countertop, LED-lit shelves and a side shelving unit.",
