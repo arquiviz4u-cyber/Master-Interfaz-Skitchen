@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A434. [Master hecho 22/10; SketchUp: sin cambio; Revit pendiente] (usuario 22/10: «los botes con bastidor estan casi perfectos, solo
+       quitar esa franja que se le ve a los cubos como si estuviesen recortados») El bote va en dos tramos (A430) y su malla, con las caras
+       hacia afuera (A432), dejaba hueco el corte: por el se veia el piso. En los tramos (forma.marco) el isometrico dibuja primero el
+       interior (las caras de espaldas, con la sombra de su reverso) y luego el exterior, que lo tapa salvo por el corte.
    A433. [Master hecho 22/10; SketchUp: BOTE_RGB y BOTE_VERSION 2; Revit pendiente] (usuario 22/10, con captura del selector de SketchUp:
        «este es el gris oxford que busco»: HLS 215, 5, 48) El gris oxford de los botes pasa de 66, 69, 74 a RGB 116, 121, 129 (#747981)
        en SketchUp (DLB_Plastico_Gris_Oxford; la version 2 de la regla vuelve a pasar los modelos ya cargados) y en MALLAS_DIBUJO.
@@ -14422,7 +14426,13 @@ const LAM = (() => {
       if (q.sim) simTri(q, q.sim);
       else if (q.alambre) { const segs = q.alambre.map(([a, b, g]) => [proy(a), proy(b), g]); segs.forEach(sg => cuenta([sg[0], sg[1]]));
         tri.push({ t: 'alambre', segs, q }); }
-      else if (q.malla) { (q.malla.some(c => c.col) ? q.malla.slice().sort((a, b) => a.d - b.d) : q.malla).forEach(c => { if (!c.dc && vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);   /* A429: la malla del modelo, de atras hacia adelante; A432: solo las caras que miran a la vista */
+      else if (q.malla) { const ms = q.malla.some(c => c.col) ? q.malla.slice().sort((a, b) => a.d - b.d) : q.malla;
+        /* A434 (usuario 22/10: «quitar esa franja que se le ve a los cubos como si estuviesen recortados»): un tramo de malla (forma.marco, el
+           bote cortado por el bastidor) deja abierto su corte y por el se veia lo de atras. Primero va su interior (las caras que no miran a la
+           vista, con la sombra de su reverso) y encima el exterior: por el corte se ve el bote por dentro */
+        if (q.p.forma && q.p.forma.marco) ms.forEach(c => { if (c.dc || !c.col || vpunto(c.n, V) > 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);
+          tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, -vpunto(c.n, luz)), q, holes: null, colorBase: c.col }); });
+        ms.forEach(c => { if (!c.dc && vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);   /* A429: la malla del modelo, de atras hacia adelante; A432: solo las caras que miran a la vista */
           tri.push(c.col ? { t: 'cara', pr, k: .80 + .35 * (c.dc ? Math.abs(vpunto(c.n, luz)) : Math.max(0, vpunto(c.n, luz))), q, holes: null, colorBase: c.col } : { t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null, pat: patMalla(q, c) }); }); }
       else if (!contiene.has(q)) { emitCaras(q); emitExtras(q); }
       if (q.deco) q.deco.forEach(d => { const pr = d.pts.map(proy); cuenta(pr); tri.push({ t: 'cara', pr, k: 1, q, color: d.color, holes: null }); });
