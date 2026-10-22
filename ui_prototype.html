@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A415. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente] (usuario 21/10, captura: «asi se ve la union de gola en esquina») En el
+       ciego con gola: 1) la gola de la otra cara de A412 iba 1.8 cm corrida (tomaba el plano de los frentes en lugar de la caja); ahora sigue a
+       la de sus gabinetes y empata a 45 con la del ciego. 2) La tapeta de ajuste de la otra cara (A232) quedaba dentro del canal de la gola y lo
+       cruzaba de abajo arriba; va detras del alma.
    A414. [Master hecho 21/10; SketchUp: sin cambio (las piezas soloDibujo no van; los modelos siguen); Revit pendiente] (usuario 21/10, probado
        en SketchUp: «el liston se ve de dos piezas, no sale completa la bisagra de puerta invertida y en la interfaz se ven solo caja en
        bisagras y poste») 1) El liston del ciego es una sola pieza; con gola su perfil lleva el rebaje (forma perfil, como los laterales).
@@ -9207,7 +9211,7 @@ function esquinerosPlan(add, r2, sep, tf){
     const inglete = gola && !op && !penSGk && bOtra > 0;
     if (inglete) { const ut = fOtra + tf; bx(':tapeta', 'tapeta', 'Compensacion', fOtra - golaHondo(true), ut, fF, fF + tf, z0, zg, gm('Tapetas'), 'tapetas'); bx(':tapeta:2', 'tapeta', 'Compensacion', ut, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas'); }
     else bx(':tapeta', 'tapeta', 'Compensacion', op || penSGk ? 0 : gola ? fOtra - golaHondo(true) : fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara; A232: con gola llega detras de la tapeta retirada */
-    if (inglete) { const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], mG = groupMaterial('Gola') || null, fB2 = fOtra + tf - PLAN_HOLGURA_PUERTA;
+    if (inglete) { const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], mG = groupMaterial('Gola') || null, fB2 = fOtra - PLAN_HOLGURA_PUERTA;   /* A415: la caja de la otra cara (su gola, a su fondo) */
       const uA = fB2 - hondo, uF = uA + eG, vA = fOwn - hondo, vF = vA + eG, L = q => q.map(([u, v]) => pt(u, v));
       losa(pre + ':gola', 'herraje', 'Gola', modulo, L([[w, vA], [uA, vA], [uF, vF], [w, vF]]), zg, z1, mG, 'herrajes');
       losa(pre + ':gola:perfil', 'herraje', 'Perfil', modulo, L([[w, vF], [uF, vF], [fB2, fOwn], [w, fOwn]]), zg, zg + eG, mG, 'herrajes');
@@ -9357,7 +9361,9 @@ function esquinerosPlan(add, r2, sep, tf){
   if (e.tipo === 'ciego') { const duenaA = e.duena !== 1; ciego(id, duenaA, duenaA ? wA : wB, duenaA ? fA : fB, duenaA ? fB : fA, zb, z1, modB, !!e.herraje, golaEsquina(e), cfg.generarCubierta, null, duenaA ? wB : wA);   /* A163: fajas */
     /* A151: tapeta de ajuste de la cara no duena, en su plano de frentes, del frente del ciego al primer gabinete */
     const hT = golaEsquina(e) ? golaHondo(true) : 0;   /* A232: con gola, retirada al fondo de la gola, apoyada en el lateral del vecino */
-    const hT2 = hT ? hT + PLAN_HOLGURA_PUERTA : 0;   /* A412: detras del alma de la gola de esa cara, que ahora llega a la esquina */
+    /* A415 (usuario 21/10, captura de la union de la gola en la esquina): con gola, la tapeta de ajuste va detras del alma de la gola de su cara
+       (su cara de enfrente en el alma, al fondo de la caja menos el hondo); antes quedaba dentro del canal y lo cruzaba de abajo arriba */
+    const hT2 = hT ? hT + PLAN_HOLGURA_PUERTA + tf : 0;
     if (duenaA) caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - fB - tf + hT2, LA - fB + hT2, fA + (hT ? tf : 0), wB, zb, z1, gm('Tapetas'), 'tapetas');
     else caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB - (hT ? tf : 0), fA - hT2, fA - hT2 + tf, zb, z1, gm('Tapetas'), 'tapetas'); }
   else if (oculta) {
