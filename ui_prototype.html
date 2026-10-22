@@ -377,7 +377,8 @@
        correderas»: el modelo del usuario (dos botes colgados uno tras otro, laterales con sus correderas y soportes de alambre) a su medida,
        centrado entre los laterales, con su frente en el del extraible, sobre el piso del gabinete, y abre con el frente (sin correderas
        aparte, ni piso ni bastidor). Es para el interior de un gabinete de 45 cm (41.1 + hasta 3 de holgura); en otro ancho va el de
-       bastidor y el panel lo dice. En los dibujos del master va por partes (soloDibujo: botes, laterales, trasera y alambres).
+       bastidor y el panel lo dice. En los dibujos del master va por partes (soloDibujo: botes, laterales, trasera y alambres). Revisado el
+       cesto de siempre en el isometrico: su bote salia como caja recta; ahora los botes (los dos tipos) van conicos en los dibujos.
    A418. [Master hecho 21/10; SketchUp: sin cambio (Interactuar ya las mueve); Revit pendiente] (usuario 21/10: «doble click en charolas de
        magic corner salen y se meten (isometrico)») En el isometrico del editor el doble clic solo tomaba los frentes: las charolas de esquina y
        las canastas del carrusel (sus piezas de dibujo) tambien abren y cierran con doble clic, cada una con su grupo (la charola y sus brazos).
@@ -5018,6 +5019,9 @@ const cajaModeloG = ([mn, mx], { ox, refZ = 0, oy, refY = 0, oz, refX = 0 }) => 
    debe medir su ancho mas hasta 3 cm de holgura (de fabrica, gabinete de 45 cm); si no, va el de bastidor */
 const colganteCabe = m => { const M = MODELO.basuraColgante, W = M.caja[1][0] - M.caja[0][0], i = m.ancho - 2*PLAN_CUERPO.lateral; return i >= W - .01 && i <= W + M.holgura; };
 const cestoColgante = m => m.tipo === 'Basura' && m.cestoTipo === 'colgante' && colganteCabe(m);
+/* A419 (usuario 22/10: «revisa que este bien representado en isometrico el modulo actual de basura»): el bote salia como una caja recta; en
+   los dibujos del master va conico como el modelo (perfil a lo ancho: 1.5 cm mas angosto abajo de cada lado del fondo, o un decimo si es chico) */
+const perfilBote = (fondo, alto) => { const t = Math.round(Math.min(1.5, fondo/10)*100)/100; return { tipo: 'perfil', eje: 'x', puntos: [[t, 0], [Math.round((fondo - t)*100)/100, 0], [fondo, alto], [0, alto]].map(([a, b]) => [Math.round(a*100)/100, Math.round(b*100)/100]) }; };
 const cestoBotesDe = (m, ancho, fondo) => { const B = MODELO.bote;
   return m.cestoBotes === 'Doble' && ancho >= B.doble[0] + 1 && fondo >= B.frenteDoble + 2*B.doble[1] + B.entre + .5 ? 'Doble' : 'Sencillo'; };
 const botesCesto = m => Math.max(1, Math.floor((m.ancho - 2*PLAN_CUERPO.lateral - 2*PLAN_CAJA.holgura) / Math.max(1, m.anchoBasura)));
@@ -5347,7 +5351,7 @@ function planDePiezas(c = cfg){
       tabla('piso', 'Piso', zp);
       const cx = (x0 + x1)/2, botes = doble ? [y1 - B.frenteDoble - med[1], y1 - B.frenteDoble - 2*med[1] - B.entre] : [y1 - B.frenteSencillo - med[1]];
       botes.forEach((yb, k) => piezaDe(m, base + ':bote:' + k, frenteId, { rol: 'herraje', tipo: 'Bote', etiqueta: 'herrajes', modelo: doble ? { archivo: 'bote', giro: 90 } : { archivo: 'bote' },
-        x: cx - med[0]/2, y: Math.max(y0 + .3, yb), z: zb, ancho: med[0], fondo: med[1], alto: med[2]*sz }));
+        x: cx - med[0]/2, y: Math.max(y0 + .3, yb), z: zb, ancho: med[0], fondo: med[1], alto: med[2]*sz, forma: perfilBote(med[1], med[2]*sz) }));   /* A419: en los dibujos, conico (SketchUp usa su modelo) */
       const zm = Math.min(zb + B.bastidor*sz, top - e - .5), ya = Math.max(y0 + .3, botes[botes.length - 1]) - .3, yz = botes[0] + med[1] + .3;
       if (zm > zb + 5) tabla('bastidor', 'Bastidor', zm, { hueco: { x: r2(cx - med[0]/2 - .3 - x0), y: r2(ya - y0), ancho: r2(med[0] + .6), fondo: r2(Math.min(yz, y1 - .5) - ya) } });
       const lado = x => ({ x, ancho: 0, y: y0, fondo: y1 - y0, z: zp, alto: e, modulo: m.id });
@@ -5360,9 +5364,9 @@ function planDePiezas(c = cfg){
       const x0 = (h.x0 + h.x1)/2 - W/2, yF = h.yF ?? h.y1, z0 = h.z0 + .5;
       piezaDe(m, base + ':colgante', frenteId, { rol: 'herraje', tipo: 'BasuraColgante', etiqueta: 'herrajes', modelo: { archivo: 'basura_colgante' }, soloModelo: true,
         x: r2(x0), y: r2(yF - D), z: r2(z0), ancho: r2(W), fondo: r2(D), alto: r2(H) });
-      const dib = (k, [a, b]) => piezaDe(m, base + ':colgante:' + k, frenteId, { rol: 'herraje', tipo: 'BasuraColgante', etiqueta: 'herrajes', soloDibujo: true,
-        x: r2(x0 + a[0] - mn[0]), y: r2(yF - (b[1] - mn[1])), z: r2(z0 + a[2] - mn[2]), ancho: r2(b[0] - a[0]), fondo: r2(b[1] - a[1]), alto: r2(b[2] - a[2]) });
-      M.botes.forEach((q, i) => dib('bote:' + i, q)); M.lados.forEach((q, i) => dib('lado:' + i, q)); dib('trasera', M.trasera);
+      const dib = (k, [a, b], extra = {}) => piezaDe(m, base + ':colgante:' + k, frenteId, Object.assign({ rol: 'herraje', tipo: 'BasuraColgante', etiqueta: 'herrajes', soloDibujo: true,
+        x: r2(x0 + a[0] - mn[0]), y: r2(yF - (b[1] - mn[1])), z: r2(z0 + a[2] - mn[2]), ancho: r2(b[0] - a[0]), fondo: r2(b[1] - a[1]), alto: r2(b[2] - a[2]) }, extra));
+      M.botes.forEach((q, i) => dib('bote:' + i, q, { forma: perfilBote(r2(q[1][1] - q[0][1]), r2(q[1][2] - q[0][2])) })); M.lados.forEach((q, i) => dib('lado:' + i, q)); dib('trasera', M.trasera);
       const g = M.alambreGrueso, [ax, bx] = M.alambreX, [az, bz] = M.alambreZ;
       M.alambres.forEach(([y0, y1], i) => { dib('alambre:' + i + ':abajo', [[ax, y0, az], [bx, y1, az + g]]);
         dib('alambre:' + i + ':izq', [[ax, y0, az + g], [ax + g, y1, bz]]); dib('alambre:' + i + ':der', [[bx - g, y0, az + g], [bx, y1, bz]]); });
