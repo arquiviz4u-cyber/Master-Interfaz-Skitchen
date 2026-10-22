@@ -365,6 +365,11 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A411. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente] (usuario 21/10, ya probado en SketchUp: «el liston deberia llegar hasta la
+       parte superior de las fajas que soportan la cubierta considerando el recorte que llevaria por las golas cuando el estilo moderno este
+       prendido») El liston de la bisagra del ciego (A410) sube hasta el canto de arriba de las fajas (con tapa, hasta bajo ella) y la faja del
+       frente se parte a su paso (:faja:frente y :faja:frente:2). Con gola lleva el rebaje de los laterales: atras sube entero y al frente, en el
+       hondo de la gola, queda bajo su perfil (:liston:bajo).
    A410. [Master hecho 21/10; SketchUp: tipo de panel Liston (nombre visible); Revit pendiente] (usuario 21/10: «hace falta remeterlo para que el
        poste y las bisagras del magic no choquen con las de la puerta; las bisagras de esa puerta tienen que ser especiales en giro porque se
        anclan en la cara ciega, ¿las ocultas de las plegables nos sirven?»; la de las plegables es para hojas que cierran en L: eligio «liston +
@@ -9139,7 +9144,12 @@ function esquinerosPlan(add, r2, sep, tf){
     const hondo = golaHondo(true), eG = cfg.gola === 'Melamina' ? PLAN_GOLA.melamina : PLAN_GOLA.lamina, zf = gola ? z1 - agarre() : z1, zg = z1 - agarre() - traslapeL();
     /* A163 (usuario 11/10): bajo la cubierta, fajas de 10 cm al frente y atras (como los bajos, A86) en lugar de la tapa completa */
     const yT = gola ? fOwn - hondo : fOwn;
-    if (fajas) { const F = reg().fajas.ancho; bx(':faja:atras', 'panel', 'Faja', u0 + e1, w - e1, ef, ef + F, z1 - e1, z1, mat, et); bx(':faja:frente', 'panel', 'Faja', u0 + e1, w - e1, yT - F, yT, z1 - e1, z1, mat, et); }
+    /* A411 (usuario 21/10: «el liston deberia llegar hasta la parte superior de las fajas que soportan la cubierta»): con el liston de la
+       bisagra (A410), la faja del frente se parte a su paso */
+    const uLis = herraje && !op && ciegoInvertido(cfg.esquinas[k]) ? w - P - holF() : null;
+    if (fajas) { const F = reg().fajas.ancho; bx(':faja:atras', 'panel', 'Faja', u0 + e1, w - e1, ef, ef + F, z1 - e1, z1, mat, et);
+      if (uLis === null) bx(':faja:frente', 'panel', 'Faja', u0 + e1, w - e1, yT - F, yT, z1 - e1, z1, mat, et);
+      else { bx(':faja:frente', 'panel', 'Faja', u0 + e1, uLis, yT - F, yT, z1 - e1, z1, mat, et); bx(':faja:frente:2', 'panel', 'Faja', uLis + e1, w - e1, yT - F, yT, z1 - e1, z1, mat, et); } }
     else bx(':techo', 'panel', 'Techo', u0 + e1, w - e1, ef, yT, z1 - e1, z1, mat, et); /* A223: sin herraje, el ciego queda sin nada */
     if (op && P > puertaMaxEsq() + 1e-6) { const g = holF(); bx(':puerta', 'frente', 'Puerta', w - P, w - P/2 - g, fF, fF + tf, z0, zf, frente, 'frentes'); bx(':puerta:2', 'frente', 'Puerta', w - P/2 + g, w, fF, fF + tf, z0, zf, frente, 'frentes'); }   /* A226 */
     else { bx(':puerta', 'frente', 'Puerta', w - P, w, fF, fF + tf, z0, zf, frente, 'frentes');
@@ -9166,7 +9176,11 @@ function esquinerosPlan(add, r2, sep, tf){
       /* A410 (usuario 21/10: «las bisagras de esa puerta tienen que ser especiales en giro porque se anclan en la cara ciega»; eligio «liston +
          bisagra normal»): con la puerta invertida, un liston de canto detras de la parte ciega en el canto de la puerta (del frente hacia dentro
          listonFondo, de piso a techo) sostiene su bisagra como un lateral: la puerta lo traslapa lo mismo que a un lateral */
-      if (!op && ciegoInvertido(cfg.esquinas[k])) { const uL = w - P - holF(); bx(':liston', 'panel', 'Liston', uL, uL + e1, fOwn - M.listonFondo, fOwn, z0 + e1, gola ? zg : z1 - e1, mat, et); }   /* con gola, hasta su perfil */
+      /* A411: hasta el canto de arriba de las fajas (con tapa, bajo ella); con gola lleva el rebaje de los laterales: atras sube entero y al
+         frente, en el hondo de la gola, se queda bajo su perfil */
+      if (uLis !== null) { const zt = fajas ? z1 : z1 - e1, hG = golaHondo(true);
+        if (gola) { bx(':liston', 'panel', 'Liston', uLis, uLis + e1, fOwn - M.listonFondo, fOwn - hG, z0 + e1, zt, mat, et); bx(':liston:bajo', 'panel', 'Liston', uLis, uLis + e1, fOwn - hG, fOwn, z0 + e1, zg, mat, et); }
+        else bx(':liston', 'panel', 'Liston', uLis, uLis + e1, fOwn - M.listonFondo, fOwn, z0 + e1, zt, mat, et); }
       [['poste', 'charolas_esquina_poste'], ['soporte', 'charolas_esquina_soporte']].forEach(([n, archivo]) =>
         add(Object.assign({ id: pre + ':' + n, rol: 'herraje', modulo, tipo: 'CharolasEsquina', material: null, etiqueta: 'herrajes', modelo: mod(archivo) }, cajaM(M.piezas[n], true))));
       /* el camino (cuadros cada M.paso grados del brazo del lateral): la charola, el giro desde cerrada que lleva sus dos puntas a su lugar; cada brazo, su giro sobre su pivote */
