@@ -350,6 +350,13 @@
        (PLAN_TANDEM.riel; ficha TD-131/3 «min 27.5»), y el fondo de la caja sube a 13.5 mm del canto del costado (PLAN_TANDEM.ranura; ficha «12-15»; con la visible sigue en 5 mm). El carro
        queda justo bajo el fondo y entre el frente y la trasera de la caja. Archivos en G:\Sketchup\Kitchen\Correderas (563F5330B.skp, TAN+T51.1700.04.skp: bloqueo de 5.6 x 8.0 x 5.0 cm, aun sin
        modelar). Sin modelo .skp todavia: son cajas. Pendiente: bloqueo (2 por cajon), ajustador frontal 295.1000.21 y la perforacion de 37 y 32 mm del frente.
+   A395. [Master hecho 21/10; SketchUp: modelos bisagra_libro_a/b rehechos (herramientas/bisagra_libro.py: hojas de 2 cm x 2 mm con esquinas
+       redondeadas, 3 tornillos por hoja y nudillo de 9.5 mm); Revit pendiente] (usuario 21/10, foto de un esquinero real con la plegable:
+       «como la foto») La bisagra de libro va por dentro: nudillo en el cruce de las caras interiores de las hojas y alas atornilladas sobre
+       ellas, dos por puerta; al abrir, la hoja b gira 90 sobre ese nudillo hasta quedar espalda con espalda con la a (vuelve el giro de A271;
+       la Blum sigue con el de A301). Medidas de la de 3" (Truper/Hermex BC-306R): 76 mm de alto, hojas de 20 mm y 2 mm, nudillo de 9.5,
+       tornillos a 12.7, 38 y 63.5 mm. En el isometrico se dibuja asi (alas con su contorno, tornillos y nudillos: piezas soloDibujo); en
+       SketchUp, su modelo (soloModelo).
    A394. [Master hecho 21/10; SketchUp: construye el plan; Revit pendiente] (usuario 21/10: «el gabinete alto que queda en el borde (dentro
        de la columna de peninsula)»: «la subdivision a lo ancho debe contemplarse como un nuevo gabinete que no pierde las opciones de funcion»,
        repisas en su costado, alacena hasta la cubierta, subdividir a lo ancho) El alto de la cara del muro sobre la esquina de la peninsula
@@ -4677,7 +4684,10 @@ const MODELO = {
      abrir»): nudillo de 9 mm en la esquina interior donde se cruzan las caras posteriores de las hojas y alas de 2.5 cm sobre ellas; ejes
      con el origen en ese cruce (la hoja a hacia -X, la b hacia +Y, Z al centro). Abre 90: la b se dobla sobre la cara posterior de la a
      (espalda con espalda). La Blum oculta es de pago (licencia_reglas.json, herrajes_premium) */
-  bisagraLibro: { grados: 90, cajaA: [[-2.95, -.45, -3.8], [.45, .45, 3.8]], cajaB: [[-.45, -.45, -3.8], [.45, 2.95, 3.8]] },
+  /* A395 (usuario 21/10, foto de un esquinero real; medidas de la de 3" mas comun, Truper/Hermex BC-306R): hojas de 2 cm y 2 mm de espesor
+     con las esquinas libres redondeadas, nudillo de 9.5 mm y 76 de alto, 3 tornillos avellanados por hoja a 1.27, 3.8 y 6.35 del extremo */
+  bisagraLibro: { grados: 90, cajaA: [[-2.475, -.475, -3.8], [.475, .475, 3.8]], cajaB: [[-.475, -.475, -3.8], [.475, 2.475, 3.8]],
+    radio: .475, ala: 2, grueso: .2, alto: 7.6, esquina: .4, tornillos: [1.27, 3.8, 6.35], cabeza: .4, cabezaAlto: .05 },
   corredera: { fija: [[.139, 0, 0], [1.27, 49.845, 2.869]], media: [[.162, 6.493, .32], [1.087, 49.845, 2.549]], movil: [[0, .675, .668], [.675, 50.003, 2.201]],
                lateral: 1.27, largo: 50.003, alto: 2.869 },
   condimentero: { caja: [[.5, 0, 0], [9.5, 46.176, 47]], centroX: 5, tira: 1.31 },
@@ -6534,7 +6544,7 @@ function pruebasPlanMX(){
     /* A252: cada modelo estirable es de la biblioteca, con sus ejes y nunca bajo su minimo; lo de soloDibujo lo sustituye un modelo */
     p.piezas.filter(q => q.modelo && q.modelo.estirar).forEach(q => { const E = MODELO_EQUIPOS[q.modelo.archivo];
       ok(E && q.modelo.medida.length === 3 && q.modelo.ejes && (E.escala || q.modelo.medida.every((v, k) => v >= E.minimo[k] - .01)), nombre + ': modelo estirable fuera de su medida ' + q.id); });
-    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && q.modelo.estirar), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');
+    if (p.piezas.some(q => q.soloDibujo)) ok(p.piezas.some(q => q.modelo && (q.modelo.estirar || /^bisagra_libro_/.test(q.modelo.archivo))), nombre + ': piezas solo de dibujo sin el modelo que las sustituye');   /* A395: la bisagra de libro dibujada la sustituye su modelo */
     /* A260: torre de hornos con canal de ventilacion detras (lecho y divisiones de los equipos lejos del trasero) y el horno sobre sus patines */
     c.modulos.filter(m => !m.upper && isTower(m)).forEach(m => { const tr = p.piezas.find(q => q.id === m.id + ':trasero'), le = p.piezas.find(q => q.id === m.id + ':lecho:horno');
       const vH = m.ventilacionHorno ?? 5, pa = p.piezas.filter(q => q.id.startsWith(m.id + ':lecho:horno:patin:')), ho = p.piezas.find(q => q.id === m.id + ':horno');
@@ -6662,8 +6672,8 @@ function pruebasPlanMX(){
       if (hb && /:hoja:a$/.test(q.id)) { const sg = r => (r.abre.lado === 'izquierda' ? 1 : -1)*r.abre.grados, ec = c.esquinas[c.cara], oc = intermediaEsq(ec) === 'oculta';   /* A270: la de libro o la Blum */
         const ia = p.piezas.filter(r => r.id.startsWith(q.id + (oc ? ':plegable:cazoleta:' : ':plegable:libroA:'))), ib = p.piezas.filter(r => r.id.startsWith(q.id + (oc ? ':plegable:brazo:' : ':plegable:libroB:')));
         ok(ib.length === br.length && ia.length === br.length && ib.every(r => r.frente === hb.id) && ia.every(r => r.frente === q.id), nombre + ': la plegable ' + q.id + ' sin sus bisagras intermedias');
-        const gI = MODELO.bisagraPlegable.grados, dg = ((sg(hb) - sg(q)) % 360 + 540) % 360 - 180;   /* A301: la de libro abre como la Blum */
-        ok(Math.abs(dg + Math.sign(sg(q))*gI) < .05, nombre + ': la hoja b de ' + q.id + ' no se dobla ' + gI + ' sobre la a');   /* A271 */
+        const gI = oc ? MODELO.bisagraPlegable.grados : -MODELO.bisagraLibro.grados, dg = ((sg(hb) - sg(q)) % 360 + 540) % 360 - 180;   /* A395: la de libro, 90 hacia la a */
+        ok(Math.abs(dg + Math.sign(sg(q))*gI) < .05, nombre + ': la hoja b de ' + q.id + ' no se dobla ' + Math.abs(gI) + ' sobre la a');   /* A271 */
         /* A270: abiertas, ninguna hoja queda detras del frente de la cara (no entran al mueble vecino) */
         const abierto = (r, P) => { const a = sg(r)*Math.PI/180, cx = r.abre.x, cy = r.abre.y; return [cx + (P[0] - cx)*Math.cos(a) - (P[1] - cy)*Math.sin(a), cy + (P[0] - cx)*Math.sin(a) + (P[1] - cy)*Math.cos(a)]; };
         const esq = r => [[r.x, r.y], [r.x + r.ancho, r.y], [r.x + r.ancho, r.y + r.fondo], [r.x, r.y + r.fondo]], yF = q.y + q.fondo;
@@ -8749,10 +8759,24 @@ function aperturasEsquinero(piezas, add){
            con la b; la perforacion en la cara posterior de la a, dentro de la hoja aunque la cazoleta llegue a su canto */
         const hb = plegable && /:hoja:a$/.test(q.id) ? fr.find(r => r.id === q.id.replace(/a$/, 'b')) : null;
         if (hb && intermediaEsq(e) === 'libro') {   /* A270: la de libro: ala y nudillos con la a, la otra ala con la b. A271: por dentro, en el cruce de las caras posteriores */
-          const BL = MODELO.bisagraLibro, oL = [r3(hb.x), r3(q.y + q.fondo), r3(zc)],   /* A393: su nudillo en la esquina donde se juntan los frentes, donde gira la b (A301); antes en el cruce de las caras posteriores y sus alas se separaban al abrir */ eL = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+          const BL = MODELO.bisagraLibro, oL = [r3(hb.x + hb.ancho), r3(q.y), r3(zc)],   /* A395: por dentro, en el cruce de las caras posteriores (la foto del usuario); la b gira sobre este nudillo */ eL = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
           const pl2 = (n, tipo, archivo, caja, fd, extra) => add(Object.assign({ id: q.id + ':plegable:' + n + ':' + j, tipo, modelo: { archivo, origen: oL, ejes: eL } }, base, { frente: fd }, extra, cajaEjes(caja, oL, eL)));
-          pl2('libroA', 'BisagraAla', 'bisagra_libro_a', BL.cajaA, q.id, {});
-          pl2('libroB', 'Bisagra', 'bisagra_libro_b', BL.cajaB, hb.id, { bisagra: especBisagra('libro', BL.grados) }); }
+          pl2('libroA', 'BisagraAla', 'bisagra_libro_a', BL.cajaA, q.id, { soloModelo: true, ocultaSinPuertas: true });
+          pl2('libroB', 'Bisagra', 'bisagra_libro_b', BL.cajaB, hb.id, { bisagra: especBisagra('libro', BL.grados), soloModelo: true, ocultaSinPuertas: true });
+          /* A395: en los dibujos del master, la bisagra como en la foto: cada ala (placa de esquinas redondeadas sobre la cara posterior de su
+             hoja), sus tres tornillos y los nudillos (dos con la a, el del centro con la b); en SketchUp va el modelo (soloModelo) */
+          const r2d = v => Math.round(v*100)/100, R = .48, A2 = BL.ala, G = BL.grueso, H = BL.alto, ER = BL.esquina, kx = r2d(oL[0]), ky = r2d(oL[1]), z0 = r2d(zc - H/2);   /* a centesimos: las formas caben en su caja redondeada */
+          const contorno = (() => { const pts = [[0, 0]]; [[A2 - ER, ER, -90], [A2 - ER, H - ER, 0]].forEach(([cx, cz, a0]) => { for (let i = 0; i <= 6; i++) { const a = (a0 + 15*i)*Math.PI/180; pts.push([r3(cx + ER*Math.cos(a)), r3(cz + ER*Math.sin(a))]); } }); pts.push([0, H]); return pts; })();
+          const dib = (n, x0, x1, y0, y1, za, zb, fd, forma) => add({ id: q.id + ':libroDibujo:' + n + ':' + j, rol: 'herraje', modulo: q.modulo, tipo: 'BisagraAla', frente: fd, soloDibujo: true, ocultaSinPuertas: true,
+            x: r3(x0), y: r3(y0), z: r3(za), ancho: r3(x1 - x0), fondo: r3(y1 - y0), alto: r3(zb - za), material: null, etiqueta: 'herrajes', forma });
+          dib('alaA', kx - R - A2, kx - R, ky - G, ky, z0, z0 + H, q.id, { tipo: 'perfil', eje: 'y', puntos: contorno.map(([u, v]) => [r3(A2 - u), v]).reverse() });
+          dib('alaB', kx, kx + G, ky + R, ky + R + A2, z0, z0 + H, hb.id, { tipo: 'perfil', eje: 'x', puntos: contorno });
+          const cab = BL.cabeza, ca = BL.cabezaAlto, cil = (de, a, d) => ({ tipo: 'cilindro', de, a, diametro: d, lados: 14 });
+          BL.tornillos.forEach((d, i) => { const zt = z0 + d;
+            dib('tornilloA:' + i, kx - R - A2/2 - cab, kx - R - A2/2 + cab, ky - G - ca, ky - G, zt - cab, zt + cab, q.id, cil([cab, ca, cab], [cab, 0, cab], 2*cab));
+            dib('tornilloB:' + i, kx + G, kx + G + ca, ky + R + A2/2 - cab, ky + R + A2/2 + cab, zt - cab, zt + cab, hb.id, cil([0, cab, cab], [ca, cab, cab], 2*cab)); });
+          const t3 = 2.53, nud = (n, za, zb, fd) => dib(n, kx - R, kx + R, ky - R, ky + R, za, zb, fd, cil([R, R, 0], [R, R, r3(zb - za)], 2*R));
+          nud('nudilloA:abajo', z0, z0 + t3 - .02, q.id); nud('nudilloA:arriba', z0 + H - t3 + .02, z0 + H, q.id); nud('nudilloB', z0 + t3, z0 + H - t3, hb.id); }
         else if (hb) { const BP = MODELO.bisagraPlegable, oP = [r3(hb.x + hb.ancho), r3(q.y - BP.espalda), r3(zc)], eP = [[-1, 0, 0], [0, 1, 0], [0, 0, 1]];
           const pp = (n, tipo, archivo, caja, fd, extra) => add(Object.assign({ id: q.id + ':plegable:' + n + ':' + j, tipo, modelo: { archivo, origen: oP, ejes: eP } }, base, { frente: fd }, extra, cajaEjes(caja, oP, eP)));
           pp('cazoleta', 'Cazoleta', 'bisagra_plegable_cazoleta', BP.cazoletaCaja, q.id, { ocultaSinPuertas: true });
@@ -8777,8 +8801,11 @@ function aperturasEsquinero(piezas, add){
     /* A301 (usuario 19/10: «las puertas plegables ya abren bien pero la posicion de la bisagra de libro ya no coincide, por lo tanto deberian
        abrir como la oculta de Blum»): las dos abren con el giro de la Blum (la b 60 hacia plano sobre la esquina de los frentes) */
     const Ha = [a.abre.x, a.abre.y], ga = a.abre.lado === 'izquierda' ? a.abre.grados : -a.abre.grados;
-    const J = [b.x, a.y + a.fondo];   /* A301: la esquina donde se juntan los frentes (la de la Blum) */
-    const gb = ga - Math.sign(ga)*MODELO.bisagraPlegable.grados, J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
+    /* A395 (usuario 21/10: «como la foto»): con la de libro la b gira sobre su nudillo (el cruce de las caras posteriores) 90 hacia la cara
+       posterior de la a, hasta quedar espalda con espalda, como en el esquinero real; con la Blum, sobre la esquina de los frentes (A301) */
+    const libro = intermediaEsq(e) === 'libro';
+    const J = libro ? [b.x + b.ancho, a.y] : [b.x, a.y + a.fondo];   /* A301: la esquina donde se juntan los frentes (la de la Blum) */
+    const gb = libro ? ga + Math.sign(ga)*MODELO.bisagraLibro.grados : ga - Math.sign(ga)*MODELO.bisagraPlegable.grados, J2 = gira(J, Ha, ga), t = gb*Math.PI/180, co = Math.cos(t), si = Math.sin(t);
     /* centro C: J2 = C + R (J - C)  =>  (I - R) C = J2 - R J */
     const RJ = [co*J[0] - si*J[1], si*J[0] + co*J[1]], v = [J2[0] - RJ[0], J2[1] - RJ[1]], m = [[1 - co, si], [-si, 1 - co]], det = m[0][0]*m[1][1] - m[0][1]*m[1][0];
     const C = [(v[0]*m[1][1] - m[0][1]*v[1])/det, (m[0][0]*v[1] - v[0]*m[1][0])/det], g1 = Math.abs(gb) > 180 ? gb - Math.sign(gb)*360 : gb;
@@ -10638,7 +10665,7 @@ function closetPanel(m){
 /* A134: panel del esquinero (bajo o alto de la columna de esquina) */
 /* A270: la bisagra entre las hojas de la plegable */
 const bisIntHTML = e => puertasL(e) !== 'plegable' ? '' : section('Bisagra intermedia', radios('esqBisInt', [['libro', 'De libro (básica)'], ['oculta', 'Oculta, Blum 79T8500 (Pro)']], intermediaEsq(e))
-  + `<div class="note-sm">${intermediaEsq(e) === 'oculta' ? 'Cazoleta en la hoja junto a la bisagra de 155° y brazo en la otra; la plegable abre a 150° entre hojas.' : 'Nudillo en la esquina donde se juntan los frentes y alas sobre ellos; la plegable abre a 150° entre hojas, como la Blum.'}</div>`);   /* A393: las dos */
+  + `<div class="note-sm">${intermediaEsq(e) === 'oculta' ? 'Cazoleta en la hoja junto a la bisagra de 155° y brazo en la otra; la plegable abre a 150° entre hojas.' : 'Por dentro: nudillo en el cruce de las caras interiores y alas atornilladas sobre ellas (3"); la plegable se dobla espalda con espalda.'}</div>`);   /* A393: las dos */
 function esquinaPanel(m){
   const e = esquinaDe(m), k = m.esquina.k, R = reg().esquina, h = huellaEsquina(k), alacena = e.tipo === 'alacena';
   let html = head('Esquinero', `Caras ${letraCara(k)} y ${letraCara(k + 1)} · ${fmt(h[0])} / ${fmt(h[1])}${uS()}`);
