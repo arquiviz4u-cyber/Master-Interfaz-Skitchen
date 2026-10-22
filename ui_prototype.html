@@ -365,6 +365,12 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A399. [Master hecho 21/10; SketchUp: reemplazar tandem_corredera_fija y tandem_corredera_carro (nuevos .skp) y la caja del carro en el catalogo; el bloqueo sale con ejes girados; Revit pendiente] (usuario 21/10, con la foto del ensamble real: «asi se deben colocar las piezas, y parte de los perfiles se deformo»)
+       1) Bloqueo T51.1700.04: va BAJO el fondo, sobre el perfil y pegado al frente de la caja; el modelo de Blum viene inclinado 24.5 grados en Y-Z, asi que sus ejes (CorrederaBloqueo.modelo.ejes) van girados ese angulo
+       para dejarlo plano: su cara de arriba contra el fondo (zf = piso.z) y su extremo del frente en la cara posterior del frente de la caja. El ajustador queda tras esa cara, a 2.2 cm bajo el fondo. 2) Deformacion de los
+       perfiles: la particion por el centro del triangulo (A397) dejaba en el carro 13 triangulos largos de la malla fusionada (hasta 14 cm) que salian de su zona; ahora un triangulo es del carro solo si sus tres vertices
+       estan en su zona (los que cruzan la frontera quedan en la fija). Carro nuevo: 205 caras, caja [-5.605,-1.5,-2.764]..[-2.501,51.4,-0.978]; fija: 2363 caras, caja igual. 3) El fondo vuelve a 13.5 mm del canto
+       (PLAN_TANDEM.ranura 1.35): el carro, mas bajo (0.978), queda bajo el fondo. Los 6 triangulos de area cero del modelo original no se escriben.
    A397. [Master hecho 21/10; SketchUp: modelos tandem_corredera_fija y tandem_corredera_carro en su biblioteca; Revit pendiente (convertir a OBJ)] (usuario 21/10, al verla en SketchUp: «no ha reemplazado las cajas por la real»)
        El perfil de la corredera oculta deja de ser cajas: el modelo oficial 563F5330B de Blum USA (una sola malla) se parte por geometria en la parte fija (brida y base) y el carro que sostiene el
        fondo y viaja con el cajon (herramientas partir_corredera_tandem.py; archivos en G:\Sketchup\Kitchen\Correderas\partidos). Corredera (fija, modelo tandem_corredera_fija) y CorrederaMovil (carro,
@@ -4639,7 +4645,7 @@ const PLAN_PATA = { borde: 5, clip: 4.5, seisDesde: 76.5, placa: [9.2, 7.9, 2.5]
    ficha TD-131/3 («min 27.5» del perfil al fondo y «12-15» del fondo al canto inferior del costado): perfil de 5.68 cm de ancho y 4.75 de alto, formado por una brida contra el lateral (0.4 cm),
    una base de 0.35 bajo el costado y el fondo, y un carro hueco de 3 cm de ancho entre 0.91 y 2.65 cm sobre la base, justo bajo el fondo del cajon. riel: de la base al canto inferior del costado
    (27.5 - 13.5 = 1.4); ranura: del canto inferior del costado al fondo (13.5 mm, no los 5 mm de los cajones de corredera visible) */
-const PLAN_TANDEM = { nl: [25, 27, 30, 35, 40, 45, 50, 55, 60], interior: 4.9, corto: 1, espacio: .3, riel: 1.4, ranura: 1.45, perfil: { ancho: 5.68, alto: 4.75, brida: .4, base: .35, carro: [.91, 2.65, 3] }, carga: 30 };
+const PLAN_TANDEM = { nl: [25, 27, 30, 35, 40, 45, 50, 55, 60], interior: 4.9, corto: 1, espacio: .3, riel: 1.4, ranura: 1.35, perfil: { ancho: 5.68, alto: 4.75, brida: .4, base: .35, carro: [.91, 2.65, 3] }, carga: 30 };
 const correderaOculta = () => cfg.correderaTipo === 'oculta';
 const holguraCaja = () => correderaOculta() ? Math.max(0, (PLAN_TANDEM.interior - 2*PLAN_CAJA.lado)/2) : PLAN_CAJA.holgura;
 const nlTandem = disp => { const v = PLAN_TANDEM.nl.filter(n => n + PLAN_TANDEM.espacio <= disp + .001); return v.length ? v[v.length - 1] : disp - PLAN_TANDEM.espacio; };   /* el mueble pide NL + 3 mm de fondo */
@@ -4729,7 +4735,7 @@ const MODELO = {
   /* A396 (usuario 21/10: «con modelo skp»): piezas oficiales de la TANDEM (3D Warehouse, Blum USA) en el marco del catalogo: pared en X = 0 (hacia adentro X negativo), frente en Y cerca de 0 (atras
      Y positivo), Z con la base del perfil en -3.63. Bloqueo T51.1700.04 (viene inclinado unos 24 grados en Y-Z, tal como lo exporto Blum) y ajustador frontal 295.1000.21 */
   /* A397: el perfil real (modelo 563F5330B partido en la parte fija, con la brida y la base, y el carro que sostiene el fondo y viaja con el cajon; herramientas partir_corredera_tandem.py) */
-  tandem: { fija: [[-5.678, -3.4, -3.63], [0, 51.3, 1.272]], carro: [[-5.605, -1.5, -3.35], [-2.379, 51.4, -.798]], largo: 54.8, frenteCorredera: -3.4, bloqueo: [[-5.23, -.97, .15], [.39, 7.05, 5.13]], ajustador: [[-8.34, 2.06, 3.7], [-6.26, 4.14, 4.7]], frenteY: -.97, baseZ: -3.63 },
+  tandem: { fija: [[-5.678, -3.4, -3.63], [0, 51.3, 1.272]], carro: [[-5.605, -1.5, -2.764], [-2.501, 51.4, -.978]], largo: 54.8, giroBloqueo: 24.5, bloqueoY0: -.033, bloqueoZ1: 3.183, frenteCorredera: -3.4, bloqueo: [[-5.23, -.97, .15], [.39, 7.05, 5.13]], ajustador: [[-8.34, 2.06, 3.7], [-6.26, 4.14, 4.7]], frenteY: -.97, baseZ: -3.63 },
   bisagraLibro: { grados: 90, cajaA: [[-2.475, -.475, -3.8], [.475, .475, 3.8]], cajaB: [[-.475, -.475, -3.8], [.475, 2.475, 3.8]],
     radio: .475, ala: 2, grueso: .2, alto: 7.6, esquina: .4, tornillos: [1.27, 3.8, 6.35], cabeza: .4, cabezaAlto: .05 },
   corredera: { fija: [[.139, 0, 0], [1.27, 49.845, 2.869]], media: [[.162, 6.493, .32], [1.087, 49.845, 2.549]], movil: [[0, .675, .668], [.675, 50.003, 2.201]],
@@ -6088,10 +6094,14 @@ function planDePiezas(c = cfg){
           add(Object.assign({ id: d + ':corredera:' + lado + sk, tipo: 'Corredera', modelo: { archivo: 'tandem_corredera_fija', espejo: sg > 0 } }, dato, cajaModelo(MT.fija, mar)));
           add(Object.assign({ id: d + ':corredera:' + lado + sk + ':movil', tipo: 'CorrederaMovil', frente: d, modelo: { archivo: 'tandem_corredera_carro', espejo: sg > 0 } }, dato, cajaModelo(MT.carro, mar)));
           /* A396: bloqueo y ajustador frontal con su modelo, en el marco del catalogo (X hacia la pared al reves, Y hacia atras al reves); viajan con el cajon. El ajustador solo si el costado lo alcanza */
-          const ej = [[sg > 0 ? -1 : 1, 0, 0], [0, -1, 0], [0, 0, 1]], oT = [r2(cara), r2(iz.y + iz.fondo + MT.frenteY), r2(zr - MT.baseZ)], oA = [oT[0], r2(iz.y + iz.fondo - PLAN_CAJA.lado + MT.ajustador[0][1]), oT[2]];   /* el ajustador, tras la cara posterior del frente de la caja */
+          /* A399 (usuario 21/10, foto del ensamble real): el bloqueo va BAJO el fondo, sobre el perfil, pegado al frente de la caja; el modelo de Blum viene inclinado 24.5 grados (ejes girados para dejarlo plano: su cara
+             de arriba contra el fondo, su extremo del frente contra la cara posterior del frente de la caja). El ajustador, junto a el, tras esa cara y a 2.2 cm bajo el fondo */
+          const gr = MT.giroBloqueo*Math.PI/180, gc = r3(Math.cos(gr)), gs = r3(Math.sin(gr)), zf = iz.z + PLAN_TANDEM.ranura, yP = iz.y + iz.fondo - PLAN_CAJA.lado;
+          const ej = [[sg > 0 ? -1 : 1, 0, 0], [0, -gc, -gs], [0, -gs, gc]], eA = [ej[0], [0, -1, 0], [0, 0, 1]];
+          const oT = [r2(cara), r2(yP - MT.bloqueoY0), r2(zf - MT.bloqueoZ1)], oA = [oT[0], r2(yP + MT.ajustador[0][1]), r2(zf - 2.2 - MT.ajustador[0][2])];
           [['bloqueo', 'CorrederaBloqueo', 'tandem_bloqueo'], ['ajustador', 'CorrederaAjustador', 'tandem_ajustador']].forEach(([n, tipo, archivo]) => {
             if (n === 'ajustador' && iz.alto + .01 < MT.ajustador[1][2] - MT.baseZ - T9.riel) return;
-            add(Object.assign({ id: d + ':corredera:' + lado + sk + ':' + n, tipo, frente: d, modelo: { archivo, origen: n === 'ajustador' ? oA : oT, ejes: ej } }, dato, cajaEjes(MT[n], n === 'ajustador' ? oA : oT, ej))); }); });
+            add(Object.assign({ id: d + ':corredera:' + lado + sk + ':' + n, tipo, frente: d, modelo: { archivo, origen: n === 'ajustador' ? oA : oT, ejes: n === 'ajustador' ? eA : ej } }, dato, cajaEjes(MT[n], n === 'ajustador' ? oA : oT, n === 'ajustador' ? eA : ej))); }); });
         return; }
       const largo = cfg.region === 'US' ? Math.min(iz.fondo, Math.max(inch(9), Math.min(inch(21), Math.floor(iz.fondo/inch(3) + 1e-6)*inch(3))))   /* E14: 9-21" de 3 en 3 */
         : Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), yF = iz.y + iz.fondo;
