@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A410. [Master hecho 21/10; SketchUp: tipo de panel Liston (nombre visible); Revit pendiente] (usuario 21/10: «hace falta remeterlo para que el
+       poste y las bisagras del magic no choquen con las de la puerta; las bisagras de esa puerta tienen que ser especiales en giro porque se
+       anclan en la cara ciega, ¿las ocultas de las plegables nos sirven?»; la de las plegables es para hojas que cierran en L: eligio «liston +
+       bisagra normal») Con la puerta del ciego invertida vuelve el liston, ahora de apoyo: de canto detras de la parte ciega en el canto de la
+       puerta (8 cm de fondo, de piso a techo, material de los paneles), y la bisagra normal se monta en el como en un lateral. Todo el herraje
+       de las charolas se remete 6.6 cm (CHAROLAS.remeter): el poste queda detras del liston y de las bisagras, y el soporte detras de las del
+       lateral. charolasBarrido usa el frente remetido y, con la puerta invertida, deja libre el liston y la zona de su bisagra.
    A409. [Master hecho 21/10; SketchUp: sin cambio (el liston ya no sale en el plan; su modelo puede quedar en la biblioteca); Revit pendiente]
        (usuario 21/10: «el magic corner necesitamos quitarle el liston y definir el ancho minimo para que salga bien (no debe deformarse)»;
        «por default la puerta del magic este invertida (actualmente no se puede invertir porque no aparece la opcion)») 1) Las charolas de
@@ -3915,7 +3922,10 @@ const giroPunto = ([x, y], [cx, cy], g) => { const t = g*Math.PI/180, c = Math.c
 /* A400: centro del giro unico de g grados que lleva a hasta a2 */
 const centroGiro = (a, a2, g) => { const t = g*Math.PI/180, c = Math.cos(t), sn = Math.sin(t), r = [a2[0] - (a[0]*c - a[1]*sn), a2[1] - (a[0]*sn + a[1]*c)], d = (1 - c)**2 + sn**2;
   return [((1 - c)*r[0] - sn*r[1])/d, (sn*r[0] + (1 - c)*r[1])/d]; };
-const CHAROLAS = { ref: [116.13, 24.51, 5.49], alto: 71.02, nivel: 28.61, liston: 67.73, abre: 50, paso: 2.5,
+/* A410 (usuario 21/10: «hace falta remeterlo para que el poste y las bisagras del magic no choquen con las de la puerta»; eligio «liston +
+   bisagra normal»): remeter (cm): todo el herraje va mas al fondo, para que el poste quede detras del liston de la bisagra (8 cm de fondo,
+   con 5 mm); listonFondo: el fondo de ese liston */
+const CHAROLAS = { ref: [116.13, 24.51, 5.49], alto: 71.02, nivel: 28.61, liston: 67.73, abre: 50, paso: 2.5, remeter: 6.6, listonFondo: 8,
   O1: [63.549, 29.41], P1: [39.479, 53.935], O2: [114.386, 27.082], P2: [76.773, 39.761],
   piezas: { poste: [[60.69, 26.45, 5.51], [66.63, 34.08, 76.5]], liston: [[67.73, 24.51, 5.49], [69.63, 32.51, 76.51]], soporte: [[115.78, 27.21, 5.51], [116.13, 32.21, 55.51]],
     charola: [[25.92, 30.73, 14.4], [106.41, 71.59, 19.69]], brazo_poste: [[38.49, 27.67, 9.37], [65.3, 54.92, 17.37]], brazo_lateral: [[75.79, 25.54, 9.65], [116.21, 40.75, 19.65]] },
@@ -3926,17 +3936,18 @@ const charolasPuerta = () => PLAN_CUERPO.lateral + CHAROLAS.ref[0] - CHAROLAS.li
    el barrido de la charola en todo su camino (contorno del modelo, marco del archivo): lo menor en X que alcanza dentro de la caja (xi), al
    cruzar el plano del frente (xc) y ya en la habitacion (xr). Memo por el grueso del frente */
 const CHAROLAS_BARRIDO = new Map();
-function charolasBarrido(){ const M = CHAROLAS, tf = espFrente(); if (CHAROLAS_BARRIDO.has(tf)) return CHAROLAS_BARRIDO.get(tf);
-  const Yf = M.ref[1], Yr = Yf - PLAN_HOLGURA_PUERTA - tf, ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]), o = { xi: 1e9, xc: 1e9, xr: 1e9, pts: [] };
+function charolasBarrido(){ const M = CHAROLAS, tf = espFrente(), clave = tf + ':' + holF(); if (CHAROLAS_BARRIDO.has(clave)) return CHAROLAS_BARRIDO.get(clave);
+  const Yf = M.ref[1] - M.remeter, Yr = Yf - PLAN_HOLGURA_PUERTA - tf, ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]), o = { xi: 1e9, xc: 1e9, xr: 1e9, pts: [] };   /* A410: el plano del frente, remetido */
   charolasPose(M.abre).forEach(([, p1, p2]) => { const t = ang(p1, p2) - ang(M.P1, M.P2), c = Math.cos(t), sn = Math.sin(t);
     M.contorno.forEach(([X, Y]) => { const dx = X - M.P1[0], dy = Y - M.P1[1], x = p1[0] + dx*c - dy*sn, y = p1[1] + dx*sn + dy*c;
-      if (y >= Yf) o.xi = Math.min(o.xi, x); else o.xc = Math.min(o.xc, x); if (y < Yr) o.xr = Math.min(o.xr, x); if (y < Yf + 7.5) o.pts.push([x, y]); }); });   /* pts: junto al frente (la zona de la bisagra, A300) */
+      if (y >= Yf) o.xi = Math.min(o.xi, x); else o.xc = Math.min(o.xc, x); if (y < Yr) o.xr = Math.min(o.xr, x); if (y < Yf + M.listonFondo + .5) o.pts.push([x, y]); }); });   /* pts: junto al frente (la zona de la bisagra y su liston) */
   /* la puerta minima con la bisagra en el canto de la parte ciega (invertida): el canto en X = ref - (P - lateral); lo que cruza el frente
-     queda 5 mm dentro del hueco y lo que pasa junto al frente por dentro no entra a la zona de la bisagra (4.1 cm desde el canto) */
-  const e1 = PLAN_CUERPO.lateral; o.pInv = 0;
+     queda 5 mm dentro del hueco y lo que pasa junto al frente por dentro no entra al liston ni a la zona de su bisagra (A410: el liston va
+     del canto de la puerta hacia dentro, holF antes del canto, y la bisagra 4.1 cm desde el canto; los dos, listonFondo de fondo) */
+  const e1 = PLAN_CUERPO.lateral, hf = holF(); o.pInv = 0;
   for (let P = 20; P <= 120 && !o.pInv; P += .5) { const xd = M.ref[0] - (P - e1);
-    if (o.pts.every(([x, y]) => y < Yf ? x - xd >= .5 + (y < Yr ? tf : 4.1) : !(x - xd >= -.01 && x - xd < 4.6))) o.pInv = P; }
-  o.xi = Math.min(o.xi, CHAROLAS.piezas.charola[0][0]); CHAROLAS_BARRIDO.set(tf, o); return o; }
+    if (o.pts.every(([x, y]) => y < Yf ? x - xd >= .5 + (y < Yr ? tf : 4.1) : !(x - xd >= -hf - .5 && x - xd < 4.6))) o.pInv = P; }
+  o.xi = Math.min(o.xi, CHAROLAS.piezas.charola[0][0]); CHAROLAS_BARRIDO.set(clave, o); return o; }
 /* A409: el ancho minimo del ciego con charolas (medio en medio cm), con 5 mm de holgura: 1) la charola y su barrido caben entre los laterales;
    2) la puerta (crece con el ciego desde la de fabrica) deja pasar lo que cruza el frente; 3) afuera no entra al frente de la otra cara.
    La charola va siempre a su medida (el modelo no se escala); el mecanismo se ancla al lateral de la bisagra. Con la puerta invertida (inv), su
@@ -9147,11 +9158,15 @@ function esquinerosPlan(add, r2, sep, tf){
       /* el marco del archivo en el ciego: la cara interior del lateral de la bisagra en w - e1, el plano del frente en fOwn (la cara del liston), el piso
          sobre el de la caja; en Z las piezas se colocan a la escala del alto (kz) y solo poste, liston y soporte se estiran */
       const M = CHAROLAS, pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], hP = r2(z1 - z0 - 2*e1), kz = hP/M.alto;
-      const pl = ([X, Y]) => pt(w - e1 - (M.ref[0] - X), fOwn - (Y - M.ref[1])), pp = P => { const q = pl(P); return [q[0], sep + q[1]]; }, zM = Z => z0 + e1 + (Z - M.ref[2])*kz;
+      const pl = ([X, Y]) => pt(w - e1 - (M.ref[0] - X), fOwn - (Y - M.ref[1]) - M.remeter), pp = P => { const q = pl(P); return [q[0], sep + q[1]]; }, zM = Z => z0 + e1 + (Z - M.ref[2])*kz;
       const mod = archivo => ({ archivo, espejo: duenaA, giro: duenaA ? 0 : 270 });   /* el archivo tiene la habitacion hacia -Y, como la cocina */
       const cajaM = ([mn, mx], estira, dz = 0) => { const q = [[mn[0], mn[1]], [mx[0], mn[1]], [mx[0], mx[1]], [mn[0], mx[1]]].map(pp), xs = q.map(c => c[0]), ys = q.map(c => c[1]);
         return { x: r3(Math.min(...xs)), y: r3(Math.min(...ys)), z: r3(zM(mn[2] + dz)), ancho: r3(Math.max(...xs) - Math.min(...xs)), fondo: r3(Math.max(...ys) - Math.min(...ys)), alto: r3(estira ? (mx[2] - mn[2])*kz : mx[2] - mn[2]) }; };
       /* A409 (usuario 21/10: «quitarle el liston»): solo poste y soporte; el liston queda como referencia del marco (CHAROLAS.liston) */
+      /* A410 (usuario 21/10: «las bisagras de esa puerta tienen que ser especiales en giro porque se anclan en la cara ciega»; eligio «liston +
+         bisagra normal»): con la puerta invertida, un liston de canto detras de la parte ciega en el canto de la puerta (del frente hacia dentro
+         listonFondo, de piso a techo) sostiene su bisagra como un lateral: la puerta lo traslapa lo mismo que a un lateral */
+      if (!op && ciegoInvertido(cfg.esquinas[k])) { const uL = w - P - holF(); bx(':liston', 'panel', 'Liston', uL, uL + e1, fOwn - M.listonFondo, fOwn, z0 + e1, gola ? zg : z1 - e1, mat, et); }   /* con gola, hasta su perfil */
       [['poste', 'charolas_esquina_poste'], ['soporte', 'charolas_esquina_soporte']].forEach(([n, archivo]) =>
         add(Object.assign({ id: pre + ':' + n, rol: 'herraje', modulo, tipo: 'CharolasEsquina', material: null, etiqueta: 'herrajes', modelo: mod(archivo) }, cajaM(M.piezas[n], true))));
       /* el camino (cuadros cada M.paso grados del brazo del lateral): la charola, el giro desde cerrada que lleva sus dos puntas a su lugar; cada brazo, su giro sobre su pivote */
