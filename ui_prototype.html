@@ -350,6 +350,12 @@
        (PLAN_TANDEM.riel; ficha TD-131/3 «min 27.5»), y el fondo de la caja sube a 13.5 mm del canto del costado (PLAN_TANDEM.ranura; ficha «12-15»; con la visible sigue en 5 mm). El carro
        queda justo bajo el fondo y entre el frente y la trasera de la caja. Archivos en G:\Sketchup\Kitchen\Correderas (563F5330B.skp, TAN+T51.1700.04.skp: bloqueo de 5.6 x 8.0 x 5.0 cm, aun sin
        modelar). Sin modelo .skp todavia: son cajas. Pendiente: bloqueo (2 por cajon), ajustador frontal 295.1000.21 y la perforacion de 37 y 32 mm del frente.
+   A397. [Master hecho 21/10; SketchUp: modelos tandem_corredera_fija y tandem_corredera_carro en su biblioteca; Revit pendiente (convertir a OBJ)] (usuario 21/10, al verla en SketchUp: «no ha reemplazado las cajas por la real»)
+       El perfil de la corredera oculta deja de ser cajas: el modelo oficial 563F5330B de Blum USA (una sola malla) se parte por geometria en la parte fija (brida y base) y el carro que sostiene el
+       fondo y viaja con el cajon (herramientas partir_corredera_tandem.py; archivos en G:\Sketchup\Kitchen\Correderas\partidos). Corredera (fija, modelo tandem_corredera_fija) y CorrederaMovil (carro,
+       tandem_corredera_carro, con frente) llevan modelo con espejo en el izquierdo y la Y estirada al largo NL; CorrederaBrida ya no se genera. El fondo de la caja sube a 14.5 mm del canto del costado
+       (PLAN_TANDEM.ranura; antes 13.5): con la base 1.4 cm bajo el canto suma 28.5 mm bajo el fondo, sobre el «min 27.5» de la ficha, y el carro (que llega 28.3 mm sobre la base) queda bajo el fondo.
+       El ajustador frontal va tras la cara posterior del frente de la caja. Pendientes: la pose del bloqueo; la particion es por geometria (el modelo viene fusionado): revisar el carro en SketchUp.
    A396. [Master hecho 21/10; SketchUp: modelos tandem_bloqueo y tandem_ajustador en su biblioteca; Revit pendiente (convertir a OBJ)] (usuario 21/10: «con modelo skp»)
        Corredera oculta TANDEM: dos piezas mas por costado con modelo .skp oficial de Blum USA (3D Warehouse): bloqueo T51.1700.04 (CorrederaBloqueo, modelo tandem_bloqueo, 5.6 x 8.0 x 5.0 cm) y
        ajustador frontal 295.1000.21 (CorrederaAjustador, modelo tandem_ajustador, 2.08 x 2.08 x 1.0 cm), 2 de cada uno por cajon, con frente (viajan con el cajon) y oculta: true. Se colocan en el marco
@@ -4606,7 +4612,7 @@ const PLAN_PATA = { borde: 5, clip: 4.5, seisDesde: 76.5, placa: [9.2, 7.9, 2.5]
    ficha TD-131/3 («min 27.5» del perfil al fondo y «12-15» del fondo al canto inferior del costado): perfil de 5.68 cm de ancho y 4.75 de alto, formado por una brida contra el lateral (0.4 cm),
    una base de 0.35 bajo el costado y el fondo, y un carro hueco de 3 cm de ancho entre 0.91 y 2.65 cm sobre la base, justo bajo el fondo del cajon. riel: de la base al canto inferior del costado
    (27.5 - 13.5 = 1.4); ranura: del canto inferior del costado al fondo (13.5 mm, no los 5 mm de los cajones de corredera visible) */
-const PLAN_TANDEM = { nl: [25, 27, 30, 35, 40, 45, 50, 55, 60], interior: 4.9, corto: 1, espacio: .3, riel: 1.4, ranura: 1.35, perfil: { ancho: 5.68, alto: 4.75, brida: .4, base: .35, carro: [.91, 2.65, 3] }, carga: 30 };
+const PLAN_TANDEM = { nl: [25, 27, 30, 35, 40, 45, 50, 55, 60], interior: 4.9, corto: 1, espacio: .3, riel: 1.4, ranura: 1.45, perfil: { ancho: 5.68, alto: 4.75, brida: .4, base: .35, carro: [.91, 2.65, 3] }, carga: 30 };
 const correderaOculta = () => cfg.correderaTipo === 'oculta';
 const holguraCaja = () => correderaOculta() ? Math.max(0, (PLAN_TANDEM.interior - 2*PLAN_CAJA.lado)/2) : PLAN_CAJA.holgura;
 const nlTandem = disp => { const v = PLAN_TANDEM.nl.filter(n => n + PLAN_TANDEM.espacio <= disp + .001); return v.length ? v[v.length - 1] : disp - PLAN_TANDEM.espacio; };   /* el mueble pide NL + 3 mm de fondo */
@@ -4695,7 +4701,8 @@ const MODELO = {
      con las esquinas libres redondeadas, nudillo de 9.5 mm y 76 de alto, 3 tornillos avellanados por hoja a 1.27, 3.8 y 6.35 del extremo */
   /* A396 (usuario 21/10: «con modelo skp»): piezas oficiales de la TANDEM (3D Warehouse, Blum USA) en el marco del catalogo: pared en X = 0 (hacia adentro X negativo), frente en Y cerca de 0 (atras
      Y positivo), Z con la base del perfil en -3.63. Bloqueo T51.1700.04 (viene inclinado unos 24 grados en Y-Z, tal como lo exporto Blum) y ajustador frontal 295.1000.21 */
-  tandem: { bloqueo: [[-5.23, -.97, .15], [.39, 7.05, 5.13]], ajustador: [[-8.34, 2.06, 3.7], [-6.26, 4.14, 4.7]], frenteY: -.97, baseZ: -3.63 },
+  /* A397: el perfil real (modelo 563F5330B partido en la parte fija, con la brida y la base, y el carro que sostiene el fondo y viaja con el cajon; herramientas partir_corredera_tandem.py) */
+  tandem: { fija: [[-5.678, -3.4, -3.63], [0, 51.3, 1.272]], carro: [[-5.605, -1.5, -3.35], [-2.379, 51.4, -.798]], largo: 54.8, frenteCorredera: -3.4, bloqueo: [[-5.23, -.97, .15], [.39, 7.05, 5.13]], ajustador: [[-8.34, 2.06, 3.7], [-6.26, 4.14, 4.7]], frenteY: -.97, baseZ: -3.63 },
   bisagraLibro: { grados: 90, cajaA: [[-2.475, -.475, -3.8], [.475, .475, 3.8]], cajaB: [[-.475, -.475, -3.8], [.475, 2.475, 3.8]],
     radio: .475, ala: 2, grueso: .2, alto: 7.6, esquina: .4, tornillos: [1.27, 3.8, 6.35], cabeza: .4, cabezaAlto: .05 },
   corredera: { fija: [[.139, 0, 0], [1.27, 49.845, 2.869]], media: [[.162, 6.493, .32], [1.087, 49.845, 2.549]], movil: [[0, .675, .668], [.675, 50.003, 2.201]],
@@ -6044,16 +6051,16 @@ function planDePiezas(c = cfg){
       if (oc) {   /* A384; A392: TANDEM con el perfil del modelo de Blum: base y brida (fijas, en el lateral) y carro (viaja con el cajon, bajo el fondo) */
         const T9 = PLAN_TANDEM, P9 = T9.perfil, hg = holguraCaja(), zr = iz.z - T9.riel, yR = r2(iz.y - T9.corto), largo = r2(iz.fondo + T9.corto);
         [['izq', iz.x - hg, 1], ['der', dr.x + dr.ancho + hg, -1]].forEach(([lado, cara, sg]) => {
-          const xs = (a, b) => ({ x: r2(sg > 0 ? cara + a : cara - b), ancho: r2(b - a) }), dato = { rol: 'herraje', modulo: iz.modulo, material: null, etiqueta: 'herrajes', oculta: true };
-          add(Object.assign({ id: d + ':corredera:' + lado + sk, tipo: 'Corredera', y: yR, fondo: largo, z: r2(zr), alto: P9.base }, xs(0, P9.ancho), dato));
-          add(Object.assign({ id: d + ':corredera:' + lado + sk + ':brida', tipo: 'CorrederaBrida', y: yR, fondo: largo, z: r2(zr + P9.base), alto: r2(P9.alto - P9.base) }, xs(0, P9.brida), dato));
-          add(Object.assign({ id: d + ':corredera:' + lado + sk + ':movil', tipo: 'CorrederaMovil', frente: d, y: r2(iz.y + PLAN_CAJA.lado), fondo: r2(iz.fondo - 2*PLAN_CAJA.lado), z: r2(zr + P9.carro[0]), alto: r2(P9.carro[1] - P9.carro[0]) },
-            xs(hg + PLAN_CAJA.lado, hg + PLAN_CAJA.lado + P9.carro[2]), dato));
+          const dato = { rol: 'herraje', modulo: iz.modulo, material: null, etiqueta: 'herrajes', oculta: true }, MT = MODELO.tandem;
+          /* A397: el perfil real de Blum en dos piezas con modelo (marco como el de la corredera visible: espejo en el izquierdo; Y estirada al largo NL, con el frente del perfil al frente de la caja) */
+          const mar = { ox: cara, refX: 0, espejo: sg > 0, oy: iz.y + iz.fondo, refY: MT.frenteCorredera, sy: largo/MT.largo, oz: zr, refZ: MT.baseZ };
+          add(Object.assign({ id: d + ':corredera:' + lado + sk, tipo: 'Corredera', modelo: { archivo: 'tandem_corredera_fija', espejo: sg > 0 } }, dato, cajaModelo(MT.fija, mar)));
+          add(Object.assign({ id: d + ':corredera:' + lado + sk + ':movil', tipo: 'CorrederaMovil', frente: d, modelo: { archivo: 'tandem_corredera_carro', espejo: sg > 0 } }, dato, cajaModelo(MT.carro, mar)));
           /* A396: bloqueo y ajustador frontal con su modelo, en el marco del catalogo (X hacia la pared al reves, Y hacia atras al reves); viajan con el cajon. El ajustador solo si el costado lo alcanza */
-          const MT = MODELO.tandem, ej = [[sg > 0 ? -1 : 1, 0, 0], [0, -1, 0], [0, 0, 1]], oT = [r2(cara), r2(iz.y + iz.fondo + MT.frenteY), r2(zr - MT.baseZ)];
+          const ej = [[sg > 0 ? -1 : 1, 0, 0], [0, -1, 0], [0, 0, 1]], oT = [r2(cara), r2(iz.y + iz.fondo + MT.frenteY), r2(zr - MT.baseZ)], oA = [oT[0], r2(iz.y + iz.fondo - PLAN_CAJA.lado + MT.ajustador[0][1]), oT[2]];   /* el ajustador, tras la cara posterior del frente de la caja */
           [['bloqueo', 'CorrederaBloqueo', 'tandem_bloqueo'], ['ajustador', 'CorrederaAjustador', 'tandem_ajustador']].forEach(([n, tipo, archivo]) => {
             if (n === 'ajustador' && iz.alto + .01 < MT.ajustador[1][2] - MT.baseZ - T9.riel) return;
-            add(Object.assign({ id: d + ':corredera:' + lado + sk + ':' + n, tipo, frente: d, modelo: { archivo, origen: oT, ejes: ej } }, dato, cajaEjes(MT[n], oT, ej))); }); });
+            add(Object.assign({ id: d + ':corredera:' + lado + sk + ':' + n, tipo, frente: d, modelo: { archivo, origen: n === 'ajustador' ? oA : oT, ejes: ej } }, dato, cajaEjes(MT[n], n === 'ajustador' ? oA : oT, ej))); }); });
         return; }
       const largo = cfg.region === 'US' ? Math.min(iz.fondo, Math.max(inch(9), Math.min(inch(21), Math.floor(iz.fondo/inch(3) + 1e-6)*inch(3))))   /* E14: 9-21" de 3 en 3 */
         : Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), yF = iz.y + iz.fondo;
@@ -6479,10 +6486,10 @@ function pruebasPlanMX(){
       if (isFinite(L) && isFinite(R)) ok(Math.abs((R - L) - (dr.x + dr.ancho - iz.x) - 2*hg) < .02, nombre + ': el ancho de la caja de ' + iz.id + ' no deja 42 mm menos que el hueco');
       ok(PLAN_TANDEM.nl.some(n => Math.abs(n - PLAN_TANDEM.corto - iz.fondo) < .06) || iz.fondo + PLAN_TANDEM.corto < PLAN_TANDEM.nl[0], nombre + ': el costado de ' + iz.id + ' mide ' + iz.fondo + ', que no es NL - 10 mm de un largo de TANDEM');
       const rieles = p.piezas.filter(r => r.oculta && r.id.startsWith(fd + ':corredera:'));
-      ok(['Corredera', 'CorrederaBrida', 'CorrederaMovil'].every(t => rieles.filter(r => r.tipo === t).length === 2), nombre + ': ' + iz.id + ' sin sus seis piezas de perfil de TANDEM');
+      ok(['Corredera', 'CorrederaBloqueo', 'CorrederaAjustador', 'CorrederaMovil'].every(t => rieles.filter(r => r.tipo === t).length === 2 || t === 'CorrederaAjustador' && rieles.filter(r => r.tipo === t).length <= 2) && !rieles.some(r => r.tipo === 'CorrederaBrida'), nombre + ': ' + iz.id + ' sin su perfil real de TANDEM (fija y carro con modelo, bloqueo y ajustador)');
       const piso = p.piezas.find(q => q.id === iz.id.replace(/:lado:izq$/, ':piso'));
-      ok(rieles.filter(r => r.tipo === 'Corredera').every(r => Math.abs(r.z - (iz.z - PLAN_TANDEM.riel)) < .02) && piso && rieles.filter(r => r.tipo === 'CorrederaMovil').every(r => r.z + r.alto <= piso.z + .011) && piso && Math.abs(piso.z - (iz.z + PLAN_TANDEM.ranura)) < .02,
-        nombre + ': el perfil de ' + iz.id + ' no queda a 14 mm bajo el costado y el carro bajo el fondo (a 13.5 mm del canto)'); });
+      ok(rieles.filter(r => r.tipo === 'Corredera').every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_fija' && Math.abs(r.z - (iz.z - PLAN_TANDEM.riel)) < .02) && piso && rieles.filter(r => r.tipo === 'CorrederaMovil').every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_carro' && r.z + r.alto <= piso.z + .011) && Math.abs(piso.z - (iz.z + PLAN_TANDEM.ranura)) < .02,
+        nombre + ': la base del perfil de ' + iz.id + ' no queda a 14 mm bajo el costado, o el carro no queda bajo el fondo (a 14.5 mm del canto)'); });
     /* gola: detras de cada hueco de agarre queda libre el canal (del alma del perfil al plano de los frentes) para los dedos */
     if (c.style === 'Moderna') p.piezas.filter(q => q.tipo === 'Gola' && !q.forma && !String(q.id).startsWith('esq')).forEach(g => {   /* A143: la gola del esquinero corre por sus alas (otra orientacion) */   /* A139: la gola a 45 del esquinero diagonal es una losa (forma) */
       const alma = p.piezas.find(q => q.id === g.id), dedo = { x: g.x + .5, y: g.y + g.fondo + .01, z: 0, ancho: g.ancho - 1, fondo: 0, alto: 0 };
@@ -6794,7 +6801,7 @@ function pruebasPlanMX(){
       ok(tapa && piso && !tapa.ranura && piso.z - tapa.z >= PLAN_SAQUE - .01, nombre + ': la tapa del cajon oculto no baja su saque en ' + m.id); });   /* A141 */
     /* A138: herrajes tal cual: cada pieza con modelo de la biblioteca y caja positiva; cada bisagra cerrada con su abierta (las dos
        con estado y su puerta) y la puerta girando cerca de la placa; cada corredera media en sus dos estados */
-    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'tandem_bloqueo', 'tandem_ajustador', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252; A396: los de la TANDEM */
+    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'tandem_bloqueo', 'tandem_ajustador', 'tandem_corredera_fija', 'tandem_corredera_carro', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252; A396: los de la TANDEM */
     p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada' && !q.modelo.ejes).forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
