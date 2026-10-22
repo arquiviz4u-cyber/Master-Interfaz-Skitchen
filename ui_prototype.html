@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A402. [Master hecho 21/10; SketchUp: sin cambio (el plan ya sale bien); Revit pendiente] (usuario 21/10, error en SketchUp: «Plan de piezas
+       invalido: esq0:charola:0:borde:9: perfil fuera de su caja») losa (piezas con planta de poligono: charolas del magic corner y sus bordes,
+       recortes) tomaba el origen sin redondear y add lo redondeaba al centesimo sin mover los puntos: un borde de la charola quedaba 0.01 fuera
+       de su caja (ciego en la cara B). Ahora el origen va redondeado y la caja sale de los puntos.
    A400. [Master hecho 21/10; SketchUp: Interactuar lee abre.pliegue tambien en el tipo Giro (la charola sigue los dos giros); Revit pendiente]
        (usuario 21/10, con captura de SketchUp: «asi se ve el magic corner, mal, fuera de escala») Las charolas del magic corner van siempre
        a la medida del modelo (87 x 49 cm, la del herraje real): ya no se encogen para caber girando (A302 las bajaba hasta 45 cm). Como el
@@ -8931,9 +8935,11 @@ function aperturasEsquinero(piezas, add){
 function esquinerosPlan(add, r2, sep, tf){
   const R = reg().esquina, e1 = PLAN_CUERPO.lateral, ef = cuerpoFondo(), zb = cfg.baseBajos, A = cfg.altoBajos, k0 = cfg.cara;
   const caja = (id, rol, tipo, modulo, x0, x1, y0, y1, z0, z1, material, etiqueta) => { if (x1 - x0 > .05 && y1 - y0 > .05 && z1 - z0 > .05) add({ id, rol, modulo, tipo, x: x0, y: sep + y0, z: z0, ancho: x1 - x0, fondo: y1 - y0, alto: z1 - z0, material, etiqueta }); };
-  const losa = (id, rol, tipo, modulo, pts, z0, z1, material, etiqueta, extra = null) => { const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]), x0 = Math.min(...xs), y0 = Math.min(...ys);
-    const pu = pts.map(([a, b]) => [r2(a - x0), r2(b - y0)]);   /* A223: la caja cubre los puntos redondeados */
-    const q = { id, rol, modulo, tipo, x: x0, y: sep + y0, z: z0, ancho: Math.max(Math.max(...xs) - x0, ...pu.map(q => q[0])), fondo: Math.max(Math.max(...ys) - y0, ...pu.map(q => q[1])), alto: z1 - z0, material, etiqueta, forma: { tipo: 'perfil', eje: 'z', puntos: pu } }; if (extra) Object.assign(q, extra); add(q); return q; };   /* A252: extra (soloDibujo) */
+  /* A402 (usuario 21/10, SketchUp: «perfil fuera de su caja» en bordes de la charola del magic corner): add redondea los extremos de la caja al
+     centesimo y movia el origen sin mover los puntos; ahora el origen ya va redondeado y la caja sale de los puntos */
+  const losa = (id, rol, tipo, modulo, pts, z0, z1, material, etiqueta, extra = null) => { const x0 = r2(Math.min(...pts.map(p => p[0]))), y0 = r2(sep + Math.min(...pts.map(p => p[1])));
+    const pu = pts.map(([a, b]) => [Math.max(0, r2(a - x0)), Math.max(0, r2(sep + b - y0))]);   /* A223: la caja cubre los puntos redondeados */
+    const q = { id, rol, modulo, tipo, x: x0, y: y0, z: z0, ancho: Math.max(...pu.map(q => q[0])), fondo: Math.max(...pu.map(q => q[1])), alto: z1 - z0, material, etiqueta, forma: { tipo: 'perfil', eje: 'z', puntos: pu } }; if (extra) Object.assign(q, extra); add(q); return q; };   /* A252: extra (soloDibujo) */
   /* recortes en la cara de la derecha de la esquina k0 - 1 (su extremo izquierdo es la esquina) */
   if (k0 > 0) { const qa = caraDe(k0 - 1), fA = fondoCara(qa, false), ret = cfg.retiroZoclo, ep = cfg.esquinas[k0 - 1], hp = huellaEsquina(k0 - 1)[1];
     /* A139: con esquinero diagonal la cubierta empieza al final de su huella (ahi va la pieza diamante) y el zoclo donde llega el de 45 */
