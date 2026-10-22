@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A438. [Master hecho 22/10; SketchUp: sin cambio (dos equipos Campana sin modelo); Revit pendiente] (usuario 22/10: «construye la campana de
+       isla»; plan Pro): campana de isla tipo chimenea rectangular sobre la parrilla de la isla o de la peninsula (m.campanaIsla,
+       m.campanaIslaAncho 60/90/120): caja de acero a 70 de la cubierta, de 10 de alto y hasta 60 de fondo, y chimenea de 32 x 32 hasta el
+       techo (alturaMuro). En el editor, en Parrilla. Prueba: isla con parrilla y campana de 90.
    A437. [Master hecho 22/10; SketchUp: tipos CampanaLateral y CampanaFrente en Nombres (c130bef); Revit pendiente] (usuario 22/10: «construye
        ... la decorativa»; campana decorativa de madera, «muy usada en EE. UU.», plan Pro): en la campana sola, Tipo = Acero (chimenea),
        Decorativa recta o Decorativa inclinada (m.campanaTipo) y Repisa sobre la campana (m.campanaRepisa). La decorativa es una caja de
@@ -4420,7 +4424,13 @@ const soloCamp = m => hasCampana(m) && !!m.soloCampana;
 /* A437 (usuario 22/10: campana decorativa de madera, recta o inclinada, «muy usada en EE. UU.»): en la campana sola, una caja de tableros
    que cubre el motor (inserto) del pie de la campana al tope; la inclinada sube en talud desde una banda hasta un cuello angosto */
 const campDeco = m => soloCamp(m) && ['recta', 'inclinada'].includes(m.campanaTipo) ? m.campanaTipo : null;
-const CAMP_DECO = { banda: 12, talud: 45, cuello: 25 };   /* cm: banda inferior, alto del talud (con la banda), fondo del cuello */
+const CAMP_DECO = { banda: 12, talud: 45, cuello: 25 };
+/* A438 (usuario 22/10: «construye la campana de isla»; plan Pro): campana de isla tipo chimenea rectangular sobre la parrilla de la isla o
+   de la peninsula: caja de acero (ancho 60, 90 o 120; fondo hasta 60) a 70 cm de la cubierta y chimenea de 32 x 32 hasta el techo */
+const CAMP_ISLA = { alto: 70, caja: 10, fondo: 60, chimenea: 32, anchos: [60, 90, 120] };
+const campIslaHTML = m => !(cfg.isla || cfg.peninsula) || !m.parrilla ? '' : `<div style="margin-top:10px">${chk('campIsla', !!m.campanaIsla, 'Campana de isla sobre la parrilla')}</div>`
+  + (m.campanaIsla ? radios('campIslaW', CAMP_ISLA.anchos.map(w => [String(w), medida(w)]), String(m.campanaIslaAncho || 90))
+    + `<div class="note-sm" style="margin-top:0">Caja de acero a ${medida(CAMP_ISLA.alto)} de la cubierta y chimenea hasta el techo (${medida(cfg.alturaMuro || 240)}).</div>` : '');   /* cm: banda inferior, alto del talud (con la banda), fondo del cuello */
 const campDecoAltos = m => { const zA = baseAltos() + elevAlto(m), zZ = topeCampanaSola(), H = zZ - zA, band = Math.min(CAMP_DECO.banda, H / 3);
   const inclinada = campDeco(m) === 'inclinada' && H > band + 20;
   return { zA, zZ, H, band, Hs: inclinada ? Math.min(CAMP_DECO.talud, H - 10) : band, inclinada }; };
@@ -6094,7 +6104,13 @@ function planDePiezas(c = cfg){
         if (m.parrilla && !m.reserved) { const pe = parrillaEn(m), pd = Math.min(52, m.fondo - 8), lab = reg().parrilla.labio, n = piezas.length;   /* A133: ancho real */
           equipo(m, 'parrilla', 'Parrilla', pe.x0, pe.x1, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4 - pd, sepDe(m) + m.fondo - 4,
             equipoModelo('parrilla_induccion', pe.x0, pe.x1, zBar, zBar + PLAN_PLACA, sepDe(m) + m.fondo - 4, sepDe(m) + m.fondo - 4 - pd));
-          if (piezas.length > n) piezas[n].hueco = { x: r2(lab), y: r2(lab), ancho: r2(pe.hueco), fondo: r2(pd - 2*lab) }; }
+          if (piezas.length > n) piezas[n].hueco = { x: r2(lab), y: r2(lab), ancho: r2(pe.hueco), fondo: r2(pd - 2*lab) };
+          if ((cfg.isla || cfg.peninsula) && m.campanaIsla) {   /* A438: centrada sobre la parrilla; sin modelo (dos cajas) */
+            const W = m.campanaIslaAncho || 90, D = Math.min(CAMP_ISLA.fondo, W), cx = (pe.x0 + pe.x1) / 2, cy = sepDe(m) + m.fondo - 4 - pd / 2;
+            const z0 = zBar + CAMP_ISLA.alto, z1 = z0 + CAMP_ISLA.caja, techo = Math.max(z1 + 20, cfg.alturaMuro || 240), ch = CAMP_ISLA.chimenea;
+            /* sin modulo: es mas ancha que su columna y cuelga del techo (como la cubierta, no es pieza del gabinete) */
+            const caja = (k, a, b2, c0, c1, d0, d1) => add({ id: 'campanaIsla:' + m.id + k, rol: 'equipo', tipo: 'Campana', x: a, y: c0, z: d0, ancho: b2 - a, fondo: c1 - c0, alto: d1 - d0, material: null, etiqueta: 'equipos' });
+            caja('', cx - W / 2, cx + W / 2, cy - D / 2, cy + D / 2, z0, z1); caja(':chimenea', cx - ch / 2, cx + ch / 2, cy - ch / 2, cy + ch / 2, z1, techo); } }
         px += m.ancho; }); }
       if (cfg.backsplash && !pen) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;   /* A383: sin muro, sin backsplash */
         /* A123: detras de la campana sola el backsplash sigue por el muro hasta el tope de los altos. A125 (usuario, 09/10): de una
@@ -6759,6 +6775,8 @@ function pruebasPlanMX(){
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
     ['esquinero con materiales propios en el bajo y el alto (A272)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const mb = c.modulos.find(m => m.esquina && !m.upper), mu = c.modulos.find(m => m.esquina && m.upper);
       const ids = (c.catalogo || []).map(q => q.id); if (ids.length > 2) { mb.material = ids[1]; mu.material = ids[2]; mu.materialesPaneles = { 'esquina.fondo': ids[1], 'esquina.repisa.1': ids[2] }; } } finally { cfg = prev; } return c; }],
+    ['isla con parrilla y campana de isla de 90 (A438)', c => { const d = defaultIsland(240, 105); d.catalogo = c.catalogo; d.modulos[2].parrilla = true;
+      Object.assign(d.modulos[2], { campanaIsla: true, campanaIslaAncho: 90 }); return d; }],
     ['campana sola decorativa inclinada con repisa (A437)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true, soloCampana: true, campanaTipo: 'inclinada', campanaRepisa: true }); return c; }],
     ['campana sola decorativa recta (A437)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true, soloCampana: true, campanaTipo: 'recta' }); return c; }],
     ['alto con campana y su hueco de chimenea, con riel frances (A282)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true }); c.fijacionAltos = 'frances'; return c; }],
@@ -11510,7 +11528,7 @@ function modulePanel(m){
   if (m.tipo === 'Frigobar') html += section('Frigobar', `<div class="grid-2">${num('altoFrig', 'Alto del frigobar (desde el zoclo)', m.altoFrigobar, 'cm', 50, 120)}</div>`
     + chk('tapFrig', m.tapetaFrigobar, 'Tapeta superior bajo la cubierta') + `<div class="note-sm">Si es más alto que el gabinete, baja al piso y corta el zoclo.</div>`);
   if (!m.upper && !esAparato(m)) html += section('Parrilla', toggles([['tgParr', !!m.parrilla, 'Parrilla de inducción encima', FI['opt:Parrilla']]]) +   /* A374: con icono */ (m.parrilla ? chk('potF', cfg.potFiller, 'Potfiller sobre la parrilla') : '')   /* A367 */
-    + (m.parrilla ? `<div class="grid-2" style="margin-top:10px">${num('parrAncho', 'Ancho de la parrilla', m.parrillaAncho, 'cm', reg().parrilla.min, reg().parrilla.max)}</div>` + notaParrilla(m) : ''));
+    + (m.parrilla ? `<div class="grid-2" style="margin-top:10px">${num('parrAncho', 'Ancho de la parrilla', m.parrillaAncho, 'cm', reg().parrilla.min, reg().parrilla.max)}</div>` + notaParrilla(m) : '') + campIslaHTML(m));   /* A438 */
   if (m.tipo === 'Cajones') html += section('Cajones', `<div class="grid-2">${num('nCaj', 'Número de cajones', m.numCajones, 'u', 1, 6, 1)}</div>`
     + `<div style="margin-top:10px">${radios('repCaj', [['peq', 'Pequeño + grandes'], ['igu', 'Iguales']], m.cajonesIguales ? 'igu' : 'peq')}</div>`
     + `<div class="note-sm">Arrastra los puntos azules o haz clic en su cota.</div>`
@@ -11900,6 +11918,7 @@ const ACT = {
   infAb: (v, m) => change(() => { const t = byId(m.id); t.inferiorAbierto = v; if (v) t.dosPuertas = false; }),
   soloCamp: (v, m) => change(() => byId(m.id).soloCampana = v, 'Revisar altura'),   /* A81 */
   campTipo: (v, m) => change(() => byId(m.id).campanaTipo = v), campRep: (v, m) => change(() => byId(m.id).campanaRepisa = v),   /* A437 */
+  campIsla: (v, m) => change(() => byId(m.id).campanaIsla = v), campIslaW: (v, m) => change(() => byId(m.id).campanaIslaAncho = +v),   /* A438 */
   hueco: (v, m) => change(() => byId(m.id).huecoCampana = v, 'Revisar altura'), fCamp: (v, m) => change(() => byId(m.id).fondoCampana = v),
   mCamp: (v, m) => change(() => byId(m.id).mostrarCampana = v),
   editCap: (v, m) => { const g = capGroupOf(m); if (g) selectPart('ucap:' + g.lead.id); },
