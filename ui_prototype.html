@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A437. [Master hecho 22/10; SketchUp: tipos CampanaLateral y CampanaFrente en Nombres (c130bef); Revit pendiente] (usuario 22/10: «construye
+       ... la decorativa»; campana decorativa de madera, «muy usada en EE. UU.», plan Pro): en la campana sola, Tipo = Acero (chimenea),
+       Decorativa recta o Decorativa inclinada (m.campanaTipo) y Repisa sobre la campana (m.campanaRepisa). La decorativa es una caja de
+       tableros con el material del modulo del pie de la campana al tope: laterales (perfil en la inclinada: banda de 12, talud hasta 45,
+       cuello de 25 de fondo), frente en banda, talud y cuello, repisa al ancho de la campana que sobresale 5 del cuello; con repisa los
+       laterales se parten. El motor (inserto) va adentro como equipo Campana sin modelo. Alzado: drawCampanaDeco. Etiqueta Pro.
+       Pruebas: campana sola decorativa inclinada con repisa y recta.
    A434. [Master hecho 22/10; SketchUp: sin cambio; Revit pendiente] (usuario 22/10: «los botes con bastidor estan casi perfectos, solo
        quitar esa franja que se le ve a los cubos como si estuviesen recortados») El bote va en dos tramos (A430) y su malla, con las caras
        hacia afuera (A432), dejaba hueco el corte: por el se veia el piso. En los tramos (forma.marco) el isometrico dibuja primero el
@@ -4410,6 +4417,13 @@ function joinRight(id){ const ups = row(true), i = ups.findIndex(q => q.id === i
 const hasCampana = m => m.upper && !!m.campana && m.tipo !== 'Abierto' && !m.inferiorAbierto;
 /* A81 (usuario, 06/10): solo la campana: la columna no lleva el cuerpo del alto ni el modulo superior del alto doble; la chimenea llega al tope */
 const soloCamp = m => hasCampana(m) && !!m.soloCampana;
+/* A437 (usuario 22/10: campana decorativa de madera, recta o inclinada, «muy usada en EE. UU.»): en la campana sola, una caja de tableros
+   que cubre el motor (inserto) del pie de la campana al tope; la inclinada sube en talud desde una banda hasta un cuello angosto */
+const campDeco = m => soloCamp(m) && ['recta', 'inclinada'].includes(m.campanaTipo) ? m.campanaTipo : null;
+const CAMP_DECO = { banda: 12, talud: 45, cuello: 25 };   /* cm: banda inferior, alto del talud (con la banda), fondo del cuello */
+const campDecoAltos = m => { const zA = baseAltos() + elevAlto(m), zZ = topeCampanaSola(), H = zZ - zA, band = Math.min(CAMP_DECO.banda, H / 3);
+  const inclinada = campDeco(m) === 'inclinada' && H > band + 20;
+  return { zA, zZ, H, band, Hs: inclinada ? Math.min(CAMP_DECO.talud, H - 10) : band, inclinada }; };
 /* A126 (usuario, 09/10): perfiles de gola de un bajo como [z0, z1] (de la aleta de abajo a la de arriba), igual que las muescas del plan */
 const perfilesGola = m => golaStrips(m).map(([gz, gh], k) => { const sup = k === 0; return [gz - (sup ? traslapeL() : traslapeC()), sup ? gz + gh : gz + gh + traslapeC()]; });
 /* caja de un cajon (cajaCajon + B18): de su frente, libre arriba, y recortada entre los perfiles que cruza */
@@ -5785,8 +5799,30 @@ function planDePiezas(c = cfg){
           x += m.ancho; continue; }
         if (isSpecial(m) || esAparato(m)) { especial(m, x); x += m.ancho; continue; }
         if (upper && soloCamp(m)) {   /* A81: solo la campana; A283: la chimenea hasta el tope */
-          if (m.mostrarCampana) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), yCampana(sep), sep + m.fondoCampana,
+          const dec = campDeco(m), e = PLAN_CUERPO.lateral;
+          if (m.mostrarCampana && !dec) equipo(m, 'campana', 'Campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m), yCampana(sep), sep + m.fondoCampana,
             equipoModelo('campana', x + 1, x + m.ancho - 1, baseAltos() + elevAlto(m), topeCampanaSola(), sep + m.fondoCampana, yCampana(sep)));
+          if (dec) {   /* A437: caja de tableros y el inserto (motor) adentro, sin modelo */
+            const { zA, zZ, H, band, Hs, inclinada } = campDecoAltos(m), y0 = yCampana(sep), D0 = sep + m.fondoCampana - y0, Dt = Math.min(D0, CAMP_DECO.cuello);
+            const xa = x, xb = x + m.ancho, mat = matDe(m), rep = !!m.campanaRepisa;
+            const pz = (k, tipo, a, b, c0, c1, d0, d1, extra = {}, rol = 'panel') => add(Object.assign({ id: m.id + ':campDeco:' + k, rol, modulo: m.id, tipo, x: a, y: c0, z: d0,
+              ancho: b - a, fondo: c1 - c0, alto: d1 - d0, material: mat, etiqueta: 'gabinetes' }, extra));
+            /* el motor, dentro de la banda en la inclinada (arriba el talud se cierra) */
+            if (m.mostrarCampana) equipo(m, 'campana', 'Campana', xa + e + .5, xb - e - .5, zA, zA + (inclinada ? band - .5 : Math.min(30, band + 10)), y0, y0 + D0 - e - .5);
+            const zR = zA + Hs, zSup = rep ? zR + e : zR;   /* la repisa va donde termina la banda (recta) o el talud (inclinada) */
+            /* laterales: con repisa se parten (abajo hasta la repisa, arriba del cuello al tope) para que la repisa pase entera */
+            const hLat = rep ? Hs : H, perfilLat = inclinada ? { forma: { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [r2(D0), 0], [r2(D0), r2(band)], [r2(Dt), r2(Hs)]]
+              .concat(rep ? [[0, r2(Hs)]] : [[r2(Dt), r2(H)], [0, r2(H)]]) } } : {};
+            ['izq', 'der'].forEach(l => { const a = l === 'izq' ? xa : xb - e; pz('lateral:' + l, 'CampanaLateral', a, a + e, y0, y0 + D0, zA, zA + hLat, perfilLat);
+              if (rep) pz('lateral:' + l + ':sup', 'CampanaLateral', a, a + e, y0, inclinada ? y0 + Dt : y0 + D0, zSup, zZ); });
+            pz('frente:banda', 'CampanaFrente', xa + e, xb - e, y0 + D0 - e, y0 + D0, zA, zA + band);
+            if (inclinada) pz('frente:talud', 'CampanaFrente', xa + e, xb - e, y0 + Dt - e, y0 + D0, zA + band, zR, { forma: { tipo: 'perfil', eje: 'x',
+              puntos: [[r2(D0 - Dt), 0], [r2(D0 - Dt + e), 0], [r2(e), r2(Hs - band)], [0, r2(Hs - band)]] } });
+            else if (rep) pz('frente:medio', 'CampanaFrente', xa + e, xb - e, y0 + D0 - e, y0 + D0, zA + band, zR);
+            const yF = inclinada ? y0 + Dt : y0 + D0;
+            pz('frente:sup', 'CampanaFrente', xa + e, xb - e, yF - e, yF, zSup, zZ);
+            if (rep) pz('repisa', 'Repisa', xa, xb, y0, yF + 5, zR, zR + e, {}, 'repisa');   /* al ancho de la campana: los altos vecinos no la dejan salir */
+          }
           x += m.ancho; continue; }
         /* alto: el cuerpo empieza sobre el hueco de campana. Caja corrida (bodyGroups): la construye su ultima columna, con el
            interior del primero (BodyLead) y a todo el ancho del grupo */
@@ -6723,6 +6759,8 @@ function pruebasPlanMX(){
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
     ['esquinero con materiales propios en el bajo y el alto (A272)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const mb = c.modulos.find(m => m.esquina && !m.upper), mu = c.modulos.find(m => m.esquina && m.upper);
       const ids = (c.catalogo || []).map(q => q.id); if (ids.length > 2) { mb.material = ids[1]; mu.material = ids[2]; mu.materialesPaneles = { 'esquina.fondo': ids[1], 'esquina.repisa.1': ids[2] }; } } finally { cfg = prev; } return c; }],
+    ['campana sola decorativa inclinada con repisa (A437)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true, soloCampana: true, campanaTipo: 'inclinada', campanaRepisa: true }); return c; }],
+    ['campana sola decorativa recta (A437)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true, soloCampana: true, campanaTipo: 'recta' }); return c; }],
     ['alto con campana y su hueco de chimenea, con riel frances (A282)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true }); c.fijacionAltos = 'frances'; return c; }],
     ['campana sola en el borde con tapeta superior y corona (A283)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); c.style = 'Clasica'; c.tapetaSuperior = true; c.tapetaSuperiorMoldura = true;
       if (h[0]) Object.assign(h[0], { campana: true, soloCampana: true, mostrarCampana: true }); if (h[3]) Object.assign(h[3], { campana: true, soloCampana: true, mostrarCampana: true }); return c; }],
@@ -9954,7 +9992,8 @@ function drawModule(m, x0, RX, X, Z, post){
   if (soloCamp(m)) {   /* A81: solo la campana en su hueco y la chimenea hasta el tope; sin cuerpo ni modulo superior */
     const full = RX(x0, x0 + m.ancho, baseAltos(), topeAltos()), free = RX(x0, x0 + m.ancho, baseAltos() + elevAlto(m), baseAltos() + huecoAlto(m)), sel = selection.has(m.id);
     const tope = RX(x0, x0 + m.ancho, baseAltos(), topeCampanaSola());   /* A283 */
-    drawCampana(m, tope, free); hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel); return; }
+    if (campDeco(m)) drawCampanaDeco(m, x0, RX); else drawCampana(m, tope, free);   /* A437 */
+    hits.push({ rect: full, module: m }); moduleChrome(m, full, post, sel); return; }
   if (m.penEsq && m.penEsq.costado) { drawCostado(m, x0, RX, post); return; }   /* A394 */
   const zb = cfg.baseBajos, z0 = m.upper ? baseAltos() + Math.min(0, elevAlto(m)) : zb, z1 = m.upper ? baseAltos() + bodyH(m) : zb + cfg.altoBajos;   /* A394: la alacena del borde desde la cubierta */
   const full = RX(x0, x0 + m.ancho, z0, z1), sel = selection.has(m.id), scale = frame.scale;
@@ -9993,6 +10032,17 @@ function drawModule(m, x0, RX, X, Z, post){
   if (upperFocus === m.id && sel) post.push(() => outline(full, C.focus, 3));   /* foco particular: el modulo inferior del alto doble */
 }
 /* Campana (Layout.cs): franja blanca con guia punteada, canopy metalica de muro a muro y chimenea oculta punteada */
+/* A437: campana decorativa en el alzado: la caja de madera del pie al tope, con la banda, el remate del talud y la repisa */
+function drawCampanaDeco(m, x0, RX){
+  const { zA, zZ, band, Hs, inclinada } = campDecoAltos(m), r = RX(x0, x0 + m.ancho, zA, zZ), mat = m.material || cfg.materialGeneral;
+  fillMat(r.x, r.y, r.w, r.h, flat ? null : mat, C.front); outline(r, C.line, 1);
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  const hz = z => { const q = RX(x0, x0 + m.ancho, z, z); line(q.x, q.y, q.x + q.w, q.y); };
+  hz(zA + band); if (inclinada) hz(zA + Hs);
+  if (m.campanaRepisa) { const q = RX(x0, x0 + m.ancho, zA + Hs, zA + Hs + PLAN_CUERPO.lateral); fillMat(q.x, q.y, q.w, q.h, flat ? null : mat, C.front); outline(q, C.line, 1); }
+  ctx.fillStyle = C.muted; ctx.font = "400 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(inclinada ? 'Campana inclinada' : 'Campana recta', r.x + 4, r.y + r.h - band * frame.scale + 2); ctx.textBaseline = 'alphabetic';
+}
 function drawCampana(m, full, free){
   const scale = frame.scale;
   ctx.fillStyle = flat ? C.flat : C.front; ctx.fillRect(free.x, free.y, free.w, free.h); edgeY(free.y);
@@ -11174,7 +11224,7 @@ let planUsuario = (() => { try { const q = new URLSearchParams(location.search).
 const PLAN_FUNCION = { 'tipo:Hornos': 'pro', 'tipo:Alacena': 'pro', 'tipo:Basura': 'pro', 'tipo:Frigobar': 'pro', 'tipo:Especiero': 'pro',
   'tipo:EspecieroTorre': 'premium', 'tipo:Lavavajillas': 'pro', 'tipo:Doble': 'pro', 'tipo:Piston': 'premium', 'supTipo:SupPiston': 'premium',
   'style:Moderna': 'pro', 'style:Clasica': 'pro', 'esqSub:cajones': 'premium', 'esqAlacena:oculta': 'premium', 'esqBisInt:oculta': 'premium',
-  'led': 'pro', 'nariz': 'pro', 'tapS': 'pro', 'tapSMol': 'pro' };
+  'led': 'pro', 'nariz': 'pro', 'tapS': 'pro', 'tapSMol': 'pro', 'campTipo:recta': 'pro', 'campTipo:inclinada': 'pro' };   /* A437 */
 /* plan que pide la funcion act (con valor v), o null si es libre; el lavavajillas es libre en la region US */
 const planDe = (act, v) => act === 'tipo' && v === 'Lavavajillas' && cfg.region === 'US' ? null : PLAN_FUNCION[v === undefined ? act : act + ':' + v] || null;
 const tagPlan = (act, v, corto = false) => { const n = planDe(act, v); if (!n || PLANES.indexOf(planUsuario) >= PLANES.indexOf(n)) return '';
@@ -11401,7 +11451,9 @@ function modulePanel(m){
   html += section('Opciones', opts);
   if (m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
   if (m.upper && elevAlto(m) > 0) html += section('Subido', `<div class="grid-2">${num('elevAlto', 'Sobre los demás altos', elevAlto(m), 'cm', 0, 60)}</div><div class="note-sm">Solo este alto empieza más arriba; 0 lo alinea con los demás.</div>`);
-  if (hasCampana(m)) html += section('Campana', chk('soloCamp', !!m.soloCampana, 'Mostrar solo la campana (sin gabinete alto)') + (m.soloCampana ? `<div class="note-sm" style="margin-top:0">La columna lleva solo la campana: sin el gabinete alto${isDoble(m) ? ' ni el módulo superior' : ''}; la chimenea llega al tope.</div>` : '') + `<div class="grid-2" style="margin-top:8px">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
+  if (hasCampana(m)) html += section('Campana', chk('soloCamp', !!m.soloCampana, 'Mostrar solo la campana (sin gabinete alto)')
+    + (m.soloCampana ? `<div style="margin-top:8px">${radios('campTipo', [['acero', 'Acero (chimenea)'], ['recta', 'Decorativa recta'], ['inclinada', 'Decorativa inclinada']], m.campanaTipo || 'acero')}</div>`
+      + (campDeco(m) ? chk('campRep', !!m.campanaRepisa, 'Repisa sobre la campana') + `<div class="note-sm" style="margin-top:0">Caja de tableros con el material del módulo; el motor va adentro.</div>` : '') : '')   /* A437 */ + (m.soloCampana ? `<div class="note-sm" style="margin-top:0">La columna lleva solo la campana: sin el gabinete alto${isDoble(m) ? ' ni el módulo superior' : ''}; la chimenea llega al tope.</div>` : '') + `<div class="grid-2" style="margin-top:8px">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
   if (isDoble(m) && !hasCampana(m)) {   /* A38: repisas y divisiones del gabinete inferior y del superior */
     const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS;
     html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Caja corrida: repisas y divisiones en toda la caja.' : ''}</div>`
@@ -11847,6 +11899,7 @@ const ACT = {
   /* altos: campana y alto doble */
   infAb: (v, m) => change(() => { const t = byId(m.id); t.inferiorAbierto = v; if (v) t.dosPuertas = false; }),
   soloCamp: (v, m) => change(() => byId(m.id).soloCampana = v, 'Revisar altura'),   /* A81 */
+  campTipo: (v, m) => change(() => byId(m.id).campanaTipo = v), campRep: (v, m) => change(() => byId(m.id).campanaRepisa = v),   /* A437 */
   hueco: (v, m) => change(() => byId(m.id).huecoCampana = v, 'Revisar altura'), fCamp: (v, m) => change(() => byId(m.id).fondoCampana = v),
   mCamp: (v, m) => change(() => byId(m.id).mostrarCampana = v),
   editCap: (v, m) => { const g = capGroupOf(m); if (g) selectPart('ucap:' + g.lead.id); },
