@@ -365,6 +365,14 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A405. [Master hecho 21/10; SketchUp: modelo nuevo tandem_corredera_intermedia (ARCHIVOS y acero) y reemplazar tandem_corredera_fija y tandem_corredera_carro (partidos); Revit pendiente]
+       (usuario 21/10, captura con el cajon abierto: «separa el riel intermedio y le sigue faltando geometria al fijo y al carro») El 563F de Blum es una sola piel CERRADA del conjunto
+       cerrado (0 aristas abiertas): donde dos miembros se tocan no hay caras. Al partirlo, cada parte quedaba abierta en esas costuras (45 aristas: el fondo del carro sobre el riel
+       intermedio, el intermedio sobre la pared guia, el gancho delantero) y con el cajon abierto se veian los huecos. Ahora (PruebaEquipos/partir_original.py) se parte en TRES:
+       fija (546 caras de Blum), riel intermedio (17) y carro (87); cada cara de Blum se copia tal cual (su poligono con huecos, aristas suaves y material; sin triangular) y cada
+       costura se tapa con caras nuevas (37, 10 y 39; aristas entre tapas suaves); las tres partes salen cerradas (ninguna arista con una sola cara). Cajas: fija
+       [-4.44,-3.4,-3.63]..[0,51.3,1.12], intermedia [-5.678,7.05,-3.209]..[-3.203,50.5,-2.717], carro [-5.605,2.126,-2.717]..[-2.022,51.4,1.272]. El riel intermedio va como
+       CorrederaMedia (el tipo de la media de la visible) en dos estados con frente: cerrado bajo el carro y abierto a la mitad del recorrido del cajon (extension total).
    A404. [Master hecho 21/10; SketchUp: reemplazar tandem_corredera_fija y tandem_corredera_carro (partidos, 20:5x) y la caja del carro en el catalogo; Revit pendiente] (usuario 21/10, captura:
        un disco ovalado suelto atras de la corredera y el carro incompleto) La tapa trasera ovalada del carro (Y 50.30..50.81, entra hasta X -2.02) quedaba con la parte fija por la regla de X; ahora
        todo lo que esta detras de Y 49.8 y sobre el fondo (Z >= -0.98) es del carro (partir_original.py): fija 563 caras, carro 87, caja del carro [-5.605,2.126,-2.717]..[-2.022,51.4,1.272].
@@ -4789,7 +4797,7 @@ const MODELO = {
   /* A396 (usuario 21/10: «con modelo skp»): piezas oficiales de la TANDEM (3D Warehouse, Blum USA) en el marco del catalogo: pared en X = 0 (hacia adentro X negativo), frente en Y cerca de 0 (atras
      Y positivo), Z con la base del perfil en -3.63. Bloqueo T51.1700.04 (viene inclinado unos 24 grados en Y-Z, tal como lo exporto Blum) y ajustador frontal 295.1000.21 */
   /* A397: el perfil real (modelo 563F5330B partido en la parte fija, con la brida y la base, y el carro que sostiene el fondo y viaja con el cajon; herramientas partir_corredera_tandem.py) */
-  tandem: { fija: [[-5.678, -3.4, -3.63], [0, 51.3, 1.12]], carro: [[-5.605, 2.126, -2.717], [-2.022, 51.4, 1.272]], frenteCaja: -3.7, traseraCaja: 49.88, bajoFondo: -.98, bloqueo: [[-7.599, -3.7, -2.72], [-2.135, 4.378, -.98]], ajustador: [[-8.34, 2.06, 3.7], [-6.26, 4.14, 4.7]], frenteY: -.97, baseZ: -3.63 },
+  tandem: { fija: [[-4.44, -3.4, -3.63], [0, 51.3, 1.12]], intermedia: [[-5.678, 7.05, -3.209], [-3.203, 50.5, -2.717]], carro: [[-5.605, 2.126, -2.717], [-2.022, 51.4, 1.272]], frenteCaja: -3.7, traseraCaja: 49.88, bajoFondo: -.98, bloqueo: [[-7.599, -3.7, -2.72], [-2.135, 4.378, -.98]], ajustador: [[-8.34, 2.06, 3.7], [-6.26, 4.14, 4.7]], frenteY: -.97, baseZ: -3.63 },
   bisagraLibro: { grados: 90, cajaA: [[-2.475, -.475, -3.8], [.475, .475, 3.8]], cajaB: [[-.475, -.475, -3.8], [.475, 2.475, 3.8]],
     radio: .475, ala: 2, grueso: .2, alto: 7.6, esquina: .4, tornillos: [1.27, 3.8, 6.35], cabeza: .4, cabezaAlto: .05 },
   corredera: { fija: [[.139, 0, 0], [1.27, 49.845, 2.869]], media: [[.162, 6.493, .32], [1.087, 49.845, 2.549]], movil: [[0, .675, .668], [.675, 50.003, 2.201]],
@@ -6152,6 +6160,10 @@ function planDePiezas(c = cfg){
           const piso = iz.z + PLAN_TANDEM.ranura, mar = { ox: cara, refX: 0, espejo: sg > 0, oy: iz.y + iz.fondo, refY: MT.frenteCaja, sy: iz.fondo/(MT.traseraCaja - MT.frenteCaja), oz: piso, refZ: MT.bajoFondo };
           add(Object.assign({ id: d + ':corredera:' + lado + sk, tipo: 'Corredera', modelo: { archivo: 'tandem_corredera_fija', espejo: sg > 0 } }, dato, cajaModelo(MT.fija, mar)));
           add(Object.assign({ id: d + ':corredera:' + lado + sk + ':movil', tipo: 'CorrederaMovil', frente: d, modelo: { archivo: 'tandem_corredera_carro', espejo: sg > 0 } }, dato, cajaModelo(MT.carro, mar)));
+          /* A405 (usuario 21/10: «separa el riel intermedio»): el riel intermedio de Blum, en dos estados como la media de la visible; abierto sale la mitad del recorrido del cajon (extension total) */
+          const pr = (movibles.get(d) || []).find(r => r.abre), rec = pr ? pr.abre.recorrido*(pr.abre.fraccion ?? 1) : 0;
+          [['cerrado', 0], ['abierto', r2(rec/2)]].forEach(([estado, dy]) => add(Object.assign({ id: d + ':corredera:' + lado + sk + ':media:' + estado, tipo: 'CorrederaMedia', frente: d, estado,
+            modelo: { archivo: 'tandem_corredera_intermedia', espejo: sg > 0 } }, dato, cajaModelo(MT.intermedia, Object.assign({}, mar, { oy: mar.oy + dy }))))); 
           add(Object.assign({ id: d + ':corredera:' + lado + sk + ':bloqueo', tipo: 'CorrederaBloqueo', frente: d, modelo: { archivo: 'tandem_bloqueo', espejo: sg > 0 } }, dato, cajaModelo(MT.bloqueo, Object.assign({}, mar, { sy: 1 }))));
           /* A403: ajustador frontal 295.1000 (ficha p. 19: «para cajones de 4 lados», barreno de 20 mm y 10.5 de hondo): embutido al ras en la cara exterior del frente de la caja,
              con la arandela roscada hacia el frente decorativo (Z 4.7 del archivo). La ficha no da su posicion: centrado en el alto del frente de la caja y a 5 cm del costado (supuesto) */
@@ -6576,7 +6588,7 @@ function pruebasPlanMX(){
     /* A384: corredera oculta Blum TANDEM: la caja mide su NL (25 a 60 cm) y su ancho interior es el hueco entre laterales menos 42 mm; dos perfiles (fijo y movil) por costado, bajo la caja */
     if (c.correderaTipo === 'oculta') p.piezas.filter(q => q.rol === 'caja' && /:lado:izq$/.test(q.id)).forEach(iz => {
       const dr = p.piezas.find(q => q.id === iz.id.replace(/:lado:izq$/, ':lado:der')), fd = iz.frente || iz.id; if (!dr) return;
-      if (p.piezas.some(r => r.frente === fd && r.tipo === 'CorrederaMedia')) return;   /* el especiero y el cesto siguen con la visible */
+      if (p.piezas.some(r => r.frente === fd && r.tipo === 'CorrederaMedia' && !(r.modelo && r.modelo.archivo === 'tandem_corredera_intermedia'))) return;   /* el especiero y el cesto siguen con la visible */
       const paredes = p.piezas.filter(r => r.modulo === iz.modulo && (r.rol === 'panel' && r.tipo === 'Lateral' || r.rol === 'division') && r.z < iz.z + iz.alto && r.z + r.alto > iz.z && r.y < iz.y + iz.fondo && r.y + r.fondo > iz.y);
       const L = Math.max(...paredes.filter(r => r.x + r.ancho <= iz.x + .01).map(r => r.x + r.ancho)), R = Math.min(...paredes.filter(r => r.x >= dr.x + dr.ancho - .01).map(r => r.x));
       const hg = (PLAN_TANDEM.interior - 2*PLAN_CAJA.lado)/2;   /* la configuracion probada, no la activa */
@@ -6587,6 +6599,11 @@ function pruebasPlanMX(){
       const piso = p.piezas.find(q => q.id === iz.id.replace(/:lado:izq$/, ':piso'));
       /* A403: el carro y el bloqueo tocan el fondo por abajo; el bloqueo y el frente del perfil al frente de la caja (el perfil 3 mm detras); el ajustador al ras del frente de la caja;
          el frente y la trasera de la caja arrancan a la altura del fondo */
+      /* A405: el riel intermedio cerrado bajo el carro (su cara de arriba contra el fondo del carro) y abierto a la mitad del recorrido */
+      const med = rieles.filter(r => r.tipo === 'CorrederaMedia'), mov = rieles.find(r => r.tipo === 'CorrederaMovil'), pr = p.piezas.find(r => r.id === fd && r.abre);
+      ok(med.length === 4 && med.every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_intermedia') && mov && med.filter(r => r.estado === 'cerrado').every(r => Math.abs(r.z + r.alto - mov.z) < .02)
+        && med.filter(r => r.estado === 'abierto').every(a => { const c = med.find(r => r.estado === 'cerrado' && r.x === a.x); return c && pr && Math.abs(a.y - c.y - pr.abre.recorrido*(pr.abre.fraccion ?? 1)/2) < .02; }),
+        nombre + ': el riel intermedio de ' + iz.id + ' no queda bajo el carro o no sale a la mitad del recorrido');
       const blq = rieles.filter(r => r.tipo === 'CorrederaBloqueo'), aju = rieles.filter(r => r.tipo === 'CorrederaAjustador'), yF = iz.y + iz.fondo, caja = p.piezas.filter(q => q.frente === fd && q.rol === 'caja');
       ok(piso && Math.abs(piso.z - (iz.z + PLAN_TANDEM.ranura)) < .02 && rieles.filter(r => r.tipo === 'Corredera').every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_fija' && r.y + r.fondo <= yF - .25 && r.y + r.fondo >= yF - .35)
         && rieles.filter(r => r.tipo === 'CorrederaMovil').every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_carro' && Math.abs(r.z - (piso.z - 1.738)) < .02)
@@ -6911,7 +6928,7 @@ function pruebasPlanMX(){
       ok(tapa && piso && !tapa.ranura && piso.z - tapa.z >= PLAN_SAQUE - .01, nombre + ': la tapa del cajon oculto no baja su saque en ' + m.id); });   /* A141 */
     /* A138: herrajes tal cual: cada pieza con modelo de la biblioteca y caja positiva; cada bisagra cerrada con su abierta (las dos
        con estado y su puerta) y la puerta girando cerca de la placa; cada corredera media en sus dos estados */
-    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'tandem_bloqueo', 'tandem_ajustador', 'tandem_corredera_fija', 'tandem_corredera_carro', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252; A396: los de la TANDEM */
+    const ARCHIVOS = ['bisagra_brazo_cerrada', 'bisagra_brazo_abierta', 'bisagra_brazo_abierta90', 'bisagra_cazoleta', 'bisagra_plegable_cazoleta', 'bisagra_plegable_brazo', 'bisagra_libro_a', 'bisagra_libro_b', 'bisagra155_brazo', 'bisagra155_cazoleta', 'bisagra155_eslabones', 'bisagra155_eslabones_abierta', 'piston_cuerpo', 'piston_vastago', 'piston_soporte', 'piston_soporte_puerta', 'corredera_fija', 'corredera_media', 'corredera_movil', 'tandem_bloqueo', 'tandem_ajustador', 'tandem_corredera_fija', 'tandem_corredera_carro', 'tandem_corredera_intermedia', 'condimentero', 'bote', ...Object.keys(MODELO_EQUIPOS)];   /* A252; A396: los de la TANDEM */
     p.piezas.filter(q => q.modelo).forEach(q => ok(ARCHIVOS.includes(q.modelo.archivo) && q.ancho > 0 && q.fondo > 0 && q.alto > 0, nombre + ': herraje sin modelo valido ' + q.id));
     p.piezas.filter(q => q.modelo && q.modelo.archivo === 'bisagra_brazo_cerrada' && !q.modelo.ejes).forEach(q => { const a = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':bisagraAbierta:')), pr = p.piezas.find(r => r.abre && r.frente === q.frente);
       const cz = p.piezas.find(r => r.id === q.id.replace(':bisagra:', ':cazoleta:'));
