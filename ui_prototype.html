@@ -370,6 +370,10 @@
        Gratis, Pro y Premium; planUsuario (sketchupPlan o ?plan= en el prototipo; de fabrica premium = todo abierto); PLAN_FUNCION con el
        plan de cada funcion (sigue a licencia_reglas.json); tagPlan en tiles, radios, chk y estilos; botones Render IA (Premium) y Exportar
        PDF de Presentar (Pro) con data-req-plan. La bisagra intermedia ya no dice «(Pro)» en el texto: lo marca la etiqueta.
+   A424. [Master hecho 22/10; SketchUp: licencia_reglas.json premium_a_la_venta false y torre, frigobar y gola en Pro (c494a8c); Revit
+       pendiente] (usuario 22/10: «todo lo premium lo vamos a desarrollar y sacar al publico despues de sacar la pro a la venta»; «salida 1 y
+       las tres pasan a Pro»): torre de hornos, frigobar de vinos y estilo Moderna (gola) con etiqueta Pro; mientras Premium no se vende
+       (PREMIUM_A_LA_VENTA false) sus etiquetas dicen «Premium · próximamente».
    A423. [Master hecho 22/10; SketchUp: modelos basura_colgante_movil y basura_colgante_fija (herramientas/basura_colgante.py rehecho;
        fuera basura_colgante); Revit pendiente] (usuario 22/10, con captura del herraje abierto: «los botes colgantes no estan mostrando todo
        el modelo base (corredera, cubos y tapa de amarre al frente del cajon), ademas esta simulando mal su funcionamiento; este modulo ya
@@ -2918,6 +2922,7 @@
   .ftile { position: relative; }
   .plan-tag { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 3px; font: 600 9px/1.4 'Inter', sans-serif; letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px; color: #fff; background: var(--ink); }
   .plan-tag.plan-premium { background: #13212B; }
+  .plan-tag.pronto { background: #fff; color: #13212B; box-shadow: inset 0 0 0 1px #13212B; outline: 1px dashed #fff; }
   .ftile .plan-tag { position: absolute; top: 3px; right: 3px; margin: 0; }
   body[data-plan="gratis"] [data-req-plan]::after, body[data-plan="pro"] [data-req-plan="premium"]::after { content: attr(data-req-label); margin-left: 6px; padding: 1px 5px; border-radius: 3px; font: 600 9px/1.4 'Inter', sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: var(--ink); }
   body[data-plan] [data-req-plan="premium"]::after { background: #13212B; }
@@ -11046,20 +11051,25 @@ const FI_CORTO = { 'Abierto / repisas': 'Abierto', 'Módulo inferior + módulo s
    plan que tengas»): planes Gratis, Pro y Premium. planUsuario lo manda SketchUp (sketchupPlan); en el prototipo todo esta abierto y
    ?plan=gratis o ?plan=pro en la direccion muestra las etiquetas. PLAN_FUNCION sigue a licencia_reglas.json de Skitchen (el que de verdad
    bloquea al generar) y a PLAN_LICENCIA.md; las marcadas «por confirmar» alla siguen su nivel provisional aqui. */
-const PLANES = ['gratis', 'pro', 'premium'], PLAN_NOMBRE = { pro: 'Pro', premium: 'Premium' };
+const PLANES = ['gratis', 'pro', 'premium'];
+/* A424 (usuario 22/10): Premium sale despues de vender Pro; mientras, sus funciones dicen «Premium · próximamente» (igual que
+   premium_a_la_venta en licencia_reglas.json) */
+const PREMIUM_A_LA_VENTA = false, PLAN_NOMBRE = { pro: 'Pro', premium: PREMIUM_A_LA_VENTA ? 'Premium' : 'Premium · próximamente' };
 let planUsuario = (() => { try { const q = new URLSearchParams(location.search).get('plan'); return PLANES.includes(q) ? q : 'premium'; } catch (e) { return 'premium'; } })();
-const PLAN_FUNCION = { 'tipo:Hornos': 'premium', 'tipo:Alacena': 'pro', 'tipo:Basura': 'pro', 'tipo:Frigobar': 'premium', 'tipo:Especiero': 'pro',
+const PLAN_FUNCION = { 'tipo:Hornos': 'pro', 'tipo:Alacena': 'pro', 'tipo:Basura': 'pro', 'tipo:Frigobar': 'pro', 'tipo:Especiero': 'pro',
   'tipo:EspecieroTorre': 'premium', 'tipo:Lavavajillas': 'pro', 'tipo:Doble': 'pro', 'tipo:Piston': 'premium', 'supTipo:SupPiston': 'premium',
-  'style:Moderna': 'premium', 'style:Clasica': 'pro', 'esqSub:cajones': 'premium', 'esqAlacena:oculta': 'premium', 'esqBisInt:oculta': 'premium',
+  'style:Moderna': 'pro', 'style:Clasica': 'pro', 'esqSub:cajones': 'premium', 'esqAlacena:oculta': 'premium', 'esqBisInt:oculta': 'premium',
   'led': 'pro', 'nariz': 'pro', 'tapS': 'pro', 'tapSMol': 'pro' };
 /* plan que pide la funcion act (con valor v), o null si es libre; el lavavajillas es libre en la region US */
 const planDe = (act, v) => act === 'tipo' && v === 'Lavavajillas' && cfg.region === 'US' ? null : PLAN_FUNCION[v === undefined ? act : act + ':' + v] || null;
-const tagPlan = (act, v) => { const n = planDe(act, v); return n && PLANES.indexOf(planUsuario) < PLANES.indexOf(n) ? `<span class="plan-tag plan-${n}">${PLAN_NOMBRE[n]}</span>` : ''; };
+const tagPlan = (act, v, corto = false) => { const n = planDe(act, v); if (!n || PLANES.indexOf(planUsuario) >= PLANES.indexOf(n)) return '';
+  const pronto = n === 'premium' && !PREMIUM_A_LA_VENTA;   /* A424: en las tarjetas, corto con borde punteado y el texto completo al pasar el mouse */
+  return `<span class="plan-tag plan-${n}${pronto ? ' pronto' : ''}" title="${PLAN_NOMBRE[n]}">${corto ? (n === 'pro' ? 'Pro' : 'Premium') : PLAN_NOMBRE[n]}</span>`; };
 function sketchupPlan(nivel){ if (!PLANES.includes(nivel)) return; planUsuario = nivel; marcarPlan(); render(); }
 function marcarPlan(){ document.body.dataset.plan = planUsuario;
   [['btnRender', 'premium'], ['presExportar', 'pro']].forEach(([id, n]) => { const b = document.getElementById(id); if (b) { b.dataset.reqPlan = n; b.dataset.reqLabel = PLAN_NOMBRE[n]; } }); }
 marcarPlan();
-const tiles = (act, opts, cur, ic) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${(ic && FI[ic[v]]) || FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span>${tagPlan(act, v)}</button>`).join('')}</div>`;   /* A416 */
+const tiles = (act, opts, cur, ic) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${(ic && FI[ic[v]]) || FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span>${tagPlan(act, v, true)}</button>`).join('')}</div>`;   /* A416 */
 const toggles = list => `<div class="ftiles otiles">${list.map(([act, on, t, icon]) => `<button type="button" class="ftile${on ? ' on' : ''}" data-act="${act}" aria-pressed="${on ? 'true' : 'false'}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${icon}</svg><span>${esc(t)}</span></button>`).join('')}</div>`;
 /* A345 (usuario 21/10: «la funcion particular de los modulos internos de torres (doble clic) deberia ser grafica para identificarlo a la
    primera»; «la funcion "Puertas" se une con la opcion de 2 puertas: al elegirla queda una sola y despues aparece la opcion de 2 puertas»):
