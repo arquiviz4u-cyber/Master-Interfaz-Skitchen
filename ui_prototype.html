@@ -344,6 +344,12 @@
    A376. [Master hecho 21/10; SketchUp: el clic en una pieza sin frente ya abre todo su gabinete; Revit pendiente] (usuario 21/10: «los
        cajones con tarja no abren») En el mueble de la tarja con cajones (A373) el primero es un falso frente fijo; el clic en el no hacia
        nada en el isometrico. Ahora un clic en el falso frente abre (o cierra) los cajones de su mueble.
+   A392. [Master hecho 21/10; SketchUp: dibuja las piezas del plan como cajas; Revit pendiente] (usuario 21/10: bajo del 3D Warehouse de Blum USA el modelo oficial 563F5330B)
+       La corredera oculta (TANDEM 19 mm) toma la geometria real del perfil medida en el modelo de Blum USA: 5.68 cm de ancho y 4.75 de alto = base de 0.35 (Corredera), brida contra el lateral de
+       0.4 (CorrederaBrida, pieza nueva) y carro hueco de 3 cm (CorrederaMovil, entre 0.91 y 2.65 sobre la base, viaja con el cajon). La base queda 1.4 cm bajo el canto inferior del costado
+       (PLAN_TANDEM.riel; ficha TD-131/3 «min 27.5»), y el fondo de la caja sube a 13.5 mm del canto del costado (PLAN_TANDEM.ranura; ficha «12-15»; con la visible sigue en 5 mm). El carro
+       queda justo bajo el fondo y entre el frente y la trasera de la caja. Archivos en G:\Sketchup\Kitchen\Correderas (563F5330B.skp, TAN+T51.1700.04.skp: bloqueo de 5.6 x 8.0 x 5.0 cm, aun sin
+       modelar). Sin modelo .skp todavia: son cajas. Pendiente: bloqueo (2 por cajon), ajustador frontal 295.1000.21 y la perforacion de 37 y 32 mm del frente.
    A391. [Master hecho 21/10; SketchUp: lee intermedia y ocultaSinPuertas del plan; Revit pendiente] (usuario 21/10: «las bisagras de todos
        los esquineros no se representan bien, salen mal ubicadas, solapadas») Esquinero en L plegable: la bisagra intermedia es siempre la
        oculta Blum 79T8500 (la de libro quedaba montada en el cruce de las caras posteriores y sus alas se separaban al abrir con el giro de
@@ -4543,7 +4549,11 @@ const PLAN_PATA = { borde: 5, clip: 4.5, seisDesde: 76.5, placa: [9.2, 7.9, 2.5]
    SKW = LW - 49 (+0/-1.5) con LW el hueco entre laterales; largo del cajon SKL = NL - 10; el mueble pide NL + 3 de fondo; 24.5 mm de la pared al interior del costado; taladros frontales a 37 y 32 mm.
    Con costados de 1.8 cm deja 0.65 cm entre la caja y el lateral (visible: 1.3). La caja sube riel cm sobre el piso del cajon: los dos perfiles (el fijo en el lateral y el que viaja con el cajon)
    van debajo del costado. Geometria esquematica: alto y ancho del perfil no vienen en la ficha (dibujo) */
-const PLAN_TANDEM = { nl: [25, 27, 30, 35, 40, 45, 50, 55, 60], interior: 4.9, corto: 1, espacio: .3, riel: 1.3, rielAncho: 1.7, rielFija: .6, carga: 30 };
+/* A392: el perfil sale del modelo oficial 563F5330B de Blum USA (3D Warehouse; la 563F es la numeracion anterior de la 560F) medido en un corte a media longitud, y la altura sobre el costado de la
+   ficha TD-131/3 («min 27.5» del perfil al fondo y «12-15» del fondo al canto inferior del costado): perfil de 5.68 cm de ancho y 4.75 de alto, formado por una brida contra el lateral (0.4 cm),
+   una base de 0.35 bajo el costado y el fondo, y un carro hueco de 3 cm de ancho entre 0.91 y 2.65 cm sobre la base, justo bajo el fondo del cajon. riel: de la base al canto inferior del costado
+   (27.5 - 13.5 = 1.4); ranura: del canto inferior del costado al fondo (13.5 mm, no los 5 mm de los cajones de corredera visible) */
+const PLAN_TANDEM = { nl: [25, 27, 30, 35, 40, 45, 50, 55, 60], interior: 4.9, corto: 1, espacio: .3, riel: 1.4, ranura: 1.35, perfil: { ancho: 5.68, alto: 4.75, brida: .4, base: .35, carro: [.91, 2.65, 3] }, carga: 30 };
 const correderaOculta = () => cfg.correderaTipo === 'oculta';
 const holguraCaja = () => correderaOculta() ? Math.max(0, (PLAN_TANDEM.interior - 2*PLAN_CAJA.lado)/2) : PLAN_CAJA.holgura;
 const nlTandem = disp => { const v = PLAN_TANDEM.nl.filter(n => n + PLAN_TANDEM.espacio <= disp + .001); return v.length ? v[v.length - 1] : disp - PLAN_TANDEM.espacio; };   /* el mueble pide NL + 3 mm de fondo */
@@ -4992,7 +5002,7 @@ function planDePiezas(c = cfg){
     const cajaCajon = (m, base, h, f, frenteId) => {   /* frenteId: la caja se mueve con su frente (Interactuar) */
       const c = PLAN_CAJA, oc = correderaOculta(), hg = holguraCaja(), x0 = h.x0 + hg, x1 = h.x1 - hg, y1 = h.yF ?? h.y1, yb = h.y0 + c.retiro;   /* A140: llega al frente sobre la holgura */
       const y0 = oc ? Math.max(yb, y1 - (nlTandem(y1 - yb) - PLAN_TANDEM.corto)) : yb;   /* A384: con TANDEM el largo del cajon es NL - 10 mm (ficha TD-127/3, p. 5), anclado al frente */
-      const z0 = Math.max(f.z0, h.z0 + .5) + (oc ? PLAN_TANDEM.riel : 0), z1 = Math.min(Math.max(z0 + 4, f.z1 - c.libreArriba), h.z1 - .5), mat = matPanel(m, 'cuerpo', 'caja', 'Interior');
+      const z0 = Math.max(f.z0, h.z0 + .5) + (oc ? PLAN_TANDEM.riel : 0), z1 = Math.min(Math.max(z0 + 4, f.z1 - c.libreArriba), h.z1 - .5), mat = matPanel(m, 'cuerpo', 'caja', 'Interior'), rj = oc ? PLAN_TANDEM.ranura : c.ranura;   /* A392: con TANDEM el fondo va a 13.5 mm del canto inferior */
       const lado = (k, tipo, a, b, p0, p1, q0, q1) => add({ frente: frenteId, id: base + ':' + k, rol: 'caja', modulo: m.id, tipo, x: a, y: p0, z: q0, ancho: b - a, fondo: p1 - p0, alto: q1 - q0, material: mat, etiqueta: 'gabinetes' });
       lado('lado:izq', 'Lado', x0, x0 + c.lado, y0, y1, z0, z1);
       lado('lado:der', 'Lado', x1 - c.lado, x1, y0, y1, z0, z1);
@@ -5003,11 +5013,11 @@ function planDePiezas(c = cfg){
         const xl = r2((Wi - N)/2);
         lado('trasera', 'Trasera', xi0, xi0 + xl, y0, y0 + c.lado, z0, z1);
         lado('trasera:der', 'Trasera', xi1 - xl, xi1, y0, y0 + c.lado, z0, z1);
-        lado('piso', 'Piso', xi0, xi1, y0 + c.lado, y1 - c.lado, z0 + c.ranura, z0 + c.ranura + c.piso);
+        lado('piso', 'Piso', xi0, xi1, y0 + c.lado, y1 - c.lado, z0 + rj, z0 + rj + c.piso);
         const q = piezas[piezas.length - 1]; if (q && q.id === base + ':piso') q.forma = { tipo: 'perfil', eje: 'z', puntos: [[0, 0], [xl, 0], [xl, r2(Dn)], [r2(xl + N), r2(Dn)], [r2(xl + N), 0], [r2(Wi), 0], [r2(Wi), r2(Hf)], [0, r2(Hf)]] };
         return; }
       lado('trasera', 'Trasera', x0 + c.lado, x1 - c.lado, y0, y0 + c.lado, z0, z1);
-      lado('piso', 'Piso', x0 + c.lado, x1 - c.lado, y0 + c.lado, y1 - c.lado, z0 + c.ranura, z0 + c.ranura + c.piso);   /* A370 */
+      lado('piso', 'Piso', x0 + c.lado, x1 - c.lado, y0 + c.lado, y1 - c.lado, z0 + rj, z0 + rj + c.piso);   /* A370 */
     };
     /* A138: el especiero y el cesto llevan su propio herraje en lugar de la caja de cajon: no pasan por el ajuste de la gola (B18) y
        sus correderas van en los lados que se dan aqui */
@@ -5834,7 +5844,7 @@ function planDePiezas(c = cfg){
         if ((g.z0 + g.z1)/2 < (z0 + z1)/2) a = Math.max(a, g.z1 + PLAN_CAJA.libreGola + (correderaOculta() ? PLAN_TANDEM.riel : 0)); else b = Math.min(b, g.z0 - PLAN_CAJA.libreGola); });   /* A384: los perfiles de la corredera oculta van bajo la caja */
       if (a === z0 && b === z1) return;
       if (b - a < 4) b = a + 4;
-      qs.forEach(q => { const sq = saques.get(q.id) || 0; if (q.tipo === 'Piso') q.z = r2(a + PLAN_CAJA.ranura); else { q.z = r2(a - sq); q.alto = r2(b - a + sq); } });   /* A370: el piso sigue 5 mm sobre el borde */
+      qs.forEach(q => { const sq = saques.get(q.id) || 0; if (q.tipo === 'Piso') q.z = r2(a + (correderaOculta() && qs.some(r => /:lado:izq$/.test(r.id)) ? PLAN_TANDEM.ranura : PLAN_CAJA.ranura)); else { q.z = r2(a - sq); q.alto = r2(b - a + sq); } });   /* A370: el piso sigue 5 mm sobre el borde */
     });
     /* B17 Interactuar (como en Revit): cada frente que abre (puerta, cajon o elevable, no fijo) junta sus piezas (tablero o marcos,
        jaladera, bisagras, juntas, zoclo de puerta oculta, caja de cajon) con frente = id del frente; la pieza principal lleva abre:
@@ -5963,12 +5973,14 @@ function planDePiezas(c = cfg){
     const C9 = PLAN_CORREDERA, hueco = PLAN_CAJA.holgura, MC = MODELO.corredera;
     const parCorrederas = (d, iz, dr, k = 0, oc = false) => {
       if (!iz || !dr) return; const sk = k ? ':' + k : '';   /* A347: juegos de mas del especiero */
-      if (oc) {   /* A384: TANDEM: perfil fijo en el lateral y perfil movil con el cajon, debajo de cada costado de la caja */
-        const T9 = PLAN_TANDEM, hg = holguraCaja(), zf = iz.z - T9.riel;
+      if (oc) {   /* A384; A392: TANDEM con el perfil del modelo de Blum: base y brida (fijas, en el lateral) y carro (viaja con el cajon, bajo el fondo) */
+        const T9 = PLAN_TANDEM, P9 = T9.perfil, hg = holguraCaja(), zr = iz.z - T9.riel, yR = r2(iz.y - T9.corto), largo = r2(iz.fondo + T9.corto);
         [['izq', iz.x - hg, 1], ['der', dr.x + dr.ancho + hg, -1]].forEach(([lado, cara, sg]) => {
-          const x = sg > 0 ? cara : cara - T9.rielAncho, base = { rol: 'herraje', modulo: iz.modulo, material: null, etiqueta: 'herrajes', oculta: true, x: r2(x), y: r2(iz.y - T9.corto), ancho: T9.rielAncho, fondo: r2(iz.fondo + T9.corto) };   /* el perfil mide el NL: 10 mm mas que el costado del cajon */
-          add(Object.assign({ id: d + ':corredera:' + lado + sk, tipo: 'Corredera', z: r2(zf), alto: T9.rielFija }, base));
-          add(Object.assign({ id: d + ':corredera:' + lado + sk + ':movil', tipo: 'CorrederaMovil', frente: d, z: r2(zf + T9.rielFija), alto: r2(T9.riel - T9.rielFija) }, base)); });
+          const xs = (a, b) => ({ x: r2(sg > 0 ? cara + a : cara - b), ancho: r2(b - a) }), dato = { rol: 'herraje', modulo: iz.modulo, material: null, etiqueta: 'herrajes', oculta: true };
+          add(Object.assign({ id: d + ':corredera:' + lado + sk, tipo: 'Corredera', y: yR, fondo: largo, z: r2(zr), alto: P9.base }, xs(0, P9.ancho), dato));
+          add(Object.assign({ id: d + ':corredera:' + lado + sk + ':brida', tipo: 'CorrederaBrida', y: yR, fondo: largo, z: r2(zr + P9.base), alto: r2(P9.alto - P9.base) }, xs(0, P9.brida), dato));
+          add(Object.assign({ id: d + ':corredera:' + lado + sk + ':movil', tipo: 'CorrederaMovil', frente: d, y: r2(iz.y + PLAN_CAJA.lado), fondo: r2(iz.fondo - 2*PLAN_CAJA.lado), z: r2(zr + P9.carro[0]), alto: r2(P9.carro[1] - P9.carro[0]) },
+            xs(hg + PLAN_CAJA.lado, hg + PLAN_CAJA.lado + P9.carro[2]), dato)); });
         return; }
       const largo = cfg.region === 'US' ? Math.min(iz.fondo, Math.max(inch(9), Math.min(inch(21), Math.floor(iz.fondo/inch(3) + 1e-6)*inch(3))))   /* E14: 9-21" de 3 en 3 */
         : Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), yF = iz.y + iz.fondo;
@@ -6389,8 +6401,10 @@ function pruebasPlanMX(){
       if (isFinite(L) && isFinite(R)) ok(Math.abs((R - L) - (dr.x + dr.ancho - iz.x) - 2*hg) < .02, nombre + ': el ancho de la caja de ' + iz.id + ' no deja 42 mm menos que el hueco');
       ok(PLAN_TANDEM.nl.some(n => Math.abs(n - PLAN_TANDEM.corto - iz.fondo) < .06) || iz.fondo + PLAN_TANDEM.corto < PLAN_TANDEM.nl[0], nombre + ': el costado de ' + iz.id + ' mide ' + iz.fondo + ', que no es NL - 10 mm de un largo de TANDEM');
       const rieles = p.piezas.filter(r => r.oculta && r.id.startsWith(fd + ':corredera:'));
-      ok(rieles.filter(r => r.tipo === 'Corredera').length === 2 && rieles.filter(r => r.tipo === 'CorrederaMovil').length === 2, nombre + ': ' + iz.id + ' sin sus cuatro perfiles de TANDEM');
-      ok(rieles.every(r => r.z + r.alto <= iz.z + .011), nombre + ': los perfiles de ' + iz.id + ' no quedan bajo la caja'); });
+      ok(['Corredera', 'CorrederaBrida', 'CorrederaMovil'].every(t => rieles.filter(r => r.tipo === t).length === 2), nombre + ': ' + iz.id + ' sin sus seis piezas de perfil de TANDEM');
+      const piso = p.piezas.find(q => q.id === iz.id.replace(/:lado:izq$/, ':piso'));
+      ok(rieles.filter(r => r.tipo === 'Corredera').every(r => Math.abs(r.z - (iz.z - PLAN_TANDEM.riel)) < .02) && piso && rieles.filter(r => r.tipo === 'CorrederaMovil').every(r => r.z + r.alto <= piso.z + .011) && piso && Math.abs(piso.z - (iz.z + PLAN_TANDEM.ranura)) < .02,
+        nombre + ': el perfil de ' + iz.id + ' no queda a 14 mm bajo el costado y el carro bajo el fondo (a 13.5 mm del canto)'); });
     /* gola: detras de cada hueco de agarre queda libre el canal (del alma del perfil al plano de los frentes) para los dedos */
     if (c.style === 'Moderna') p.piezas.filter(q => q.tipo === 'Gola' && !q.forma && !String(q.id).startsWith('esq')).forEach(g => {   /* A143: la gola del esquinero corre por sus alas (otra orientacion) */   /* A139: la gola a 45 del esquinero diagonal es una losa (forma) */
       const alma = p.piezas.find(q => q.id === g.id), dedo = { x: g.x + .5, y: g.y + g.fondo + .01, z: 0, ancho: g.ancho - 1, fondo: 0, alto: 0 };
@@ -14447,7 +14461,7 @@ const LAM = (() => {
       if (d.fr) { J.H(Xa(d.fr.x), Xa(d.fr.x + d.fr.ancho), Ya(z1) - 24, fmt(d.fr.ancho)); J.V(Math.min(Xa(d.fr.x), Xa(bx0)) - 26, Ya(d.fr.z + d.fr.alto), Ya(d.fr.z), fmt(d.fr.alto)); }
       /* perfil: el frente a la izquierda, el fondo a la derecha */
       const xp = M + anchoV + GAP; vTit('PERFIL', xp); const Xp = y => xp + (y1 - y) * sc, Yp = z => ya + (z1 - z) * sc;
-      const tonoCor = { Corredera: '#7F8A93', CorrederaMedia: '#A9B1B8', CorrederaMovil: '#C9CED3' };
+      const tonoCor = { Corredera: '#7F8A93', CorrederaBrida: '#7F8A93', CorrederaMedia: '#A9B1B8', CorrederaMovil: '#C9CED3' };
       P.slice().sort((a, b) => b.x - a.x).forEach(p => caja2D(g, Xp(p.y + p.fondo), Yp(p.z + p.alto), p.fondo * sc, p.alto * sc, col(p), tinta, .8, { p, sc, plano }));
       /* las correderas, de lado y delante de la caja (van en el lateral del gabinete): la fija, la media y la movil anidadas, cada una con su largo */
       ['Corredera', 'CorrederaMedia', 'CorrederaMovil'].forEach(tp => { const p = d.lat.find(q => q.tipo === tp); if (!p) return;
