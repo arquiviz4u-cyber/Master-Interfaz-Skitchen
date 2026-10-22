@@ -365,6 +365,12 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A444. [Master hecho 22/10; SketchUp: pieza tapeta Regreso ya conocida; Revit pendiente] (usuario 22/10) 1) «Al cambiar ese ancho de peninsula
+       en planta la columna se ensanche y no la barra hacia fuera»: la cota y el campo «Ancho de la peninsula» cambian el fondo de sus
+       gabinetes (30 a 90 cm; US 12" a 36"); el vuelo para bancos va aparte. Sin gabinetes (solo barra) sigue siendo el vuelo. 2) «La cara
+       donde salen las charolas: ajustar su tapeta de relleno con un valor; debe cerrar por dentro el cajon ciego» (elegido: crece el ciego):
+       «Relleno junto a la esquina» (e.rellenoCiego, 2.5 a 30 cm; de fabrica lo que deja el ciego): el ciego crece o se acorta lo que cambia y
+       la puerta y las charolas quedan igual; el relleno lleva un regreso de 10 cm hacia adentro en su canto junto a la otra cara.
    A443. [Master hecho 22/10; SketchUp: el panel es el master; Revit pendiente] (usuario 22/10) 1) «Las sub opciones parecen lista de mercado;
        meter un orden visual o por titulo»: dentro de una seccion cada grupo de opciones lleva su subtitulo y sus notas, separado por una
        linea fina (grupo(titulo, html), .p-grupo, .p-sub): cesto de basura (Cajon, Sistema de botes, Botes o Ancho del gabinete),
@@ -4118,12 +4124,19 @@ const puertaCiegoMin = () => cfg.region === 'US' ? inch(8) : 20;
    esa charola gira entera sin solapes (buscaMagic): no es una medida fija, depende de los fondos y del frente. A400: la charola ya no se
    encoge (va a la medida del modelo); el ciego crece hasta que sale */
 const anchoCiegoMin = () => cfg.region === 'US' ? inch(37.5) : 95;
+/* A444 (usuario 22/10: «la cara donde salen las charolas necesitamos ajustar su tapeta de relleno, con linea de referencia en alzado o con
+   un valor»; elegido: crece el ciego): relleno visible entre el frente de la otra cara y la puerta del ciego. De fabrica, lo que deja el ciego
+   (rellenoCiegoDef); escrito (e.rellenoCiego), el ciego crece o se acorta lo que cambia y la puerta y las charolas no cambian */
+const rellenoCiegoDef = k => { const e = cfg.esquinas[k], R = reg().esquina, fOtra = fondoCara(caraDe(e.duena !== 1 ? k + 1 : k), false);
+  return R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)) - R.ciegoPuerta - fOtra - espFrente(); };
+const RELLENO_CIEGO = () => cfg.region === 'US' ? [inch(1), inch(12)] : [2.5, 30];
+const rellenoCiego = k => { const e = cfg.esquinas[k], [a, b] = RELLENO_CIEGO(); return e && e.rellenoCiego > 0 ? Math.max(a, Math.min(b, e.rellenoCiego)) : rellenoCiegoDef(k); };
 const ciegoDueno = k => { const e = cfg.esquinas[k], R = reg().esquina, duenaA = e.duena !== 1, fOtra = fondoCara(caraDe(duenaA ? k + 1 : k), false),
-  w0 = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)), v = duenaA ? e.anchoA : e.anchoB;
+  rel = rellenoCiego(k) - rellenoCiegoDef(k), w0 = R.ciego + Math.max(0, fOtra + R.tapeta - (R.ciego - R.ciegoPuerta)) + rel, v = duenaA ? e.anchoA : e.anchoB;   /* A444: rel, el relleno de mas */
   const wTope = w0 + (R.ciegoMax - R.ciego), wBase = Math.min(w0, Math.max(anchoCiegoMin(), w0 - (R.ciegoPuerta - puertaCiegoMin())));
   /* A409 (usuario 21/10: «definir el ancho minimo para que salga bien»): con charolas, el minimo es el ancho con el que la charola sale entera
      (charolasAnchoMin); de ahi crece hasta el maximo de fabrica, como sin charolas */
-  if (e.herraje) { const wMin = charolasAnchoMin(fOtra, w0, ciegoInvertido(e), charolasEsc(charolasTam(e))), wMax = Math.max(wMin, wTope);
+  if (e.herraje) { const wMin = charolasAnchoMin(fOtra, w0 - rel, ciegoInvertido(e), charolasEsc(charolasTam(e))) + rel, wMax = Math.max(wMin, wTope);
     return { w0, wMin, wMax, w: Math.max(wMin, v > 0 ? Math.min(wMax, v) : wMin) }; }
   const wMin = wBase, wMax = Math.max(wMin, wTope);
   return { w0, wMin, wMax, w: Math.max(wMin, v > 0 ? Math.min(wMax, v) : w0) }; };
@@ -4379,6 +4392,16 @@ const penLargoLibre = () => cfg.longitud - penOff();
    canto de los bancos al frente de la cubierta; se cambia con el vuelo para bancos (los gabinetes conservan su fondo) */
 const penAnchoDe = q => espFrente() + penVuelo(q) + fondoCara(q, false) + espFrente() + (cfg.vuelo || 0);
 const penVueloPara = (q, v) => Math.max(0, Math.round((v - (penAnchoDe(q) - penVuelo(q)))*100)/100);
+/* A444 (usuario 22/10: «al cambiar ese ancho de peninsula en planta la columna se ensanche y no la barra hacia fuera»): el ancho de la
+   peninsula es el fondo de sus gabinetes (con su frente, su panel posterior y los vuelos que ya tenga); el vuelo para bancos va aparte.
+   Sin gabinetes (solo barra), sigue siendo el vuelo */
+const PEN_FONDO = () => cfg.region === 'US' ? [inch(12), inch(36)] : [30, 90];
+const penGabinetes = q => q.modulos.filter(m => !m.upper && !m.esquina && !m.reserved);
+const penAnchoRango = q => { const [f0, f1] = PEN_FONDO(), base = penAnchoDe(q) - fondoCara(q, false); return penGabinetes(q).length ? [base + f0, base + f1] : [penAnchoDe(q) - penVuelo(q), 200]; };
+function penAnchoAplica(c, v){
+  const gs = penGabinetes(c); if (!gs.length) { c.penVuelo = penVueloPara(c, v); return; }
+  const [f0, f1] = PEN_FONDO(), f = Math.max(f0, Math.min(f1, Math.round((v - (penAnchoDe(c) - fondoCara(c, false)))*10)/10)); gs.forEach(m => { m.fondo = f; });
+}
 /* A389: iconos de sacar y quitar la peninsula (una L y una L con menos) */
 const ICO_PEN = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" style="flex:none"><path d="M2 3h12v4H6v6H2z"/></svg>`;
 const ICO_PEN_QUITAR = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" style="flex:none"><path d="M2 3h12v4H6v6H2z" opacity=".45"/><path d="M9 12h6"/></svg>`;
@@ -7825,7 +7848,7 @@ function esqAnchosMinimos(k, soloAlto = false){
   const e = cfg.esquinas[k]; if (!e) return; const R = reg().esquina;
   e.altoA = e.altoB = e.cierreAlto = e.ladoAlto = null;
   if (soloAlto) return;
-  e.anchoA = e.anchoB = null;
+  e.anchoA = e.anchoB = e.rellenoCiego = null;   /* A444: y el relleno del ciego, el de fabrica */
   if (e.tipo === 'ciego') { if (e.penin) e.duena = caraDe(k).peninsula ? 1 : 0; const w = ciegoDueno(k).wMin; if (e.duena === 1) e.anchoB = w; else e.anchoA = w; }
   else if (e.tipo === 'carrusel') { const fA = fondoCara(caraDe(k), false), fB = fondoCara(caraDe(k + 1), false), paso = cfg.region === 'US' ? inch(.5) : .5, hoja = cfg.region === 'US' ? inch(12) : 30;
     const min = f => Math.max(R.lado, Math.ceil((f + espFrente() + sepFrentes() + hoja)/paso)*paso); e.anchoA = min(fB); e.anchoB = min(fA); }
@@ -9637,6 +9660,9 @@ function esquinerosPlan(add, r2, sep, tf){
     const inglete = gola && !op && !penSGk && bOtra > 0;
     if (inglete) { const ut = fOtra + tf; bx(':tapeta', 'tapeta', 'Compensacion', fOtra - golaHondo(true), ut, fF, fF + tf, z0, zg, gm('Tapetas'), 'tapetas'); bx(':tapeta:2', 'tapeta', 'Compensacion', ut, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas'); }
     else bx(':tapeta', 'tapeta', 'Compensacion', op || penSGk ? 0 : gola ? fOtra - golaHondo(true) : fOtra + tf, w - P, fF, fF + tf, z0, zf, gm('Tapetas'), 'tapetas');   /* delante del frente de la otra cara; A232: con gola llega detras de la tapeta retirada */
+    /* A444 (usuario 22/10: «esa tapeta de relleno deberia cerrar por dentro el cajon ciego»): el relleno lleva su regreso hacia adentro,
+       en su canto junto a la otra cara (reg().tapetaRegreso, como la pieza de ajuste lateral) */
+    if (!op && !penSGk) { const uR = fOtra + tf, rr = Math.min(reg().tapetaRegreso, fOwn - ef - 1); if (w - P - uR > e1 + .5 && rr > 1) bx(':tapeta:regreso', 'tapeta', 'Regreso', uR, uR + e1, fOwn - rr, fOwn, z0 + e1, (gola ? zg : zf) - e1, gm('Tapetas'), 'tapetas'); }
     if (inglete) { const pt = (u, v) => duenaA ? [LA - u, v] : [LA - v, u], mG = groupMaterial('Gola') || null, fB2 = fOtra - PLAN_HOLGURA_PUERTA;   /* A415: la caja de la otra cara (su gola, a su fondo) */
       const uA = fB2 - hondo, uF = uA + eG, vA = fOwn - hondo, vF = vA + eG, L = q => q.map(([u, v]) => pt(u, v));
       losa(pre + ':gola', 'herraje', 'Gola', modulo, L([[w, vA], [uA, vA], [uF, vF], [w, vF]]), zg, z1, mG, 'herrajes');
@@ -11187,7 +11213,7 @@ function dimSpec(key){
     case 'bpw': return { v: (cfg.islaPaneles.find(q => q.id === id) || {}).ancho, min: 10, max: 600 };
     case 'ppw': return { v: ((cfg.penPaneles || []).find(q => q.id === id) || {}).ancho, min: 10, max: 600 };   /* A386 */
     case 'penLargo': return { v: penLargoLibre(), min: 20, max: 400 };   /* A389 */
-    case 'penAncho': return { v: penAnchoDe(cfg), min: penAnchoDe(cfg) - penVuelo(), max: 200 };   /* A398 */
+    case 'penAncho': { const [mn, mx] = penAnchoRango(cfg); return { v: penAnchoDe(cfg), min: Math.round(mn*10)/10, max: Math.round(mx*10)/10 }; }   /* A398; A444 */
     case 'islaW': return { v: cfg.islaAncho, min: 40, max: 250 };
     case 'islaV': return { v: islaEspEf(), min: Math.min(0, islaEspMax()), max: 150 };
     case 'islaZ': return { v: Math.max(0, islaZocloCara() - islaEspEf()), min: 0, max: 60 };
@@ -11247,7 +11273,7 @@ function commitDimension(){
     else if (k === 'bpw') { const q = c.islaPaneles.find(q => q.id === id); q.ancho = v; q.fijo = true; }
     else if (k === 'ppw') { const q = c.penPaneles.find(q => q.id === id); q.ancho = v; q.fijo = true; }   /* A386 */
     else if (k === 'penLargo') c.longitud = Math.round((v + penOff())*100)/100;   /* A389 */
-    else if (k === 'penAncho') c.penVuelo = penVueloPara(c, v);   /* A398 */
+    else if (k === 'penAncho') penAnchoAplica(c, v);   /* A398; A444: el fondo de sus gabinetes */
     else if (k === 'islaW') c.islaAncho = v; else if (k === 'islaV') c.islaEspacioBancos = v; else if (k === 'islaZ') c.islaRetiroZocloPosterior = v;
     else if (k === 'islaBar') c.islaBarraAncho = v - espesorBarra(); else if (k === 'barraElev') c.islaBarraElevacion = v; else if (k === 'barraAlto') c.islaBarraElevacion = v - altoBarra();
     else if (k === 'doorw') { const d = doorById(id); d.ancho = anchoEscrito(v - (d.tapetaLateral ? d.anchoTapeta : 0)); }
@@ -11489,7 +11515,9 @@ function esquinaPanel(m){
       + (e.tipo === 'ciego' ? grupo('Puerta', chk('esqInv', ciegoInvertido(e), 'Invertir abatimiento') + `<div class="note-sm">${ciegoInvertido(e) ? 'La bisagra va del lado de la parte ciega' : 'La bisagra va del lado del lateral'}${e.herraje ? '; con charolas de esquina va invertida de fábrica' : ''}.</div>`) + (e.herraje ? grupo('Tamaño de las charolas (puerta de)', `${radios('esqCharolasTam', [['40', '400 mm'], ['45', '450 mm'], ['50', '500 mm'], ['60', '600 mm']], String(charolasTam(e)))}<div class="note-sm">El herraje se escala por igual; el ancho mínimo del ciego se ajusta a su tamaño.</div>${(() => { const fF = fondoCara(caraDe(e.duena === 1 ? k + 1 : k), false), fm = charolasFondoMin(charolasEsc(charolasTam(e))); return fF + .01 < fm ? `<div class="note-sm" style="color:#C2410C">Con este tamaño el gabinete necesita ${medida(fm)} de fondo y tiene ${medida(fF)}: las charolas rozan la trasera. Se genera igual.</div>` : ''; })()}`) : '') : '')   /* A409; A420 */
       + (e.tipo === 'ciego' ? grupo('', `<div class="note-sm">El lado ciego va en la cara elegida; en la otra queda una pieza de ajuste de ${medida(tapetaCiego())} como mínimo.</div>`) : '')); }
   if (e.tipo === 'ciego' && (e.duena === 1 ? 1 : 0) === sq) { const cd = ciegoDueno(k), dA = e.duena !== 1, R9 = reg().esquina;   /* A221: ancho del ciego en su cara duena */
-    html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.wMin, cd.wMax)}</div>`
+    const [rl0, rl1] = RELLENO_CIEGO();
+    html += section('Ancho del ciego', `<div class="grid-2">${num(dA ? 'esqAnchoA' : 'esqAnchoB', `En cara ${letraCara(dA ? k : k + 1)}`, cd.w, 'cm', cd.wMin, cd.wMax)}${num('esqRellenoCiego', 'Relleno junto a la esquina', Math.round(rellenoCiego(k)*10)/10, 'cm', rl0, rl1)}</div>`   /* A444 */
+      + `<div class="note-sm">El relleno va entre el frente de la cara ${letraCara(dA ? k + 1 : k)} y la puerta${e.herraje ? ' por donde salen las charolas' : ''}; al cambiarlo el ciego crece o se acorta y la puerta queda igual. Lleva un regreso hacia adentro.</div>`
       + `<div class="note-sm">De ${medida(cd.wMin)} a ${medida(cd.wMax)} (de fábrica ${medida(cd.w0)}): cambian la caja y su puerta; la parte ciega queda igual. También se arrastra en el alzado.${e.herraje ? ` Con charolas de esquina el mínimo es el ancho con el que la charola, a su medida real, sale entera por la puerta sin tocar la otra cara.` : ''}</div>`
       + (e.anchoA > 0 || e.anchoB > 0 ? `<button type="button" class="btn btn-sm" data-act="esqAnchoAuto" style="margin-top:6px">Volver al de fábrica</button>` : '')); }
   if (e.tipo === 'carrusel') html += section('Puertas del L', radios('esqPuertasL', [['plegable', 'Plegables (en los altos, una sola pieza)'], ['abatible', 'Abatibles, bisagra de 155°']], puertasL(e))) + bisIntHTML(e);   /* A270 */
@@ -11532,7 +11560,7 @@ function penPanelHTML(){
   const quitar = `<button class="btn btn-sm btn-block" data-act="penQuitar" style="margin-top:8px">${conIco(ICO_PEN_QUITAR, 'Quitar la península')}</button>`;   /* A389: con icono */
   if (cfg.cara !== kP) return section('Península', `<div class="note-sm">Sus opciones están en la pestaña «Península» o con un clic en ella en el isométrico.</div>` + quitar);
   return section('Península', (view !== 'Alzado' ? `<button class="btn btn-sm btn-block" data-act="penVer" style="margin-bottom:10px">Ver frente y posterior</button>` : '')   /* A386; A389: el alzado ya es doble */
-    + `<div class="grid-2">${num('penLargo', 'Largo desde el frente', penLargoLibre(), 'cm', 20, 400)}${num('penAncho', 'Ancho de la península', penAnchoDe(cfg), 'cm', Math.round((penAnchoDe(cfg) - penVuelo())*10)/10, 200)}</div>`   /* A389; A398: su ancho */
+    + `<div class="grid-2">${num('penLargo', 'Largo desde el frente', penLargoLibre(), 'cm', 20, 400)}${num('penAncho', 'Ancho de la península', penAnchoDe(cfg), 'cm', Math.round(penAnchoRango(cfg)[0]*10)/10, Math.round(penAnchoRango(cfg)[1]*10)/10)}</div>`   /* A389; A398: su ancho; A444: el fondo de sus gabinetes */
     + `<div class="grid-2" style="margin-top:6px">${num('penVuelo', 'Vuelo para bancos', penVuelo(), 'cm', 0, 60)}${num('penNariz', 'Alto de su nariz', cfg.penNariz > 0 ? cfg.penNariz : paquete(), 'cm', cfg.espesorCubierta, 15)}</div>`   /* A398: su nariz */
     + chk('penCasc', !!cfg.penCascada, 'Cascada en el extremo libre')
     + chk('penBarra', !!cfg.penBarra, 'Barra elevada') + (cfg.penBarra ? `<div class="grid-2" style="margin-top:6px">${num('penBarraElev', 'Elevación sobre la cubierta', penElev(), 'cm', 5, 40)}</div><div class="note-sm">El vuelo para bancos pasa a la barra y el panel posterior sube hasta ella.</div>` : '')   /* A385 */
@@ -12145,6 +12173,8 @@ const ACT = {
   esqCierre: (v, m) => change(() => { const k = byId(m.id).esquina.k; cfg.esquinas[k].cierreAlto = Math.abs(v - cierreDef(k)) < .01 ? null : v; }),
   esqAltoAuto: (v, m) => change(() => { const e = esquinaDe(byId(m.id)); e.altoA = e.altoB = e.cierreAlto = e.repiseroAncho = e.tapetaRepisero = null; }),
   esqRepAncho: (v, m) => change(() => { esquinaDe(byId(m.id)).repiseroAncho = v; }),   /* A227 */ esqTapRep: (v, m) => change(() => { esquinaDe(byId(m.id)).tapetaRepisero = v; }),   /* A228 */ esqAlacena: (v, m) => change(() => { esquinaDe(byId(m.id)).alacena = v; }), esqInterior: (v, m) => change(() => { esquinaDe(byId(m.id)).interior = v; }),
+  esqRellenoCiego: (v, m) => change(() => { const k = byId(m.id).esquina.k, e = cfg.esquinas[k], a0 = rellenoCiego(k), dA = e.duena !== 1, w = ciegoDueno(k).w;   /* A444 */
+    e.rellenoCiego = Math.abs(v - rellenoCiegoDef(k)) < .01 ? null : v; const d = rellenoCiego(k) - a0; anchoEsquina(k, dA, w + d); }),
   esqDuena: (v, m) => change(() => { esquinaDe(byId(m.id)).duena = +v; const k = byId(m.id).esquina.k, e = cfg.esquinas[k], w = ciegoDueno(k).wMin; e.anchoA = e.anchoB = null; if (e.duena === 1) e.anchoB = w; else e.anchoA = w; }),   /* A443 */
   esqInv: (v, m) => change(() => { esquinaDe(byId(m.id)).invertir = !!v; }),   /* A409 */
   esqCharolasTam: (v, m) => change(() => { esquinaDe(byId(m.id)).charolasPuerta = +v; esqAnchosMinimos(byId(m.id).esquina.k); }),   /* A420; A443 */
@@ -12193,7 +12223,7 @@ const ACT = {
   bordeAbajo: (v, m) => change(() => grupoBorde(byId(m.id)).forEach(q => { q.hastaCubierta = v; if (v) { q.campana = false; q.elevacionAlto = 0; } })),
   penVer: () => penAbrir(),   /* A386; A389: siempre doble */
   penLargo: v => change(c => c.longitud = Math.round((v + penOff())*100)/100),   /* A389 */
-  penAncho: v => change(c => c.penVuelo = penVueloPara(c, v)),   /* A398 */
+  penAncho: v => change(c => penAnchoAplica(c, v)),   /* A398; A444 */
   penNariz: v => change(c => c.penNariz = v <= c.espesorCubierta + .01 ? null : Math.min(15, v)),   /* A398 */
   ppAncho: v => change(c => { const q = c.penPaneles.find(q => q.id === selectedPart.slice(9)); q.ancho = v; q.fijo = true; }),
   ppLibre: () => change(c => c.penPaneles.find(q => q.id === selectedPart.slice(9)).fijo = false),
