@@ -365,6 +365,11 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A416. [Master hecho 21/10; SketchUp: Dialogo manda sketchupPlan(nivel) (en la beta, premium); Revit pendiente] (usuario 21/10: «genera las
+       etiquetas de pro y premium en las funciones de la interfaz, estas aparecen y desaparecen de acuerdo al plan que tengas»): planes
+       Gratis, Pro y Premium; planUsuario (sketchupPlan o ?plan= en el prototipo; de fabrica premium = todo abierto); PLAN_FUNCION con el
+       plan de cada funcion (sigue a licencia_reglas.json); tagPlan en tiles, radios, chk y estilos; botones Render IA (Premium) y Exportar
+       PDF de Presentar (Pro) con data-req-plan. La bisagra intermedia ya no dice «(Pro)» en el texto: lo marca la etiqueta.
    A417. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente] (usuario 21/10: «asi de mal se ven en el isometrico las puertas en L de
        altos en esquina») La bisagra intermedia oculta de la plegable (79T8500) no tenia simbolo y en los dibujos del master salia como su caja
        sobre las hojas; va simplificada (soloDibujo :dibPleg:, de la malla del modelo: placa y brazo con la hoja b, cazoleta en la a) y sus
@@ -2868,6 +2873,13 @@
   .ftile:hover { border-color: #B8C0C8; }
   .ftile.on { border-color: var(--ink); background: var(--ink-soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
   .ftile svg, .ftile span { pointer-events: none; }
+  /* A416: etiqueta del plan que pide una funcion (solo si el plan del usuario no la incluye) */
+  .ftile { position: relative; }
+  .plan-tag { display: inline-block; margin-left: 6px; padding: 1px 5px; border-radius: 3px; font: 600 9px/1.4 'Inter', sans-serif; letter-spacing: .04em; text-transform: uppercase; vertical-align: 1px; color: #fff; background: var(--ink); }
+  .plan-tag.plan-premium { background: #13212B; }
+  .ftile .plan-tag { position: absolute; top: 3px; right: 3px; margin: 0; }
+  body[data-plan="gratis"] [data-req-plan]::after, body[data-plan="pro"] [data-req-plan="premium"]::after { content: attr(data-req-label); margin-left: 6px; padding: 1px 5px; border-radius: 3px; font: 600 9px/1.4 'Inter', sans-serif; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: var(--ink); }
+  body[data-plan] [data-req-plan="premium"]::after { background: #13212B; }
   .ftile svg { width: 30px; height: 36px; }
   .otiles { margin: 2px 0 10px; }
   /* A307 (usuario 20/10: «diferenciar los iconos de funcion y de opciones, se confunden»): las opciones son interruptores en fila */
@@ -10843,7 +10855,7 @@ const side = document.getElementById('side');
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
 /* (A59) ancho fijo: se fija solo al escribir la medida o al elegir un tipo de ancho propio; el panel solo ofrece liberarlo */
 const anchoFijo = (on, act) => on ? `<div class="fijo-row"><span>Ancho fijo</span><button type="button" class="btn btn-sm" data-act="${act}">Volver a automático</button></div>` : '';
-const chk = (act, on, text) => `<label class="check"><input type="checkbox" data-act="${act}" ${on ? 'checked' : ''}>${text}</label>`;
+const chk = (act, on, text) => `<label class="check"><input type="checkbox" data-act="${act}" ${on ? 'checked' : ''}>${text}${tagPlan(act)}</label>`;   /* A416 */
 const num = (act, text, v, unit, min, max, step = 'any') => unit === 'cm' ? lenField(`data-act="${act}" data-min="${min}" data-max="${max}"`, text, v)
   : `<label class="field"><span>${text}</span><div class="unit" data-unit="${unit}"><input type="number" data-act="${act}" value="${fmtNum(v)}" min="${min}" max="${max}" step="${step}"></div></label>`;
 /* campo de longitud: guarda cm, muestra y lee en la unidad de Ajustes */
@@ -10900,7 +10912,24 @@ const FI = (() => {
 const FI_INT = { 'Puertas': 'Sencillo', '1 puerta': 'Sencillo', '2 puertas': 'DosPuertas', 'Cajones': 'Cajones', '3': 'Cajones', 'Dos cajones': 'int:Dos cajones', '2': 'int:Dos cajones',
   'Repisas': 'Repisas', 'Pistón': 'Piston', 'Elevable': 'Piston', 'Especiero': 'Especiero', 'Especiero extraíble': 'int:Especiero extraíble' };
 const FI_CORTO = { 'Abierto / repisas': 'Abierto', 'Módulo inferior + módulo superior': 'Inferior + superior' };
-const tiles = (act, opts, cur, ic) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${(ic && FI[ic[v]]) || FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span></button>`).join('')}</div>`;
+/* A416 (usuario 21/10: «genera las etiquetas de pro y premium en las funciones de la interfaz, estas aparecen y desaparecen de acuerdo al
+   plan que tengas»): planes Gratis, Pro y Premium. planUsuario lo manda SketchUp (sketchupPlan); en el prototipo todo esta abierto y
+   ?plan=gratis o ?plan=pro en la direccion muestra las etiquetas. PLAN_FUNCION sigue a licencia_reglas.json de Skitchen (el que de verdad
+   bloquea al generar) y a PLAN_LICENCIA.md; las marcadas «por confirmar» alla siguen su nivel provisional aqui. */
+const PLANES = ['gratis', 'pro', 'premium'], PLAN_NOMBRE = { pro: 'Pro', premium: 'Premium' };
+let planUsuario = (() => { try { const q = new URLSearchParams(location.search).get('plan'); return PLANES.includes(q) ? q : 'premium'; } catch (e) { return 'premium'; } })();
+const PLAN_FUNCION = { 'tipo:Hornos': 'premium', 'tipo:Alacena': 'pro', 'tipo:Basura': 'pro', 'tipo:Frigobar': 'premium', 'tipo:Especiero': 'pro',
+  'tipo:EspecieroTorre': 'premium', 'tipo:Lavavajillas': 'pro', 'tipo:Doble': 'pro', 'tipo:Piston': 'premium', 'supTipo:SupPiston': 'premium',
+  'style:Moderna': 'premium', 'style:Clasica': 'pro', 'esqSub:cajones': 'premium', 'esqAlacena:oculta': 'premium', 'esqBisInt:oculta': 'premium',
+  'led': 'pro', 'nariz': 'pro', 'tapS': 'pro', 'tapSMol': 'pro' };
+/* plan que pide la funcion act (con valor v), o null si es libre; el lavavajillas es libre en la region US */
+const planDe = (act, v) => act === 'tipo' && v === 'Lavavajillas' && cfg.region === 'US' ? null : PLAN_FUNCION[v === undefined ? act : act + ':' + v] || null;
+const tagPlan = (act, v) => { const n = planDe(act, v); return n && PLANES.indexOf(planUsuario) < PLANES.indexOf(n) ? `<span class="plan-tag plan-${n}">${PLAN_NOMBRE[n]}</span>` : ''; };
+function sketchupPlan(nivel){ if (!PLANES.includes(nivel)) return; planUsuario = nivel; marcarPlan(); render(); }
+function marcarPlan(){ document.body.dataset.plan = planUsuario;
+  [['btnRender', 'premium'], ['presExportar', 'pro']].forEach(([id, n]) => { const b = document.getElementById(id); if (b) { b.dataset.reqPlan = n; b.dataset.reqLabel = PLAN_NOMBRE[n]; } }); }
+marcarPlan();
+const tiles = (act, opts, cur, ic) => `<div class="ftiles">${opts.map(([v, t]) => `<button type="button" class="ftile${v === cur ? ' on' : ''}" data-act="${act}" value="${esc(v)}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${(ic && FI[ic[v]]) || FI[v] || FI.Puertas}</svg><span>${esc(FI_CORTO[t] || t)}</span>${tagPlan(act, v)}</button>`).join('')}</div>`;   /* A416 */
 const toggles = list => `<div class="ftiles otiles">${list.map(([act, on, t, icon]) => `<button type="button" class="ftile${on ? ' on' : ''}" data-act="${act}" aria-pressed="${on ? 'true' : 'false'}" title="${esc(t)}"><svg viewBox="0 0 40 48" aria-hidden="true">${icon}</svg><span>${esc(t)}</span></button>`).join('')}</div>`;
 /* A345 (usuario 21/10: «la funcion particular de los modulos internos de torres (doble clic) deberia ser grafica para identificarlo a la
    primera»; «la funcion "Puertas" se une con la opcion de 2 puertas: al elegirla queda una sola y despues aparece la opcion de 2 puertas»):
@@ -10927,7 +10956,7 @@ const crownEscena = (tipo, on) => { const b = CROWN_ALTO[tipo][0], yc = 1.2, xf 
     + `<path d="M${f2(xd)} ${yc}V${f2(yc + b)}M${f2(xd - .4)} ${yc}H${f2(xd + .4)}M${f2(xd - .4)} ${f2(yc + b)}H${f2(xd + .4)}" stroke="#266096" stroke-width=".14"/></svg>`; };
 const crownCards = cur => `<div class="crown-cards">${CROWN_PERFILES.map(([v, t]) => `<label class="opt compact crown-card${v === cur ? ' on' : ''}"><input type="radio" name="tapSP" data-act="tapSP" value="${v}" ${v === cur ? 'checked' : ''}>`
   + crownEscena(v, v === cur) + `<div style="min-width:0"><div class="t">${t}</div><div class="d"><b>${CROWN_ALTO[v][1]}</b> · caída ${CROWN_ALTO[v][0]} cm</div><div class="d">${CROWN_DESC[v]}</div></div></label>`).join('')}</div>`;
-const radios = (act, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${v === cur ? ' on' : ''}"><input type="radio" name="${act}" data-act="${act}" value="${v}" ${v === cur ? 'checked' : ''}><div><div class="t">${t}</div></div></label>`).join('')}</div>`;
+const radios = (act, opts, cur) => `<div class="radios">${opts.map(([v, t]) => `<label class="opt compact${v === cur ? ' on' : ''}"><input type="radio" name="${act}" data-act="${act}" value="${v}" ${v === cur ? 'checked' : ''}><div><div class="t">${t}${tagPlan(act, v)}</div></div></label>`).join('')}</div>`;   /* A416 */
 const section = (label, html, cls = '') => `<div class="p-section${cls ? ' ' + cls : ''}">${label ? `<div class="p-label">${label}</div>` : ''}${html}</div>`;
 const head = (titleText, chip) => `<div class="p-section"><div class="m-head"><div class="m-title">${titleText}</div>${chip ? `<span class="chip">${chip}</span>` : ''}</div></div>`;
 
@@ -10997,7 +11026,7 @@ function closetPanel(m){
 }
 /* A134: panel del esquinero (bajo o alto de la columna de esquina) */
 /* A270: la bisagra entre las hojas de la plegable */
-const bisIntHTML = e => puertasL(e) !== 'plegable' ? '' : section('Bisagra intermedia', radios('esqBisInt', [['libro', 'De libro (básica)'], ['oculta', 'Oculta (Pro)']], intermediaEsq(e))
+const bisIntHTML = e => puertasL(e) !== 'plegable' ? '' : section('Bisagra intermedia', radios('esqBisInt', [['libro', 'De libro (básica)'], ['oculta', 'Oculta']], intermediaEsq(e))
   + `<div class="note-sm">${intermediaEsq(e) === 'oculta' ? 'Cazoleta en la hoja junto a la bisagra de 155° y brazo en la otra; la plegable abre a 150° entre hojas.' : 'Por dentro: nudillo en el cruce de las caras interiores y alas atornilladas sobre ellas (3"); la plegable se dobla espalda con espalda.'}</div>`);   /* A393: las dos */
 function esquinaPanel(m){
   const e = esquinaDe(m), k = m.esquina.k, R = reg().esquina, h = huellaEsquina(k), alacena = e.tipo === 'alacena';
@@ -11851,7 +11880,7 @@ function renderMatEditor(){
 /* E9: las jaladeras se venden por su distancia entre centros en mm (tambien en EE. UU.); la lista conserva un largo propio */
 const largosJaladera = () => { const l = [9.6, 12.8, 16, 19.2, 22.4, 25.6, 32]; if (!l.some(v => Math.abs(v - cfg.largoJaladera) < .01)) l.push(cfg.largoJaladera); return l.sort((a, b) => a - b); };
 function renderStyle(){
-  const opt = (name, value, current, t, d) => `<label class="opt${current === value ? ' on' : ''}"><input type="radio" name="${name}" value="${value}" ${current === value ? 'checked' : ''}><div><div class="t">${t}</div>${d ? `<div class="d">${d}</div>` : ''}</div></label>`;
+  const opt = (name, value, current, t, d) => `<label class="opt${current === value ? ' on' : ''}"><input type="radio" name="${name}" value="${value}" ${current === value ? 'checked' : ''}><div><div class="t">${t}${tagPlan(name, value)}</div>${d ? `<div class="d">${d}</div>` : ''}</div></label>`;
   let html = section('Estilo de frentes', opt('style', 'Moderna', cfg.style, 'Moderna', 'Frentes lisos con gola y perfil.') + opt('style', 'Clasica', cfg.style, 'Clásica', 'Puertas shaker con jaladeras.') + opt('style', 'Simple', cfg.style, 'Simple', 'Frentes lisos con jaladeras, sin marcos.'));
   if (cfg.style === 'Moderna') html += section('Agarre de gola', opt('gola', 'L', cfg.gola, 'Aluminio', 'L superior / C entre cajones.') + opt('gola', 'Melamina', cfg.gola, cfg.region === 'US' ? 'Melamina 3/4"' : 'Melamina 1.8 cm', 'Solo en gabinetes bajos.') + `<div class="note">Los frentes son lisos y se abren por el uñero de la gola.</div>`);
   if (cfg.style !== 'Moderna' || cfg.closet) html += section(cfg.style === 'Moderna' ? 'Jaladera (puertas, elevables y cajón del vanity)' : 'Jaladera', opt('jal', 'Barra', cfg.jaladera, 'Barra tipo tubo', '') + opt('jal', 'Boton', cfg.jaladera, 'Botón / perilla', '')
