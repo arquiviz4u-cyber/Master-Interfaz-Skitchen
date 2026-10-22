@@ -49,7 +49,11 @@ Ancho = ancho del gabinete que pide el fabricante. Medidas en mm.
 
 Es de la **clase de 450 mm**: 41 cm de ancho (≈ al de 418 de Atira), 50.7 de fondo (≈ 480 a 520) y dos botes de ≈ 28 L (≈ 29 L de Atira, o 2 × 32 L de Waste Boss).
 
-## 5. Propuesta (igual que con las charolas)
+## 5. Decisión del usuario (22/10) e integración (A428)
+
+**Cuatro tamaños: 300, 400, 450 (el modelo) y 500 mm de gabinete; el de 600 mm queda fuera y anotado para desarrollo posterior en Premium** (hace falta un modelo propio con botes lado a lado, como el mercado). Se escala solo a lo ancho: k = 0.64, 0.88, 1.00 y 1.12. Hecho en el master (A428).
+
+## 5 bis. Propuesta original (igual que con las charolas)
 
 1. **Cinco tamaños por ancho de gabinete:** 300, 400, 450 (el modelo, de fábrica), 500 y 600. El interior sale de restar los laterales (30 → 26.4, 40 → 36.4, 45 → 41.4, 50 → 46.4, 60 → 56.4).
 2. **Se escala solo a lo ancho, con k = interior / 41.05:** 0.64, 0.89, 1.00, 1.13 y 1.37. El fondo, el alto y el recorrido quedan fijos, porque la corredera y la altura no cambian con el ancho. Los botes en tándem se ensanchan; los herrajes y la corredera se estiran en X.
