@@ -365,6 +365,12 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A440. [Master hecho 22/10; SketchUp: el panel es el mismo master; Revit pendiente] (usuario 22/10: «la linea borde azul de seleccion no
+       cuadra con los colgantes en isometrico; el panel de la derecha empieza a ampliarse y en una vista no maximizada hay que recorrer el
+       slide para ver lo que queda fuera; que las listas de funciones se adapten al ancho») 1) El resalte y el clic de una malla (z-buffer)
+       usan su silueta pixel a pixel, no su casco convexo: el contorno azul sigue a los botes. 2) Las opciones (.radios) toman el ancho de
+       su texto y bajan de renglon cuando no caben; el texto se parte entre palabras; el panel (.tabs) tiene ancho fijo y no se desplaza a
+       lo ancho. Revisado con todas las funciones de bajos y altos en una ventana de 900 px.
    A439. [Master hecho 22/10; SketchUp: malla del colgante movil mas fina (malla_dibujo.py PASOS 0.5); Revit pendiente] (usuario 22/10:
        «cuida las esquinas y sus redondeos, salen muy trianguladas en los cubos de colgantes») 1) La malla de dibujo del colgante movil se
        agrupa a 0.5 cm (antes 1): los redondeos de los botes conservan su forma. 2) Sombreado suave: cada esquina de triangulo lleva la
@@ -2864,7 +2870,7 @@
   .canvas-wrap { flex: 1; position: relative; background: #F6F7F8; overflow: hidden; }
   #stage { position: absolute; inset: 0; outline: none; }
 
-  .tabs { width: 318px; border-left: 1px solid #DADFE3; display: flex; flex-direction: column; }
+  .tabs { width: 318px; flex: none; min-width: 0; border-left: 1px solid #DADFE3; display: flex; flex-direction: column; }   /* A440: ancho fijo, no lo cambia su contenido */
   .tab-heads { display: flex; border-bottom: 1px solid #DADFE3; background: #fff; padding: 0 6px; }
   .tab-heads button {
     flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -3117,10 +3123,17 @@
   .note-sm { font-size: 11.5px; color: #6B7680; line-height: 1.45; margin-top: 10px; }
   .perfil-gola input.cota-in { position: absolute !important; transform: translate(-50%, -50%); width: 54px !important; min-width: 0 !important; height: 18px !important; min-height: 0 !important; margin: 0 !important; padding: 0 2px !important; box-shadow: none !important; font: 600 11px "Inter", sans-serif !important; text-align: center; color: inherit; background: rgba(255,255,255,.75) !important; border: 1px dashed rgba(38,96,150,.6) !important; border-radius: 3px !important; cursor: text; }
   .perfil-gola input.cota-in:hover { border-style: solid !important; } .perfil-gola input.cota-in:focus { outline: none; border: 1px solid #266096 !important; background: #fff !important; color: #1d2b36; }   /* A122 */
-  .radios { display: flex; gap: 8px; }
+  /* A440 (usuario 22/10: «el panel de la derecha empieza a ampliarse y en una vista no maximizada hay que recorrer el slide para ver lo
+     que queda fuera; que las listas de funciones se adapten al ancho»): cada opcion toma el ancho de su texto y baja de renglon cuando no
+     cabe; las del renglon se reparten el ancho. Una opcion mas ancha que el panel parte su texto entre palabras; el panel nunca se
+     desplaza a lo ancho */
+  .radios { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt .t, .opt .d { overflow-wrap: break-word; }
+  .tab-body { overflow-x: hidden; }
+  #side, #side > * { min-width: 0; }
   .crown-card { align-items: center; position: relative; }   /* A241 */
   .crown-card input { position: absolute; opacity: 0; pointer-events: none; }
-  .radios .opt { flex: 1; margin-bottom: 0; }
+  .radios .opt { flex: 1 1 auto; min-width: 0; max-width: 100%; margin-bottom: 0; }
 
   /* ---- tema oscuro (boton dia/noche del real: fondo 37,39,43 · campos 54,57,62 · texto 226,229,233 · lienzo 24,26,29) ---- */
   html[data-theme=dark] { --surface: #2C2F34; --surface-hover: #363A40; --line: #4A4F57; --text: #E2E5E9; --ink-soft: #22374A; }
@@ -14589,22 +14602,22 @@ const LAM = (() => {
   /* A436: malla de un modelo con z-buffer. Rasteriza sus caras (en pixeles del lienzo, x2 para suavizar; en lo exportado, 4 por punto) con
      la profundidad de cada pixel, pinta la mas cercana con su color y su sombra y traza las aristas donde hay salto de profundidad, borde de
      la silueta o pliegue (normales a mas de 35 grados), como el contorno de las demas piezas. En pantalla va la imagen; en lo exportado
-     (Grabador) la imagen recortada a la union de sus triangulos, para el PDF. Devuelve el casco de la silueta (para elegir la pieza) */
+     (Grabador) la imagen recortada a la union de sus triangulos, para el PDF. Devuelve { cas: casco de la silueta, zm: en pantalla, la imagen y su silueta pixel a pixel (A440: resalte y clic) } */
   const ZMALLA = { pliegue: .77, maxPx: 6e6 };   /* A439: pliegue de 40 grados (antes 35): las caras de un redondeo de la malla se sombrean juntas */
   function pintarZMalla(g, t, X, Y, plano, tn, sombra){
     const T = typeof g.getTransform === 'function' ? g.getTransform() : null, real = !!T;
     let r = real ? Math.hypot(T.a, T.b) * 1.5 : 4;   /* A439: 1.5 pixeles por pixel del lienzo (suaviza sin el costo de 2) */
     const F = t.caras.map(c => c.pr.map(p => [X(p[0]), Y(p[1])]));
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; F.forEach(P => P.forEach(p => { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }));
-    if (!(x1 > x0) || !(y1 > y0)) return null;
+    if (!(x1 > x0) || !(y1 > y0)) return {};
     x0 -= 1; y0 -= 1; x1 += 1; y1 += 1;
     const cas = cascoPts(F.flat());
     if (real) {   /* A439: en pantalla solo lo que cae en el lienzo (acercado, la malla sale de el), y la imagen se guarda mientras nada cambie */
       const vx0 = -T.e / T.a, vy0 = -T.f / T.d, vx1 = (g.canvas.width - T.e) / T.a, vy1 = (g.canvas.height - T.f) / T.d;
       x0 = Math.max(x0, Math.floor(vx0) - 2); y0 = Math.max(y0, Math.floor(vy0) - 2); x1 = Math.min(x1, Math.ceil(vx1) + 2); y1 = Math.min(y1, Math.ceil(vy1) + 2);
-      if (!(x1 > x0) || !(y1 > y0)) return cas;
+      if (!(x1 > x0) || !(y1 > y0)) return { cas };
       const clave = [T.a, T.d, T.e, T.f, g.canvas.width, g.canvas.height, X(0), Y(0), X(1), plano, tn].join(',');
-      if (t.zcache && t.zcache.clave === clave) { const zc = t.zcache; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(zc.cv, zc.x0, zc.y0, zc.w, zc.h); g.restore(); return cas; }
+      if (t.zcache && t.zcache.clave === clave) { const zc = t.zcache; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(zc.cv, zc.x0, zc.y0, zc.w, zc.h); g.restore(); return { cas, zm: zc }; }
       t.zclave = clave; }
     if ((x1 - x0) * (y1 - y0) * r * r > ZMALLA.maxPx) r = Math.sqrt(ZMALLA.maxPx / ((x1 - x0) * (y1 - y0)));
     const W = Math.ceil((x1 - x0) * r), H = Math.ceil((y1 - y0) * r), N = W * H;
@@ -14635,7 +14648,8 @@ const LAM = (() => {
     for (let k = 0; k < N; k++) { const i = cid[k]; if (i < 0) continue; const ed = borde[k] || (k % W && borde[k - 1]) || (k >= W && borde[k - W]), c = ed ? linea[i] : base[i], f = ed || plano ? 1 : kb[k];
       d[4 * k] = Math.min(255, Math.round(c[0] * f)); d[4 * k + 1] = Math.min(255, Math.round(c[1] * f)); d[4 * k + 2] = Math.min(255, Math.round(c[2] * f)); d[4 * k + 3] = 255; }
     cx.putImageData(im, 0, 0);
-    if (real) { t.zcache = { clave: t.zclave, cv, x0, y0, w: W / r, h: H / r }; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(cv, x0, y0, W / r, H / r); g.restore(); }
+    const cub = new Uint8Array(N); for (let k = 0; k < N; k++) cub[k] = cid[k] >= 0 ? 1 : 0;   /* A440: la silueta, para el resalte y el clic */
+    if (real) { t.zcache = { clave: t.zclave, cv, x0, y0, w: W / r, h: H / r, cub, W, H }; g.save(); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(cv, x0, y0, W / r, H / r); g.restore(); }
     else {   /* exportado: la imagen (JPEG del PDF) recortada a la union de sus triangulos, todos del mismo giro */
       const fondo = document.createElement('canvas'); fondo.width = W; fondo.height = H; const fx = fondo.getContext('2d');
       fx.fillStyle = plano ? '#FFFFFF' : sombra(tn || t.caras[0].col, .55); fx.fillRect(0, 0, W, H); fx.drawImage(cv, 0, 0);
@@ -14646,7 +14660,7 @@ const LAM = (() => {
       F.forEach(P => { for (let j = 1; j + 1 < P.length; j++) { let a = P[0], b = P[j], c = P[j + 1]; if ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) < 0) [b, c] = [c, b];
         g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.closePath(); } });
       g.clip(); g.drawImage(IMGS[id], x0, y0, W / r, H / r); g.restore(); }
-    return cas;
+    return { cas, zm: real ? t.zcache : null };
   }
   const cascoPts = pts => { const P = pts.slice().sort((p, q) => p[0] - q[0] || p[1] - q[1]), cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), H = [];
     for (const pass of [0, 1]) { const ini = H.length; (pass ? P.slice().reverse() : P).forEach(p => { while (H.length >= ini + 2 && cr(H[H.length - 2], H[H.length - 1], p) <= 1e-9) H.pop(); H.push(p); }); H.pop(); }
@@ -14663,8 +14677,8 @@ const LAM = (() => {
       if (t.t === 'alambre') { g.save(); g.lineCap = 'round'; g.strokeStyle = plano ? '#333333' : '#4F5962';
         [.45, 1].forEach(gr => { g.lineWidth = gr === 1 ? 1.1 : .65; g.beginPath(); t.segs.forEach(sg => { if (sg[2] !== gr) return; g.moveTo(X(sg[0][0]), Y(sg[0][1])); g.lineTo(X(sg[1][0]), Y(sg[1][1])); }); g.stroke(); });
         g.restore(); return; }
-      if (t.t === 'zmalla') { const tn = o.tinte ? o.tinte(t.q) : null, cas = pintarZMalla(g, t, X, Y, plano, tn, sombra);   /* A436 */
-        if (o.hits && cas && t.q && !t.q.extra) isoModHits.push({ pr: cas, modulo: t.q.p.modulo || null, p: t.q.p, ci: t.q.ci, kc: t.q.kc });
+      if (t.t === 'zmalla') { const tn = o.tinte ? o.tinte(t.q) : null, { cas, zm } = pintarZMalla(g, t, X, Y, plano, tn, sombra);   /* A436 */
+        if (o.hits && cas && t.q && !t.q.extra) isoModHits.push({ pr: cas, zm, modulo: t.q.p.modulo || null, p: t.q.p, ci: t.q.ci, kc: t.q.kc });   /* A440: zm, su silueta */
         return; }
       const pr = t.pr.map(p => [X(p[0]), Y(p[1])]);
       g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
@@ -14711,9 +14725,13 @@ const LAM = (() => {
   function isoHit(p){ for (let i = isoHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoHits[i].pr)) return isoHits[i]; return null; }
   /* A340 (usuario 21/10: «elementos se seleccionan y se pueden editar en el isometrico»): el modulo de la cara de encima en el punto, y el
      resalte de los elegidos (sus caras visibles con un velo del color de seleccion, en una sola pasada para que no se oscurezca) */
-  function isoModulo(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].modulo; return null; }
-  function isoPieza(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i].p; return null; }
-  function isoPiezaCara(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (dentroPoli(p, isoModHits[i].pr)) return isoModHits[i]; return null; }   /* A389: la pieza de encima y su cara */   /* A355 */   /* la cara de encima; la cubierta no elige el bajo */
+  /* A440: una malla (z-buffer) se elige solo donde la pinta, no en todo su casco */
+  const enSilueta = (p, h) => { const z = h.zm; if (!z) return true; const ix = Math.floor((p.x - z.x0) / z.w * z.W), iy = Math.floor((p.y - z.y0) / z.h * z.H);
+    return ix >= 0 && iy >= 0 && ix < z.W && iy < z.H && z.cub[iy * z.W + ix] === 1; };
+  const enHit = (p, h) => dentroPoli(p, h.pr) && enSilueta(p, h);
+  function isoModulo(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (enHit(p, isoModHits[i])) return isoModHits[i].modulo; return null; }
+  function isoPieza(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (enHit(p, isoModHits[i])) return isoModHits[i].p; return null; }
+  function isoPiezaCara(p){ for (let i = isoModHits.length - 1; i >= 0; i--) if (enHit(p, isoModHits[i])) return isoModHits[i]; return null; }   /* A389: la pieza de encima y su cara */   /* A355 */   /* la cara de encima; la cubierta no elige el bajo */
   /* A353 (usuario 21/10: «la seleccion se ve extraña en el isometrico, ¿podemos cambiarla por una mas dinamica, estetica y legible?»): el
      contorno exterior de la silueta del modulo (union de sus caras visibles: mascara dilatada menos la mascara), un tinte muy suave adentro
      y, por modulo, su caja en pantalla (para la etiqueta). o.ancho: grueso del contorno en px; o.tinte: opacidad del tinte */
@@ -14729,7 +14747,9 @@ const LAM = (() => {
     /* cada cara por su cuenta (un solo trazo con caras encimadas de giro opuesto dejaba huecos) y con su borde, que cierra las rendijas */
     /* en orden de pintado: lo de los elegidos suma; lo que otra pieza pinta encima despues, se borra (solo queda lo visible) */
     let hay = false; isoModHits.forEach(h => { const mio = esMio(h); if (!mio && !hay) return; hay = true;
-      mg.globalCompositeOperation = mio ? 'source-over' : 'destination-out'; mg.beginPath(); h.pr.forEach((q, i) => i ? mg.lineTo(q[0], q[1]) : mg.moveTo(q[0], q[1])); mg.closePath(); mg.fill(); if (mio) mg.stroke(); });
+      mg.globalCompositeOperation = mio ? 'source-over' : 'destination-out';
+      if (h.zm) { mg.drawImage(h.zm.cv, h.zm.x0, h.zm.y0, h.zm.w, h.zm.h); return; }   /* A440 (usuario 22/10: «la linea de borde azul de seleccion no cuadra con los colgantes»): la malla con su silueta, no con su casco */
+      mg.beginPath(); h.pr.forEach((q, i) => i ? mg.lineTo(q[0], q[1]) : mg.moveTo(q[0], q[1])); mg.closePath(); mg.fill(); if (mio) mg.stroke(); });
     mg.globalCompositeOperation = 'source-over';
     const anillo = lienzo(), ag = anillo.getContext('2d');
     for (let a = 0; a < 16; a++) ag.drawImage(masc, Math.cos(a * Math.PI / 8) * r, Math.sin(a * Math.PI / 8) * r);
