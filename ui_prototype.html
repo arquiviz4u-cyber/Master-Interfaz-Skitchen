@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A417. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente] (usuario 21/10: «asi de mal se ven en el isometrico las puertas en L de
+       altos en esquina») La bisagra intermedia oculta de la plegable (79T8500) no tenia simbolo y en los dibujos del master salia como su caja
+       sobre las hojas; va simplificada (soloDibujo :dibPleg:, de la malla del modelo: placa y brazo con la hoja b, cazoleta en la a) y sus
+       modelos son soloModelo.
    A415. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente] (usuario 21/10, captura: «asi se ve la union de gola en esquina») En el
        ciego con gola: 1) la gola de la otra cara de A412 iba 1.8 cm corrida (tomaba el plano de los frentes en lugar de la caja); ahora sigue a
        la de sus gabinetes y empata a 45 con la del ciego. 2) La tapeta de ajuste de la otra cara (A232) quedaba dentro del canal de la gola y lo
@@ -6625,7 +6629,7 @@ function pruebasPlanMX(){
       Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
     const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && a.rol !== 'luz' && b.rol !== 'luz' && !a.modelo && !b.modelo && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado; A138: un herraje tal cual no es su caja */
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
-    const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) || a.id.includes(':dib155:') ||   /* A414: el dibujo simplificado de la 155 (como su modelo, no es su caja) */
+    const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) || a.id.includes(':dib155:') || a.id.includes(':dibPleg:') ||   /* A414: el dibujo simplificado de la 155 (como su modelo, no es su caja) */
       a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago') ||   /* B19: el vastago entra en su cuerpo */
       a.tipo === 'RielMuro' && b.tipo === 'RielGabinete' ||   /* A145: las dos mitades del riel frances comparten su caja (A146: el del muro corre por toda la fila) */
       a.tipo === 'Nariz' && b.tipo === 'Losa' && (b.id === a.id.replace(/:nariz$/, '') || b.id.startsWith(a.id.replace(/:nariz$/, '') + ':')) ||   /* A88: inglete */
@@ -9042,8 +9046,15 @@ function aperturasEsquinero(piezas, add){
           nud('nudilloA:abajo', z0, z0 + t3 - .02, q.id); nud('nudilloA:arriba', z0 + H - t3 + .02, z0 + H, q.id); nud('nudilloB', z0 + t3, z0 + H - t3, hb.id); }
         else if (hb) { const BP = MODELO.bisagraPlegable, oP = [r3(hb.x + hb.ancho), r3(q.y - BP.espalda), r3(zc)], eP = [[-1, 0, 0], [0, 1, 0], [0, 0, 1]];
           const pp = (n, tipo, archivo, caja, fd, extra) => add(Object.assign({ id: q.id + ':plegable:' + n + ':' + j, tipo, modelo: { archivo, origen: oP, ejes: eP } }, base, { frente: fd }, extra, cajaEjes(caja, oP, eP)));
-          pp('cazoleta', 'Cazoleta', 'bisagra_plegable_cazoleta', BP.cazoletaCaja, q.id, { ocultaSinPuertas: true });
-          pp('brazo', 'Bisagra', 'bisagra_plegable_brazo', BP.brazo, hb.id, { bisagra: especBisagra('plegable', BP.grados), ocultaSinPuertas: true });   /* A391: entre las hojas; sin puertas no queda flotando */
+          pp('cazoleta', 'Cazoleta', 'bisagra_plegable_cazoleta', BP.cazoletaCaja, q.id, { ocultaSinPuertas: true, soloModelo: true });
+          pp('brazo', 'Bisagra', 'bisagra_plegable_brazo', BP.brazo, hb.id, { bisagra: especBisagra('plegable', BP.grados), ocultaSinPuertas: true, soloModelo: true });   /* A391: entre las hojas; sin puertas no queda flotando */
+          /* A417 (usuario 21/10: «asi de mal se ven en el isometrico las puertas en L de altos en esquina»): la intermedia oculta no tiene simbolo
+             y salia como su caja; en los dibujos del master va simplificada (de la malla del modelo: placa en la hoja b, brazo y cazoleta en la a) */
+          const dP = (n, mn, mx, fd, forma) => { const c = cajaEjes([mn, mx], oP, eP); add(Object.assign({ id: q.id + ':dibPleg:' + n + ':' + j, rol: 'herraje', modulo: q.modulo, tipo: 'BisagraAla', frente: fd, soloDibujo: true, ocultaSinPuertas: true, material: null, etiqueta: 'herrajes' }, c, forma ? { forma } : {})); };
+          dP('placa', [-.5, -2, -2.65], [0, 2, 2.65], hb.id); dP('brazo', [-2, -4, -.9], [-.5, 2.75, .9], hb.id);
+          { const Y0 = BP.cazoletaCaja[0][1], Y1 = Math.min(BP.cazoletaCaja[1][1], BP.espalda + .5), c = cajaEjes([[BP.cazoleta - 1.75, Y0, -1.75], [BP.cazoleta + 1.75, Y1, 1.75]], oP, eP), P1 = puntoEjes([BP.cazoleta, Y0, 0], oP, eP), P2 = puntoEjes([BP.cazoleta, Y1, 0], oP, eP);
+            add(Object.assign({ id: q.id + ':dibPleg:cazoleta:' + j, rol: 'herraje', modulo: q.modulo, tipo: 'BisagraAla', frente: q.id, soloDibujo: true, ocultaSinPuertas: true, material: null, etiqueta: 'herrajes' }, c,
+              { forma: { tipo: 'cilindro', de: [r3(P1[0] - c.x), r3(P1[1] - c.y), r3(P1[2] - c.z)], a: [r3(P2[0] - c.x), r3(P2[1] - c.y), r3(P2[2] - c.z)], diametro: 3.5, lados: 14 } })); }
           const d = PLAN_PERFORACION.diametro, xc = Math.max(d/2 + .01, Math.min(q.ancho - d/2 - .01, oP[0] - BP.cazoleta - q.x));
           (q.perforaciones = q.perforaciones || []).push({ x: r(xc), z: r(zc - q.z), diametro: d, hondo: PLAN_PERFORACION.hondo }); }
       } else {
