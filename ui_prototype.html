@@ -344,6 +344,12 @@
    A376. [Master hecho 21/10; SketchUp: el clic en una pieza sin frente ya abre todo su gabinete; Revit pendiente] (usuario 21/10: «los
        cajones con tarja no abren») En el mueble de la tarja con cajones (A373) el primero es un falso frente fijo; el clic en el no hacia
        nada en el isometrico. Ahora un clic en el falso frente abre (o cierra) los cajones de su mueble.
+   A391. [Master hecho 21/10; SketchUp: lee intermedia y ocultaSinPuertas del plan; Revit pendiente] (usuario 21/10: «las bisagras de todos
+       los esquineros no se representan bien, salen mal ubicadas, solapadas») Esquinero en L plegable: la bisagra intermedia es siempre la
+       oculta Blum 79T8500 (la de libro quedaba montada en el cruce de las caras posteriores y sus alas se separaban al abrir con el giro de
+       A301); lo guardado con 'libro' pasa a ella. Sin puertas (Interior), los eslabones de la 155 y el brazo entre las hojas se ocultan con
+       ellas (antes quedaban flotando en la esquina). En el isometrico, las bisagras con modelo girado (la cara de al lado del esquinero, a
+       90, y el diagonal, a 45) ya no usan el simbolo de la puerta recta, que salia en otro lugar y encimado: va su caja en su lugar.
    A390. [Revertido 21/10] (usuario: «quita los altos sobre la cubierta, me entendiste mal») Se quitaron los altos sobre la cubierta de la
        peninsula (penSobre, repisas hacia los bancos); la peninsula vuelve a no llevar altos. Pendiente aclarar que pedia con «si el gabinete
        alto queda en peninsula aparece una nueva funcion de repisas, alacena etc. tambien con una nueva funcion especial de subdividir».
@@ -4824,7 +4830,10 @@ const USOS_BISAGRA = { traslape: 'traslape', embutida: 'embutida', elevable: 'el
   esquinero: 'esquinero', 'esquinero 45': 'esquinero diagonal', 'esquinero plegable': 'esquinero plegable', 'esquinero abatible': 'esquinero abatible',
   plegable: 'plegable', libro: 'libro' };   /* A268: la intermedia de la plegable; A270: la de libro */
 /* A270: bisagra intermedia de la plegable del esquinero: 'libro' (basica, de fabrica) u 'oculta' (Blum 79T8500, de pago) */
-const intermediaEsq = e => e && e.bisagraIntermedia === 'oculta' ? 'oculta' : 'libro';
+/* A391 (usuario 21/10: «las bisagras de todos los esquineros no se representan bien, salen mal ubicadas, solapadas»): desde A301 las hojas
+   plegables abren con el giro de la Blum oculta (la b 60 hacia plano sobre la esquina de los frentes); con la de libro (montada en el cruce
+   de las caras posteriores) sus alas se separaban al abrir. La plegable lleva siempre la Blum 79T8500; lo guardado con 'libro' pasa a ella */
+const intermediaEsq = e => 'oculta';
 const giroIntermedia = e => intermediaEsq(e) === 'oculta' ? MODELO.bisagraPlegable.grados : MODELO.bisagraLibro.grados;
 /* A329 (usuario 20/10: «las bisagras elevables, si son las mismas que usamos para los traslapes, deberian mostrarse como una sola y en caso de
    que no, con el nombre comercial del angulo de apertura»): la bisagra que se compra. La de la elevable es la de traslape (mismo modelo, Blum
@@ -8663,8 +8672,8 @@ function aperturasEsquinero(piezas, add){
       const parte = (id, tipo, archivo, o, caja, extra, b = base) => add(Object.assign({ id: q.id + ':' + id + ':' + j, tipo, modelo: { archivo, origen: o, ejes: ejesL } }, b, extra, cajaEjes(caja, o0, ejesL)));   /* la caja, en ejes de la cerrada */
       if (H) {   /* A262: Blum 155: brazo fijo, eslabones cerrados o abiertos segun su puerta y la cazoleta con ella */
         parte('bisagra', 'Bisagra', 'bisagra155_brazo', o0, B.brazo, { bisagra: especBisagra(uso, GL) }, fijo);
-        parte('eslabones', 'Eslabon', 'bisagra155_eslabones', o0, B.eslabones, { estado: 'cerrado' });
-        parte('eslabonesAbierta', 'Eslabon', 'bisagra155_eslabones_abierta', o0, B.eslabonesAbierta, { estado: 'abierto' });
+        parte('eslabones', 'Eslabon', 'bisagra155_eslabones', o0, B.eslabones, { estado: 'cerrado', ocultaSinPuertas: true });   /* A391: van con la puerta; sin puertas no quedan flotando */
+        parte('eslabonesAbierta', 'Eslabon', 'bisagra155_eslabones_abierta', o0, B.eslabonesAbierta, { estado: 'abierto', ocultaSinPuertas: true });
         parte('cazoleta', 'Cazoleta', 'bisagra155_cazoleta', o0, B.cazoletaCaja, { ocultaSinPuertas: true });
         /* A268: en la plegable, a cada altura la 79T8500 entre las hojas: la cazoleta (con su eslabon) va con la a y el brazo (con su placa)
            con la b; la perforacion en la cara posterior de la a, dentro de la hoja aunque la cazoleta llegue a su canto */
@@ -8677,7 +8686,7 @@ function aperturasEsquinero(piezas, add){
         else if (hb) { const BP = MODELO.bisagraPlegable, oP = [r3(hb.x + hb.ancho), r3(q.y - BP.espalda), r3(zc)], eP = [[-1, 0, 0], [0, 1, 0], [0, 0, 1]];
           const pp = (n, tipo, archivo, caja, fd, extra) => add(Object.assign({ id: q.id + ':plegable:' + n + ':' + j, tipo, modelo: { archivo, origen: oP, ejes: eP } }, base, { frente: fd }, extra, cajaEjes(caja, oP, eP)));
           pp('cazoleta', 'Cazoleta', 'bisagra_plegable_cazoleta', BP.cazoletaCaja, q.id, { ocultaSinPuertas: true });
-          pp('brazo', 'Bisagra', 'bisagra_plegable_brazo', BP.brazo, hb.id, { bisagra: especBisagra('plegable', BP.grados) });
+          pp('brazo', 'Bisagra', 'bisagra_plegable_brazo', BP.brazo, hb.id, { bisagra: especBisagra('plegable', BP.grados), ocultaSinPuertas: true });   /* A391: entre las hojas; sin puertas no queda flotando */
           const d = PLAN_PERFORACION.diametro, xc = Math.max(d/2 + .01, Math.min(q.ancho - d/2 - .01, oP[0] - BP.cazoleta - q.x));
           (q.perforaciones = q.perforaciones || []).push({ x: r(xc), z: r(zc - q.z), diametro: d, hondo: PLAN_PERFORACION.hondo }); }
       } else {
@@ -10549,8 +10558,7 @@ function closetPanel(m){
 }
 /* A134: panel del esquinero (bajo o alto de la columna de esquina) */
 /* A270: la bisagra entre las hojas de la plegable */
-const bisIntHTML = e => puertasL(e) !== 'plegable' ? '' : section('Bisagra intermedia', radios('esqBisInt', [['libro', 'De libro (básica)'], ['oculta', 'Oculta, Blum 79T8500 (Pro)']], intermediaEsq(e))
-  + `<div class="note-sm">${intermediaEsq(e) === 'oculta' ? 'Cazoleta en la hoja junto a la bisagra de 155° y brazo en la otra; la plegable abre a 150° entre hojas.' : 'Por dentro: nudillo en la esquina interior y alas en las caras posteriores; solo se ve al abrir. La plegable se dobla espalda con espalda.'}</div>`);
+const bisIntHTML = e => puertasL(e) !== 'plegable' ? '' : section('Bisagra intermedia', `<div class="note-sm" style="margin-top:0">Oculta, Blum 79T8500: cazoleta en la hoja junto a la bisagra de 155° y brazo en la otra; la plegable abre a 150° entre hojas.</div>`);   /* A391: sin la de libro */
 function esquinaPanel(m){
   const e = esquinaDe(m), k = m.esquina.k, R = reg().esquina, h = huellaEsquina(k), alacena = e.tipo === 'alacena';
   let html = head('Esquinero', `Caras ${letraCara(k)} y ${letraCara(k + 1)} · ${fmt(h[0])} / ${fmt(h[1])}${uS()}`);
@@ -13106,6 +13114,10 @@ const LAM = (() => {
   const modeloCad = p => {
     if (!p || !p.modelo || !FAM[p.modelo.archivo] || !HERR_TIPOS.has(p.tipo)) return null;
     if (p.modelo.giro) return null;   /* A202: girado (puerta elevable): lo dibuja dibujarSimGiro, no el simbolo derecho */
+    /* A391: un modelo con sus propios ejes girados (bisagras del esquinero: 90 en la otra cara, 45 en el diagonal) no tiene simbolo en esa
+       orientacion; el simbolo derecho salia en otro lugar y encimado. Va su caja, en su lugar real */
+    const ej = p.modelo.ejes; if (ej && !(Math.abs(ej[0][1]) < 1e-6 && Math.abs(ej[1][0]) < 1e-6 && Math.abs(ej[1][1] + 1) < 1e-6)) return null;
+    if (ej && ej[0][0] < -.5) return Object.assign({}, p.modelo, { espejo: !p.modelo.espejo });   /* A391: su X espejada es un espejo (el ciego); sin esto el simbolo salia corrido 15 cm */
     if (p.modelo.origen) return p.modelo;
     const cb = COR_CAJA[p.modelo.archivo]; if (!cb || !(p.fondo > 0)) return null;
     const [mn, mx] = cb, e = !!p.modelo.espejo, sy = p.fondo / (mx[1] - mn[1]);
