@@ -365,6 +365,15 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A428. [Master hecho 22/10; SketchUp: sin cambio (mismos tipos y archivos basura_colgante_movil/_fija; las cajas llegan con el ancho escalado y ajuste las estira por eje); Revit pendiente]
+       (usuario 22/10: «hacer lo mismo que con el magic corner con los botes colgantes»; «dejemos fuera el de 600 mm y lo anotamos para desarrollo posterior en premium») Los botes
+       colgantes se adaptan a cuatro anchos comerciales de gabinete: 300, 400, 450 (el modelo) y 500 mm (m.colganteTam = 30, 40, 45 o 50; de fabrica 45). Se escala solo a lo ancho
+       sobre el centro del modelo, con k = (tamano - 2 x lateral - 0.35) / 41.055 = 0.64, 0.88, 1.00 y 1.12 (los botes van uno tras otro; el fondo de 50.7, el alto y el recorrido de 47
+       quedan fijos): el ancho de instalacion es el interior menos 3.5 mm, como en las fichas (FICHAS_BOTES_COLGANTES.md). minWidth del colgante devuelve su tamano (el reparto no lo
+       angosta); colganteCabe compara el ancho del modulo con el de su tamano; un gabinete mas ancho lo deja centrado. Panel del cesto: «Ancho del gabinete» con 300, 400, 450 y 500
+       (ACT.cestoColgTam: el modulo toma ese ancho fijo, libera el alto de su columna y no pisa antesColgante de A427: al volver al de bastidor recupera su ancho). PENDIENTE (Premium):
+       el de 600 mm, con botes lado a lado como el mercado (Legra-Bin 2 x 26/42 L, Tandem-Bin 84 L, Envi Space XX Pro 85/88 L): hace falta un modelo propio; el panel lo avisa («llegara
+       con Premium»). Pruebas: casos de 300, 400 y 500 con el ancho de la parte movil.
    A416. [Master hecho 21/10; SketchUp: Dialogo manda sketchupPlan(nivel) (en la beta, premium); Revit pendiente] (usuario 21/10: «genera las
        etiquetas de pro y premium en las funciones de la interfaz, estas aparecen y desaparecen de acuerdo al plan que tengas»): planes
        Gratis, Pro y Premium; planUsuario (sketchupPlan o ?plan= en el prototipo; de fabrica premium = todo abierto); PLAN_FUNCION con el
@@ -4430,7 +4439,7 @@ function minWidth(m){
      gabinete con parrilla no baja del hueco de su parrilla; asi el reparto no lo achica de mas y, si no cabe, se ofrece quitar otra columna */
   /* A426 (usuario 22/10: «cuando pongo bote colgante y reduzco el ancho de columna en automatico se pasa al de piso y bastidor aunque siga
      seleccionado colgante»): el cesto colgante va a la medida de su herraje: su gabinete no baja del ancho que lo deja pasar (45 cm) */
-  if (!m.upper && m.tipo === 'Basura' && m.cestoTipo === 'colgante') { const C = MODELO.basuraColgante.caja; return Math.max(base, Math.ceil(C[1][0] - C[0][0] + 2*PLAN_CUERPO.lateral - 1e-6)); }
+  if (!m.upper && m.tipo === 'Basura' && m.cestoTipo === 'colgante') return Math.max(base, colganteTam(m));   /* A428: el ancho de su tamano (30, 40, 45 o 50) */
   return !m.upper && m.parrilla && m.parrillaAncho > 0 ? Math.max(base, Math.ceil(m.parrillaAncho - 2*reg().parrilla.labio - 1e-6)) : base;
 }
 
@@ -5098,7 +5107,13 @@ const cajaModeloG = ([mn, mx], { ox, refZ = 0, oy, refY = 0, oz, refX = 0 }) => 
 /* A419: el cesto con botes colgantes (m.cestoTipo 'colgante'): el modelo va a su medida, asi que el interior del gabinete (entre laterales)
    debe medir su ancho mas hasta 3 cm de holgura (de fabrica, gabinete de 45 cm); si no, va el de bastidor */
 /* A423: el modelo va a su ancho (41.06): cabe si el interior entre laterales lo deja pasar; mas ancho, centrado */
-const colganteCabe = m => { const C = MODELO.basuraColgante.caja; return m.ancho - 2*PLAN_CUERPO.lateral >= C[1][0] - C[0][0] - .01; };
+/* A428 (usuario 22/10: «hacer lo mismo que con el magic corner»; «dejemos fuera el de 600 y lo anotamos para desarrollo posterior en premium»): el
+   modelo (de gabinete de 45) se adapta a cuatro anchos comerciales de gabinete, 300, 400, 450 y 500 mm (m.colganteTam = 30, 40, 45 o 50): se
+   escala solo a lo ancho sobre su centro (los botes van uno tras otro; el fondo lo fija la corredera y el alto no depende del ancho). El ancho
+   de instalacion es el interior menos 3.5 mm (la holgura del modelo en el de 45). Con un gabinete mas ancho queda centrado */
+const COLGANTE_TAM = [30, 40, 45, 50], colganteTam = m => COLGANTE_TAM.includes(m && m.colganteTam) ? m.colganteTam : 45;
+const colganteK = tam => { const C = MODELO.basuraColgante.caja, W = C[1][0] - C[0][0], k = (tam - 2*PLAN_CUERPO.lateral - .35)/W; return Math.abs(k - 1) < .01 ? 1 : k; };
+const colganteCabe = m => m.ancho + .01 >= colganteTam(m);
 const cestoColgante = m => m.tipo === 'Basura' && m.cestoTipo === 'colgante' && colganteCabe(m);
 /* A425 (usuario 22/10: «el bote con piso y bastidor lleva dos correderas, opcion de corredera oculta; restriccion de poner el doble cuando el
    ancho sea menor (arrojar aviso)»): el cesto de bastidor lleva dos juegos de correderas de bola (en los largueros de abajo y en los del
@@ -5478,8 +5493,8 @@ function planDePiezas(c = cfg){
     const cestoColganteDe = (m, base, h, f, frenteId) => {
       /* A423: el modelo a su medida (sin escalar; A421 lo estiraba a lo ancho), centrado entre los laterales, la placa de amarre en la cara
          posterior del frente, sobre el piso del gabinete. La pieza fija (patas y tapa) sin frente; la movil, con el frente del extraible */
-      const M = MODELO.basuraColgante, [mn, mx] = M.caja, W = mx[0] - mn[0], x0 = (h.x0 + h.x1)/2 - W/2, yF = h.yF ?? h.y1, z0 = h.z0 + .5;
-      const enPlan = ([a, b]) => ({ x: r2(x0 + a[0] - mn[0]), y: r2(yF - (b[1] - mn[1])), z: r2(z0 + a[2] - mn[2]), ancho: r2(b[0] - a[0]), fondo: r2(b[1] - a[1]), alto: r2(b[2] - a[2]) });
+      const M = MODELO.basuraColgante, [mn, mx] = M.caja, kx = colganteK(colganteTam(m)), cx = (h.x0 + h.x1)/2, mc = (mn[0] + mx[0])/2, yF = h.yF ?? h.y1, z0 = h.z0 + .5;   /* A428: a su tamano, solo a lo ancho sobre su centro */
+      const enPlan = ([a, b]) => ({ x: r2(cx + (a[0] - mc)*kx), y: r2(yF - (b[1] - mn[1])), z: r2(z0 + a[2] - mn[2]), ancho: r2((b[0] - a[0])*kx), fondo: r2(b[1] - a[1]), alto: r2(b[2] - a[2]) });
       const pieza = (k, fd, datos) => piezaDe(m, base + ':colgante' + k, fd, Object.assign({ rol: 'herraje', tipo: 'BasuraColgante', etiqueta: 'herrajes' }, datos));
       pieza('', frenteId, Object.assign({ modelo: { archivo: 'basura_colgante_movil' }, soloModelo: true }, enPlan(M.movil)));
       pieza(':fija', undefined, Object.assign({ modelo: { archivo: 'basura_colgante_fija' }, soloModelo: true }, enPlan(M.fija)));
@@ -6735,6 +6750,8 @@ function pruebasPlanMX(){
       Object.assign(l[1], { tipo: 'Basura' }); Object.assign(l[3], { tipo: 'Basura', cestoBotes: 'Doble', ancho: 60, fijo: true }); return c; }],
     ['cesto colgante en columna automatica de un tramo corto (A426)', c => { c.longitud = 200; const l = c.modulos.filter(m => !m.upper); l.forEach(m => { m.fijo = false; });
       Object.assign(l[1], { tipo: 'Basura', cestoTipo: 'colgante' }); return c; }],
+    ...[30, 40, 50].map(tam => ['cesto de botes colgantes de gabinete de ' + tam*10 + ' mm (A428)', c => { const l = c.modulos.filter(m => !m.upper);
+      Object.assign(l[1], { tipo: 'Basura', cestoTipo: 'colgante', colganteTam: tam, ancho: tam, fijo: true }); return c; }]),
     ['cesto de botes colgantes en gabinete de 45 y de 60 (A419)', c => { const l = c.modulos.filter(m => !m.upper);
       Object.assign(l[1], { tipo: 'Basura', cestoTipo: 'colgante', ancho: 45, fijo: true }); Object.assign(l[3], { tipo: 'Basura', cestoTipo: 'colgante', cestoVariante: 'cajon', ancho: 60, fijo: true }); return c; }],
     ['especiero con cajones pequeno + grandes junto a una cajonera igual (A97)', c => { const l = c.modulos.filter(m => !m.upper);
@@ -7227,7 +7244,7 @@ function pruebasPlanMX(){
         /* A423: la movil con el frente (abre el recorrido de su corredera) y la fija sin el; las dos a su medida, la placa en la cara posterior del frente */
         const ab = mv && p.piezas.find(q => q.id === mv.frente && q.abre), Cm = MODELO.basuraColgante;
         ok(!n && cg.length === 2 && mv && fj && !fj.frente && ab && ab.abre.recorrido === Cm.recorrido && !p.piezas.some(q => q.frente === mv.frente && /Corredera/.test(q.tipo))
-          && Math.abs(mv.ancho - (Cm.movil[1][0] - Cm.movil[0][0])) < .02 && Math.abs(fj.fondo - (Cm.fija[1][1] - Cm.fija[0][1])) < .02 && Math.abs(fj.y + fj.fondo + (Cm.fija[0][1] - Cm.caja[0][1]) - (mv.y + mv.fondo)) < .02,
+          && Math.abs(mv.ancho - (Cm.movil[1][0] - Cm.movil[0][0])*colganteK(colganteTam(m))) < .03 && Math.abs(fj.fondo - (Cm.fija[1][1] - Cm.fija[0][1])) < .02 && Math.abs(fj.y + fj.fondo + (Cm.fija[0][1] - Cm.caja[0][1]) - (mv.y + mv.fondo)) < .02,
           nombre + ': el cesto colgante ' + m.id + ' no lleva su parte fija y su parte movil (con el frente y su recorrido) a su medida, o le quedan botes o correderas aparte');
         const cg0 = mv || cg[0];
         const lat = p.piezas.filter(q => q.modulo === m.id && q.tipo === 'Lateral'), xs = lat.map(q => [q.x, q.x + q.ancho]).sort((a, b) => a[0] - b[0]);
@@ -11381,9 +11398,10 @@ function modulePanel(m){
   if (m.tipo === 'Basura') html += section('Cesto de basura', radios('cesto', [['extraible', 'Solo extraíble'], ['cajon', 'Cajón chico arriba'], ['oculto', 'Cajón oculto']], m.cestoVariante || 'extraible')
     /* A419: segunda opcion, los botes colgantes con sus correderas (para gabinete de 45 cm) */
     + `<div style="margin-top:10px">${radios('cestoTipo', [['bastidor', 'Piso y bastidor con botes'], ['colgante', 'Botes colgantes con correderas']], m.cestoTipo === 'colgante' ? 'colgante' : 'bastidor')}</div>`
-    + (m.cestoTipo === 'colgante' ? (() => { const C = MODELO.basuraColgante.caja, W = C[1][0] - C[0][0], i = m.ancho - 2*PLAN_CUERPO.lateral;   /* A423 */
-      return `<div class="note-sm">Dos botes colgados uno tras otro con su propia corredera, patas y tapa; va a su medida (${medida(W)} de ancho, para gabinete de ${medida(45)}).${i - W > 1 && colganteCabe(m) ? ` En este gabinete queda centrado con ${medida(r2((i - W)/2))} por lado.` : ''}</div>`
-        + (!colganteCabe(m) ? `<div class="note-sm" style="color:#C2410C">Este gabinete mide ${medida(m.ancho)} y el colgante pide ${medida(minWidth(m))}: mientras no crezca va el de piso y bastidor.</div>` : ''); })() : '')   /* A426 */
+    + (m.cestoTipo === 'colgante' ? (() => { const C = MODELO.basuraColgante.caja, tam = colganteTam(m), W = (C[1][0] - C[0][0])*colganteK(tam), i = m.ancho - 2*PLAN_CUERPO.lateral;   /* A423; A428 */
+      return `<div class="p-label" style="margin-top:10px">Ancho del gabinete</div>${radios('cestoColgTam', [['30', '300 mm'], ['40', '400 mm'], ['45', '450 mm'], ['50', '500 mm']], String(tam))}`
+        + `<div class="note-sm">Dos botes colgados uno tras otro con su propia corredera, patas y tapa; el herraje se ajusta al ancho elegido (${medida(W)} de ancho). El de 600 mm llegará con Premium.${i - W > 1 && colganteCabe(m) ? ` En este gabinete queda centrado con ${medida(r2((i - W)/2))} por lado.` : ''}</div>`
+        + (!colganteCabe(m) ? `<div class="note-sm" style="color:#C2410C">Este gabinete mide ${medida(m.ancho)} y el colgante pide ${medida(minWidth(m))}: mientras no crezca va el de piso y bastidor.</div>` : ''); })() : '')   /* A426; A428 */
     + (cestoColgante(m) ? '' : `<div style="margin-top:10px">${radios('cestoBotes', [['Sencillo', 'Sencillo (un bote de dos compartimentos)'], ['Doble', 'Doble (dos botes)']], m.cestoBotes === 'Doble' && cabeDoble(m) ? 'Doble' : 'Sencillo')}</div>`   /* A138: los botes del usuario tal cual */
       /* A425: el doble solo si cabe entre los largueros (si no, aviso); corredera de bola (dos juegos) u oculta */
       + (!cabeDoble(m) ? (() => { const B = MODELO.bote, pa = Math.ceil(m.ancho - anchoCesto(m) + B.doble[0] + 1), pf = Math.ceil(m.fondo - fondoCesto(m) + B.frenteDoble + 2*B.doble[1] + B.entre + .5);
@@ -11774,6 +11792,9 @@ const ACT = {
       q.cestoTipo = 'colgante'; q.ancho = Math.ceil(minWidth(q) - 1e-6); q.fijo = true; if (alto) alto.fijo = false; }
     else if (v !== 'colgante' && q.cestoTipo === 'colgante') { const a = q.antesColgante; q.cestoTipo = undefined;
       if (a) { q.ancho = a.ancho; q.fijo = a.fijo; if (alto && a.altoFijo !== null) { alto.fijo = a.altoFijo; if (a.altoAncho > 0) alto.ancho = a.altoAncho; } } delete q.antesColgante; } }),   /* el alto de su columna, como estaba */ anchoBote: (v, m) => change(() => byId(m.id).anchoBasura = v), cestoBotes: (v, m) => { const q = byId(m.id); if (v === 'Doble' && !cabeDoble(q)) { setStatus(`El doble no cabe en este gabinete (${medida(q.ancho)} × ${medida(q.fondo)}): va sencillo.`); render(); return; } change(() => byId(m.id).cestoBotes = v); },   /* A425 */
+  /* A428: el ancho comercial del colgante: el modulo toma ese ancho fijo */
+  cestoColgTam: (v, m) => change(() => { const q = byId(m.id), t = +v; if (!COLGANTE_TAM.includes(t)) return; q.colganteTam = t;
+    if (q.cestoTipo === 'colgante') { const l = row(false), h = row(true), i = l.indexOf(q), alto = l.length === h.length && i >= 0 ? h[i] : null; q.ancho = t; q.fijo = true; if (alto) alto.fijo = false; } }),   /* como A427: sin tocar antesColgante; el alto de su columna se libera para que no choque el ancho fijo */
   /* A427: sin cestoCorredera (la corredera del cesto sigue el estilo de la cocina) */   /* A138 */
   espHerraje: (v, m) => change(() => byId(m.id).especieroHerraje = v),
   espJuegos: (v, m) => change(() => byId(m.id).juegosCorredera = Math.max(1, Math.min(4, Math.round(v) || 1))),   /* A347 */
