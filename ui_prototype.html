@@ -350,6 +350,14 @@
        (PLAN_TANDEM.riel; ficha TD-131/3 «min 27.5»), y el fondo de la caja sube a 13.5 mm del canto del costado (PLAN_TANDEM.ranura; ficha «12-15»; con la visible sigue en 5 mm). El carro
        queda justo bajo el fondo y entre el frente y la trasera de la caja. Archivos en G:\Sketchup\Kitchen\Correderas (563F5330B.skp, TAN+T51.1700.04.skp: bloqueo de 5.6 x 8.0 x 5.0 cm, aun sin
        modelar). Sin modelo .skp todavia: son cajas. Pendiente: bloqueo (2 por cajon), ajustador frontal 295.1000.21 y la perforacion de 37 y 32 mm del frente.
+   A393. [Master hecho 21/10; SketchUp: lee intermedia y abre.pliegue del plan; Revit pendiente] (usuario 21/10) 1) «la bisagra de libro no se ve
+       bien en el isometrico, ademas en peninsula no arroja la opcion de bisagra de libro o Blum»: vuelven las dos (A391 la habia quitado);
+       las dos abren con el giro de A301 (la b 60 sobre la esquina donde se juntan los frentes) y la de libro lleva ahora su nudillo en esa
+       esquina, con las alas sobre los frentes (antes en el cruce de las caras posteriores: sus alas se separaban al abrir). 2) «la vista isometrico tiene su propio boton con icono a un lado del
+       boton de vistas»: boton con un cubo junto a Vistas (otro clic vuelve a la vista anterior). 3) «la seleccion de la peninsula no se ve
+       correcta en isometrico, solo tiene que verse el contorno»: al pasar y al elegirla, el contorno de todas las piezas de su cara, sin
+       tinte. 4) «cuando pongo modulos en bajos de peninsula ya no me deja activar sin gabinetes»: con anchos fijos, al encogerse el esquinero
+       chocaban los fijos de la columna; la fila sin nada que construir ya no se reparte ni se empareja, y sus anchos vuelven al desactivar.
    A391. [Master hecho 21/10; SketchUp: lee intermedia y ocultaSinPuertas del plan; Revit pendiente] (usuario 21/10: «las bisagras de todos
        los esquineros no se representan bien, salen mal ubicadas, solapadas») Esquinero en L plegable: la bisagra intermedia es siempre la
        oculta Blum 79T8500 (la de libro quedaba montada en el cruce de las caras posteriores y sus alas se separaban al abrir con el giro de
@@ -2931,6 +2939,9 @@
       <svg width="20" height="13" viewBox="0 0 22 14" fill="none"><path d="M1 7C3.5 1.5 8 1 11 1s7.5 0.5 10 6c-2.5 5.5-7 6-10 6s-7.5-0.5-10-6Z" stroke="#266096" stroke-width="1.6" stroke-linejoin="round"/><circle cx="11" cy="7" r="3" fill="#266096"/></svg>
       <span id="viewLabel">Alzado</span>
     </button>
+    <button class="btn btn-icon btn-toggle" id="btnIso" title="Isom&eacute;trico (otro clic: vuelve a la vista anterior)">   <!-- A393 -->
+      <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 2 17 6v8l-7 4-7-4V6l7-4Z" stroke="#266096" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 6l7 4 7-4M10 10v8" stroke="#266096" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 2 17 6l-7 4-7-4 7-4Z" fill="#266096" fill-opacity=".18"/></svg>
+    </button>
     <button class="btn btn-icon btn-toggle" id="btnSection" title="Secci&oacute;n: muestra u oculta en el alzado la secci&oacute;n lateral del gabinete elegido (o del primero), con su l&iacute;nea de corte">   <!-- A115: solo icono, junto al tipo de vista -->
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M8 6.5v7" stroke="#266096" stroke-width="1.2" stroke-dasharray="3 1.5 1 1.5"/><path d="M8 1.5v4M8 14.5v4M6.8 1.5h7M6.8 18.5h7" stroke="#266096" stroke-width="2.6"/></svg>
     </button>
@@ -4842,8 +4853,9 @@ const USOS_BISAGRA = { traslape: 'traslape', embutida: 'embutida', elevable: 'el
 /* A270: bisagra intermedia de la plegable del esquinero: 'libro' (basica, de fabrica) u 'oculta' (Blum 79T8500, de pago) */
 /* A391 (usuario 21/10: «las bisagras de todos los esquineros no se representan bien, salen mal ubicadas, solapadas»): desde A301 las hojas
    plegables abren con el giro de la Blum oculta (la b 60 hacia plano sobre la esquina de los frentes); con la de libro (montada en el cruce
-   de las caras posteriores) sus alas se separaban al abrir. La plegable lleva siempre la Blum 79T8500; lo guardado con 'libro' pasa a ella */
-const intermediaEsq = e => 'oculta';
+   de las caras posteriores) sus alas se separaban al abrir. La plegable lleva siempre la Blum 79T8500; lo guardado con 'libro' pasa a ella. A393 (usuario 21/10: «no arroja la opcion de bisagra de libro o Blum»): vuelven las dos; la de
+   libro abre con su propio giro (la b 90 sobre el cruce de las caras posteriores, espalda con espalda) y la Blum con el de A301 */
+const intermediaEsq = e => e && e.bisagraIntermedia === 'oculta' ? 'oculta' : 'libro';   /* A393: la de libro con su nudillo donde giran las hojas */
 const giroIntermedia = e => intermediaEsq(e) === 'oculta' ? MODELO.bisagraPlegable.grados : MODELO.bisagraLibro.grados;
 /* A329 (usuario 20/10: «las bisagras elevables, si son las mismas que usamos para los traslapes, deberian mostrarse como una sola y en caso de
    que no, con el nombre comercial del angulo de apertura»): la bisagra que se compra. La de la elevable es la de traslape (mismo modelo, Blum
@@ -6333,7 +6345,7 @@ function pruebasPlanMX(){
             nombre + ': ' + q.id + ' no tiene el hueco de la parrilla de ' + m.id)); }
       if (pq) ok(Math.abs(pq.ancho - m.parrillaAncho) < .02 && pq.hueco && pq.x + pq.hueco.x >= xb - .02 && pq.x + pq.hueco.x + pq.hueco.ancho <= xb + m.ancho + .02, nombre + ': la parrilla de ' + m.id + ' no tiene su ancho real o su hueco sale del gabinete');
       xb += m.ancho; });
-    ok(Math.abs(xb + aj(false) - c.longitud) < .02, nombre + ': los bajos y tapetas no suman el largo');
+    ok(c.peninsula && c.penSinGabinetes || Math.abs(xb + aj(false) - c.longitud) < .02, nombre + ': los bajos y tapetas no suman el largo');   /* A393: sin gabinetes la fila no se reparte */
     const cruza = (a, b) => ['x', 'y', 'z'].every((e, i) => { const w = ['ancho', 'fondo', 'alto'][i]; return a[e] + a[w] > b[e] + .01 && b[e] + b[w] > a[e] + .01; });
     /* una pieza con ranura es solida salvo el hueco de la ranura: se compara por sus tres partes macizas */
     /* A99: una pieza con hueco es solida salvo el hueco: se compara por las cuatro partes que lo rodean */
@@ -6889,7 +6901,7 @@ function recalcularCara(){
   /* A148: el alto vecino del especiero anexado ya no toma su ancho (A144); una cocina guardada con ese ancho lo devuelve a su bajo */
   const vecinoAnexo = new Set(); if (lows.length === highs.length) lows.forEach((a, i) => { if (a.tipo === 'EspecieroTorre') vecinoAnexo.add(i - 1).add(i + 1); });
   /* A160 (usuario: no dejaba anexar el especiero al refrigerador de ancho fijo): el bajo con especiero anexado manda en su columna */
-  if (lows.length === highs.length) lows.forEach((a, i) => { const b = highs[i]; if (a.esquina || b.esquina) return; const cd = cedeVecino(b);   /* A226: la esquina tiene su ancho en cada fila; el alto vecino toma lo que cede */
+  if (lows.length === highs.length) lows.forEach((a, i) => { const b = highs[i]; if (a.esquina || b.esquina || a.reserved) return; const cd = cedeVecino(b);   /* A226: la esquina tiene su ancho en cada fila; el alto vecino toma lo que cede */
     if (a.fijo && b.fijo && Math.abs(a.ancho + cd - b.ancho) > .011 && !vecinoAnexo.has(i) && !a.anexo) throw new Error('Los anchos fijos de la misma columna no coinciden. Libera uno antes de reorganizar.');
     if (a.fijo) { b.ancho = a.ancho + cd; b.fijo = true; } else if (b.fijo) { a.ancho = b.ancho - cd; a.fijo = true; } });
   /* D1 (Revit: LayoutState.Compensacion) + E4: los modulos automaticos se reparten en pasos de la region (MX cm enteros; US 3",
@@ -6919,6 +6931,9 @@ function recalcularCara(){
   let tapetasMovidas = false; const absorbeFila = v => { if (tapetasMovidas) return v; const resto = absorbInFillers(v); if (Math.abs(resto - v) > 1e-9) tapetasMovidas = true; return resto; };
   for (const upper of [false, true]) {
     const r = row(upper); if (!r.length) continue;
+    /* A393 (usuario 21/10: «cuando pongo modulos en bajos de peninsula ya no me deja activar sin gabinetes»): una fila sin nada que construir
+       (todo reservado, salvo la esquina) no se reparte; sus anchos fijos se quedan como estaban y vuelven al desactivar «sin gabinetes» */
+    if (multiCara() && cfg.peninsula && r.every(m => m.reserved || m.esquina)) continue;
     const flex = r.filter(m => !m.fijo);
     /* A226: el alto vecino automatico de una esquina que cede: se reparte sin eso y despues lo toma */
     const cedidos = upper ? r.filter(m => !m.fijo && Math.abs(cedeVecino(m)) > 1e-6).map(m => [m, cedeVecino(m)]) : [], cedido = cedidos.reduce((s, q) => s + q[1], 0);
@@ -8693,7 +8708,7 @@ function aperturasEsquinero(piezas, add){
            con la b; la perforacion en la cara posterior de la a, dentro de la hoja aunque la cazoleta llegue a su canto */
         const hb = plegable && /:hoja:a$/.test(q.id) ? fr.find(r => r.id === q.id.replace(/a$/, 'b')) : null;
         if (hb && intermediaEsq(e) === 'libro') {   /* A270: la de libro: ala y nudillos con la a, la otra ala con la b. A271: por dentro, en el cruce de las caras posteriores */
-          const BL = MODELO.bisagraLibro, oL = [r3(hb.x + hb.ancho), r3(q.y), r3(zc)], eL = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+          const BL = MODELO.bisagraLibro, oL = [r3(hb.x), r3(q.y + q.fondo), r3(zc)],   /* A393: su nudillo en la esquina donde se juntan los frentes, donde gira la b (A301); antes en el cruce de las caras posteriores y sus alas se separaban al abrir */ eL = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
           const pl2 = (n, tipo, archivo, caja, fd, extra) => add(Object.assign({ id: q.id + ':plegable:' + n + ':' + j, tipo, modelo: { archivo, origen: oL, ejes: eL } }, base, { frente: fd }, extra, cajaEjes(caja, oL, eL)));
           pl2('libroA', 'BisagraAla', 'bisagra_libro_a', BL.cajaA, q.id, {});
           pl2('libroB', 'Bisagra', 'bisagra_libro_b', BL.cajaB, hb.id, { bisagra: especBisagra('libro', BL.grados) }); }
@@ -10203,7 +10218,8 @@ canvas.addEventListener('mousemove', e => {
   if (view === 'Isometrico' && drag && drag.kind === 'module') {   /* A362 (usuario 21/10: «intercambiar modulos de posicion tambien funciona en isometrico») */
     drag.x = p.x; drag.y = p.y; const lejos = Math.hypot(p.x - drag.x0, p.y - drag.y0) > 5, t = lejos ? LAM.isoModulo(p) : null;
     drag.over = t && t !== drag.id && byId(t) ? columnaPar(drag.id, t) : null; canvas.style.cursor = lejos ? 'grabbing' : 'pointer'; pedirDibujo(); return; }
-  if (view === 'Isometrico') { const pa = parteIso(LAM.isoPieza(p)), hm = LAM.isoModulo(p), hv = pa ? 'parte:' + pa : hm && byId(hm) ? hm : null; canvas.style.cursor = LAM.isoHit(p) || hv ? 'pointer' : 'default';   /* A170; A340; A355 */
+  if (view === 'Isometrico') { const hcP = LAM.isoPiezaCara(p), penP = !!(hcP && !hcP.p.modulo && multiCara() && cfg.caras[hcP.ci] && caraDe(hcP.ci).peninsula);   /* A393 */
+    const pa = penP ? null : parteIso(LAM.isoPieza(p)), hm = LAM.isoModulo(p), hv = penP ? 'peninsula' : pa ? 'parte:' + pa : hm && byId(hm) ? hm : null; canvas.style.cursor = LAM.isoHit(p) || hv ? 'pointer' : 'default';   /* A170; A340; A355 */
     if (hv !== isoHover) { isoHover = hv; pedirDibujo(); } return; }   /* A353: el contorno tenue sigue al puntero; A364: por cuadro */
   if (drag && drag.kind === 'module') {
     const h = hits.find(h => h.module.id !== drag.id && inside(p, h.rect)), next = h ? columnaPar(drag.id, h.module.id) : null;   /* A160: por columna */
@@ -10572,7 +10588,8 @@ function closetPanel(m){
 }
 /* A134: panel del esquinero (bajo o alto de la columna de esquina) */
 /* A270: la bisagra entre las hojas de la plegable */
-const bisIntHTML = e => puertasL(e) !== 'plegable' ? '' : section('Bisagra intermedia', `<div class="note-sm" style="margin-top:0">Oculta, Blum 79T8500: cazoleta en la hoja junto a la bisagra de 155° y brazo en la otra; la plegable abre a 150° entre hojas.</div>`);   /* A391: sin la de libro */
+const bisIntHTML = e => puertasL(e) !== 'plegable' ? '' : section('Bisagra intermedia', radios('esqBisInt', [['libro', 'De libro (básica)'], ['oculta', 'Oculta, Blum 79T8500 (Pro)']], intermediaEsq(e))
+  + `<div class="note-sm">${intermediaEsq(e) === 'oculta' ? 'Cazoleta en la hoja junto a la bisagra de 155° y brazo en la otra; la plegable abre a 150° entre hojas.' : 'Nudillo en la esquina donde se juntan los frentes y alas sobre ellos; la plegable abre a 150° entre hojas, como la Blum.'}</div>`);   /* A393: las dos */
 function esquinaPanel(m){
   const e = esquinaDe(m), k = m.esquina.k, R = reg().esquina, h = huellaEsquina(k), alacena = e.tipo === 'alacena';
   let html = head('Esquinero', `Caras ${letraCara(k)} y ${letraCara(k + 1)} · ${fmt(h[0])} / ${fmt(h[1])}${uS()}`);
@@ -11254,8 +11271,12 @@ const ACT = {
   ppDel: () => deletePart(selectedPart),
   penBarra: v => change(c => { c.penBarra = v; if (v && !(penVuelo() > 0)) c.penVuelo = c.region === 'US' ? inch(12) : 30; }),   /* A389: la barra lleva vuelo para bancos */ penBarraElev: v => change(c => c.penBarraElev = Math.max(5, Math.min(40, v))),   /* A385 */
   penSinGab: v => change(c => { c.penSinGabinetes = v; const e = c.esquinas[0], L = c.cara === 0 ? 'Izq' : 'Der';
-    if (v) { e.tipo = 'ciego'; e.duena = c.cara === 0 ? 1 : 0; c.penCascada = true; }
-    else { e[e.duena === 0 ? 'anchoB' : 'anchoA'] = null; c['cerrarZoclo' + L] = !c.penCascada; } }),   /* A389: al volver, el ancho de fabrica del ciego */
+    /* A393: al activar se guarda el esquinero que habia (tipo, cara del ciego y anchos) y al desactivar vuelve, con los bajos como estaban */
+    if (v) { if (!e.antesSinGab) e.antesSinGab = { tipo: e.tipo, duena: e.duena, anchoA: e.anchoA ?? null, anchoB: e.anchoB ?? null, cascada: !!c.penCascada };
+      e.tipo = 'ciego'; e.duena = c.cara === 0 ? 1 : 0; c.penCascada = true; }
+    else { const a0 = e.antesSinGab; if (a0) { Object.assign(e, { tipo: a0.tipo, duena: a0.duena, anchoA: a0.anchoA, anchoB: a0.anchoB }); c.penCascada = a0.cascada; delete e.antesSinGab; }
+      else e[e.duena === 0 ? 'anchoB' : 'anchoA'] = null;
+      c['cerrarZoclo' + L] = !c.penCascada; } }),   /* A389: al volver, el ancho de fabrica del ciego */
   penCasc: v => change(c => { c.penCascada = v; if (!v) { const L = c.cara === 0 ? 'Izq' : 'Der'; c['reserva' + L] = prefs.inicio.tapeta || 3; c['cerrarTapeta' + L] = true; c['cerrarZoclo' + L] = true; } }),
   closePart: () => { selectedPart = null; render(); },
 };
@@ -12611,7 +12632,9 @@ function setView(v){
   if (v !== view) isoZoom = { k: 1, dx: 0, dy: 0, base: null };   /* A338: cada vez que se entra, ajustado a la ventana */
   view = v; if (selectedPart === 'wall') selectedPart = null;
   if (cfg.isla && v !== 'Alzado') { selection.clear(); focusPanel = null; }
-  document.getElementById('viewLabel').textContent = viewName(view); hover = null; render();
+  document.getElementById('viewLabel').textContent = viewName(view); hover = null;
+  { const bi = document.getElementById('btnIso'); if (bi) bi.classList.toggle('active', view === 'Isometrico'); }   /* A393 */
+  render();
 }
 function closeMenu(){ const mnu = document.querySelector('.menu'); if (mnu) mnu.remove(); }
 function openViewMenu(){
@@ -12635,6 +12658,9 @@ document.getElementById('btnFlat').addEventListener('click', () => { flat = !fla
 function syncMeasureUI(){ document.getElementById('btnMeasure').classList.toggle('active', measure); document.getElementById('measureLabel').textContent = measure && medirTodo ? 'Medir todo' : 'Medir'; trUI(); }
 document.getElementById('btnMeasure').addEventListener('click', () => { if (!measure) { measure = true; medirTodo = false; } else if (!medirTodo) medirTodo = true; else { measure = false; medirTodo = false; }
   syncMeasureUI(); drawCanvas(); setStatus(!measure ? 'Medir apagado.' : medirTodo ? 'Medir: cotas de todos los muebles.' : 'Medir: cotas de los gabinetes seleccionados.'); });
+/* A393 (usuario 21/10: «la vista isometrico tiene su propio boton con icono a un lado del boton de vistas»): clic, isometrico; otro clic, la anterior */
+let vistaAntesIso = 'Alzado';
+document.getElementById('btnIso').addEventListener('click', () => { if (view === 'Isometrico') setView(viewList().some(q => q[0] === vistaAntesIso) ? vistaAntesIso : 'Alzado'); else { vistaAntesIso = view; setView('Isometrico'); } });
 document.getElementById('btnSection').addEventListener('click', () => { seccionOn = !seccionOn; document.getElementById('btnSection').classList.toggle('active', seccionOn); drawCanvas(); });
 /* comando que abre el editor (en los plugins lo decide el boton de la cinta; aqui se simula) */
 function syncCommandUI(){
@@ -16408,7 +16434,12 @@ function drawIsometrico(){
   { const previo = Object.assign({}, C); Object.assign(C, LIGHT); if (cfg.closet) Object.assign(C, CLOSET_LIGHT);
     try { LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true }); } finally { Object.assign(C, previo); } }
   /* A353: el que esta bajo el puntero, contorno tenue; los elegidos, contorno y etiqueta (nombre y ancho) sobre su silueta */
-  if (!exporting && isoHover && !selection.has(isoHover)) LAM.isoResaltar(ctx, typeof isoHover === 'string' && isoHover.startsWith('parte:') ? (h => parteIso(h.p) === isoHover.slice(6)) : [isoHover], C.accent, { ancho: 1.5, alfa: .55, tinte: 0 });
+  /* A393 (usuario 21/10: «la seleccion de la peninsula no se ve correcta en isometrico, solo tiene que verse el contorno de la misma»): la
+     peninsula (todas las piezas de su cara) se resalta con su contorno, sin tinte, al pasar y al elegirla */
+  const kPenI = multiCara() ? cfg.caras.findIndex((q, k) => caraDe(k).peninsula) : -1, dePen = h => h.ci === kPenI;
+  if (!exporting && isoHover === 'peninsula' && selectedPart !== 'peninsula') LAM.isoResaltar(ctx, dePen, C.accent, { ancho: 1.5, alfa: .55, tinte: 0 });
+  else if (!exporting && isoHover && isoHover !== 'peninsula' && !selection.has(isoHover)) LAM.isoResaltar(ctx, typeof isoHover === 'string' && isoHover.startsWith('parte:') ? (h => parteIso(h.p) === isoHover.slice(6)) : [isoHover], C.accent, { ancho: 1.5, alfa: .55, tinte: 0 });
+  if (!exporting && selectedPart === 'peninsula' && kPenI >= 0) LAM.isoResaltar(ctx, dePen, C.accent, { tinte: 0 });
   if (!exporting && selectedPart && GRUPO_PARTE[selectedPart]) LAM.isoResaltar(ctx, h => parteIso(h.p) === selectedPart, C.accent);   /* A355: la pieza elegida */
   if (!exporting && matDrag) { const t = materialTarget(matDrag); if (t.iso) LAM.isoResaltar(ctx, t.iso, C.accent, { tinte: .18 }); }
   if (!exporting && drag && drag.kind === 'module' && drag.iso && drag.over) { LAM.isoResaltar(ctx, [drag.over], C.accent, { tinte: .2, ancho: 3 }); label('Soltar para intercambiar', drag.x + 14, drag.y - 16, C.ink, "500 12px 'Inter'"); }   /* A362 */
