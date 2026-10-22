@@ -365,6 +365,12 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A414. [Master hecho 21/10; SketchUp: sin cambio (las piezas soloDibujo no van; los modelos siguen); Revit pendiente] (usuario 21/10, probado
+       en SketchUp: «el liston se ve de dos piezas, no sale completa la bisagra de puerta invertida y en la interfaz se ven solo caja en
+       bisagras y poste») 1) El liston del ciego es una sola pieza; con gola su perfil lleva el rebaje (forma perfil, como los laterales).
+       2) La puerta invertida (bisagra de 155 topada a 90) lleva eslabones al abrir: los cerrados girados la mitad del giro de la puerta sobre
+       el eje de la 155. 3) En los dibujos del master, la 155 (todas: hojas en L y ciego) va simplificada (placa, brazo y cazoleta; :dib155:)
+       y el poste de las charolas como tubo con base y tapa (:poste:base/tubo/tapa); sus modelos son soloModelo.
    A413. [Master hecho 21/10; SketchUp: sin cambio (bisagra155_* ya en la biblioteca; uso de bisagra nuevo «esquinero ciego»); Revit pendiente]
        (usuario 21/10: «la puerta invertida del magic se solapa con la gola al dar vuelta, ¿no nos convendria mejor utilizar la bisagra de
        165?») Con la bisagra normal sobre el liston, la puerta invertida del ciego giraba sobre un eje dentro de la caja y su canto entraba al
@@ -6615,7 +6621,7 @@ function pruebasPlanMX(){
       Object.assign({}, q, { y: q.y + q.ranura.y + q.ranura.ancho, fondo: q.fondo - q.ranura.y - q.ranura.ancho })];
     const choca = (a, b) => a.estado !== 'abierto' && b.estado !== 'abierto' && a.rol !== 'luz' && b.rol !== 'luz' && !a.modelo && !b.modelo && solidos(a).some(u => solidos(b).some(v => cruza(u, v)));   /* B19: lo abierto es otro estado; A138: un herraje tal cual no es su caja */
     /* la cazoleta de la bisagra va dentro del espesor de su puerta (tablero o marco): es el unico cruce permitido */
-    const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) ||
+    const suya = (a, b) => a.tipo === 'Bisagra' && b.id.startsWith(a.id.split(':bisagra:')[0]) || a.id.includes(':dib155:') ||   /* A414: el dibujo simplificado de la 155 (como su modelo, no es su caja) */
       a.tipo === 'Piston' && b.id === a.id.replace(/:cuerpo$/, ':vastago') ||   /* B19: el vastago entra en su cuerpo */
       a.tipo === 'RielMuro' && b.tipo === 'RielGabinete' ||   /* A145: las dos mitades del riel frances comparten su caja (A146: el del muro corre por toda la fila) */
       a.tipo === 'Nariz' && b.tipo === 'Losa' && (b.id === a.id.replace(/:nariz$/, '') || b.id.startsWith(a.id.replace(/:nariz$/, '') + ':')) ||   /* A88: inglete */
@@ -8990,10 +8996,24 @@ function aperturasEsquinero(piezas, add){
       const o0 = aPlan(puntoModelo([0, 0, 0], mz)).map(r3), oA = aPlan(puntoModelo(D, mz)).map(r3);
       const parte = (id, tipo, archivo, o, caja, extra, b = base) => add(Object.assign({ id: q.id + ':' + id + ':' + j, tipo, modelo: { archivo, origen: o, ejes: ejesL } }, b, extra, cajaEjes(caja, o0, ejesL)));   /* la caja, en ejes de la cerrada */
       if (H) {   /* A262: Blum 155: brazo fijo, eslabones cerrados o abiertos segun su puerta y la cazoleta con ella */
-        parte('bisagra', 'Bisagra', 'bisagra155_brazo', o0, B.brazo, { bisagra: especBisagra(uso, GL) }, fijo);
-        parte('eslabones', 'Eslabon', 'bisagra155_eslabones', o0, B.eslabones, { estado: 'cerrado', ocultaSinPuertas: true });   /* A391: van con la puerta; sin puertas no quedan flotando */
-        if (GL === GL155) parte('eslabonesAbierta', 'Eslabon', 'bisagra155_eslabones_abierta', o0, B.eslabonesAbierta, { estado: 'abierto', ocultaSinPuertas: true });   /* A413: el modelo abierto es el de 155; topada a 90 no va */
-        parte('cazoleta', 'Cazoleta', 'bisagra155_cazoleta', o0, B.cazoletaCaja, { ocultaSinPuertas: true });
+        /* A414 (usuario 21/10: «en la interfaz se ven solo caja en bisagras y poste»): la 155 no tiene simbolo en los dibujos del master; ahi va
+           simplificada (soloDibujo, en ejes del archivo: placa en el lateral, brazo y cazoleta en la puerta) y sus modelos son soloModelo */
+        const dibB = (n, mn, mx, extra, b = base) => { const c = cajaEjes([mn, mx], o0, ejesL); add(Object.assign({ id: q.id + ':dib155:' + n + ':' + j, tipo: 'BisagraAla', soloDibujo: true }, b, extra, c));
+          return c; };
+        dibB('placa', [-1.3, -1.5, -2.65], [0, 1.5, 2.65], {}, fijo); dibB('brazo', [-3.1, -3.5, -1.17], [-1.3, 3.2, 1.17], { estado: 'cerrado', ocultaSinPuertas: true });   /* de la malla del modelo: placa X -1.3..0, Y -1.5..1.5 */
+        { const P1 = puntoEjes([B.cazoleta, B.cazoletaCaja[0][1], 0], o0, ejesL), P2 = puntoEjes([B.cazoleta, B.cazoletaCaja[1][1], 0], o0, ejesL), r = 1.75, mn = [0, 1, 2].map(i => Math.min(P1[i], P2[i]) - (Math.abs(P1[i] - P2[i]) < 1e-6 ? r : 0)), mx = [0, 1, 2].map(i => Math.max(P1[i], P2[i]) + (Math.abs(P1[i] - P2[i]) < 1e-6 ? r : 0));
+          add(Object.assign({ id: q.id + ':dib155:cazoleta:' + j, tipo: 'Cazoleta', soloDibujo: true, ocultaSinPuertas: true }, base, { x: r3(mn[0]), y: r3(mn[1]), z: r3(mn[2]), ancho: r3(mx[0] - mn[0]), fondo: r3(mx[1] - mn[1]), alto: r3(mx[2] - mn[2]),
+            forma: { tipo: 'cilindro', de: [0, 1, 2].map(i => r3(P1[i] - mn[i])), a: [0, 1, 2].map(i => r3(P2[i] - mn[i])), diametro: 2*r, lados: 14 } })); }
+        const SM = { soloModelo: true };
+        parte('bisagra', 'Bisagra', 'bisagra155_brazo', o0, B.brazo, { bisagra: especBisagra(uso, GL), soloModelo: true }, fijo);
+        parte('eslabones', 'Eslabon', 'bisagra155_eslabones', o0, B.eslabones, { estado: 'cerrado', ocultaSinPuertas: true, ...SM });   /* A391: van con la puerta; sin puertas no quedan flotando */
+        if (GL === GL155) parte('eslabonesAbierta', 'Eslabon', 'bisagra155_eslabones_abierta', o0, B.eslabonesAbierta, { estado: 'abierto', ocultaSinPuertas: true, ...SM });
+        else {   /* A414 (usuario 21/10: «no sale completa la bisagra de puerta invertida»): topada a 90, los eslabones cerrados girados la mitad
+                    del giro de la puerta sobre el eje de la 155: unen el brazo con la cazoleta, que va con la puerta */
+          const pv2 = k.enPlan(B, B.giro), t = sg*GL/2*Math.PI/180, co = Math.cos(t), sn = Math.sin(t), gr = ([x, y, zz]) => [r3(pv2[0] + (x - pv2[0])*co - (y - pv2[1])*sn), r3(pv2[1] + (x - pv2[0])*sn + (y - pv2[1])*co), zz];
+          const oR = gr(o0), eR = ejesL.map(([x, y, zz]) => [r3(x*co - y*sn), r3(x*sn + y*co), zz]);
+          add(Object.assign({ id: q.id + ':eslabonesAbierta:' + j, tipo: 'Eslabon', modelo: { archivo: 'bisagra155_eslabones', origen: oR, ejes: eR } }, base, { estado: 'abierto', ocultaSinPuertas: true, soloModelo: true }, cajaEjes(B.eslabones, oR, eR))); }
+        parte('cazoleta', 'Cazoleta', 'bisagra155_cazoleta', o0, B.cazoletaCaja, { ocultaSinPuertas: true, ...SM });
         /* A268: en la plegable, a cada altura la 79T8500 entre las hojas: la cazoleta (con su eslabon) va con la a y el brazo (con su placa)
            con la b; la perforacion en la cara posterior de la a, dentro de la hoja aunque la cazoleta llegue a su canto */
         const hb = plegable && /:hoja:a$/.test(q.id) ? fr.find(r => r.id === q.id.replace(/a$/, 'b')) : null;
@@ -9209,10 +9229,19 @@ function esquinerosPlan(add, r2, sep, tf){
       /* A411: hasta el canto de arriba de las fajas (con tapa, bajo ella); con gola lleva el rebaje de los laterales: atras sube entero y al
          frente, en el hondo de la gola, se queda bajo su perfil */
       if (uLis !== null) { const zt = fajas ? z1 : z1 - e1, hG = golaHondo(true);
-        if (gola) { bx(':liston', 'panel', 'Liston', uLis, uLis + e1, fOwn - M.listonFondo, fOwn - hG, z0 + e1, zt, mat, et); bx(':liston:bajo', 'panel', 'Liston', uLis, uLis + e1, fOwn - hG, fOwn, z0 + e1, zg, mat, et); }
-        else bx(':liston', 'panel', 'Liston', uLis, uLis + e1, fOwn - M.listonFondo, fOwn, z0 + e1, zt, mat, et); }
+        /* A414 (usuario 21/10: «el liston se ve de dos piezas»): una sola pieza; con gola, su perfil lleva el rebaje (como los laterales) */
+        const LF = M.listonFondo, H = r2(zt - z0 - e1), hz = r2(zg - z0 - e1), [xa, xb] = duenaA ? [LA - uLis - e1, LA - uLis] : [LA - fOwn, LA - fOwn + LF], [ya, yb] = duenaA ? [fOwn - LF, fOwn] : [uLis, uLis + e1];
+        const forma = !gola ? null : duenaA ? { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [LF, 0], [LF, hz], [r2(LF - hG), hz], [r2(LF - hG), H], [0, H]] }
+          : { tipo: 'perfil', eje: 'y', puntos: [[0, 0], [LF, 0], [LF, H], [r2(hG), H], [r2(hG), hz], [0, hz]] };
+        add(Object.assign({ id: pre + ':liston', rol: 'panel', modulo, tipo: 'Liston', x: xa, y: sep + ya, z: z0 + e1, ancho: xb - xa, fondo: yb - ya, alto: H, material: mat, etiqueta: et }, forma ? { forma } : {})); }
       [['poste', 'charolas_esquina_poste'], ['soporte', 'charolas_esquina_soporte']].forEach(([n, archivo]) =>
-        add(Object.assign({ id: pre + ':' + n, rol: 'herraje', modulo, tipo: 'CharolasEsquina', material: null, etiqueta: 'herrajes', modelo: mod(archivo) }, cajaM(M.piezas[n], true))));
+        add(Object.assign({ id: pre + ':' + n, rol: 'herraje', modulo, tipo: 'CharolasEsquina', material: null, etiqueta: 'herrajes', modelo: mod(archivo) }, n === 'poste' ? { soloModelo: true } : {}, cajaM(M.piezas[n], true))));
+      /* A414 (usuario 21/10: «en la interfaz se ven solo caja en bisagras y poste»): en los dibujos del master el poste es un tubo sobre su base,
+         en el eje del brazo (O1); en SketchUp, su modelo */
+      { const c = pp(M.O1), zA = zM(M.piezas.poste[0][2]), zB = zA + (M.piezas.poste[1][2] - M.piezas.poste[0][2])*kz, tubo = (n, d, za, zb) =>
+          add({ id: pre + ':poste:' + n, rol: 'herraje', modulo, tipo: 'CharolasEsquina', soloDibujo: true, material: null, etiqueta: 'herrajes', x: r3(c[0] - d/2), y: r3(c[1] - d/2), z: r3(za), ancho: d, fondo: d, alto: r3(zb - za),
+            forma: { tipo: 'cilindro', de: [d/2, d/2, 0], a: [d/2, d/2, r3(zb - za)], diametro: d, lados: 16 } });
+        tubo('base', 6, zA, zA + .8); tubo('tubo', 3.2, zA + .8, zB - .4); tubo('tapa', 4, zB - .4, zB); }
       /* el camino (cuadros cada M.paso grados del brazo del lateral): la charola, el giro desde cerrada que lleva sus dos puntas a su lugar; cada brazo, su giro sobre su pivote */
       const ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0])*180/Math.PI, sigue = (g, prev) => { while (g - prev > 180) g -= 360; while (g - prev < -180) g += 360; return g; };
       const A0 = pp(M.P1), B0 = pp(M.P2), Q1 = pp(M.O1), Q2 = pp(M.O2), cam = { charola: [], brazo_poste: [], brazo_lateral: [] };
