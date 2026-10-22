@@ -365,6 +365,11 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A430. [Master hecho 22/10; SketchUp: sin cambio; Revit pendiente] (usuario 22/10: «se ven ya en la posicion correcta pero se sobreponen
+       entre las piezas de correderas, bastidores etc, esta cerca pero sigue sin verse bien») El orden de pintor del isometrico va por cajas y
+       el bote atraviesa el bastidor (ninguna queda detras de la otra). La forma 'malla' lleva marco (la caja de la malla entera) y se recorta
+       a la caja de su pieza: el bote va en dos tramos (bajo y sobre el bastidor, sin el grueso de este); el colgante, la movil en botes abajo y
+       la banda de laterales y placa arriba, y la fija en patas y tapa.
    A429. [Master hecho 22/10; SketchUp: Plan no valida la forma de las piezas soloDibujo (la 'malla' es del dibujo del master); Revit
        pendiente] (usuario 22/10, con capturas de SketchUp de los tres cestos: «asi deberian verse los diferentes tipos de cajones de basura
        en el isometrico, actualmente se ven mal») Los botes y el colgante se dibujaban con cajas aproximadas. Ahora el dibujo del master usa
@@ -5456,8 +5461,13 @@ function planDePiezas(c = cfg){
        los costados del piso; arriba deja libre zTope (cajon chico u oculto, o la gola) */
     /* A421/A429: el bote en los dibujos del master: la malla de su modelo (MALLAS_DIBUJO.bote, con su ceja y su tapa) en una pieza soloDibujo;
        su modelo es soloModelo (SketchUp lo usa tal cual). giro 90: el del doble */
-    const boteDibujo = (m, id, frenteId, x, y, z, W, D, H, giro = 0) => piezaDe(m, id, frenteId, { rol: 'herraje', tipo: 'BoteDibujo', etiqueta: 'herrajes', soloDibujo: true,
-      x: r2(x), y: r2(y), z: r2(z), ancho: r2(W), fondo: r2(D), alto: r2(H), forma: { tipo: 'malla', archivo: 'bote', giro } });
+    /* A430 (usuario 22/10: «se ven ya en la posicion correcta pero se sobreponen entre las piezas de correderas, bastidores»): el bote atraviesa
+       el bastidor y ninguna de las dos cajas queda detras de la otra; va en tramos (cortes: los [z0, z1] que se saltan, el grueso del bastidor),
+       cada uno con la malla entera recortada a su caja */
+    const boteDibujo = (m, id, frenteId, x, y, z, W, D, H, giro = 0, cortes = []) => { const marco = [r2(x), r2(y), r2(z), r2(W), r2(D), r2(H)];
+      const tramos = []; let za = z; cortes.slice().sort((a, b) => a[0] - b[0]).forEach(([c0, c1]) => { if (c0 > za + .5) tramos.push([za, c0]); za = Math.max(za, c1); }); if (z + H > za + .5) tramos.push([za, z + H]);
+      tramos.forEach(([a, b], i) => piezaDe(m, id + (tramos.length > 1 ? ':' + i : ''), frenteId, { rol: 'herraje', tipo: 'BoteDibujo', etiqueta: 'herrajes', soloDibujo: true,
+        x: r2(x), y: r2(y), z: r2(a), ancho: r2(W), fondo: r2(D), alto: r2(b - a), forma: { tipo: 'malla', archivo: 'bote', giro, marco } })); };
     /* A421 (usuario 22/10: «la estructura del mueble de bote de basura deberia tener largueros como los del especiero que le den rigidez; la
        corredera actualmente apenas y cabe en la repisa»): el extraible lleva a cada lado un larguero (la tira del especiero) abajo, donde va la
        corredera, y otro a la altura del bastidor; trasera del piso al bastidor (y, si los botes dejan lugar, una tapa al frente); piso y
@@ -5480,15 +5490,17 @@ function planDePiezas(c = cfg){
       tabla('piso', 'Piso', xi, xd, y0 + e, y1, zp, zp + e);
       tabla('lado:izq', 'Tira', x0, xi, y0, y1, zl, Math.max(zl + TA, zb + 1)); tabla('lado:der', 'Tira', xd, x1, y0, y1, zl, Math.max(zl + TA, zb + 1));
       const cx = (xi + xd)/2, botes = doble ? [y1 - B.frenteDoble - med[1], y1 - B.frenteDoble - 2*med[1] - B.entre] : [y1 - B.frenteSencillo - med[1]];
+      const dibBotes = [];   /* A430: los dibujos van despues, cortados por el bastidor */
       botes.forEach((yb, k) => { const bx0 = cx - med[0]/2, by0 = Math.max(y0 + e + .3, yb);
         piezaDe(m, base + ':bote:' + k, frenteId, { rol: 'herraje', tipo: 'Bote', etiqueta: 'herrajes', modelo: doble ? { archivo: 'bote', giro: 90 } : { archivo: 'bote' }, soloModelo: true,
           x: bx0, y: by0, z: zb, ancho: med[0], fondo: med[1], alto: med[2]*sz });
-        boteDibujo(m, base + ':bote:' + k + ':dibujo', frenteId, bx0, by0, zb, med[0], med[1], med[2]*sz, doble ? 90 : 0); });
+        dibBotes.push([base + ':bote:' + k + ':dibujo', bx0, by0, zb, med[0], med[1], med[2]*sz, doble ? 90 : 0]); });
       const zm = Math.min(zb + B.bastidor*sz, top - e - .5), ya = Math.max(y0 + e + .3, botes[botes.length - 1]) - .3, yz = botes[0] + med[1] + .3;
       if (zm > zb + 5) { tabla('bastidor', 'Bastidor', xi, xd, y0 + e, y1, zm, zm + e, { hueco: { x: r2(cx - med[0]/2 - .3 - xi), y: r2(ya - y0 - e), ancho: r2(med[0] + .6), fondo: r2(Math.min(yz, y1 - .5) - ya) } });
         tabla('tira:1:izq', 'Tira', x0, xi, y0, y1, zm + e - TA, zm + e); tabla('tira:1:der', 'Tira', xd, x1, y0, y1, zm + e - TA, zm + e);
         tabla('tapa:atras', 'Tapa', xi, xd, y0, y0 + e, zp, zm + e);
         if (y1 - botes[0] - med[1] >= e + .3) tabla('tapa:frente', 'Tapa', xi, xd, y1 - e, y1, zb, zm); }
+      dibBotes.forEach(([id, ...d]) => boteDibujo(m, id, frenteId, ...d, zm > zb + 5 ? [[zm, zm + e]] : []));
       /* A425: oculta, un juego bajo el piso; de bola, dos: en los largueros de abajo y en los del bastidor */
       correderasDe.push([frenteId, piezas.find(q => q.id === base + ':lado:izq'), piezas.find(q => q.id === base + ':lado:der'), 0, oc, hg]);
       if (!oc && piezas.some(q => q.id === base + ':tira:1:izq')) correderasDe.push([frenteId, piezas.find(q => q.id === base + ':tira:1:izq'), piezas.find(q => q.id === base + ':tira:1:der'), 1]);
@@ -5504,8 +5516,14 @@ function planDePiezas(c = cfg){
       pieza('', frenteId, Object.assign({ modelo: { archivo: 'basura_colgante_movil' }, soloModelo: true }, enPlan(M.movil)));
       pieza(':fija', undefined, Object.assign({ modelo: { archivo: 'basura_colgante_fija' }, soloModelo: true }, enPlan(M.fija)));
       /* A429: en los dibujos del master, la malla de cada pieza (la movil con el frente, la fija sin el), en su caja */
-      pieza(':dibujo', frenteId, Object.assign({ soloDibujo: true, forma: { tipo: 'malla', archivo: 'basura_colgante_movil' } }, enPlan(M.movil)));
-      pieza(':fija:dibujo', undefined, Object.assign({ soloDibujo: true, forma: { tipo: 'malla', archivo: 'basura_colgante_fija' } }, enPlan(M.fija)));
+      /* A430: en tramos (la malla entera recortada a cada uno): la movil, los botes abajo y la banda de los laterales y la placa arriba; la fija,
+         las patas abajo y la tapa arriba. Asi el orden de pintor separa botes, laterales, tapa y patas */
+      const tramos = (k, fd, archivo, q, zs) => { const cm = enPlan(q), marco = [cm.x, cm.y, cm.z, cm.ancho, cm.fondo, cm.alto];
+        zs.forEach(([za, zb], i) => { const c = enPlan([[q[0][0], q[0][1], za], [q[1][0], q[1][1], zb]]);
+          pieza(k + ':' + i, fd, Object.assign({ soloDibujo: true, forma: { tipo: 'malla', archivo, marco } }, c)); }); };
+      const zL = M.lados[0][0][2], zT = M.faldon[0][0][2];   /* laterales y tapa de la fija */
+      tramos(':dibujo', frenteId, 'basura_colgante_movil', M.movil, [[M.movil[0][2], zL], [zL, M.movil[1][2]]]);
+      tramos(':fija:dibujo', undefined, 'basura_colgante_fija', M.fija, [[M.fija[0][2], zT], [zT, M.fija[1][2]]]);
     };
     /* caja del extraible: la del especiero o del cesto (A138) o la caja de cajon */
     const cajaDe = (m, base, h, f, frenteId, zTope = f.z1) => f.especiero ? especieroExtraible(m, base, h, f, frenteId)
@@ -14109,11 +14127,20 @@ const LAM = (() => {
     /* A429: malla del modelo (MALLAS_DIBUJO) a la caja de la pieza: X del archivo a lo ancho (espejo: al reves), Y desde el frente (y + fondo)
        hacia el muro, Z arriba; giro 90: X del archivo a lo largo de y e Y a lo ancho (el bote doble). Triangulos de dos caras, con su color */
     if (f.tipo === 'malla' && MALLAS_DIBUJO[f.archivo]) { const M = MALLAS_DIBUJO[f.archivo], g90 = f.giro === 90, dX = M.max[0] - M.min[0], dY = M.max[1] - M.min[1], dZ = M.max[2] - M.min[2];
-      const kx = (g90 ? p.fondo : p.ancho)/dX, ky = (g90 ? p.ancho : p.fondo)/dY, kz = p.alto/dZ, n3 = M.v.length/3;
+      /* A430: marco = la caja de la malla entera (x, y, z, ancho, fondo, alto; sin el, la de la pieza); la pieza puede ser un tramo de ella
+         y su malla se recorta a su caja: asi un bote que atraviesa el bastidor va en dos tramos que el orden de pintor si separa */
+      const [mx0, my0, mz0, ma, mf, mh] = f.marco || [p.x, p.y, p.z, p.ancho, p.fondo, p.alto];
+      const kx = (g90 ? mf : ma)/dX, ky = (g90 ? ma : mf)/dY, kz = mh/dZ, n3 = M.v.length/3;
       const V = Array.from({ length: n3 }, (_, i) => { const X = M.v[3*i]/10 - M.min[0], Y = M.v[3*i + 1]/10 - M.min[1], Z = M.v[3*i + 2]/10 - M.min[2], u = f.espejo ? dX - X : X;
-        return g90 ? [p.x + Y*ky, p.y + u*kx, p.z + Z*kz] : [p.x + u*kx, p.y + p.fondo - Y*ky, p.z + Z*kz]; });
-      return M.c.map((ci, k) => { const a = V[M.t[3*k]], b = V[M.t[3*k + 1]], c = V[M.t[3*k + 2]];
-        return { pl: [a, b, c], n: vunit(vcruz(vsub(b, a), vsub(c, a))), col: M.p[ci], dc: true }; }); }
+        return g90 ? [mx0 + Y*ky, my0 + u*kx, mz0 + Z*kz] : [mx0 + u*kx, my0 + mf - Y*ky, mz0 + Z*kz]; });
+      const lo = [p.x, p.y, p.z], hi = [p.x + p.ancho, p.y + p.fondo, p.z + p.alto], corta = !!f.marco;
+      const recorta = pl => { let out = pl; for (let e = 0; e < 3 && out.length; e++) for (const [lim, sg] of [[lo[e], 1], [hi[e], -1]]) { const inp = out; out = [];
+          for (let i = 0; i < inp.length; i++) { const A = inp[i], B = inp[(i + 1) % inp.length], da = sg*(A[e] - lim), db = sg*(B[e] - lim);
+            if (da >= -1e-6) out.push(A); if ((da >= -1e-6) !== (db >= -1e-6)) { const t2 = da/(da - db); out.push([0, 1, 2].map(k => A[k] + (B[k] - A[k])*t2)); } }
+          if (out.length < 3) { out = []; break; } }
+        return out; };
+      return M.c.map((ci, k) => { const a = V[M.t[3*k]], b = V[M.t[3*k + 1]], c = V[M.t[3*k + 2]], pl = corta ? recorta([a, b, c]) : [a, b, c];
+        return pl.length >= 3 ? { pl, n: vunit(vcruz(vsub(b, a), vsub(c, a))), col: M.p[ci], dc: true } : null; }).filter(Boolean); }
     const O = [p.x, p.y, p.z], mas = (a, b, k = 1) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k], caras = [];
     if (f.tipo === 'cilindro' && f.de && f.a && f.diametro > 0) {
       const A = mas(O, f.de), B = mas(O, f.a), w = vunit(vsub(B, A));
