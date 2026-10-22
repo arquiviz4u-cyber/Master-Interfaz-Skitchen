@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A413. [Master hecho 21/10; SketchUp: sin cambio (bisagra155_* ya en la biblioteca; uso de bisagra nuevo «esquinero ciego»); Revit pendiente]
+       (usuario 21/10: «la puerta invertida del magic se solapa con la gola al dar vuelta, ¿no nos convendria mejor utilizar la bisagra de
+       165?») Con la bisagra normal sobre el liston, la puerta invertida del ciego giraba sobre un eje dentro de la caja y su canto entraba al
+       perfil de la gola, al liston, al piso y a la tapeta. Ahora lleva la de 155 (la de las hojas en L, A262; el modelo que hay): gira sobre su
+       eje, que saca la puerta hacia afuera, y no toca nada; abre 90 porque mas alla topa con la otra cara (a unos centimetros). Brazo en el
+       liston, eslabones y cazoleta como en las hojas; sin los eslabones abiertos (su modelo es el de 155 abierta). Uso «esquinero ciego»
+       (comercial: 155).
    A412. [Master hecho 21/10; SketchUp: sin cambio; Revit pendiente] (usuario 21/10: «no veo la union a 45 en golas de esquina») En el
        esquinero ciego del bajo con gola, la gola del ciego empezaba en el frente de la otra cara y la de la otra cara en el limite de la
        columna: no se tocaban. Ahora las dos llegan a la esquina dentro de la columna (alma y aleta) y se cortan a 45, como en el esquinero en
@@ -3935,7 +3942,7 @@ const centroGiro = (a, a2, g) => { const t = g*Math.PI/180, c = Math.cos(t), sn 
 /* A410 (usuario 21/10: «hace falta remeterlo para que el poste y las bisagras del magic no choquen con las de la puerta»; eligio «liston +
    bisagra normal»): remeter (cm): todo el herraje va mas al fondo, para que el poste quede detras del liston de la bisagra (8 cm de fondo,
    con 5 mm); listonFondo: el fondo de ese liston */
-const CHAROLAS = { ref: [116.13, 24.51, 5.49], alto: 71.02, nivel: 28.61, liston: 67.73, abre: 50, paso: 2.5, remeter: 6.6, listonFondo: 8,
+const CHAROLAS = { ref: [116.13, 24.51, 5.49], alto: 71.02, nivel: 28.61, liston: 67.73, abre: 50, paso: 2.5, remeter: 6.6, listonFondo: 8, bisagraAncho: 5, bisagraFondo: 9,   /* A413: el brazo de la 155 en el liston: hasta 5 cm hacia el hueco y 9 de fondo */
   O1: [63.549, 29.41], P1: [39.479, 53.935], O2: [114.386, 27.082], P2: [76.773, 39.761],
   piezas: { poste: [[60.69, 26.45, 5.51], [66.63, 34.08, 76.5]], liston: [[67.73, 24.51, 5.49], [69.63, 32.51, 76.51]], soporte: [[115.78, 27.21, 5.51], [116.13, 32.21, 55.51]],
     charola: [[25.92, 30.73, 14.4], [106.41, 71.59, 19.69]], brazo_poste: [[38.49, 27.67, 9.37], [65.3, 54.92, 17.37]], brazo_lateral: [[75.79, 25.54, 9.65], [116.21, 40.75, 19.65]] },
@@ -3950,13 +3957,13 @@ function charolasBarrido(){ const M = CHAROLAS, tf = espFrente(), clave = tf + '
   const Yf = M.ref[1] - M.remeter, Yr = Yf - PLAN_HOLGURA_PUERTA - tf, ang = (a, b) => Math.atan2(b[1] - a[1], b[0] - a[0]), o = { xi: 1e9, xc: 1e9, xr: 1e9, pts: [] };   /* A410: el plano del frente, remetido */
   charolasPose(M.abre).forEach(([, p1, p2]) => { const t = ang(p1, p2) - ang(M.P1, M.P2), c = Math.cos(t), sn = Math.sin(t);
     M.contorno.forEach(([X, Y]) => { const dx = X - M.P1[0], dy = Y - M.P1[1], x = p1[0] + dx*c - dy*sn, y = p1[1] + dx*sn + dy*c;
-      if (y >= Yf) o.xi = Math.min(o.xi, x); else o.xc = Math.min(o.xc, x); if (y < Yr) o.xr = Math.min(o.xr, x); if (y < Yf + M.listonFondo + .5) o.pts.push([x, y]); }); });   /* pts: junto al frente (la zona de la bisagra y su liston) */
+      if (y >= Yf) o.xi = Math.min(o.xi, x); else o.xc = Math.min(o.xc, x); if (y < Yr) o.xr = Math.min(o.xr, x); if (y < Yf + Math.max(M.listonFondo, M.bisagraFondo) + .5) o.pts.push([x, y]); }); });   /* pts: junto al frente (la zona de la bisagra y su liston) */
   /* la puerta minima con la bisagra en el canto de la parte ciega (invertida): el canto en X = ref - (P - lateral); lo que cruza el frente
      queda 5 mm dentro del hueco y lo que pasa junto al frente por dentro no entra al liston ni a la zona de su bisagra (A410: el liston va
      del canto de la puerta hacia dentro, holF antes del canto, y la bisagra 4.1 cm desde el canto; los dos, listonFondo de fondo) */
   const e1 = PLAN_CUERPO.lateral, hf = holF(); o.pInv = 0;
   for (let P = 20; P <= 120 && !o.pInv; P += .5) { const xd = M.ref[0] - (P - e1);
-    if (o.pts.every(([x, y]) => y < Yf ? x - xd >= .5 + (y < Yr ? tf : 4.1) : !(x - xd >= -hf - .5 && x - xd < 4.6))) o.pInv = P; }
+    if (o.pts.every(([x, y]) => y < Yf ? x - xd >= .5 + (y < Yr ? tf : M.bisagraAncho) : !(x - xd >= -hf - .5 && x - xd < M.bisagraAncho + .5 && y < Yf + M.bisagraFondo + .5))) o.pInv = P; }   /* A413: la zona del brazo de la 155 */
   o.xi = Math.min(o.xi, CHAROLAS.piezas.charola[0][0]); CHAROLAS_BARRIDO.set(clave, o); return o; }
 /* A409: el ancho minimo del ciego con charolas (medio en medio cm), con 5 mm de holgura: 1) la charola y su barrido caben entre los laterales;
    2) la puerta (crece con el ciego desde la de fabrica) deja pasar lo que cruza el frente; 3) afuera no entra al frente de la otra cara.
@@ -5063,7 +5070,7 @@ const r3 = v => Math.round(v*1000)/1000;
    puerta oculta) lleva bisagra = { uso, apertura }; la tabla de herrajes y la nota de la lamina las agrupan asi, y SketchUp la nombra igual */
 const USOS_BISAGRA = { traslape: 'traslape', embutida: 'embutida', elevable: 'elevable', 'puerta oculta': 'puerta oculta',
   esquinero: 'esquinero', 'esquinero 45': 'esquinero diagonal', 'esquinero plegable': 'esquinero plegable', 'esquinero abatible': 'esquinero abatible',
-  plegable: 'plegable', libro: 'libro' };   /* A268: la intermedia de la plegable; A270: la de libro */
+  plegable: 'plegable', libro: 'libro', 'esquinero ciego': 'esquinero ciego' };   /* A413 */   /* A268: la intermedia de la plegable; A270: la de libro */
 /* A270: bisagra intermedia de la plegable del esquinero: 'libro' (basica, de fabrica) u 'oculta' (Blum 79T8500, de pago) */
 /* A391 (usuario 21/10: «las bisagras de todos los esquineros no se representan bien, salen mal ubicadas, solapadas»): desde A301 las hojas
    plegables abren con el giro de la Blum oculta (la b 60 hacia plano sobre la esquina de los frentes); con la de libro (montada en el cruce
@@ -5075,7 +5082,7 @@ const giroIntermedia = e => intermediaEsq(e) === 'oculta' ? MODELO.bisagraPlegab
    que no, con el nombre comercial del angulo de apertura»): la bisagra que se compra. La de la elevable es la de traslape (mismo modelo, Blum
    CLIP top 110 de traslape completo, en el techo); la de las hojas en L, la de 155. apertura sigue siendo el giro de su puerta */
 const BISAGRA_COMERCIAL = { traslape: ['traslape', 110], elevable: ['traslape', 110], embutida: ['embutida', 110], esquinero: ['esquinero', 110],
-  'esquinero 45': ['esquinero 45', 110], 'esquinero plegable': ['esquinero plegable', 155], 'esquinero abatible': ['esquinero abatible', 155] };
+  'esquinero 45': ['esquinero 45', 110], 'esquinero plegable': ['esquinero plegable', 155], 'esquinero abatible': ['esquinero abatible', 155], 'esquinero ciego': ['esquinero ciego', 155] };   /* A413: la de 155 topada a 90 */
 const especBisagra = (uso, apertura) => { const c = BISAGRA_COMERCIAL[uso];
   return Object.assign({ uso, apertura: Math.round(apertura*100)/100 }, c ? { comercial: { uso: c[0], grados: c[1] } } : {}); };
 const claveBisagra = b => b.comercial ? [b.comercial.uso, b.comercial.grados] : [b.uso, b.apertura];   /* A329: como se agrupa y se nombra */
@@ -8946,6 +8953,11 @@ function aperturasEsquinero(piezas, add){
      las hojas en L (abatibles y plegables) abren 165 sobre su canto. A262: abren 155 con la bisagra Blum de 155 (MODELO.bisagra155) y giran
      sobre su eje (giro), con o sin bisagras dibujadas */
   const B155 = MODELO.bisagra155, GL155 = B155.grados, hojaL = q => /:hoja:[ab]$/.test(q.id);
+  /* A413 (usuario 21/10: «la puerta invertida del magic se solapa con la gola al dar vuelta, ¿no nos convendria mejor utilizar la bisagra de
+     165?»): con la bisagra normal del liston, la puerta invertida giraba sobre un eje dentro de la caja y su canto entraba al perfil de la
+     gola, al liston y a la tapeta. Lleva la de 155 (la de las hojas en L, A262): la saca hacia afuera al girar y no toca nada; abre 90
+     (topada: la otra cara queda a unos centimetros) */
+  const conB155 = q => hojaL(q) || invertida(q), giroB155 = q => hojaL(q) ? GL155 : 90;
   /* A248: marco local de la bisagra de una puerta: x desde el canto de la bisagra hacia el libre (al reves si el giro es horario), y hacia
      afuera; enPlan lleva un punto (X, Y) del archivo de una bisagra (MODELO.bisagra o bisagra155) al plan, con el lateral nominal a un
      traslape de PLAN_CUERPO.lateral - holgura del canto */
@@ -8957,20 +8969,20 @@ function aperturasEsquinero(piezas, add){
   fr.forEach(q => { const c = vista(q), d = [c.o2[0] - c.o1[0], c.o2[1] - c.o1[1]], sg = Math.sign(d[0]*c.u[1] - d[1]*c.u[0]) || 1;
     q.frente = q.id; q.ocultaSinPuertas = true;
     if (q.tipo === 'Cajon') q.abre = { tipo: 'Cajon', recorrido: 35, direccion: [r(c.u[0]), r(c.u[1])], independiente: true };
-    else puerta(q, hojaL(q) ? marcoBisagra(q).enPlan(B155, B155.giro) : c.o1, sg*(hojaL(q) ? GL155 : 90), { independiente: true }); });
+    else puerta(q, conB155(q) ? marcoBisagra(q).enPlan(B155, B155.giro) : c.o1, sg*(conB155(q) ? giroB155(q) : 90), { independiente: true }); });
   /* A248 (usuario 17/10: «hazlas con mi bisagra girada»): bisagras del esquinero. Cada puerta (salvo la hoja b plegable, que cuelga de la a) lleva
      la bisagra del usuario como una puerta de lateral, en un marco local: x desde el canto de la bisagra hacia el libre (al reves si el giro
      es horario), y hacia afuera; ese marco va girado al angulo de la puerta (90 en la cara de al lado, 45 en la diagonal) con modelo.ejes.
      El lateral nominal queda a un traslape de PLAN_CUERPO.lateral - holgura del canto; brazo abierto a 90 (A245) y la puerta gira sobre el eje
      real de la bisagra (ejeBisagra) en vez de su canto */
   if (cfg.bisagras) fr.filter(q => q.tipo === 'Puerta' && !(plegable && /:hoja:b$/.test(q.id))).forEach(q => {
-    const MB = MODELO.bisagra, k = marcoBisagra(q), { c, sg, der, xh, yh, t9, canto, cara, yb, aPlan } = k, H = hojaL(q), B = H ? B155 : MB, GL = H ? GL155 : MB.gradosLateral;   /* A258, A262 */
+    const MB = MODELO.bisagra, k = marcoBisagra(q), { c, sg, der, xh, yh, t9, canto, cara, yb, aPlan } = k, H = conB155(q), B = H ? B155 : MB, GL = H ? giroB155(q) : MB.gradosLateral;   /* A258, A262; A413 */
     const ejesL = [[(der ? 1 : -1)*xh[0], (der ? 1 : -1)*xh[1], 0], [-yh[0], -yh[1], 0], [0, 0, 1]].map(v => v.map(r3));
     const eje = ejeBisagra(canto, t9, PLAN_HOLGURA_PUERTA, MB.gradosLateral), DR = recorridoBisagra(eje, MB.gradosLateral), D = MB.desfaseAbierta.map((v, i) => v + DR[i]);
     const h = q.alto, nB = nBisagras(h), borde = Math.min(10, h*.2);
     const base = { rol: 'herraje', modulo: q.modulo, frente: q.id, material: null, etiqueta: 'herrajes' }, fijo = Object.assign({}, base);
     delete fijo.frente;   /* A262: el brazo de la 155 (con su placa) se queda en el lateral al abrir */
-    const uso = q.forma && q.forma.eje === 'z' ? 'esquinero 45' : H ? (plegable ? 'esquinero plegable' : 'esquinero abatible') : 'esquinero';
+    const uso = invertida(q) ? 'esquinero ciego' : q.forma && q.forma.eje === 'z' ? 'esquinero 45' : H ? (plegable ? 'esquinero plegable' : 'esquinero abatible') : 'esquinero';   /* A413 */
     /* A262 (usuario 18/10: «con su perforacion»): taladro de la cazoleta en la cara posterior: la de y menor (puerta de cara a la habitacion
        de la cara k) o la de x mayor (de cara a la de la cara k + 1, eje 'x'); la diagonal (losa) no lo lleva */
     const atras = q.forma ? null : Math.abs(c.u[1] - 1) < 1e-6 ? 'y' : Math.abs(c.u[0] + 1) < 1e-6 ? 'x' : null;
@@ -8980,7 +8992,7 @@ function aperturasEsquinero(piezas, add){
       if (H) {   /* A262: Blum 155: brazo fijo, eslabones cerrados o abiertos segun su puerta y la cazoleta con ella */
         parte('bisagra', 'Bisagra', 'bisagra155_brazo', o0, B.brazo, { bisagra: especBisagra(uso, GL) }, fijo);
         parte('eslabones', 'Eslabon', 'bisagra155_eslabones', o0, B.eslabones, { estado: 'cerrado', ocultaSinPuertas: true });   /* A391: van con la puerta; sin puertas no quedan flotando */
-        parte('eslabonesAbierta', 'Eslabon', 'bisagra155_eslabones_abierta', o0, B.eslabonesAbierta, { estado: 'abierto', ocultaSinPuertas: true });
+        if (GL === GL155) parte('eslabonesAbierta', 'Eslabon', 'bisagra155_eslabones_abierta', o0, B.eslabonesAbierta, { estado: 'abierto', ocultaSinPuertas: true });   /* A413: el modelo abierto es el de 155; topada a 90 no va */
         parte('cazoleta', 'Cazoleta', 'bisagra155_cazoleta', o0, B.cazoletaCaja, { ocultaSinPuertas: true });
         /* A268: en la plegable, a cada altura la 79T8500 entre las hojas: la cazoleta (con su eslabon) va con la a y el brazo (con su placa)
            con la b; la perforacion en la cara posterior de la a, dentro de la hoja aunque la cazoleta llegue a su canto */
