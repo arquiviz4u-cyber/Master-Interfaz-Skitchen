@@ -369,6 +369,16 @@
        invalido: esq0:charola:0:borde:9: perfil fuera de su caja») losa (piezas con planta de poligono: charolas del magic corner y sus bordes,
        recortes) tomaba el origen sin redondear y add lo redondeaba al centesimo sin mover los puntos: un borde de la charola quedaba 0.01 fuera
        de su caja (ciego en la cara B). Ahora el origen va redondeado y la caja sale de los puntos.
+   A401. [Master hecho 21/10; SketchUp: reemplazar tandem_corredera_fija, tandem_corredera_carro y tandem_bloqueo (nuevos .skp) y sus cajas en el catalogo; Revit pendiente] (usuario 21/10, al verla
+       en SketchUp: «sigue roto y mal colocado; revisa desde origen si los modelos vienen asi rotos o hubo un mal manejo») Revisado desde los .skp de Blum con el SDK: 1) el perfil 563F5330B viene
+       entero, como una sola malla fusionada (650 caras, 1 componente por aristas): lo roto era la particion de A397/A399, que repartia caras por caja de coordenadas y dejaba la tapa del tubo y
+       caras largas en la parte equivocada. Ahora se parte por el perfil de extrusion real (PruebaEquipos/clasifica.py): carro = el tubo superior (X -5.61..-2.63, Z -2.72..-0.98) con su gancho
+       delantero y su tope trasero (sube a 1.27 y entra hasta X -2.21), 79 caras; fija = base, brida, pared guia, riel intermedio y carriles, 571 caras; render de control coherente. Cajas:
+       carro [-5.605,2.126,-2.718]..[-2.206,51.4,1.272], fija [-5.678,-3.4,-3.63]..[0,51.3,1.12]. 2) El bloqueo T51.1700.04 NO viene roto ni inclinado: el archivo trae la instancia con una
+       pose de presentacion (rotacion en los tres ejes) y la geometria propia de la definicion ya esta en el marco del perfil (X -7.6..-2.14, Y -3.7..4.38, Z -2.72..-0.98: frente al frente del
+       perfil, tope en el fondo del cajon, entrando bajo el cajon desde el costado). El mal manejo fue mio (A396/A399): hornee esa pose en la geometria y luego la compense girando solo en Y-Z.
+       Ahora tandem_bloqueo.skp es la geometria propia y va con el mismo marco que el perfil (espejo por lado, sin estirar ni girar). 3) El ajustador frontal 295.1000.21 se quita del plan: su
+       archivo no trae pose en ese marco y la ficha TD-131/3 no la da; queda registrado en la biblioteca. Fondo del cajon a 13.5 mm del canto, como la ficha.
    A400. [Master hecho 21/10; SketchUp: Interactuar lee abre.pliegue tambien en el tipo Giro (la charola sigue los dos giros); Revit pendiente]
        (usuario 21/10, con captura de SketchUp: «asi se ve el magic corner, mal, fuera de escala») Las charolas del magic corner van siempre
        a la medida del modelo (87 x 49 cm, la del herraje real): ya no se encogen para caber girando (A302 las bajaba hasta 45 cm). Como el
@@ -4762,7 +4772,7 @@ const MODELO = {
   /* A396 (usuario 21/10: «con modelo skp»): piezas oficiales de la TANDEM (3D Warehouse, Blum USA) en el marco del catalogo: pared en X = 0 (hacia adentro X negativo), frente en Y cerca de 0 (atras
      Y positivo), Z con la base del perfil en -3.63. Bloqueo T51.1700.04 (viene inclinado unos 24 grados en Y-Z, tal como lo exporto Blum) y ajustador frontal 295.1000.21 */
   /* A397: el perfil real (modelo 563F5330B partido en la parte fija, con la brida y la base, y el carro que sostiene el fondo y viaja con el cajon; herramientas partir_corredera_tandem.py) */
-  tandem: { fija: [[-5.678, -3.4, -3.63], [0, 51.3, 1.272]], carro: [[-5.605, -1.5, -2.764], [-2.501, 51.4, -.978]], largo: 54.8, giroBloqueo: 24.5, bloqueoY0: -.033, bloqueoZ1: 3.183, frenteCorredera: -3.4, bloqueo: [[-5.23, -.97, .15], [.39, 7.05, 5.13]], ajustador: [[-8.34, 2.06, 3.7], [-6.26, 4.14, 4.7]], frenteY: -.97, baseZ: -3.63 },
+  tandem: { fija: [[-5.678, -3.4, -3.63], [0, 51.3, 1.12]], carro: [[-5.605, 2.126, -2.718], [-2.206, 51.4, 1.272]], largo: 54.8, frenteCorredera: -3.4, bloqueo: [[-7.599, -3.7, -2.72], [-2.135, 4.378, -.98]], ajustador: [[-8.34, 2.06, 3.7], [-6.26, 4.14, 4.7]], frenteY: -.97, baseZ: -3.63 },
   bisagraLibro: { grados: 90, cajaA: [[-2.475, -.475, -3.8], [.475, .475, 3.8]], cajaB: [[-.475, -.475, -3.8], [.475, 2.475, 3.8]],
     radio: .475, ala: 2, grueso: .2, alto: 7.6, esquina: .4, tornillos: [1.27, 3.8, 6.35], cabeza: .4, cabezaAlto: .05 },
   corredera: { fija: [[.139, 0, 0], [1.27, 49.845, 2.869]], media: [[.162, 6.493, .32], [1.087, 49.845, 2.549]], movil: [[0, .675, .668], [.675, 50.003, 2.201]],
@@ -6120,15 +6130,10 @@ function planDePiezas(c = cfg){
           const mar = { ox: cara, refX: 0, espejo: sg > 0, oy: iz.y + iz.fondo, refY: MT.frenteCorredera, sy: largo/MT.largo, oz: zr, refZ: MT.baseZ };
           add(Object.assign({ id: d + ':corredera:' + lado + sk, tipo: 'Corredera', modelo: { archivo: 'tandem_corredera_fija', espejo: sg > 0 } }, dato, cajaModelo(MT.fija, mar)));
           add(Object.assign({ id: d + ':corredera:' + lado + sk + ':movil', tipo: 'CorrederaMovil', frente: d, modelo: { archivo: 'tandem_corredera_carro', espejo: sg > 0 } }, dato, cajaModelo(MT.carro, mar)));
-          /* A396: bloqueo y ajustador frontal con su modelo, en el marco del catalogo (X hacia la pared al reves, Y hacia atras al reves); viajan con el cajon. El ajustador solo si el costado lo alcanza */
-          /* A399 (usuario 21/10, foto del ensamble real): el bloqueo va BAJO el fondo, sobre el perfil, pegado al frente de la caja; el modelo de Blum viene inclinado 24.5 grados (ejes girados para dejarlo plano: su cara
-             de arriba contra el fondo, su extremo del frente contra la cara posterior del frente de la caja). El ajustador, junto a el, tras esa cara y a 2.2 cm bajo el fondo */
-          const gr = MT.giroBloqueo*Math.PI/180, gc = r3(Math.cos(gr)), gs = r3(Math.sin(gr)), zf = iz.z + PLAN_TANDEM.ranura, yP = iz.y + iz.fondo - PLAN_CAJA.lado;
-          const ej = [[sg > 0 ? -1 : 1, 0, 0], [0, -gc, -gs], [0, -gs, gc]], eA = [ej[0], [0, -1, 0], [0, 0, 1]];
-          const oT = [r2(cara), r2(yP - MT.bloqueoY0), r2(zf - MT.bloqueoZ1)], oA = [oT[0], r2(yP + MT.ajustador[0][1]), r2(zf - 2.2 - MT.ajustador[0][2])];
-          [['bloqueo', 'CorrederaBloqueo', 'tandem_bloqueo'], ['ajustador', 'CorrederaAjustador', 'tandem_ajustador']].forEach(([n, tipo, archivo]) => {
-            if (n === 'ajustador' && iz.alto + .01 < MT.ajustador[1][2] - MT.baseZ - T9.riel) return;
-            add(Object.assign({ id: d + ':corredera:' + lado + sk + ':' + n, tipo, frente: d, modelo: { archivo, origen: n === 'ajustador' ? oA : oT, ejes: n === 'ajustador' ? eA : ej } }, dato, cajaEjes(MT[n], n === 'ajustador' ? oA : oT, n === 'ajustador' ? eA : ej))); }); });
+          /* A401: el bloqueo T51.1700.04 tal como lo exporta Blum: su geometria propia (sin la pose de presentacion de la instancia) ya esta en el marco del perfil (frente
+             en Y -3.7, bajo el fondo del cajon hasta Z -0.98, entrando bajo el cajon desde el costado), asi que va con el mismo marco que el perfil, sin estirar (sy 1) y sin giro.
+             El ajustador frontal 295.1000.21 no se coloca: su archivo no trae una pose en ese marco y la ficha no la da */
+          add(Object.assign({ id: d + ':corredera:' + lado + sk + ':bloqueo', tipo: 'CorrederaBloqueo', frente: d, modelo: { archivo: 'tandem_bloqueo', espejo: sg > 0 } }, dato, cajaModelo(MT.bloqueo, Object.assign({}, mar, { sy: 1 })))); });
         return; }
       const largo = cfg.region === 'US' ? Math.min(iz.fondo, Math.max(inch(9), Math.min(inch(21), Math.floor(iz.fondo/inch(3) + 1e-6)*inch(3))))   /* E14: 9-21" de 3 en 3 */
         : Math.min(iz.fondo, Math.max(15, Math.min(60, Math.floor(iz.fondo/5)*5))), yF = iz.y + iz.fondo;
@@ -6556,8 +6561,12 @@ function pruebasPlanMX(){
       const rieles = p.piezas.filter(r => r.oculta && r.id.startsWith(fd + ':corredera:'));
       ok(['Corredera', 'CorrederaBloqueo', 'CorrederaAjustador', 'CorrederaMovil'].every(t => rieles.filter(r => r.tipo === t).length === 2 || t === 'CorrederaAjustador' && rieles.filter(r => r.tipo === t).length <= 2) && !rieles.some(r => r.tipo === 'CorrederaBrida'), nombre + ': ' + iz.id + ' sin su perfil real de TANDEM (fija y carro con modelo, bloqueo y ajustador)');
       const piso = p.piezas.find(q => q.id === iz.id.replace(/:lado:izq$/, ':piso'));
-      ok(rieles.filter(r => r.tipo === 'Corredera').every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_fija' && Math.abs(r.z - (iz.z - PLAN_TANDEM.riel)) < .02) && piso && rieles.filter(r => r.tipo === 'CorrederaMovil').every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_carro' && r.z + r.alto <= piso.z + .011) && Math.abs(piso.z - (iz.z + PLAN_TANDEM.ranura)) < .02,
-        nombre + ': la base del perfil de ' + iz.id + ' no queda a 14 mm bajo el costado, o el carro no queda bajo el fondo (a 14.5 mm del canto)'); });
+      /* A401: la base del perfil 14 mm bajo el canto del costado; el tubo del carro (Blum Z -2.72..-0.98 sobre la base en -3.63) y el bloqueo quedan bajo el fondo (a 13.5 mm del canto); el tope trasero del carro sube 2.25 cm mas (en el real entra en la trasera) */
+      const zr = iz.z - PLAN_TANDEM.riel, blq = rieles.filter(r => r.tipo === 'CorrederaBloqueo');
+      ok(rieles.filter(r => r.tipo === 'Corredera').every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_fija' && Math.abs(r.z - zr) < .02) && piso && Math.abs(piso.z - (iz.z + PLAN_TANDEM.ranura)) < .02
+        && rieles.filter(r => r.tipo === 'CorrederaMovil').every(r => r.modelo && r.modelo.archivo === 'tandem_corredera_carro' && Math.abs(r.z - (zr + .912)) < .02 && r.z + r.alto - 2.252 <= piso.z + .02)
+        && blq.length === 2 && blq.every(r => r.modelo && r.modelo.archivo === 'tandem_bloqueo' && !r.modelo.ejes && r.z + r.alto <= piso.z + .011 && Math.abs(r.y + r.fondo - (iz.y + iz.fondo + .3)) < .02),
+        nombre + ': el perfil o el bloqueo de ' + iz.id + ' no quedan como la ficha (base 14 mm bajo el costado, tubo y bloqueo bajo el fondo a 13.5 mm del canto, bloqueo al frente)'); });
     /* gola: detras de cada hueco de agarre queda libre el canal (del alma del perfil al plano de los frentes) para los dedos */
     if (c.style === 'Moderna') p.piezas.filter(q => q.tipo === 'Gola' && !q.forma && !String(q.id).startsWith('esq')).forEach(g => {   /* A143: la gola del esquinero corre por sus alas (otra orientacion) */   /* A139: la gola a 45 del esquinero diagonal es una losa (forma) */
       const alma = p.piezas.find(q => q.id === g.id), dedo = { x: g.x + .5, y: g.y + g.fondo + .01, z: 0, ancho: g.ancho - 1, fondo: 0, alto: 0 };
