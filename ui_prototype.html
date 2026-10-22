@@ -365,6 +365,9 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A445. [Master hecho 22/10; SketchUp: tipo CampanaIsla en Nombres (equipo) y reglas de licencia; Revit pendiente] (usuario 22/10: «se ve bien,
+       integralo en sketchup»): las dos cajas de la campana de isla pasan de equipo/Campana a equipo/CampanaIsla (la licencia distingue la
+       de isla de la de acero; mismo color de acero y misma busqueda de equipos del dibujo).
    A444. [Master hecho 22/10; SketchUp: pieza tapeta Regreso ya conocida; Revit pendiente] (usuario 22/10) 1) «Al cambiar ese ancho de peninsula
        en planta la columna se ensanche y no la barra hacia fuera»: la cota y el campo «Ancho de la peninsula» cambian el fondo de sus
        gabinetes (30 a 90 cm; US 12" a 36"); el vuelo para bancos va aparte. Sin gabinetes (solo barra) sigue siendo el vuelo. 2) «La cara
@@ -6189,7 +6192,7 @@ function planDePiezas(c = cfg){
           if ((cfg.isla || cfg.peninsula) && m.campanaIsla) {   /* A438: centrada sobre la parrilla; sin modelo (dos cajas) */
             const { W, D, ch, cx, z0, z1, techo } = campIslaMedidas(m), cy = sepDe(m) + m.fondo - 4 - pd / 2;
             /* A442: con su modulo (clic y arrastre en el isometrico); es mas ancha que su columna, asi que la prueba de la columna la salta (id campanaIsla:) */
-            const caja = (k, a, b2, c0, c1, d0, d1) => add({ id: 'campanaIsla:' + m.id + k, rol: 'equipo', modulo: m.id, tipo: 'Campana', x: a, y: c0, z: d0, ancho: b2 - a, fondo: c1 - c0, alto: d1 - d0, material: null, etiqueta: 'equipos' });
+            const caja = (k, a, b2, c0, c1, d0, d1) => add({ id: 'campanaIsla:' + m.id + k, rol: 'equipo', modulo: m.id, tipo: 'CampanaIsla', x: a, y: c0, z: d0, ancho: b2 - a, fondo: c1 - c0, alto: d1 - d0, material: null, etiqueta: 'equipos' });
             caja('', cx - W / 2, cx + W / 2, cy - D / 2, cy + D / 2, z0, z1); caja(':chimenea', cx - ch / 2, cx + ch / 2, cy - ch / 2, cy + ch / 2, z1, techo); } }
         px += m.ancho; }); }
       if (cfg.backsplash && !pen) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;   /* A383: sin muro, sin backsplash */
@@ -15010,7 +15013,7 @@ const LAM = (() => {
         cap.dims = dims; cap.bb = { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 }; return cap; } };
   }
   const colorPieza = p => { const m = p.material ? mat(p.material) : null; if (m) return rgbOf(m); const e = p.etiqueta;
-    if (p.tipo === 'Campana') return '#8E99A4';   /* A356: acero de la campana, mas oscuro que los demas equipos para que se distinga del muro */
+    if (p.tipo === 'Campana' || p.tipo === 'CampanaIsla') return '#8E99A4';   /* A356: acero de la campana, mas oscuro que los demas equipos para que se distinga del muro */
     return e === 'frentes' ? C.front : e === 'cubierta' ? '#C8B99F' : e === 'zoclo' ? '#4A4F55' : e === 'backsplash' ? C.backsplash : e === 'herrajes' ? C.metal : e === 'equipos' ? '#B7BEC5' : C.board; };
   /* A186: pz = { p, sc, plano }: con un material de patron (madera, piedra...) la pieza lleva su trama, como en el alzado del editor */
   const caja2D = (g, x, y, w, h, fill, stroke, lw = .8, pz) => { g.save(); g.fillStyle = fill; g.strokeStyle = stroke; g.lineWidth = lw; g.beginPath(); g.rect(x, y, Math.max(.4, w), Math.max(.4, h)); g.fill();
@@ -15968,7 +15971,7 @@ const LAM = (() => {
      electrodomesticos, tarjas y grifos)»): las notas del usuario viven en ed.__extra = [{ id, texto }]; anclaNota busca la pieza que nombran */
   const CLAVES_NOTA = [
     [/horno/i, q => q.rol === 'equipo' && q.tipo === 'Horno'], [/micro/i, q => q.rol === 'equipo' && q.tipo === 'Microondas'], [/refri/i, q => q.rol === 'equipo' && q.tipo === 'Refrigerador'],
-    [/frigobar|cava/i, q => q.rol === 'equipo' && q.tipo === 'Frigobar'], [/lavavajillas|lavaplatos/i, q => q.rol === 'equipo' && q.tipo === 'Lavavajillas'], [/campana|extractor/i, q => q.rol === 'equipo' && q.tipo === 'Campana'],
+    [/frigobar|cava/i, q => q.rol === 'equipo' && q.tipo === 'Frigobar'], [/lavavajillas|lavaplatos/i, q => q.rol === 'equipo' && q.tipo === 'Lavavajillas'], [/campana|extractor/i, q => q.rol === 'equipo' && (q.tipo === 'Campana' || q.tipo === 'CampanaIsla')],
     [/parrilla|inducci|estufa|quemador/i, q => q.tipo === 'Parrilla' || q.rol === 'equipo' && q.tipo === 'Estufa'], [/tarja|fregadero|lavabo/i, q => /:tarja:fondo$/.test(q.id) || q.rol === 'equipo' && q.tipo === 'Tarja'],
     [/grifo|monomando|llave|mezcladora/i, q => q.tipo === 'Monomando'], [/cubierta|encimera|mes[oó]n/i, q => q.rol === 'cubierta' && q.tipo === 'Losa'], [/zoclo/i, q => q.rol === 'zoclo'],
     [/backsplash|salpicadero/i, q => q.rol === 'backsplash'], [/jaladera|tirador|bot[oó]n|manija/i, q => q.tipo === 'Jaladera' || q.tipo === 'Boton'], [/bisagra/i, q => q.tipo === 'Bisagra' || q.tipo === 'Cazoleta'],
