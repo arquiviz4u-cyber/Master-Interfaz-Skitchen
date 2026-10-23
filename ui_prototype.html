@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A450. [Master hecho 23/10; SketchUp y Revit: sin cambio (solo cambia el contenido del .csv que el master entrega)] (usuario 23/10: «la nomenclatura de salida del CSV debe ser legible y convencional, que se entienda en diferentes regiones y se adapte»): el CSV de A449
+       lleva ahora una columna CODIGO estable (LATERAL, PISO, TRASERA, PUERTA, FRENTE_CAJON, ZOCLO_FRENTE, CUBIERTA...; no cambia con la region) y otra con el nombre segun el vocabulario elegido (Mexico, Colombia y
+       Ecuador, English US; el de Colombia y Ecuador esta POR CONFIRMAR con talleres de esos paises), la unidad (mm, cm, in; EE. UU. arranca en in) y el formato de Excel. «Editar nombres…» deja que cada taller
+       cambie el nombre de una pieza (prefs.csvNombres; el codigo no cambia). Encabezados en ingles con el vocabulario English. pruebasCsv() cubre las 18 combinaciones.
    A449. [Master hecho 22/10; SketchUp: Ruby acepta .csv al exportar; Revit pendiente] (usuario 22/10: «construyelo con la opcion A» de la exportacion a CSV): Presentar > Entrega, casilla «Lista de piezas (CSV para Excel)» y
        formato de Excel (coma, o punto y coma con coma decimal). Una fila por pieza distinta (nombre, largo x ancho x espesor en mm, material, cantidad y modulos) de las piezas de tablero del plan
        (sin herrajes ni equipos); con forma o huecos va la caja envolvente y la fila lo avisa. csvPiezas(plan, fmt), pruebasCsv(). Sin cantos, veta ni etiquetas (lista de corte completa: E17-E20).
@@ -16600,7 +16604,7 @@ const LAM = (() => {
   /* o: { papel, cotas, proy, notas, notasEd, rotulo, vistas: [ids], guardado: [{id, vista, on, n, x, y, plano, corte}], globos, detalle, dxf, escalaVistas, escalaIso } */
   function presNueva(o){
     const L = { papel: o.papel, cotasOn: o.cotasOn !== false, matCol: !!o.matCol, proy: o.proy !== false, marcos: o.marcos !== false, notas: o.notas !== false, notasEd: o.notasEd || {}, rotulo: o.rotulo || {},
-      vistas: [], datos: null, detalles: null, notasLista: [], globos: o.globos && typeof o.globos === 'object' ? o.globos : {}, detalle: o.detalle === true, dxf: !!o.dxf, csv: !!o.csv, csvFmt: o.csvFmt === 'es' ? 'es' : 'mx',
+      vistas: [], datos: null, detalles: null, notasLista: [], globos: o.globos && typeof o.globos === 'object' ? o.globos : {}, detalle: o.detalle === true, dxf: !!o.dxf, csv: !!o.csv, csvFmt: o.csvFmt === 'es' ? 'es' : 'mx', csvVocab: ['mx', 'co', 'en'].includes(o.csvVocab) ? o.csvVocab : prefs.region === 'US' ? 'en' : 'mx', csvUnidad: ['mm', 'cm', 'in'].includes(o.csvUnidad) ? o.csvUnidad : prefs.region === 'US' ? 'in' : 'mm',
       hojas: [{ nombre: 'Lámina general' }], hoja: 0, cotas: o.cotas && typeof o.cotas === 'object' ? o.cotas : {}, isla: o.isla && o.isla.id ? { id: o.isla.id, on: o.isla.on !== false, x: +o.isla.x || 0, y: +o.isla.y || 0, rot: +o.isla.rot || 0 } : null };
     if (Array.isArray(o.hojas) && o.hojas.length) L.hojas = o.hojas.map((h, i) => i === 0 ? { nombre: h.nombre || 'Lámina general' } : h.modulo ? { nombre: h.nombre, modulo: h.modulo }
       : h.general ? { nombre: h.nombre, general: true, cara: h.cara || 0 } : { nombre: h.nombre, grupo: h.grupo, cara: h.cara || 0 });   /* A284: lamina general de otra cara */
@@ -17642,58 +17646,106 @@ function drawIsometrico(){
     ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(tx, x + 8, y + 10.5); ctx.restore(); });
   frame = { scale: s, ox, ground: oy + h*s, X: x => ox + x*s, Z: z => oy + h*s - z*s, W: w };
 }
-/* ---------------- Lista de piezas en CSV (AA449, usuario 22/10: «construyelo con la opcion A») ----------------
-   Una fila por pieza distinta (nombre, medida y material) con su cantidad. Solo piezas de tablero: sin herrajes ni equipos. Las medidas van en mm,
-   las de la caja de cada pieza (largo >= ancho >= espesor); con forma o huecos es la caja envolvente y la fila lo avisa en Notas. La nomenclatura con
-   etiquetas y los cantos quedan para la lista de corte completa (DISENO_LISTA_DE_CORTE.md de Skitchen_SketchUp).
+/* ---------------- Lista de piezas en CSV (A449; AA450: codigo estable, vocabulario por region, unidad y nombres editables) ----------------
+   Una fila por pieza distinta (codigo, nombre, medida y material) con su cantidad. Solo piezas de tablero: sin herrajes ni equipos. Las medidas son las de la
+   caja de cada pieza (largo >= ancho >= espesor), como las listas de corte; con forma o huecos es la caja envolvente y la fila lo avisa. El CODIGO no cambia con la
+   region ni con los nombres: es lo que otro programa o una macro de Excel debe leer. El nombre sigue el vocabulario elegido (mx, co = Colombia y Ecuador, en = ingles de
+   EE. UU.) y cada taller puede cambiarlo (prefs.csvNombres: codigo -> nombre). Vocabulario de Colombia y Ecuador: POR CONFIRMAR con talleres de esos paises.
    fmt 'mx': coma y punto decimal; 'es': punto y coma y coma decimal (el Excel de Colombia, Chile, Argentina y Espana). UTF-8 con marca de orden de bytes */
-const CSV_PIEZA = { 'panel|Lateral': 'Lateral', 'panel|Lado': 'Lado', 'panel|Piso': 'Piso', 'panel|Techo': 'Techo', 'panel|Trasero': 'Trasera', 'panel|Faja': 'Faja',
-  'panel|FajaAnclaje': 'Faja de anclaje', 'panel|Calza': 'Calza', 'panel|Cama': 'Cama', 'panel|CamaInterior': 'Cama interior', 'panel|CampanaFrente': 'Campana, frente',
-  'panel|CampanaLateral': 'Campana, lateral', 'panel|RielGabinete': 'Riel de gabinete', 'panel|RielMuro': 'Riel de muro', 'repisa|Repisa': 'Repisa', 'repisa|Carrusel': 'Repisa de carrusel',
-  'division|': 'División', 'division|Division': 'División', 'caja|Lado': 'Cajón, lado', 'caja|Piso': 'Cajón, piso', 'caja|Trasera': 'Cajón, trasera', 'caja|Frente': 'Cajón, frente interior',
-  'caja|Tapa': 'Cajón, tapa', 'caja|Tira': 'Cajón, tira', 'caja|Bastidor': 'Cajón, bastidor', 'caja|Entrepano': 'Cajón, entrepaño', 'frente|Puerta': 'Puerta', 'frente|Cajon': 'Frente de cajón',
-  'frente|Elevable': 'Puerta elevable', 'frente|Frente fijo': 'Frente fijo', 'frente|Marco': 'Marco de puerta', 'frente|Respaldo': 'Respaldo de puerta', 'tapeta|': 'Tapeta',
-  'tapeta|Compensacion': 'Tapeta, compensación', 'tapeta|Costado': 'Tapeta, costado', 'tapeta|Intermedio': 'Tapeta, intermedia', 'tapeta|Moldura': 'Moldura', 'tapeta|Regreso': 'Tapeta, regreso',
-  'zoclo|Cierre': 'Zoclo, cierre', 'zoclo|Diagonal': 'Zoclo, diagonal', 'zoclo|Frente': 'Zoclo, frente', 'zoclo|Hoja': 'Zoclo, hoja', 'zoclo|Larguero': 'Zoclo, larguero',
-  'zoclo|Posterior': 'Zoclo, posterior', 'zoclo|Tapa': 'Zoclo, tapa', 'zoclo|Travesano': 'Zoclo, travesaño', 'cubierta|Losa': 'Cubierta', 'cubierta|Diamante': 'Cubierta, pieza de esquina',
-  'cubierta|Cama': 'Cama de cubierta', 'backsplash|': 'Backsplash' };
+const CSV_VOCAB = [['mx', 'México'], ['co', 'Colombia y Ecuador'], ['en', 'English (US)']];
+const CSV_PIEZAS = [   /* [rol, tipo, codigo, mx, co, en] */
+  ['panel', 'Lateral', 'LATERAL', 'Lateral', 'Lateral', 'Side panel'], ['panel', 'Lado', 'LADO', 'Lado', 'Lado', 'End panel'], ['panel', 'Piso', 'PISO', 'Piso', 'Piso', 'Bottom panel'],
+  ['panel', 'Techo', 'TECHO', 'Techo', 'Techo', 'Top panel'], ['panel', 'Trasero', 'TRASERA', 'Trasera', 'Trasera', 'Back panel'], ['panel', 'Faja', 'FAJA', 'Faja', 'Travesaño', 'Stretcher'],
+  ['panel', 'FajaAnclaje', 'FAJA_ANCLAJE', 'Faja de anclaje', 'Travesaño de anclaje', 'Mounting stretcher'], ['panel', 'Calza', 'CALZA', 'Calza', 'Calza', 'Shim'],
+  ['panel', 'Cama', 'CAMA', 'Cama', 'Cama', 'Bed panel'], ['panel', 'CamaInterior', 'CAMA_INTERIOR', 'Cama interior', 'Cama interior', 'Inner bed panel'],
+  ['panel', 'CampanaFrente', 'CAMPANA_FRENTE', 'Campana frente', 'Campana frente', 'Hood front panel'], ['panel', 'CampanaLateral', 'CAMPANA_LATERAL', 'Campana lateral', 'Campana lateral', 'Hood side panel'],
+  ['panel', 'RielGabinete', 'RIEL_GABINETE', 'Riel de gabinete', 'Riel de gabinete', 'Cabinet rail'], ['panel', 'RielMuro', 'RIEL_MURO', 'Riel de muro', 'Riel de pared', 'Wall rail'],
+  ['repisa', 'Repisa', 'ENTREPANO', 'Repisa', 'Entrepaño', 'Shelf'], ['repisa', 'Carrusel', 'REPISA_CARRUSEL', 'Repisa de carrusel', 'Entrepaño de carrusel', 'Carousel shelf'],
+  ['division', 'Division', 'DIVISION', 'División', 'División', 'Divider'], ['division', '', 'DIVISION', 'División', 'División', 'Divider'],
+  ['caja', 'Lado', 'CAJON_LADO', 'Cajón: lado', 'Cajón: lado', 'Drawer: side'], ['caja', 'Piso', 'CAJON_PISO', 'Cajón: piso', 'Cajón: piso', 'Drawer: bottom'],
+  ['caja', 'Trasera', 'CAJON_TRASERA', 'Cajón: trasera', 'Cajón: trasera', 'Drawer: back'], ['caja', 'Frente', 'CAJON_FRENTE_INT', 'Cajón: frente interior', 'Cajón: frente interior', 'Drawer: inner front'],
+  ['caja', 'Tapa', 'CAJON_TAPA', 'Cajón: tapa', 'Cajón: tapa', 'Drawer: cover'], ['caja', 'Tira', 'CAJON_TIRA', 'Cajón: tira', 'Cajón: tira', 'Drawer: strip'],
+  ['caja', 'Bastidor', 'CAJON_BASTIDOR', 'Cajón: bastidor', 'Cajón: bastidor', 'Drawer: frame'], ['caja', 'Entrepano', 'CAJON_ENTREPANO', 'Cajón: entrepaño', 'Cajón: entrepaño', 'Drawer: shelf'],
+  ['frente', 'Puerta', 'PUERTA', 'Puerta', 'Puerta', 'Door'], ['frente', 'Cajon', 'FRENTE_CAJON', 'Frente de cajón', 'Frente de cajón', 'Drawer front'],
+  ['frente', 'Elevable', 'PUERTA_ELEVABLE', 'Puerta elevable', 'Puerta elevable', 'Lift-up door'], ['frente', 'Frente fijo', 'FRENTE_FIJO', 'Frente fijo', 'Frente fijo', 'Fixed front'],
+  ['frente', 'Marco', 'MARCO_PUERTA', 'Marco de puerta', 'Marco de puerta', 'Door frame'], ['frente', 'Respaldo', 'RESPALDO_PUERTA', 'Respaldo de puerta', 'Respaldo de puerta', 'Door backing panel'],
+  ['tapeta', '', 'TAPETA', 'Tapeta', 'Tapeta', 'Filler panel'], ['tapeta', 'Compensacion', 'TAPETA_COMPENSACION', 'Tapeta de compensación', 'Tapeta de compensación', 'Filler strip'],
+  ['tapeta', 'Costado', 'TAPETA_COSTADO', 'Tapeta de costado', 'Tapeta de costado', 'Side filler'], ['tapeta', 'Intermedio', 'TAPETA_INTERMEDIA', 'Tapeta intermedia', 'Tapeta intermedia', 'Middle filler'],
+  ['tapeta', 'Moldura', 'MOLDURA', 'Moldura', 'Moldura', 'Molding'], ['tapeta', 'Regreso', 'TAPETA_REGRESO', 'Tapeta de regreso', 'Tapeta de regreso', 'Return filler'],
+  ['zoclo', 'Cierre', 'ZOCLO_CIERRE', 'Zoclo: cierre', 'Zócalo: cierre', 'Toe kick: end cap'], ['zoclo', 'Diagonal', 'ZOCLO_DIAGONAL', 'Zoclo: diagonal', 'Zócalo: diagonal', 'Toe kick: diagonal'],
+  ['zoclo', 'Frente', 'ZOCLO_FRENTE', 'Zoclo: frente', 'Zócalo: frente', 'Toe kick: front'], ['zoclo', 'Hoja', 'ZOCLO_HOJA', 'Zoclo: hoja', 'Zócalo: hoja', 'Toe kick: panel'],
+  ['zoclo', 'Larguero', 'ZOCLO_LARGUERO', 'Zoclo: larguero', 'Zócalo: larguero', 'Toe kick: rail'], ['zoclo', 'Posterior', 'ZOCLO_POSTERIOR', 'Zoclo: posterior', 'Zócalo: posterior', 'Toe kick: back'],
+  ['zoclo', 'Tapa', 'ZOCLO_TAPA', 'Zoclo: tapa', 'Zócalo: tapa', 'Toe kick: cover'], ['zoclo', 'Travesano', 'ZOCLO_TRAVESANO', 'Zoclo: travesaño', 'Zócalo: travesaño', 'Toe kick: cross brace'],
+  ['cubierta', 'Losa', 'CUBIERTA', 'Cubierta', 'Mesón', 'Countertop'], ['cubierta', 'Diamante', 'CUBIERTA_ESQUINA', 'Cubierta: pieza de esquina', 'Mesón: pieza de esquina', 'Countertop: corner piece'],
+  ['cubierta', 'Cama', 'CUBIERTA_CAMA', 'Cama de cubierta', 'Cama del mesón', 'Countertop underlayment'], ['backsplash', '', 'BACKSPLASH', 'Backsplash', 'Backsplash', 'Backsplash'] ];
+const CSV_POR_PIEZA = new Map(CSV_PIEZAS.map(e => [e[0] + '|' + e[1], e]));
 const CSV_SIN_TABLERO = ['herraje', 'equipo'];
-const csvNombrePieza = q => (CSV_PIEZA[q.rol + '|' + (q.tipo || '')] || CSV_PIEZA[q.rol + '|'] || [q.rol, q.tipo].filter(Boolean).join(' ')).replace(', ', ': ');   /* sin comas en el nombre: no depende de las comillas */
-function csvPiezas(plan, fmt = 'mx'){
-  const sep = fmt === 'es' ? ';' : ',', r1 = v => Math.round(v * 10) / 10, num = v => { const t = String(r1(v)); return fmt === 'es' ? t.replace('.', ',') : t; };
+/* los materiales predeterminados en ingles; los del catalogo del usuario van con el nombre que les puso */
+const CSV_MAT_EN = { DEF_FRENTE: 'Default front', DEF_CUERPO: 'Default body', DEF_TAPETA: 'Default filler', DEF_ZOCLO: 'Default toe kick', DEF_CUBIERTA: 'Default countertop', DEF_BACKSPLASH: 'Default backsplash', DEF_GOLA: 'Default channel handle', DEF_CAMA: 'Countertop underlayment' };
+const csvEntrada = q => CSV_POR_PIEZA.get(q.rol + '|' + (q.tipo || '')) || CSV_POR_PIEZA.get(q.rol + '|') || null;
+const csvCodigo = q => (csvEntrada(q) || [])[2] || [q.rol, q.tipo].filter(Boolean).join('_').toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+const csvNombreBase = (q, vocab) => { const e = csvEntrada(q); return e ? e[vocab === 'en' ? 5 : vocab === 'co' ? 4 : 3] : [q.rol, q.tipo].filter(Boolean).join(' '); };
+/* sin comas ni punto y coma en el nombre: el archivo no depende de las comillas */
+const csvNombre = (q, vocab) => String((prefs.csvNombres || {})[csvCodigo(q)] || csvNombreBase(q, vocab)).replace(/[,;"]/g, '').trim();
+function csvPiezas(plan, opc = {}){
+  const fmt = opc.fmt === 'es' ? 'es' : 'mx', vocab = ['mx', 'co', 'en'].includes(opc.vocab) ? opc.vocab : 'mx', uni = ['mm', 'cm', 'in'].includes(opc.unidad) ? opc.unidad : 'mm', en = vocab === 'en';
+  const sep = fmt === 'es' ? ';' : ',', r1 = v => Math.round(v * 10) / 10, k = uni === 'in' ? 1 / 25.4 : uni === 'cm' ? .1 : 1, dec = uni === 'in' ? 1000 : uni === 'cm' ? 100 : 10;
+  const num = v => { const t = String(Math.round(v * k * dec) / dec); return fmt === 'es' ? t.replace('.', ',') : t; }, tr = t => en ? trText(t, EN) : t;
   const celda = v => { const t = String(v); return t.includes(sep) || /["\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
   const mats = new Map((plan.materiales || []).map(m => [m.id, m.nombre])), mods = new Map();
   [cfg.modulos || []].concat((cfg.caras || []).map(c => c.modulos || [])).forEach(lista => { const n = { alto: 0, bajo: 0 };   /* nombre y numero de columna (de izquierda a derecha, por fila) */
-    lista.forEach(m => { if (!m || m.reserved) return; const k = m.upper ? 'alto' : 'bajo'; n[k]++; if (!mods.has(m.id)) mods.set(m.id, nombreModulo(m) + ' ' + n[k]); }); });
+    lista.forEach(m => { if (!m || m.reserved) return; const k2 = m.upper ? 'alto' : 'bajo'; n[k2]++; if (!mods.has(m.id)) mods.set(m.id, tr(nombreModulo(m)) + ' ' + n[k2]); }); });
   const todas = (plan.piezas || []).concat(...(plan.caras || []).map(c => c.piezas || [])), grupos = new Map();
   todas.filter(q => !CSV_SIN_TABLERO.includes(q.rol)).forEach(q => {
     const d = [q.ancho, q.fondo, q.alto].map(v => r1(v * 10)).sort((a, b) => b - a); if (!(d[2] > 0)) return;
-    const id = q.material || predeterminadoDe(q), mat = mats.get(id) || (PREDETERMINADOS[id] && PREDETERMINADOS[id].nombre) || id || 'Sin material', forma = !!(q.forma || q.hueco || q.huecos);
-    const k = [csvNombrePieza(q), d.join('x'), mat, forma].join('|'), g = grupos.get(k) || { nombre: csvNombrePieza(q), d, mat, forma, n: 0, mods: new Set() };
-    g.n++; if (q.modulo && mods.has(q.modulo)) g.mods.add(mods.get(q.modulo)); grupos.set(k, g); });
-  const filas = [...grupos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es') || b.d[0] - a.d[0] || b.d[1] - a.d[1]);
-  const lista = [['Pieza', 'Cantidad', 'Largo (mm)', 'Ancho (mm)', 'Espesor (mm)', 'Material', 'Módulos', 'Notas']].concat(filas.map(g => {
-    const m = [...g.mods]; return [g.nombre, g.n, num(g.d[0]), num(g.d[1]), num(g.d[2]), g.mat, m.length > 6 ? m.slice(0, 6).join(' / ') + ' / …' : m.join(' / '), g.forma ? 'Con forma o huecos: medida de la caja envolvente' : '']; }));
-  return '\uFEFF' + lista.map(f => f.map(celda).join(sep)).join('\r\n') + '\r\n';
+    const id = q.material || predeterminadoDe(q), mat = en && CSV_MAT_EN[id] ? CSV_MAT_EN[id] : mats.get(id) || (PREDETERMINADOS[id] && PREDETERMINADOS[id].nombre) || id || (en ? 'No material' : 'Sin material'), forma = !!(q.forma || q.hueco || q.huecos);
+    const cod = csvCodigo(q), nombre = csvNombre(q, vocab), kk = [cod, nombre, d.join('x'), mat, forma].join('|'), g = grupos.get(kk) || { cod, nombre, d, mat, forma, n: 0, mods: new Set() };
+    g.n++; if (q.modulo && mods.has(q.modulo)) g.mods.add(mods.get(q.modulo)); grupos.set(kk, g); });
+  const filas = [...grupos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, en ? 'en' : 'es') || b.d[0] - a.d[0] || b.d[1] - a.d[1]);
+  const cab = en ? ['Code', 'Part', 'Qty', `Length (${uni})`, `Width (${uni})`, `Thickness (${uni})`, 'Material', 'Modules', 'Notes'] : ['Código', 'Pieza', 'Cantidad', `Largo (${uni})`, `Ancho (${uni})`, `Espesor (${uni})`, 'Material', 'Módulos', 'Notas'];
+  const aviso = en ? 'Shaped or with cut-outs: bounding-box size' : 'Con forma o huecos: medida de la caja envolvente';
+  const lista = [cab].concat(filas.map(g => { const m = [...g.mods];
+    return [g.cod, g.nombre, g.n, num(g.d[0]), num(g.d[1]), num(g.d[2]), g.mat, m.length > 6 ? m.slice(0, 6).join(' / ') + ' / …' : m.join(' / '), g.forma ? aviso : '']; }));
+  return '﻿' + lista.map(f => f.map(celda).join(sep)).join('\r\n') + '\r\n';
 }
-function csvArchivo(prefijo, sello, fmt){
-  const utf8 = new TextEncoder().encode(csvPiezas(planCocina(), fmt)); let bin = ''; utf8.forEach(b => { bin += String.fromCharCode(b); });
+function csvArchivo(prefijo, sello, opc){
+  const utf8 = new TextEncoder().encode(csvPiezas(planCocina(), opc)); let bin = ''; utf8.forEach(b => { bin += String.fromCharCode(b); });
   return { name: `${prefijo}_${sello}_piezas.csv`, url: 'data:text/csv;base64,' + btoa(bin) };
 }
-/* prueba del CSV (AA449): cada pieza de tablero del plan cuenta una vez, sin filas vacias, y los dos formatos dan las mismas cantidades */
+/* editor de los nombres (prefs.csvNombres): solo las piezas de esta cocina; el codigo no se edita; vaciar un nombre vuelve al del vocabulario */
+function csvEditarNombres(){
+  const L = PRES.L, vocab = L ? L.csvVocab : 'mx'; let pl; try { pl = planCocina(); } catch (e) { showDialog('Nombres de las piezas', e.message); return; }
+  const usadas = new Map(); (pl.piezas || []).concat(...(pl.caras || []).map(c => c.piezas || [])).filter(q => !CSV_SIN_TABLERO.includes(q.rol)).forEach(q => { const c = csvCodigo(q); if (!usadas.has(c)) usadas.set(c, q); });
+  const filas = [...usadas].map(([c, q]) => `<label class="field" style="margin:0 0 6px"><span class="note-sm" style="display:block;margin:0 0 2px">${esc(c)}</span><input type="text" data-csvcod="${esc(c)}" value="${esc(csvNombre(q, vocab))}" placeholder="${esc(csvNombreBase(q, vocab))}"></label>`).join('');
+  showDialog('Nombres de las piezas', `<div class="note-sm" style="margin-bottom:8px">Cambia cómo se llama cada pieza en tu lista. El código (arriba de cada campo) no cambia, y otro programa lo lee igual. Deja un campo vacío para volver al nombre original.</div><div style="max-height:52vh;overflow:auto">${filas}</div>`,
+    [{ text: 'Cancelar', cancel: true }, { text: 'Restablecer todos', action: () => { delete prefs.csvNombres; savePrefs(); } },
+     { text: 'Guardar', primary: true, action: () => { const mapa = Object.assign({}, prefs.csvNombres || {});
+       document.querySelectorAll('#modalBody input[data-csvcod]').forEach(inp => { const c = inp.dataset.csvcod, v = inp.value.replace(/[,;"]/g, '').trim(), q = usadas.get(c); if (v && q && v !== csvNombreBase(q, vocab)) mapa[c] = v; else delete mapa[c]; });
+       if (Object.keys(mapa).length) prefs.csvNombres = mapa; else delete prefs.csvNombres; savePrefs(); } }], 'info', true);
+}
+/* prueba del CSV (AA450): cada pieza de tablero del plan cuenta una vez, sin filas vacias, y todas las combinaciones de formato, vocabulario y unidad dan las mismas cantidades */
 function pruebasCsv(){
-  const fallas = [], ok = (c, t) => { if (!c) fallas.push(t); };
-  let pl; try { pl = planCocina(); } catch (e) { return ['no se pudo armar el plan: ' + e.message]; }
-  const todas = (pl.piezas || []).concat(...(pl.caras || []).map(c => c.piezas || [])).filter(q => !CSV_SIN_TABLERO.includes(q.rol));
-  ['mx', 'es'].forEach(f => {
-    const t = csvPiezas(pl, f), sep = f === 'es' ? ';' : ',', filas = t.replace(/^\uFEFF/, '').trim().split('\r\n').slice(1).map(l => l.split(sep));
-    ok(t.charCodeAt(0) === 0xFEFF, f + ': sin marca de orden de bytes');
-    ok(filas.every(c => c.length === 8), f + ': una fila no tiene 8 columnas (revisa comillas)');
-    ok(filas.reduce((a, c) => a + (+c[1]), 0) === todas.filter(q => [q.ancho, q.fondo, q.alto].every(v => v >= 0) && Math.min(q.ancho, q.fondo, q.alto) > 0).length, f + ': la suma de cantidades no coincide con las piezas de tablero');
-    ok(filas.every(c => +String(c[2]).replace(',', '.') >= +String(c[3]).replace(',', '.') && +String(c[3]).replace(',', '.') >= +String(c[4]).replace(',', '.') && +String(c[4]).replace(',', '.') > 0), f + ': medidas fuera de orden o en cero');
-    ok(!/herraje|equipo|Bisagra|Parrilla/.test(t), f + ': trae herrajes o equipos');
-  });
-  ok(csvPiezas(pl, 'es').includes(';') && !csvPiezas(pl, 'mx').split('\r\n')[0].includes(';'), 'los separadores de los dos formatos no coinciden');
+  const fallas = [], ok = (c, t) => { if (!c) fallas.push(t); }, previo = prefs.csvNombres; delete prefs.csvNombres;
+  try {
+    let pl; try { pl = planCocina(); } catch (e) { return ['no se pudo armar el plan: ' + e.message]; }
+    const todas = (pl.piezas || []).concat(...(pl.caras || []).map(c => c.piezas || [])).filter(q => !CSV_SIN_TABLERO.includes(q.rol)), validas = todas.filter(q => Math.min(q.ancho, q.fondo, q.alto) > 0);
+    ok(todas.every(q => csvEntrada(q)), 'hay piezas sin entrada en el vocabulario: ' + [...new Set(todas.filter(q => !csvEntrada(q)).map(q => q.rol + '|' + q.tipo))].join(', '));
+    const dec = (t, f) => +String(t).replace(f === 'es' ? ',' : '', f === 'es' ? '.' : '');
+    ['mx', 'es'].forEach(f => ['mx', 'co', 'en'].forEach(v => ['mm', 'cm', 'in'].forEach(u => {
+      const rot = `${f}/${v}/${u}`, t = csvPiezas(pl, { fmt: f, vocab: v, unidad: u }), sep = f === 'es' ? ';' : ',', cuerpo = t.replace(/^﻿/, '').trim().split('\r\n'), filas = cuerpo.slice(1).map(l => l.split(sep));
+      ok(t.charCodeAt(0) === 0xFEFF, rot + ': sin marca de orden de bytes');
+      ok(cuerpo[0].split(sep).length === 9 && cuerpo[0].includes(`(${u})`), rot + ': encabezado incorrecto');
+      ok(filas.every(c => c.length === 9), rot + ': una fila no tiene 9 columnas');
+      ok(filas.every(c => /^[A-Z0-9_]+$/.test(c[0])), rot + ': un código no es estable (solo A-Z, 0-9 y _)');
+      ok(filas.reduce((a, c) => a + (+c[2]), 0) === validas.length, rot + ': la suma de cantidades no coincide con las piezas de tablero');
+      ok(filas.every(c => dec(c[3], f) >= dec(c[4], f) && dec(c[4], f) >= dec(c[5], f) && dec(c[5], f) > 0), rot + ': medidas fuera de orden o en cero');
+      ok(!/herraje|equipo|Bisagra|Parrilla/.test(t), rot + ': trae herrajes o equipos'); })));
+    const cod = f => csvPiezas(pl, f).split('\r\n').slice(1).map(l => l.split(',')[0]).sort().join('|');
+    ok(cod({ vocab: 'mx' }) === cod({ vocab: 'en' }) && cod({ vocab: 'mx' }) === cod({ vocab: 'co' }), 'el código cambia con el vocabulario');
+    ok(csvPiezas(pl, { vocab: 'en' }).includes('Side panel') && csvPiezas(pl, { vocab: 'mx' }).includes('Lateral'), 'el vocabulario no cambia los nombres');
+    prefs.csvNombres = { LATERAL: 'Costado' }; const t2 = csvPiezas(pl, {}); ok(t2.includes('LATERAL,Costado,') && !t2.includes('LATERAL,Lateral,'), 'el nombre editado no se aplica'); delete prefs.csvNombres;
+    ok(csvPiezas(pl, { fmt: 'es' }).includes(';') && !csvPiezas(pl, { fmt: 'mx' }).split('\r\n')[0].includes(';'), 'los separadores de los dos formatos no coinciden');
+  } finally { if (previo) prefs.csvNombres = previo; else delete prefs.csvNombres; }
   return fallas;
 }
 /* dialogo y entrega de las laminas (A169): en SketchUp Ruby pide la carpeta y guarda los bytes (como Exportar vistas); en el navegador se descargan */
@@ -17717,7 +17769,7 @@ function presGuardar(){
   const L = PRES.L; if (!L) return;
   const r = v => isFinite(v) ? Math.round(v * 10) / 10 : null;
   prefs[L.esCloset ? 'lamLayoutClosetJson' : 'lamLayoutJson'] = JSON.stringify({ v: 2,   /* A207: la disposicion del closet es aparte de la de la cocina */
-     papel: L.papel, detalle: L.detalle, dxf: L.dxf, csv: !!L.csv, csvFmt: L.csvFmt, matCol: !!L.matCol,
+     papel: L.papel, detalle: L.detalle, dxf: L.dxf, csv: !!L.csv, csvFmt: L.csvFmt, csvVocab: L.csvVocab, csvUnidad: L.csvUnidad, matCol: !!L.matCol,
     hojas: L.hojas, vistas: L.vistas.map(it => Object.assign(LAM.copiaVista(it), { x: r(it.x), y: r(it.y), corte: r(it.corte) })),
     isla: L.isla, cotas: L.cotas || {}, globos: L.globos || {} });
   prefs.lamPapel = L.papel; prefs.lamCotas = L.cotasOn !== false; prefs.lamProy = L.proy; prefs.lamMarcos = L.marcos !== false; prefs.lamNotas = L.notas; prefs.lamNotasJson = JSON.stringify(L.notasEd || {});
@@ -17734,7 +17786,7 @@ function presAbrir(){
   LAM.presLimpiar(); LAM.fijarLogo(prefs.lamLogo || '', prefs.lamLogoW, prefs.lamLogoH);
   PRES.L = LAM.presNueva({ papel: g.papel && g.papel in LAM.PAPELES ? g.papel : papelIni,
     cotasOn: prefs.lamCotas !== false, matCol: !!g.matCol, proy: prefs.lamProy !== false, marcos: prefs.lamMarcos !== false, notas: prefs.lamNotas !== false, notasEd: ed, rotulo, vistas,
-    guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, cotas: g.cotas, detalle: g.detalle, dxf: g.dxf, csv: g.csv, csvFmt: g.csvFmt, hojas: g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
+    guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, cotas: g.cotas, detalle: g.detalle, dxf: g.dxf, csv: g.csv, csvFmt: g.csvFmt, csvVocab: g.csvVocab, csvUnidad: g.csvUnidad, hojas: g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
     escalaVistas: prefs.lamEscalaVistas, escalaIso: prefs.lamEscalaIso });
   PRES.L.esCloset = !!cfg.closet;   /* A207: la lamina sabe de que producto es (su disposicion se guarda aparte) */
   if (multiCara() && !cfg.closet && !cfg.isla && !PRES.L.hojas.some(h => h.general || h.grupo === 'esquinero')) { setStatus('Armando las láminas por cara…'); LAM.presArmarCaras(PRES.L); setStatus(''); }   /* A284 */
@@ -17878,7 +17930,11 @@ function presLado(){
         + `<button class="btn btn-sm" id="presPieGotero" style="flex:none" title="Toma el color de cualquier punto de la pantalla">Gotero</button><button class="btn btn-sm" id="presPieColorDef" style="flex:none" title="El gris original">Original</button></div>`; })() : '');   /* A318 */
   const pie = estPie + campos + lgCtl + `<div class="note-sm" style="margin-top:8px">Clave de plano: haz clic en la hoja (abajo del pie) y escribe la clave de esa lámina, p. ej. «MB-01»; las demás se numeran solas.</div>` + `<div style="display:flex;gap:6px;margin-top:6px"><button class="btn" id="presLogo" title="Sin logo, el pie lleva el nombre del producto. También puedes hacer clic en un dato del pie, sobre la hoja, para editarlo.">${prefs.lamLogo ? 'Cambiar logo…' : 'Cargar logo…'}</button>${prefs.lamLogo ? '<button class="btn" id="presLogoQuitar">Quitar logo</button>' : ''}</div>`;
   const entrega = chk('detalle', 'Hojas de detalle por unidad', L.detalle) + chk('dxf', 'Un DXF por vista', L.dxf)
-    + (cfg.closet ? '' : chk('csv', 'Lista de piezas (CSV para Excel)', L.csv) + (L.csv ? `<label style="display:block;margin:0 0 8px 26px"><span class="note-sm" style="display:block;margin:0 0 4px">Formato de Excel</span><select data-pcsvfmt="1" style="width:100%"><option value="mx"${L.csvFmt !== 'es' ? ' selected' : ''}>México y EE. UU. (coma)</option><option value="es"${L.csvFmt === 'es' ? ' selected' : ''}>Colombia, Chile, Argentina y España (punto y coma)</option></select></label>` : ''));   /* A449 */
+    + (cfg.closet ? '' : chk('csv', 'Lista de piezas (CSV para Excel)', L.csv) + (L.csv ? (() => {
+      const campo = (dat, tit, ops, cur) => `<label style="display:block;margin:0 0 8px 26px"><span class="note-sm" style="display:block;margin:0 0 4px">${tit}</span><select ${dat}="1" style="width:100%">${ops.map(([v, t]) => `<option value="${v}"${cur === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>`;
+      return campo('data-pcsvvocab', 'Nombres de las piezas', CSV_VOCAB, L.csvVocab) + campo('data-pcsvuni', 'Unidad de las medidas', [['mm', 'Milímetros'], ['cm', 'Centímetros'], ['in', 'Pulgadas']], L.csvUnidad)
+        + campo('data-pcsvfmt', 'Formato de Excel', [['mx', 'México y EE. UU. (coma)'], ['es', 'Colombia, Chile, Argentina y España (punto y coma)']], L.csvFmt)
+        + '<div style="margin:0 0 8px 26px"><button class="btn btn-sm" id="presCsvNombres" title="Cambia el nombre de cada pieza en tu lista; el código no cambia">Editar nombres…</button></div>'; })() : ''));   /* A449, AA450 */
   const hayIsla = !(cfg.isla || cfg.closet) && (guardadas.length || (is && is.id));
   /* A342 (usuario 21/10: «en el panel izquierdo de presentar las vistas de lamina se minimiza la pestaña»): plegable como las demas */
   presEl('presLado').innerHTML = crear + det('vistas', 'Vistas de esta lámina', filas + agregar, true) +
@@ -17899,7 +17955,7 @@ function presExportar(){
   let r;
   try { r = LAM.presArchivos(L, prefs.exportPrefijo.trim() || kind, sello, L.dxf); }
   catch (err) { showDialog('Presentar', err.message); return; }
-  if (L.csv && !cfg.closet) { try { r.files.push(csvArchivo(prefs.exportPrefijo.trim() || kind, sello, L.csvFmt)); } catch (err) { r.omitidas.push('Lista de piezas: ' + err.message); } }   /* A449 */
+  if (L.csv && !cfg.closet) { try { r.files.push(csvArchivo(prefs.exportPrefijo.trim() || kind, sello, { fmt: L.csvFmt, vocab: L.csvVocab, unidad: L.csvUnidad })); } catch (err) { r.omitidas.push('Lista de piezas: ' + err.message); } }   /* A449 */
   presGuardar(); entregarLaminas(r);
 }
 /* edicion de un dato del pie directamente sobre la hoja */
@@ -18120,6 +18176,7 @@ function presCargarLogo(){
   lado.addEventListener('input', e => { if (e.target.dataset && e.target.dataset.pcolor) colorBanda(e.target.value, false); });
   lado.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.pcolor) { presAntes(); colorBanda(e.target.value, true); } });
   lado.addEventListener('click', async e => {
+    if (e.target.id === 'presCsvNombres') { csvEditarNombres(); return; }   /* AA450 */
     if (e.target.id === 'presPieColorDef') { presAntes(); colorBanda('', true); presLado(); return; }
     if (e.target.id !== 'presPieGotero') return;
     if (!window.EyeDropper) { showDialog('Gotero', 'El gotero no está disponible en este navegador. Usa el selector de color.', undefined, 'info'); return; }
@@ -18149,6 +18206,8 @@ function presCargarLogo(){
     if (d.ppapel !== undefined) { presAntes(); L.papel = t.value; presRefrescar(true); presAjustar(); return; }
     if (d.popt === 'islaOn') { presAntes(); L.isla.on = t.checked; presRefrescar(false); return; }
     if (d.pcsvfmt) { presAntes(); L.csvFmt = t.value === 'es' ? 'es' : 'mx'; presGuardar(); return; }   /* A449 */
+    if (d.pcsvvocab) { presAntes(); L.csvVocab = ['mx', 'co', 'en'].includes(t.value) ? t.value : 'mx'; presGuardar(); return; }   /* AA450 */
+    if (d.pcsvuni) { presAntes(); L.csvUnidad = ['mm', 'cm', 'in'].includes(t.value) ? t.value : 'mm'; presGuardar(); return; }
     if (d.popt) { presAntes(); const k = d.popt; if (k === 'detalle' || k === 'dxf' || k === 'csv') { L[k] = t.checked; presGuardar(); presLado(); presDibujar(); } else { L[k] = t.checked; presRefrescar(false); } return; }
     if (d.prot) { presAntes(); LAM.presRotulo(L, d.prot, t.value.trim()); presGuardar(); presDibujar(); }
   });
