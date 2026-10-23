@@ -365,6 +365,9 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A458. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10, con captura: «al poner una peninsula sin gabinetes aparece
+       una tapeta debajo adosada al ciego del mueble bajo; puedes quitarla para que no se genere en esta situacion»): la peninsula sin gabinetes
+       no lleva la tapeta de ajuste del ciego (esq:tapeta:ajuste) y su columna no suma los 5 cm de minimo de A443.
    A457. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «las repisas deben llegar hasta el pano del limite de la
        columna; actualmente dejan el espacio para una tapeta; solo quedan al pano interno de la tapeta cuando es de piso a techo»): las repisas
        sueltas (y la caja de seleccion del vacio) del extremo llegan al limite de la columna, sobre el lugar de la pieza de ajuste que ya no va
@@ -4328,7 +4331,8 @@ function huellaEsquina(k){
   /* A151 (usuario 11/10): en la cara no duena del ciego la columna es el fondo del ciego (con su frente) mas una tapeta de ajuste: de
      fabrica 5 cm (US 2"), minimo sugerido; se puede escribir otra (hasta 0) o arrastrar en el alzado */
   if (e.tipo === 'ciego') { const fOtra = duenaA ? fB : fA, w = ciegoDueno(k).w, fOwn = (duenaA ? fA : fB) + espFrente(),
-      v = duenaA ? e.anchoB : e.anchoA, otro = v > 0 ? Math.max(fOwn + tapetaCiego(), Math.min(fOwn + 60, v)) : fOwn + tapetaCiego();   /* A443: la pieza de ajuste no baja de 5 cm (antes hasta 0) */
+      sg = [caraDe(k), caraDe(k + 1)].some(q => q && q.peninsula && q.penSinGabinetes), tMin = sg ? 0 : tapetaCiego(),   /* A458: la peninsula sin gabinetes no lleva pieza de ajuste */
+      v = duenaA ? e.anchoB : e.anchoA, otro = v > 0 ? Math.max(fOwn + tMin, Math.min(fOwn + 60, v)) : fOwn + tMin;   /* A443: la pieza de ajuste no baja de 5 cm (antes hasta 0) */
     return duenaA ? [w, otro] : [otro, w]; }
   /* A140 (usuario 11/10): la alacena de esquina admite su ancho en cada cara (anchoA, anchoB); sin el, el de fabrica. A143 (usuario 11/10):
      tambien el carrusel y el diagonal, y se arrastra en el alzado. El minimo es el borde de la barra perpendicular (su fondo + el frente):
@@ -9996,7 +10000,10 @@ function esquinerosPlan(add, r2, sep, tf){
     /* A415 (usuario 21/10, captura de la union de la gola en la esquina): con gola, la tapeta de ajuste va detras del alma de la gola de su cara
        (su cara de enfrente en el alma, al fondo de la caja menos el hondo); antes quedaba dentro del canal y lo cruzaba de abajo arriba */
     const hT2 = hT ? hT + PLAN_HOLGURA_PUERTA + tf : 0;
-    if (duenaA) caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - fB - tf + hT2, LA - fB + hT2, fA + (hT ? tf : 0), wB, zb, z1, gm('Tapetas'), 'tapetas');
+    /* A458 (usuario 23/10: «al poner una peninsula sin gabinetes aparece una tapeta debajo adosada al ciego del mueble bajo; quitarla»): sin
+       gabinetes en la peninsula no hay frente con que ajustar: sin tapeta de ajuste */
+    if (penSGk) {}
+    else if (duenaA) caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - fB - tf + hT2, LA - fB + hT2, fA + (hT ? tf : 0), wB, zb, z1, gm('Tapetas'), 'tapetas');
     else caja(id + ':tapeta:ajuste', 'tapeta', 'Compensacion', modB, LA - wA, LA - fB - (hT ? tf : 0), fA - hT2, fA - hT2 + tf, zb, z1, gm('Tapetas'), 'tapetas'); }
   else if (oculta) {
     const duenaA = e.duena !== 1, tope = topeAltos(), repC = interiorAlacena(e) === 'repisas';
