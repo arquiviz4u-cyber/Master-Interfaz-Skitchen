@@ -365,6 +365,9 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A449. [Master hecho 22/10; SketchUp: Ruby acepta .csv al exportar; Revit pendiente] (usuario 22/10: «construyelo con la opcion A» de la exportacion a CSV): Presentar > Entrega, casilla «Lista de piezas (CSV para Excel)» y
+       formato de Excel (coma, o punto y coma con coma decimal). Una fila por pieza distinta (nombre, largo x ancho x espesor en mm, material, cantidad y modulos) de las piezas de tablero del plan
+       (sin herrajes ni equipos); con forma o huecos va la caja envolvente y la fila lo avisa. csvPiezas(plan, fmt), pruebasCsv(). Sin cantos, veta ni etiquetas (lista de corte completa: E17-E20).
    A448. [Master hecho 22/10; SketchUp: piezas Repisa ya conocidas; Revit pendiente] (usuario 22/10) 1) «La campana de la isla deberia ponerse a
        una altura por default de 70 cm desde la cubierta, y un parametro editable»: «Altura sobre la cubierta» (m.campanaIslaAlto, 55 a 100;
        de fabrica 70) al pie de la caja. 2) «Opcion de sustituir elementos por solo repisas (sin marco), tanto el gabinete completo como solo el
@@ -16597,7 +16600,7 @@ const LAM = (() => {
   /* o: { papel, cotas, proy, notas, notasEd, rotulo, vistas: [ids], guardado: [{id, vista, on, n, x, y, plano, corte}], globos, detalle, dxf, escalaVistas, escalaIso } */
   function presNueva(o){
     const L = { papel: o.papel, cotasOn: o.cotasOn !== false, matCol: !!o.matCol, proy: o.proy !== false, marcos: o.marcos !== false, notas: o.notas !== false, notasEd: o.notasEd || {}, rotulo: o.rotulo || {},
-      vistas: [], datos: null, detalles: null, notasLista: [], globos: o.globos && typeof o.globos === 'object' ? o.globos : {}, detalle: o.detalle === true, dxf: !!o.dxf,
+      vistas: [], datos: null, detalles: null, notasLista: [], globos: o.globos && typeof o.globos === 'object' ? o.globos : {}, detalle: o.detalle === true, dxf: !!o.dxf, csv: !!o.csv, csvFmt: o.csvFmt === 'es' ? 'es' : 'mx',
       hojas: [{ nombre: 'Lámina general' }], hoja: 0, cotas: o.cotas && typeof o.cotas === 'object' ? o.cotas : {}, isla: o.isla && o.isla.id ? { id: o.isla.id, on: o.isla.on !== false, x: +o.isla.x || 0, y: +o.isla.y || 0, rot: +o.isla.rot || 0 } : null };
     if (Array.isArray(o.hojas) && o.hojas.length) L.hojas = o.hojas.map((h, i) => i === 0 ? { nombre: h.nombre || 'Lámina general' } : h.modulo ? { nombre: h.nombre, modulo: h.modulo }
       : h.general ? { nombre: h.nombre, general: true, cara: h.cara || 0 } : { nombre: h.nombre, grupo: h.grupo, cara: h.cara || 0 });   /* A284: lamina general de otra cara */
@@ -17639,6 +17642,60 @@ function drawIsometrico(){
     ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(tx, x + 8, y + 10.5); ctx.restore(); });
   frame = { scale: s, ox, ground: oy + h*s, X: x => ox + x*s, Z: z => oy + h*s - z*s, W: w };
 }
+/* ---------------- Lista de piezas en CSV (AA449, usuario 22/10: «construyelo con la opcion A») ----------------
+   Una fila por pieza distinta (nombre, medida y material) con su cantidad. Solo piezas de tablero: sin herrajes ni equipos. Las medidas van en mm,
+   las de la caja de cada pieza (largo >= ancho >= espesor); con forma o huecos es la caja envolvente y la fila lo avisa en Notas. La nomenclatura con
+   etiquetas y los cantos quedan para la lista de corte completa (DISENO_LISTA_DE_CORTE.md de Skitchen_SketchUp).
+   fmt 'mx': coma y punto decimal; 'es': punto y coma y coma decimal (el Excel de Colombia, Chile, Argentina y Espana). UTF-8 con marca de orden de bytes */
+const CSV_PIEZA = { 'panel|Lateral': 'Lateral', 'panel|Lado': 'Lado', 'panel|Piso': 'Piso', 'panel|Techo': 'Techo', 'panel|Trasero': 'Trasera', 'panel|Faja': 'Faja',
+  'panel|FajaAnclaje': 'Faja de anclaje', 'panel|Calza': 'Calza', 'panel|Cama': 'Cama', 'panel|CamaInterior': 'Cama interior', 'panel|CampanaFrente': 'Campana, frente',
+  'panel|CampanaLateral': 'Campana, lateral', 'panel|RielGabinete': 'Riel de gabinete', 'panel|RielMuro': 'Riel de muro', 'repisa|Repisa': 'Repisa', 'repisa|Carrusel': 'Repisa de carrusel',
+  'division|': 'División', 'division|Division': 'División', 'caja|Lado': 'Cajón, lado', 'caja|Piso': 'Cajón, piso', 'caja|Trasera': 'Cajón, trasera', 'caja|Frente': 'Cajón, frente interior',
+  'caja|Tapa': 'Cajón, tapa', 'caja|Tira': 'Cajón, tira', 'caja|Bastidor': 'Cajón, bastidor', 'caja|Entrepano': 'Cajón, entrepaño', 'frente|Puerta': 'Puerta', 'frente|Cajon': 'Frente de cajón',
+  'frente|Elevable': 'Puerta elevable', 'frente|Frente fijo': 'Frente fijo', 'frente|Marco': 'Marco de puerta', 'frente|Respaldo': 'Respaldo de puerta', 'tapeta|': 'Tapeta',
+  'tapeta|Compensacion': 'Tapeta, compensación', 'tapeta|Costado': 'Tapeta, costado', 'tapeta|Intermedio': 'Tapeta, intermedia', 'tapeta|Moldura': 'Moldura', 'tapeta|Regreso': 'Tapeta, regreso',
+  'zoclo|Cierre': 'Zoclo, cierre', 'zoclo|Diagonal': 'Zoclo, diagonal', 'zoclo|Frente': 'Zoclo, frente', 'zoclo|Hoja': 'Zoclo, hoja', 'zoclo|Larguero': 'Zoclo, larguero',
+  'zoclo|Posterior': 'Zoclo, posterior', 'zoclo|Tapa': 'Zoclo, tapa', 'zoclo|Travesano': 'Zoclo, travesaño', 'cubierta|Losa': 'Cubierta', 'cubierta|Diamante': 'Cubierta, pieza de esquina',
+  'cubierta|Cama': 'Cama de cubierta', 'backsplash|': 'Backsplash' };
+const CSV_SIN_TABLERO = ['herraje', 'equipo'];
+const csvNombrePieza = q => (CSV_PIEZA[q.rol + '|' + (q.tipo || '')] || CSV_PIEZA[q.rol + '|'] || [q.rol, q.tipo].filter(Boolean).join(' ')).replace(', ', ': ');   /* sin comas en el nombre: no depende de las comillas */
+function csvPiezas(plan, fmt = 'mx'){
+  const sep = fmt === 'es' ? ';' : ',', r1 = v => Math.round(v * 10) / 10, num = v => { const t = String(r1(v)); return fmt === 'es' ? t.replace('.', ',') : t; };
+  const celda = v => { const t = String(v); return t.includes(sep) || /["\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const mats = new Map((plan.materiales || []).map(m => [m.id, m.nombre])), mods = new Map();
+  [cfg.modulos || []].concat((cfg.caras || []).map(c => c.modulos || [])).forEach(lista => { const n = { alto: 0, bajo: 0 };   /* nombre y numero de columna (de izquierda a derecha, por fila) */
+    lista.forEach(m => { if (!m || m.reserved) return; const k = m.upper ? 'alto' : 'bajo'; n[k]++; if (!mods.has(m.id)) mods.set(m.id, nombreModulo(m) + ' ' + n[k]); }); });
+  const todas = (plan.piezas || []).concat(...(plan.caras || []).map(c => c.piezas || [])), grupos = new Map();
+  todas.filter(q => !CSV_SIN_TABLERO.includes(q.rol)).forEach(q => {
+    const d = [q.ancho, q.fondo, q.alto].map(v => r1(v * 10)).sort((a, b) => b - a); if (!(d[2] > 0)) return;
+    const id = q.material || predeterminadoDe(q), mat = mats.get(id) || (PREDETERMINADOS[id] && PREDETERMINADOS[id].nombre) || id || 'Sin material', forma = !!(q.forma || q.hueco || q.huecos);
+    const k = [csvNombrePieza(q), d.join('x'), mat, forma].join('|'), g = grupos.get(k) || { nombre: csvNombrePieza(q), d, mat, forma, n: 0, mods: new Set() };
+    g.n++; if (q.modulo && mods.has(q.modulo)) g.mods.add(mods.get(q.modulo)); grupos.set(k, g); });
+  const filas = [...grupos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es') || b.d[0] - a.d[0] || b.d[1] - a.d[1]);
+  const lista = [['Pieza', 'Cantidad', 'Largo (mm)', 'Ancho (mm)', 'Espesor (mm)', 'Material', 'Módulos', 'Notas']].concat(filas.map(g => {
+    const m = [...g.mods]; return [g.nombre, g.n, num(g.d[0]), num(g.d[1]), num(g.d[2]), g.mat, m.length > 6 ? m.slice(0, 6).join(' / ') + ' / …' : m.join(' / '), g.forma ? 'Con forma o huecos: medida de la caja envolvente' : '']; }));
+  return '\uFEFF' + lista.map(f => f.map(celda).join(sep)).join('\r\n') + '\r\n';
+}
+function csvArchivo(prefijo, sello, fmt){
+  const utf8 = new TextEncoder().encode(csvPiezas(planCocina(), fmt)); let bin = ''; utf8.forEach(b => { bin += String.fromCharCode(b); });
+  return { name: `${prefijo}_${sello}_piezas.csv`, url: 'data:text/csv;base64,' + btoa(bin) };
+}
+/* prueba del CSV (AA449): cada pieza de tablero del plan cuenta una vez, sin filas vacias, y los dos formatos dan las mismas cantidades */
+function pruebasCsv(){
+  const fallas = [], ok = (c, t) => { if (!c) fallas.push(t); };
+  let pl; try { pl = planCocina(); } catch (e) { return ['no se pudo armar el plan: ' + e.message]; }
+  const todas = (pl.piezas || []).concat(...(pl.caras || []).map(c => c.piezas || [])).filter(q => !CSV_SIN_TABLERO.includes(q.rol));
+  ['mx', 'es'].forEach(f => {
+    const t = csvPiezas(pl, f), sep = f === 'es' ? ';' : ',', filas = t.replace(/^\uFEFF/, '').trim().split('\r\n').slice(1).map(l => l.split(sep));
+    ok(t.charCodeAt(0) === 0xFEFF, f + ': sin marca de orden de bytes');
+    ok(filas.every(c => c.length === 8), f + ': una fila no tiene 8 columnas (revisa comillas)');
+    ok(filas.reduce((a, c) => a + (+c[1]), 0) === todas.filter(q => [q.ancho, q.fondo, q.alto].every(v => v >= 0) && Math.min(q.ancho, q.fondo, q.alto) > 0).length, f + ': la suma de cantidades no coincide con las piezas de tablero');
+    ok(filas.every(c => +String(c[2]).replace(',', '.') >= +String(c[3]).replace(',', '.') && +String(c[3]).replace(',', '.') >= +String(c[4]).replace(',', '.') && +String(c[4]).replace(',', '.') > 0), f + ': medidas fuera de orden o en cero');
+    ok(!/herraje|equipo|Bisagra|Parrilla/.test(t), f + ': trae herrajes o equipos');
+  });
+  ok(csvPiezas(pl, 'es').includes(';') && !csvPiezas(pl, 'mx').split('\r\n')[0].includes(';'), 'los separadores de los dos formatos no coinciden');
+  return fallas;
+}
 /* dialogo y entrega de las laminas (A169): en SketchUp Ruby pide la carpeta y guarda los bytes (como Exportar vistas); en el navegador se descargan */
 function entregarLaminas(r){
   if (enSketchUp()) { if (r.omitidas.length) setStatus(r.omitidas.join(' · ')); exportarEnSketchUp(r.files); return; }
@@ -17660,7 +17717,7 @@ function presGuardar(){
   const L = PRES.L; if (!L) return;
   const r = v => isFinite(v) ? Math.round(v * 10) / 10 : null;
   prefs[L.esCloset ? 'lamLayoutClosetJson' : 'lamLayoutJson'] = JSON.stringify({ v: 2,   /* A207: la disposicion del closet es aparte de la de la cocina */
-     papel: L.papel, detalle: L.detalle, dxf: L.dxf, matCol: !!L.matCol,
+     papel: L.papel, detalle: L.detalle, dxf: L.dxf, csv: !!L.csv, csvFmt: L.csvFmt, matCol: !!L.matCol,
     hojas: L.hojas, vistas: L.vistas.map(it => Object.assign(LAM.copiaVista(it), { x: r(it.x), y: r(it.y), corte: r(it.corte) })),
     isla: L.isla, cotas: L.cotas || {}, globos: L.globos || {} });
   prefs.lamPapel = L.papel; prefs.lamCotas = L.cotasOn !== false; prefs.lamProy = L.proy; prefs.lamMarcos = L.marcos !== false; prefs.lamNotas = L.notas; prefs.lamNotasJson = JSON.stringify(L.notasEd || {});
@@ -17677,7 +17734,7 @@ function presAbrir(){
   LAM.presLimpiar(); LAM.fijarLogo(prefs.lamLogo || '', prefs.lamLogoW, prefs.lamLogoH);
   PRES.L = LAM.presNueva({ papel: g.papel && g.papel in LAM.PAPELES ? g.papel : papelIni,
     cotasOn: prefs.lamCotas !== false, matCol: !!g.matCol, proy: prefs.lamProy !== false, marcos: prefs.lamMarcos !== false, notas: prefs.lamNotas !== false, notasEd: ed, rotulo, vistas,
-    guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, cotas: g.cotas, detalle: g.detalle, dxf: g.dxf, hojas: g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
+    guardado: (g.vistas || []).map(q => Object.assign({ plano: g.modo === 'plano' }, q)), globos: g.globos, cotas: g.cotas, detalle: g.detalle, dxf: g.dxf, csv: g.csv, csvFmt: g.csvFmt, hojas: g.hojas, isla: cfg.isla || cfg.closet ? null : g.isla,
     escalaVistas: prefs.lamEscalaVistas, escalaIso: prefs.lamEscalaIso });
   PRES.L.esCloset = !!cfg.closet;   /* A207: la lamina sabe de que producto es (su disposicion se guarda aparte) */
   if (multiCara() && !cfg.closet && !cfg.isla && !PRES.L.hojas.some(h => h.general || h.grupo === 'esquinero')) { setStatus('Armando las láminas por cara…'); LAM.presArmarCaras(PRES.L); setStatus(''); }   /* A284 */
@@ -17820,7 +17877,8 @@ function presLado(){
       return `<div class="pres-linea" style="align-items:center;margin:0 0 8px"><span class="note-sm" style="flex:1 1 auto;margin:0">Color de la banda</span><input type="color" data-pcolor="1" value="${c}" style="width:38px;height:26px;padding:0;border:1px solid var(--line);border-radius:4px;flex:none" title="Elegir el color (se ve en la lámina mientras eliges)">`
         + `<button class="btn btn-sm" id="presPieGotero" style="flex:none" title="Toma el color de cualquier punto de la pantalla">Gotero</button><button class="btn btn-sm" id="presPieColorDef" style="flex:none" title="El gris original">Original</button></div>`; })() : '');   /* A318 */
   const pie = estPie + campos + lgCtl + `<div class="note-sm" style="margin-top:8px">Clave de plano: haz clic en la hoja (abajo del pie) y escribe la clave de esa lámina, p. ej. «MB-01»; las demás se numeran solas.</div>` + `<div style="display:flex;gap:6px;margin-top:6px"><button class="btn" id="presLogo" title="Sin logo, el pie lleva el nombre del producto. También puedes hacer clic en un dato del pie, sobre la hoja, para editarlo.">${prefs.lamLogo ? 'Cambiar logo…' : 'Cargar logo…'}</button>${prefs.lamLogo ? '<button class="btn" id="presLogoQuitar">Quitar logo</button>' : ''}</div>`;
-  const entrega = chk('detalle', 'Hojas de detalle por unidad', L.detalle) + chk('dxf', 'Un DXF por vista', L.dxf);
+  const entrega = chk('detalle', 'Hojas de detalle por unidad', L.detalle) + chk('dxf', 'Un DXF por vista', L.dxf)
+    + (cfg.closet ? '' : chk('csv', 'Lista de piezas (CSV para Excel)', L.csv) + (L.csv ? `<label style="display:block;margin:0 0 8px 26px"><span class="note-sm" style="display:block;margin:0 0 4px">Formato de Excel</span><select data-pcsvfmt="1" style="width:100%"><option value="mx"${L.csvFmt !== 'es' ? ' selected' : ''}>México y EE. UU. (coma)</option><option value="es"${L.csvFmt === 'es' ? ' selected' : ''}>Colombia, Chile, Argentina y España (punto y coma)</option></select></label>` : ''));   /* A449 */
   const hayIsla = !(cfg.isla || cfg.closet) && (guardadas.length || (is && is.id));
   /* A342 (usuario 21/10: «en el panel izquierdo de presentar las vistas de lamina se minimiza la pestaña»): plegable como las demas */
   presEl('presLado').innerHTML = crear + det('vistas', 'Vistas de esta lámina', filas + agregar, true) +
@@ -17841,6 +17899,7 @@ function presExportar(){
   let r;
   try { r = LAM.presArchivos(L, prefs.exportPrefijo.trim() || kind, sello, L.dxf); }
   catch (err) { showDialog('Presentar', err.message); return; }
+  if (L.csv && !cfg.closet) { try { r.files.push(csvArchivo(prefs.exportPrefijo.trim() || kind, sello, L.csvFmt)); } catch (err) { r.omitidas.push('Lista de piezas: ' + err.message); } }   /* A449 */
   presGuardar(); entregarLaminas(r);
 }
 /* edicion de un dato del pie directamente sobre la hoja */
@@ -18089,7 +18148,8 @@ function presCargarLogo(){
     if (d.pagregar !== undefined) { if (!t.value) return; presAntes(); PRES.sel = LAM.presAgregar(L, t.value, null); presRefrescar(false); return; }
     if (d.ppapel !== undefined) { presAntes(); L.papel = t.value; presRefrescar(true); presAjustar(); return; }
     if (d.popt === 'islaOn') { presAntes(); L.isla.on = t.checked; presRefrescar(false); return; }
-    if (d.popt) { presAntes(); const k = d.popt; if (k === 'detalle' || k === 'dxf') { L[k] = t.checked; presGuardar(); presLado(); presDibujar(); } else { L[k] = t.checked; presRefrescar(false); } return; }
+    if (d.pcsvfmt) { presAntes(); L.csvFmt = t.value === 'es' ? 'es' : 'mx'; presGuardar(); return; }   /* A449 */
+    if (d.popt) { presAntes(); const k = d.popt; if (k === 'detalle' || k === 'dxf' || k === 'csv') { L[k] = t.checked; presGuardar(); presLado(); presDibujar(); } else { L[k] = t.checked; presRefrescar(false); } return; }
     if (d.prot) { presAntes(); LAM.presRotulo(L, d.prot, t.value.trim()); presGuardar(); presDibujar(); }
   });
   presEl('presAcotar').addEventListener('click', () => presModoAcotar(PRES.modo !== 'acotar'));   /* A325 */
