@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A461. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «cuando cambio la peninsula de ancho y despues pongo la opcion de
+       sin gabinetes el ancho asignado ya no se respeta»): sin gabinetes, los bajos de la peninsula quedan reservados y fondoCara los dejaba
+       fuera (volvia al fondo de fabrica). Ahora en la peninsula sin gabinetes cuentan (fondoCara, penGabinetes): el ancho se conserva al activar
+       y desactivar la opcion, y editarlo sin gabinetes tambien cambia ese fondo.
    A460. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «del texto que pusiste quita el texto de proyeccion»): la
        leyenda de la cara principal en los alzados de la peninsula queda solo «Cara A» (el punteado ya dice que es proyeccion).
    A459. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «en los alzados de peninsula necesito identificar el mueble de
@@ -4168,7 +4172,9 @@ function enCara(k, fn){ if (k === null || k === undefined || !multiCara() || k =
 const letraCara = k => { if (multiCara() && cfg.caras[k] && caraDe(k).peninsula) return 'Península'; let n = 0; for (let i = 0; i < k; i++) if (!(multiCara() && cfg.caras[i] && caraDe(i).peninsula)) n++; return 'ABC'[n] || String(n + 1); };
 /* A137: todos los modulos de la cocina (la cara activa y las demas) */
 const todosModulos = (c = cfg) => c.modulos.concat(multiCara(c) ? c.caras.filter((q, k) => k !== c.cara).flatMap(q => q.modulos || []) : []);
-const fondoCara = (q, upper) => Math.max(0, ...q.modulos.filter(m => m.upper === upper && !m.esquina && !m.reserved).map(m => m.fondo)) || (upper ? prefs.inicio.fondoAltos : prefs.inicio.fondoBajos);
+/* A461 (usuario 23/10: «cuando cambio la peninsula de ancho y despues pongo la opcion de sin gabinetes el ancho asignado ya no se respeta»): la
+   peninsula sin gabinetes reserva sus bajos, pero su fondo (el ancho de la peninsula, A444) sigue contando */
+const fondoCara = (q, upper) => Math.max(0, ...q.modulos.filter(m => m.upper === upper && !m.esquina && (!m.reserved || !upper && q.peninsula && q.penSinGabinetes)).map(m => m.fondo)) || (upper ? prefs.inicio.fondoAltos : prefs.inicio.fondoBajos);
 const nuevaEsquina = () => ({ tipo: 'carrusel', alacena: 'oculta', alto: 'auto', duena: 0, herraje: false, relleno: 'puerta', union: 'L', repisasDiag: 0 });   /* A142: repisas tras la puerta diagonal */   /* relleno: la parte del alto junto a la esquina (usuario 10/10); union: 'L' un solo gabinete o 'tapeta' dos gabinetes con tapeta (usuario 11/10) */
 /* alto de la esquina: «sigue al bajo» (decision del usuario 10/10); la alacena llega al tope de los altos y no lleva alto */
 /* A223 (usuario 16/10): subcategorias del esquinero bajo. Diagonal: carrusel | cajones | tarja; L ('carrusel'): repisas | carrusel; ciego:
@@ -4469,9 +4475,9 @@ const penAnchoDe = q => espFrente() + penVuelo(q) + fondoCara(q, false) + espFre
 const penVueloPara = (q, v) => Math.max(0, Math.round((v - (penAnchoDe(q) - penVuelo(q)))*100)/100);
 /* A444 (usuario 22/10: «al cambiar ese ancho de peninsula en planta la columna se ensanche y no la barra hacia fuera»): el ancho de la
    peninsula es el fondo de sus gabinetes (con su frente, su panel posterior y los vuelos que ya tenga); el vuelo para bancos va aparte.
-   Sin gabinetes (solo barra), sigue siendo el vuelo */
+   Sin gabinetes (solo barra), sigue siendo el vuelo (A461: ya no; tambien su fondo) */
 const PEN_FONDO = () => cfg.region === 'US' ? [inch(12), inch(36)] : [30, 90];
-const penGabinetes = q => q.modulos.filter(m => !m.upper && !m.esquina && !m.reserved);
+const penGabinetes = q => q.modulos.filter(m => !m.upper && !m.esquina && (!m.reserved || q.penSinGabinetes));   /* A461: sin gabinetes, el ancho sigue siendo su fondo */
 const penAnchoRango = q => { const [f0, f1] = PEN_FONDO(), base = penAnchoDe(q) - fondoCara(q, false); return penGabinetes(q).length ? [base + f0, base + f1] : [penAnchoDe(q) - penVuelo(q), 200]; };
 function penAnchoAplica(c, v){
   const gs = penGabinetes(c); if (!gs.length) { c.penVuelo = penVueloPara(c, v); return; }
@@ -5606,7 +5612,7 @@ function planDePiezas(c = cfg){
       piezas.push(Object.assign(p, { x, y, z, ancho, fondo, alto })); } };
     const matDe = m => m.material || cfg.materialGeneral || null;
     const lows = row(false), highs = row(true);
-    const fondoDe = list => Math.max(0, ...list.filter(m => !m.reserved).map(m => m.fondo));
+    const fondoDe = list => Math.max(0, ...list.filter(m => !m.reserved || !m.upper && multiCara() && cfg.peninsula && cfg.penSinGabinetes).map(m => m.fondo));   /* A461: la peninsula sin gabinetes conserva su fondo */
     /* material de una pieza interior: el propio del modulo (materialesPaneles, como en drawShelves) o el de su grupo */
     const matPanel = (dueno, zona, clave, grupo) => { const mp = dueno.materialesPaneles || {}; return mp[zona + '.' + clave] || (/^(repisa|division)/.test(clave) && mp[zona + '.fondo']) || groupMaterial(grupo) || null; };   /* A64 */
     /* carcasa (drawInterior): laterales a todo el alto, trasero entre laterales, piso y techo delante del trasero.
