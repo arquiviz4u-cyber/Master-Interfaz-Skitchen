@@ -365,6 +365,14 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A448. [Master hecho 22/10; SketchUp: piezas Repisa ya conocidas; Revit pendiente] (usuario 22/10) 1) «La campana de la isla deberia ponerse a
+       una altura por default de 70 cm desde la cubierta, y un parametro editable»: «Altura sobre la cubierta» (m.campanaIslaAlto, 55 a 100;
+       de fabrica 70) al pie de la caja. 2) «Opcion de sustituir elementos por solo repisas (sin marco), tanto el gabinete completo como solo el
+       bajo del modulo superior + inferior»: funcion del alto «Solo repisas (sin marco)» (tipo Flotantes; repisas sueltas al muro a todo el
+       ancho y fondo, la de arriba al ras de los demas altos; tres de fabrica) y, en el doble, «Inferior: solo repisas» (m.inferiorSinMarco
+       'repisas', bajo el modulo superior). 3) «Otra opcion de vacio que se siga seleccionando en el editor para volver a cambiar de funcion»:
+       funcion «Vacio» (tipo Vacio) e «Inferior vacio» en el doble: sin piezas; en el editor queda su contorno punteado y se elige como
+       cualquier modulo. sinMarco(m), flotantesZ(m, z0, z1); alzado, corte, plan y panel.
    A447. [Solo nota; nada que construir hoy] (usuario 22/10: «la nomenclatura del despiece es de El Cocinator; habria que cambiarla por una mas convencional»):
        la lista de corte (E17-E20) NO usara los codigos del manual (a-apv-6, apv, aph, bpv, bc, esl...), que son su sistema propio. Se usara una
        nomenclatura convencional y neutra: numero consecutivo de pieza + nombre del tipo de pieza (Lateral, Fondo, Entrepano, Puerta, Frente de cajon,
@@ -4060,7 +4068,8 @@ const espPartes = m => { const A = espAncho(m); if (espCon(m) === 'Nada') return
   return espIzq(m) ? [0, A, A, m.ancho] : [m.ancho - A, m.ancho, 0, m.ancho - A]; };
 const ANCHO_TIPO = { EspecieroTorre: () => reg().especieroTorre, Especiero: m => espCon(m) !== 'Nada' ? Math.max(m.ancho, espAncho(m) + reg().ancho.min) : reg().especiero,   /* A52: combinado, conserva el ancho del modulo; A96: el cesto ya no fija su ancho */ Estufa: () => reg().estufa.cuatro, Lavavajillas: m => m.lavavajillasCompacto ? reg().lavaCompacto : reg().lava };   /* E3: anchos de la region */
 /* la campana es una casilla de los altos (Campana extractora): sobre Sencillo = espacio para campana; sobre el doble = doble con campana */
-const TIPOS_ALTO = [['Sencillo','Sencillo'],['Piston','Solo pistón'],['Abierto','Abierto / repisas'],['Doble','Módulo inferior + módulo superior']];   /* A103: Solo piston */
+const TIPOS_ALTO = [['Sencillo','Sencillo'],['Piston','Solo pistón'],['Abierto','Abierto / repisas'],['Doble','Módulo inferior + módulo superior'],
+  ['Flotantes','Solo repisas (sin marco)'],['Vacio','Vacío']];   /* A103: Solo piston; A448: sin marco */
 /* especiales (Module.Special): de piso a su tope, reservan la columna de altos */
 const isTower = m => !m.upper && m.tipo === 'Hornos';
 const isPantry = m => !m.upper && (m.tipo === 'Alacena' || m.tipo === 'EspecieroTorre');
@@ -4514,14 +4523,18 @@ const campDeco = m => soloCamp(m) && ['recta', 'inclinada'].includes(m.campanaTi
 const CAMP_DECO = { banda: 12, talud: 45, cuello: 25 };
 /* A438 (usuario 22/10: «construye la campana de isla»; plan Pro): campana de isla tipo chimenea rectangular sobre la parrilla de la isla o
    de la peninsula: caja de acero (ancho 60, 90 o 120; fondo hasta 60) a 70 cm de la cubierta y chimenea de 32 x 32 hasta el techo */
-const CAMP_ISLA = { alto: 70, caja: 10, fondo: 60, chimenea: 32, anchos: [60, 90, 120] };
+const CAMP_ISLA = { alto: 70, caja: 10, fondo: 60, chimenea: 32, anchos: [60, 90, 120], altoMin: 55, altoMax: 100 };
+/* A448 (usuario 22/10: «la campana de la isla deberia ponerse a una altura por default de 70 cm desde la cubierta, asi como agregar un
+   parametro editable de la misma altura»): m.campanaIslaAlto (de la cubierta al pie de la caja; de fabrica 70, de 55 a 100) */
+const campIslaAlto = m => m && m.campanaIslaAlto > 0 ? Math.max(CAMP_ISLA.altoMin, Math.min(CAMP_ISLA.altoMax, m.campanaIslaAlto)) : CAMP_ISLA.alto;
 /* medidas de la campana de isla de un modulo con parrilla (cm): caja z0..z1 de W x D y chimenea ch x ch hasta el techo; cx: el centro de la parrilla */
 const campIslaMedidas = m => { if (m.upper || !m.parrilla || !m.campanaIsla || !(cfg.isla || cfg.peninsula)) return null;
-  const pe = parrillaEn(m), W = m.campanaIslaAncho || 90, D = Math.min(CAMP_ISLA.fondo, W), z0 = altoBarra() + CAMP_ISLA.alto, z1 = z0 + CAMP_ISLA.caja;
+  const pe = parrillaEn(m), W = m.campanaIslaAncho || 90, D = Math.min(CAMP_ISLA.fondo, W), z0 = altoBarra() + campIslaAlto(m), z1 = z0 + CAMP_ISLA.caja;
   return { pe, W, D, ch: CAMP_ISLA.chimenea, cx: (pe.x0 + pe.x1) / 2, z0, z1, techo: Math.max(z1 + 20, cfg.alturaMuro || 240) }; };
 const campIslaHTML = m => !(cfg.isla || cfg.peninsula) || !m.parrilla ? '' : `<div style="margin-top:10px">${chk('campIsla', !!m.campanaIsla, 'Campana de isla sobre la parrilla')}</div>`
   + (m.campanaIsla ? radios('campIslaW', CAMP_ISLA.anchos.map(w => [String(w), medida(w)]), String(m.campanaIslaAncho || 90))
-    + `<div class="note-sm" style="margin-top:0">Caja de acero a ${medida(CAMP_ISLA.alto)} de la cubierta y chimenea hasta el techo (${medida(cfg.alturaMuro || 240)}).</div>` : '');   /* cm: banda inferior, alto del talud (con la banda), fondo del cuello */
+    + `<div class="grid-2" style="margin-top:8px">${num('campIslaAlto', 'Altura sobre la cubierta', campIslaAlto(m), 'cm', CAMP_ISLA.altoMin, CAMP_ISLA.altoMax)}</div>`   /* A448 */
+    + `<div class="note-sm" style="margin-top:0">Caja de acero a ${medida(campIslaAlto(m))} de la cubierta (de fábrica ${medida(CAMP_ISLA.alto)}) y chimenea hasta el techo (${medida(cfg.alturaMuro || 240)}).</div>` : '');   /* cm: banda inferior, alto del talud (con la banda), fondo del cuello */
 const campDecoAltos = m => { const zA = baseAltos() + elevAlto(m), zZ = topeCampanaSola(), H = zZ - zA, band = Math.min(CAMP_DECO.banda, H / 3);
   const inclinada = campDeco(m) === 'inclinada' && H > band + 20;
   return { zA, zZ, H, band, Hs: inclinada ? Math.min(CAMP_DECO.talud, H - 10) : band, inclinada }; };
@@ -4557,8 +4570,19 @@ const topeCampanaSola = () => cfg.tapetaSuperior ? cfg.alturaMuro : topeAltos();
 const columnasCampanaSola = () => { const r = []; let x = ajusteIzq(); row(true).forEach(m => { if (!m.reserved && soloCamp(m)) { if (r.length && Math.abs(r[r.length - 1][1] - x) < .01) r[r.length - 1][1] = x + m.ancho; else r.push([x, x + m.ancho]); } x += m.ancho; }); return r; };   /* A124: vecinas unidas */
 /* A83 (usuario, 06/10): con gola (Moderna) los altos llevan siempre doble cama, con o sin LED: la cama del piso (con la ranura si hay LED)
    y encima una cama interior desde 1.8 cm tras el frente hasta el trasero (como LedUpgrade de Revit); deja el unero y oculta el LED */
-const conCama = m => m.upper && !m.reserved && !m.esquina && !hasCampana(m) && !(m.penEsq && m.hastaCubierta) && (cfg.led || cfg.style === 'Moderna');   /* A398: la alacena del borde arranca en la cubierta: sin unero ni cama */   /* A134: el alto de esquina no lleva la cama corrida */
-const sinPuertas = m => m.tipo === 'Abierto' || m.tipo === 'Doble' && m.inferiorAbierto;
+const conCama = m => m.upper && !m.reserved && !m.esquina && !hasCampana(m) && !sinMarco(m) && !(m.penEsq && m.hastaCubierta) && (cfg.led || cfg.style === 'Moderna');   /* A398: la alacena del borde arranca en la cubierta: sin unero ni cama */   /* A134: el alto de esquina no lleva la cama corrida */
+const sinPuertas = m => m.tipo === 'Abierto' || m.tipo === 'Flotantes' || m.tipo === 'Vacio' || m.tipo === 'Doble' && m.inferiorAbierto;
+/* A448 (usuario 22/10: «agrega opcion de sustituir elementos por solo repisas (sin marco), tanto el gabinete completo como solo el bajo del
+   modulo superior + inferior; otra opcion de vacio que se siga seleccionando en el editor para volver a cambiar de funcion»): el alto (o el
+   inferior del doble) sin caja: 'repisas' (repisas sueltas al muro, sin laterales, techo, piso ni trasera) o 'vacio' (nada; en el editor
+   queda su contorno punteado para elegirlo) */
+const sinMarco = m => !m || !m.upper || m.reserved ? null : m.tipo === 'Flotantes' ? 'repisas' : m.tipo === 'Vacio' ? 'vacio'
+  : m.tipo === 'Doble' && m.inferiorAbierto && ['repisas', 'vacio'].includes(m.inferiorSinMarco) ? m.inferiorSinMarco : null;
+/* alturas de las repisas sueltas (cm, su cara de abajo): en el alto completo, del pie al tope (la de arriba al ras de los demas altos); en el
+   inferior del doble, del pie hacia arriba (el modulo superior hace de tope) */
+const flotantesZ = (m, z0, z1) => { const n = Math.max(1, Math.round(m.repisas) || 1), e = PLAN_CUERPO.lateral, H = z1 - z0;
+  if (m.tipo === 'Doble' || n === 1) return Array.from({ length: n }, (_, k) => z0 + k*H/n);
+  return Array.from({ length: n }, (_, k) => z0 + k*(H - e)/(n - 1)); };
 const NOMBRES = { Esquina: 'Esquinero', EspecieroTorre: 'Especiero torre', Hornos: 'Hornos', Alacena: 'Alacena', Refri: 'Refrigerador', Estufa: 'Estufa', Basura: 'Cesto de basura', Frigobar: 'Frigobar de vinos', Especiero: 'Especiero', Lavavajillas: 'Lavavajillas' };
 /* E16: codigo de gabinete de EE. UU. (estimado del oficio): B30, SB36, DB18, W3042, W361524, T2484, OC3384... Solo en el panel con la region US */
 const pulgEnteras = v => Math.round(v/PULG);
@@ -4992,7 +5016,7 @@ function bodyGroups(){
   const out = []; let open = null, x = ajusteIzq();
   const sup = m => isDoble(m) ? m.altoSuperior : 0;
   for (const m of row(true)) {
-    const box = !m.reserved && sinPuertas(m) && !hasCampana(m);
+    const box = !m.reserved && sinPuertas(m) && !hasCampana(m) && !sinMarco(m);   /* A448: sin marco no es caja corrida */
     if (box && open && open.members[open.members.length - 1].unirCuerpo && Math.abs(sup(m) - sup(open.members[0])) < .01) { open.members.push(m); open.width += m.ancho; }
     else if (box && m.unirCuerpo) { open = { members: [m], x0: x, width: m.ancho }; out.push(open); }
     else open = null;
@@ -5930,7 +5954,10 @@ function planDePiezas(c = cfg){
         const z0 = upper ? baseAltos() + huecoAlto(m) : cfg.baseBajos;
         const z1 = upper ? baseAltos() + bodyH(m) : cfg.baseBajos + cfg.altoBajos;
         const grp = upper && sinPuertas(m) ? bodyGroupOf(m) : null, frs = fronts(m), cajones = frs.filter(f => f.kind === 'Cajon' && !f.fijo);
-        if (!grp || grp.members[grp.members.length - 1] === m) {
+        const sm = upper ? sinMarco(m) : null;   /* A448: sin caja; las repisas sueltas, al muro y a todo el ancho de la columna */
+        if (sm === 'repisas') flotantesZ(m, z0, z1).forEach((z, k) => add({ id: m.id + ':flotante:' + k, rol: 'repisa', modulo: m.id, tipo: 'Repisa', x, y: sep, z,
+          ancho: m.ancho, fondo: m.fondo, alto: PLAN_CUERPO.lateral, material: matDe(m), etiqueta: 'gabinetes' }));
+        if (!sm && (!grp || grp.members[grp.members.length - 1] === m)) {
           const lead = grp ? grp.members[0] : m, gx0 = grp ? grp.x0 : x, gx1 = grp ? grp.x0 + grp.width : x + m.ancho;
           const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
           const basura = false;   /* A96: el cesto ocupa toda la columna (antes su ancho y el resto, tapeta) */
@@ -6865,6 +6892,9 @@ function pruebasPlanMX(){
       const ups = c.modulos.filter(m => m.upper && !m.esquina && !m.reserved); if (ups.length > 2) ups[1].tipo = 'Abierto'; } finally { cfg = prev; } return c; }],
     ['esquinero con materiales propios en el bajo y el alto (A272)', c => { const prev = cfg; cfg = c; try { setForma(c, 'L'); const mb = c.modulos.find(m => m.esquina && !m.upper), mu = c.modulos.find(m => m.esquina && m.upper);
       const ids = (c.catalogo || []).map(q => q.id); if (ids.length > 2) { mb.material = ids[1]; mu.material = ids[2]; mu.materialesPaneles = { 'esquina.fondo': ids[1], 'esquina.repisa.1': ids[2] }; } } finally { cfg = prev; } return c; }],
+    ['altos sin marco: solo repisas, vacio, e inferior del doble con repisas sueltas y vacio (A448)', c => { const u = c.modulos.filter(m => m.upper);
+      Object.assign(u[0], { tipo: 'Flotantes', repisas: 3 }); Object.assign(u[1], { tipo: 'Vacio' }); Object.assign(u[2], { tipo: 'Doble', inferiorAbierto: true, inferiorSinMarco: 'repisas', repisas: 2, altoSuperior: 35, tipoSuperior: 'Piston' });
+      Object.assign(u[3], { tipo: 'Doble', inferiorAbierto: true, inferiorSinMarco: 'vacio', altoSuperior: 35, tipoSuperior: 'Piston' }); return c; }],
     ['isla con parrilla y campana de isla de 90 (A438; con su modulo, A442)', c => { const d = defaultIsland(240, 105); d.catalogo = c.catalogo; d.modulos[2].parrilla = true;
       Object.assign(d.modulos[2], { campanaIsla: true, campanaIslaAncho: 90 }); return d; }],
     ['campana sola decorativa inclinada con repisa (A437)', c => { const h = c.modulos.filter(m => m.upper && !m.reserved); if (h[2]) Object.assign(h[2], { campana: true, mostrarCampana: true, soloCampana: true, campanaTipo: 'inclinada', campanaRepisa: true }); return c; }],
@@ -7035,7 +7065,7 @@ function pruebasPlanMX(){
     /* A372: Sistema 32: la cara inferior de cada repisa recta cae en un agujero de la serie que arranca en la cara superior del panel que la cubre (techo, faja o entrepano de su cuerpo),
        y el centro de cada bisagra con placa, en un agujero de la serie de su lateral. Quedan fuera los esquineros, las puertas elevables, las ocultas y el closet */
     const enS32 = (top, z) => { const k = (top - z - PLAN_S32.inicio)/PLAN_S32.paso; return Math.abs(k - Math.round(k)) < .03; };
-    p.piezas.filter(q => q.rol === 'repisa' && q.tipo === 'Repisa' && !/^esq/.test(q.id)).forEach(q => {
+    p.piezas.filter(q => q.rol === 'repisa' && q.tipo === 'Repisa' && !/^esq/.test(q.id) && !/:flotante:/.test(q.id)).forEach(q => {   /* A448: las sueltas no van en laterales */
       const cubre = p.piezas.filter(r => r.modulo === q.modulo && r.rol === 'panel' && ['Techo', 'Faja', 'Piso', 'Entrepano'].includes(r.tipo) && r.x < q.x + q.ancho && r.x + r.ancho > q.x && r.y < q.y + q.fondo && r.y + r.fondo > q.y && r.z >= q.z + q.alto - .01).sort((a, b) => a.z - b.z)[0];
       if (cubre) ok(enS32(cubre.z + cubre.alto, q.z), nombre + ': la repisa ' + q.id + ' no cae en un agujero del Sistema 32'); });
     p.piezas.filter(q => q.tipo === 'Bisagra' && q.frente && q.estado === 'cerrado' && !/^esq/.test(q.id) && !/:s\d+$/.test(q.id) && q.modelo && /brazo_cerrada/.test(q.modelo.archivo)).forEach(q => {
@@ -7541,7 +7571,9 @@ function recalcularCara(){
     if (['Basura', 'Frigobar', 'Especiero', 'Estufa', 'Lavavajillas'].includes(m.tipo)) m.dosPuertas = false;
     if (isTower(m) && m.microSobreponer) m.altoMicro = Math.round((m.microAlto + 5)*100)/100;
     if (m.tipo !== 'Doble' || m.campana) m.inferiorAbierto = false;
-    if (!m.upper || m.tipo === 'Abierto') m.campana = false;
+    if (!m.inferiorAbierto) m.inferiorSinMarco = null;   /* A448 */
+    if (!m.upper || m.tipo === 'Abierto' || m.tipo === 'Flotantes' || m.tipo === 'Vacio') m.campana = false;
+    if (sinMarco(m)) { m.unirCuerpo = false; m.division = false; }
   }
   /* los especiales reservan la columna de altos: ambas filas emparejadas */
   {
@@ -8700,7 +8732,8 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     }
     if (!soloCamp(up)) {
       const hs = isDoble(up) ? up.altoSuperior : 0;
-      const ub = caja(up, z0, zTop - hs, up.fondo + (sinPuertas(up) ? espFrente() : 0), !camp);   /* A266: el repisero llega al frente */
+      const smU = sinMarco(up), ub = smU ? null : caja(up, z0, zTop - hs, up.fondo + (sinPuertas(up) ? espFrente() : 0), !camp);   /* A266: el repisero llega al frente */
+      if (smU === 'repisas') flotantesZ(up, z0, zTop - hs).forEach(z => brd({ x: P(up.fondo), y: Z(z + PLAN_CUERPO.lateral), w: up.fondo*s, h: Math.max(2, PLAN_CUERPO.lateral*s) }, up.material || cfg.materialGeneral));   /* A448 */
       if (cfg.tapetaSuperior && cfg.alturaMuro - zTop > .1) {   /* A209: la tapeta superior (a ras, detras o moldura) en corte */
         const t1 = 1.8, d0 = molduraTs() ? up.fondo - crownFaja(cfg.alturaMuro - zTop) : up.fondo + (tsModo() === 'atras' ? 0 : t1), hTs = cfg.alturaMuro - zTop, modo = tsModo(), conMol = molduraTs();
         post.push(() => { ctx.save(); ctx.fillStyle = flat ? C.flat : C.front; ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath();
@@ -8985,7 +9018,7 @@ function centroLine(x, y0, y1){
 function drawIslandFront(){
   title('ALZADO FRONTAL', '· lado de los gabinetes');
   const sec = seccionVisible(), A = cfg.islaAncho, G = 110;   /* A115: la seccion transversal a la derecha, a la misma escala */
-  const hood = row(false).some(m => campIslaMedidas(m)), altoH = altoBarra() + CAMP_ISLA.alto + CAMP_ISLA.caja + 24;   /* A442: con campana, el alzado reserva su alto (la chimenea sale como un tramo con quiebre) */
+  const hood = row(false).some(m => campIslaMedidas(m)), altoH = altoBarra() + Math.max(...row(false).map(m => campIslaMedidas(m) ? campIslaAlto(m) : 0)) + CAMP_ISLA.caja + 24;   /* A442: con campana, el alzado reserva su alto (la chimenea sale como un tramo con quiebre) */
   const W = cfg.longitud, scale0 = sec ? Math.min(islandScale(), Math.max(.1, cssW - 220 - G)/(W + A)) : islandScale(), scale = hood ? Math.min(scale0, Math.max(.5, (cssH - 190)/(altoH + 30))) : scale0;
   const ox = sec ? (cssW - (W + A)*scale - G)/2 - (cfg.islaBarraElevada ? 30 : 0) : (cssW - W*scale)/2 - 7;
   const ground = sec ? islaSuelo((hood ? Math.max(islaTopH(), altoH) : islaTopH())*scale, 57, 85, cssH - 105) : islaSuelo((hood ? altoH : altoBarra())*scale, 57, 34, cssH - 65);   /* el alzado no dibuja la barra elevada: su tope son las cotas de ancho sobre la cubierta */
@@ -10151,8 +10184,14 @@ function drawModule(m, x0, RX, X, Z, post){
   const full = RX(x0, x0 + m.ancho, z0, z1), sel = selection.has(m.id), scale = frame.scale;
   /* espacio para campana: franja libre al pie del alto; el cuerpo queda encima */
   const gap = Math.max(0, huecoAlto(m))*scale, body = { x: full.x, y: full.y, w: full.w, h: full.h - gap };
-  const mat = m.material || cfg.materialGeneral, grp = m.upper && sinPuertas(m) ? bodyGroupOf(m) : null;
-  if (grp) { /* caja corrida: solo la ultima columna dibuja el cuerpo completo; sus piezas son del primero (BodyLead) */
+  const mat = m.material || cfg.materialGeneral, grp = m.upper && sinPuertas(m) ? bodyGroupOf(m) : null, sm = sinMarco(m);
+  if (sm) {   /* A448: sin caja: sus repisas sueltas, o vacio con su contorno punteado (se sigue eligiendo) */
+    if (sel) { ctx.fillStyle = C.selFill; ctx.globalAlpha = .5; ctx.fillRect(body.x, body.y, body.w, body.h); ctx.globalAlpha = 1; }
+    if (sm === 'repisas') flotantesZ(m, z0 + huecoAlto(m), z1).forEach(z => { const r = RX(x0, x0 + m.ancho, z, z + PLAN_CUERPO.lateral); fillMat(r.x, r.y, r.w, Math.max(2, r.h), flat ? null : mat, C.board); outline({ x: r.x, y: r.y, w: r.w, h: Math.max(2, r.h) }, C.line, 1); });
+    post.push(() => { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.strokeRect(body.x + .5, body.y + .5, body.w - 1, body.h - 1); ctx.restore();
+      if (sm === 'vacio' && !exporting) { ctx.fillStyle = C.muted; ctx.font = "500 11px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Vacío', body.x + body.w/2, body.y + body.h/2); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; } });
+  }
+  else if (grp) { /* caja corrida: solo la ultima columna dibuja el cuerpo completo; sus piezas son del primero (BodyLead) */
     const last = grp.members[grp.members.length - 1];
     const boxPart = selectedPart === 'box:' + grp.members[0].id, boxRect = RX(grp.x0, grp.x0 + grp.width, z0, z1);
     if (last === m) { drawInterior(grp.members[0], boxRect, Z, mat, boxPart || (!isDoble(m) && grp.members.some(q => selection.has(q.id)))); if (boxPart && !exporting) post.push(() => outline(boxRect, C.select, 2)); }
@@ -10172,7 +10211,7 @@ function drawModule(m, x0, RX, X, Z, post){
     if (tag) { ctx.fillStyle = C.ink; ctx.font = "500 11px 'Inter'"; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(tag, body.x + 4, body.y + 22); ctx.textBaseline = 'alphabetic'; }
   }
   if (gap) drawCampana(m, full, { x: full.x, y: body.y + body.h, w: full.w, h: gap });
-  if (!grp) outline(full, C.line, 1);
+  if (!grp && !sm) outline(full, C.line, 1);
   hits.push({ rect: full, module: m, body: true });
   /* alto doble: el modulo superior es un elemento aparte; su franja tambien elige la columna */
   let slice = null;
@@ -11352,6 +11391,8 @@ const FI = (() => {
     SupRepisas: R(5,14,30,20) + L(5,20.7,35,20.7) + L(5,27.3,35,27.3),
     Doble: R(5,6,30,36) + L(5,17,35,17) + lift(5,6,30,11) + door(5,17,30,25),
     InfRepisas: R(5,6,30,36) + L(5,17,35,17) + lift(5,6,30,11) + L(5,25.3,35,25.3) + L(5,33.7,35,33.7),   /* A307: el inferior abierto con repisas */
+    Flotantes: L(4,4,4,44,1) + R(6,12,30,3) + R(6,24,30,3) + R(6,36,30,3),   /* A448: repisas sueltas al muro */
+    Vacio: L(5,6,35,6,1) + L(35,6,35,42,1) + L(35,42,5,42,1) + L(5,42,5,6,1),
     Colgado: R(4,4,32,40) + L(4,12,36,12) + L(8,16,32,16) + P('M20 16 v3 M14 25 L20 19 L26 25 Z'),
     ColgadoDoble: R(4,4,32,40) + L(8,12,32,12) + L(8,28,32,28),
     Repisas: R(4,4,32,40) + L(4,12,36,12) + L(4,20,36,20) + L(4,28,36,28) + L(4,36,36,36),
@@ -11369,7 +11410,7 @@ const FI = (() => {
 })();
 const FI_INT = { 'Puertas': 'Sencillo', '1 puerta': 'Sencillo', '2 puertas': 'DosPuertas', 'Cajones': 'Cajones', '3': 'Cajones', 'Dos cajones': 'int:Dos cajones', '2': 'int:Dos cajones',
   'Repisas': 'Repisas', 'Pistón': 'Piston', 'Elevable': 'Piston', 'Especiero': 'Especiero', 'Especiero extraíble': 'int:Especiero extraíble' };
-const FI_CORTO = { 'Abierto / repisas': 'Abierto', 'Módulo inferior + módulo superior': 'Inferior + superior' };
+const FI_CORTO = { 'Abierto / repisas': 'Abierto', 'Módulo inferior + módulo superior': 'Inferior + superior', 'Solo repisas (sin marco)': 'Solo repisas' };
 /* A416 (usuario 21/10: «genera las etiquetas de pro y premium en las funciones de la interfaz, estas aparecen y desaparecen de acuerdo al
    plan que tengas»): planes Gratis, Pro y Premium. planUsuario lo manda SketchUp (sketchupPlan); en el prototipo todo esta abierto y
    ?plan=gratis o ?plan=pro en la direccion muestra las etiquetas. PLAN_FUNCION sigue a licencia_reglas.json de Skitchen (el que de verdad
@@ -11596,9 +11637,10 @@ function modulePanel(m){
   let opts = anchoFijo(m.fijo, 'fijoLibre');
   /* (A60) campana extractora y dos puertas: interruptores con icono, como las tarjetas de Funcion */
   const twoVis = !sinPuertas(m) && !soloCamp(m) && m.tipo !== 'Piston' && !(isDoble(m) && m.inferiorElevable) && (m.upper || m.tipo === 'Puertas' || m.tipo === 'C'), sw = [];
-  if (m.upper && m.tipo !== 'Abierto' && !m.inferiorAbierto && !m.penEsq) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);   /* A398: el borde de la peninsula no lleva campana */
+  if (m.upper && !sinPuertas(m) && !m.penEsq) sw.push(['tgCampana', m.campana, 'Campana extractora', FI.Campana]);   /* A448: ni sin marco */   /* A398: el borde de la peninsula no lleva campana */
   if (twoVis) sw.push(['tgDos', m.dosPuertas, 'Dos puertas', FI.DosPuertas]);
-  if (isDoble(m) && !hasCampana(m)) sw.push(['tgInfAb', m.inferiorAbierto, 'Inferior con repisas', FI.InfRepisas]);
+  if (isDoble(m) && !hasCampana(m)) sw.push(['tgInfAb', m.inferiorAbierto && !sinMarco(m), 'Inferior con repisas', FI.InfRepisas],
+    ['tgInfFlot', sinMarco(m) === 'repisas', 'Inferior: solo repisas', FI.Flotantes], ['tgInfVacio', sinMarco(m) === 'vacio', 'Inferior vacío', FI.Vacio]);   /* A448 */
   /* A352 (usuario 21/10: «las puertas de los inferiores tambien se pueden convertir en elevables (mostrar boton en opciones)») */
   if (isDoble(m) && !hasCampana(m) && !m.inferiorAbierto) sw.push(['tgInfElev', !!m.inferiorElevable, 'Inferior elevable', FI.Piston]);   /* A307 (usuario 20/10: «agregar icono de inferior con repisas para que sea mas visible»; A261) */
   if (sw.length) opts += toggles(sw);
@@ -11606,10 +11648,10 @@ function modulePanel(m){
   else if (twoVis && cfg.dosPuertasDesde > 0 && !m.dosPuertasManual) opts += `<div class="note-sm" style="margin-top:0">Automático: dos puertas en más de ${medida(cfg.dosPuertasDesde)} de ancho.</div>`;
   if (twoVis && !m.dosPuertas) opts += chk('inv', m.invertir, 'Invertir abatimiento');
   /* con campana extractora la division se conserva aunque el modulo quede de una puerta (master; el real la oculta) */
-  const divVis = !isDoble(m) && (m.upper ? (m.dosPuertas || sinPuertas(m)) && !hasCampana(m) : m.dosPuertas && m.tipo === 'Puertas' && !m.preparadoTarja);   /* A260 */   /* alto doble: en sus secciones (A38) */
+  const divVis = !isDoble(m) && !sinMarco(m) && (m.upper ? (m.dosPuertas || sinPuertas(m)) && !hasCampana(m) : m.dosPuertas && m.tipo === 'Puertas' && !m.preparadoTarja);   /* A260 */   /* alto doble: en sus secciones (A38) */
   if (divVis) opts += chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, 4, 1)}</div></div>` : '');
   if (!m.upper && m.tipo === 'Puertas' && !m.preparadoTarja) opts += chk('repBajo', m.repisaBajo, 'Repisa interior');
-  if (m.upper && sinPuertas(m) && !hasCampana(m) && !bx) opts += chk('unir', m.unirCuerpo, 'Unir con la columna derecha (caja corrida)');
+  if (m.upper && sinPuertas(m) && !sinMarco(m) && !hasCampana(m) && !bx) opts += chk('unir', m.unirCuerpo, 'Unir con la columna derecha (caja corrida)');
   if (isDoble(m) && !bx && bodyGroupOf(m)) opts += `<div class="note-sm">Su módulo inferior forma una caja corrida con la columna vecina: clic sobre ella en el dibujo, o</div><button class="btn btn-block" style="margin-top:6px" data-act="editBox">Editar la caja corrida</button>`;
   html += section('Opciones', opts);
   if (m.upper && avisoCoccion(m)) html += section('Seguridad', avisoCoccion(m));
@@ -11618,8 +11660,10 @@ function modulePanel(m){
     + (m.soloCampana ? `<div style="margin-top:8px">${radios('campTipo', [['acero', 'Acero (chimenea)'], ['recta', 'Decorativa recta'], ['inclinada', 'Decorativa inclinada']], m.campanaTipo || 'acero')}</div>`
       + (campDeco(m) ? chk('campRep', !!m.campanaRepisa, 'Repisa sobre la campana') + `<div class="note-sm" style="margin-top:0">Caja de tableros con el material del módulo; el motor va adentro.</div>` : '') : '')   /* A437 */ + (m.soloCampana ? `<div class="note-sm" style="margin-top:0">La columna lleva solo la campana: sin el gabinete alto${isDoble(m) ? ' ni el módulo superior' : ''}; la chimenea llega al tope.</div>` : '') + `<div class="grid-2" style="margin-top:8px">${num('hueco', 'Canopy visible', m.huecoCampana, 'cm', 5, 40)}${num('fCamp', 'Fondo de campana', m.fondoCampana, 'cm', 30, 70)}</div>` + chk('mCamp', m.mostrarCampana, 'Mostrar campana genérica'));
   if (isDoble(m) && !hasCampana(m)) {   /* A38: repisas y divisiones del gabinete inferior y del superior */
-    const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS;
-    html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Caja corrida: repisas y divisiones en toda la caja.' : ''}</div>`
+    const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS, smI = sinMarco(m);
+    if (smI === 'vacio') html += section('Inferior vacío', `<div class="note-sm" style="margin-top:0">Sin gabinete bajo el módulo superior. Para volver a ponerlo, quita «Inferior vacío» en Opciones.</div>`);   /* A448 */
+    else if (smI === 'repisas') html += section('Inferior: solo repisas', `<div class="grid-2">${num('repAlto', 'Repisas sueltas', Math.max(1, nI), 'u', 1, 8, 1)}</div><div class="note-sm">Repisas al muro, sin laterales, techo ni trasera; la de abajo al pie de los altos y el módulo superior hace de tope.</div>`);
+    else html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Caja corrida: repisas y divisiones en toda la caja.' : ''}</div>`
       + chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, bodyGroupOf(m) ? 99 : 4, 1)}</div></div>` : ''));
     html += section('Gabinete superior', `<div class="grid-2">${num('supRep', 'Repisas del gabinete superior', cl.repisasSuperior, 'u', 0, mxS, 1)}</div>` + shelfNote(cl.altoSuperior, cl.repisasSuperior)
       + chk('supDiv', cl.divisionSuperior, 'División vertical interna') + (cl.divisionSuperior ? `<div class="sub"><div class="grid-2">${num('supNDiv', 'Divisiones verticales', cl.divisionesSuperior || 1, 'u', 1, capJoined(cl) ? 99 : 4, 1)}</div></div>` : '')
@@ -11631,7 +11675,9 @@ function modulePanel(m){
     if (bt) html += section('Columnas', `<div style="display:grid;gap:8px">${bt}</div><div class="note-sm">Une ${ab ? 'el módulo superior y la caja de repisas de abajo' : 'el módulo superior'} con la columna vecina (si no es doble, se vuelve Inferior + superior).</div>`); }
   if (isDoble(m) && !soloCamp(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuerta', 'Una puerta'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + (capLead(m).tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('supInv', !!capLead(m).bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : '')   /* A116: tambien con columnas unidas: va al primero del grupo */
     + `<div class="note-sm">Doble clic en el dibujo: alto, material y unir columnas.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
-  if (m.upper && !hasCampana(m) && !isDoble(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
+  if (m.tipo === 'Vacio') html += section('Vacío', `<div class="note-sm" style="margin-top:0">La columna queda sin alto. Sigue en el dibujo con su contorno punteado: elígela y cambia su función cuando quieras.</div>`);   /* A448 */
+  else if (m.tipo === 'Flotantes') html += section('Repisas sueltas', `<div class="grid-2">${num('repAlto', 'Repisas', Math.max(1, shelvesOf(m)), 'u', 1, 8, 1)}</div><div class="note-sm">Repisas al muro, sin laterales, techo, piso ni trasera, a todo el ancho de la columna y del fondo del alto; la de arriba al ras de los demás altos.</div>`);   /* A448 */
+  if (m.upper && !hasCampana(m) && !isDoble(m) && !sinMarco(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
     html += section('Repisas', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete alto', n, 'u', 0, 12, 1)}</div>`
       + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los ${medida(25)} recomendados. Se generan igual.</div>`
         : `<div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mx}.${showDoors && !sinPuertas(m) ? ' Detrás de las puertas se ven en la vista Interior.' : ''}</div>`)); }
@@ -11977,6 +12023,7 @@ const ACT = {
       if ((v === 'Especiero' || v === 'EspecieroTorre') && m.tipo !== 'Especiero' && m.tipo !== 'EspecieroTorre') m.extraible = true;   /* A74: extraible (cajon) de fabrica */
       const eraEstufa = m.tipo === 'Estufa';   /* A124 */
       if (m.upper && v === 'Doble' && m.tipo !== 'Doble') m.repisas = 1;   /* A313 (usuario 20/10): al pasar a inferior + superior, 1 repisa interna; el alto sencillo sigue con 2 */
+      if (m.upper && v === 'Flotantes' && m.tipo !== 'Flotantes') m.repisas = 3;   /* A448: tres repisas sueltas de fabrica */
       m.tipo = v; m.frenteSup = m.frenteMed = 0; m.frentes = []; m.inferiorAbierto = false;
       /* A156 (usuario): con un muro bajo (213 cm) el hueco de fabrica (190) no dejaba los 25 cm del gabinete de arriba y no se podia
          poner el refrigerador: el hueco baja lo necesario (minimo 120); si aun asi no cabe, sin gabinete de arriba */
@@ -12063,10 +12110,13 @@ const ACT = {
   altoCaj: (v, m) => change(() => byId(m.id).altoCajonesAlacena = v),
   closeFocus: () => { focusPanel = null; render(); },
   /* altos: campana y alto doble */
-  infAb: (v, m) => change(() => { const t = byId(m.id); t.inferiorAbierto = v; if (v) t.dosPuertas = false; }),
+  infAb: (v, m) => change(() => { const t = byId(m.id); t.inferiorAbierto = v; t.inferiorSinMarco = null; if (v) t.dosPuertas = false; }),
+  tgInfFlot: (v, m) => change(() => { const t = byId(m.id), on = t.inferiorSinMarco !== 'repisas'; t.inferiorAbierto = on; t.inferiorSinMarco = on ? 'repisas' : null; if (on) { t.dosPuertas = false; t.inferiorElevable = false; t.campana = false; if (!(t.repisas >= 1)) t.repisas = 2; } }),   /* A448 */
+  tgInfVacio: (v, m) => change(() => { const t = byId(m.id), on = t.inferiorSinMarco !== 'vacio'; t.inferiorAbierto = on; t.inferiorSinMarco = on ? 'vacio' : null; if (on) { t.dosPuertas = false; t.inferiorElevable = false; t.campana = false; } }),
   soloCamp: (v, m) => change(() => byId(m.id).soloCampana = v, 'Revisar altura'),   /* A81 */
   campTipo: (v, m) => change(() => byId(m.id).campanaTipo = v), campRep: (v, m) => change(() => byId(m.id).campanaRepisa = v),   /* A437 */
   campIsla: (v, m) => change(() => byId(m.id).campanaIsla = v), campIslaW: (v, m) => change(() => byId(m.id).campanaIslaAncho = +v),   /* A438 */
+  campIslaAlto: (v, m) => change(() => { byId(m.id).campanaIslaAlto = Math.abs(v - CAMP_ISLA.alto) < .01 ? null : Math.max(CAMP_ISLA.altoMin, Math.min(CAMP_ISLA.altoMax, v)); }),   /* A448 */
   hueco: (v, m) => change(() => byId(m.id).huecoCampana = v, 'Revisar altura'), fCamp: (v, m) => change(() => byId(m.id).fondoCampana = v),
   mCamp: (v, m) => change(() => byId(m.id).mostrarCampana = v),
   editCap: (v, m) => { const g = capGroupOf(m); if (g) selectPart('ucap:' + g.lead.id); },
@@ -12142,7 +12192,7 @@ const ACT = {
   pzEditar: () => { const id = selectedPart.split(':')[1]; selectedPart = null; pieces.clear(); selection = new Set([id]); render(); },
   fijo: (v, m) => setFixed(m.id, v), fijoLibre: (v, m) => setFixed(m.id, false),
   tgInfElev: (v, m) => change(() => { const t = byId(m.id); t.inferiorElevable = !t.inferiorElevable; if (t.inferiorElevable) t.dosPuertas = false; }),   /* A352 */
-  dos: (v, m) => change(() => { const t = byId(m.id); t.dosPuertas = v; t.dosPuertasManual = true; }),   /* E12: elegido a mano */ tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m), tgInfAb: (v, m) => ACT.infAb(!m.inferiorAbierto, m),   /* A307 */
+  dos: (v, m) => change(() => { const t = byId(m.id); t.dosPuertas = v; t.dosPuertasManual = true; }),   /* E12: elegido a mano */ tgDos: (v, m) => ACT.dos(!m.dosPuertas, m), tgCampana: (v, m) => ACT.campana(!m.campana, m), tgInfAb: (v, m) => ACT.infAb(sinMarco(m) ? true : !m.inferiorAbierto, m),   /* A307 */
   supInv: (v, m) => change(() => { capLead(byId(m.id)).bisagraDerechaSuperior = v; }),
   supTipo: (v, m) => change(() => { const l = capLead(byId(m.id)); l.tipoSuperior = v; }),   /* A308: sin repisas de fabrica */
   inv: (v, m) => change(() => byId(m.id).invertir = v),
