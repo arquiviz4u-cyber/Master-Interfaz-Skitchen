@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A452. [Master hecho 23/10; SketchUp: sin cambio (repisas y backsplash ya conocidos); Revit pendiente] (usuario 23/10) 1) «Vacio deberia generar
+       que el backsplash llene el vacio»; «las repisas sin fondo: deberia mostrarse el backsplash detras»: el backsplash sube en las columnas
+       sin caja hasta lo de arriba (subidasBacksplash: campana sola, alto vacio o de repisas sueltas al tope de los altos, inferior sin marco del
+       doble al pie de su modulo superior), en el plan y en el alzado. 2) «Las repisas deberian distribuirse desde el centro»: cada una en el
+       centro de su parte del alto (una, al centro; dos, con el entrepano centrado). 3) «Cambiar el espesor de las repisas: 15, 18 y 25 mm y
+       campo abierto»: m.espesorRepisas (1 a 6 cm). 4) «El vacio deberia poder seleccionarse en el isometrico»: plan.fantasmas (solo el editor:
+       no va en las piezas de SketchUp ni de Presentar), en el isometrico un contorno punteado que se elige como un modulo.
    A451. [Master hecho 23/10; SketchUp y Revit: sin cambio (solo cambia el contenido del .csv)] (usuario 23/10: «especificar dependiendo del tipo: laterales para recibir gola, cubierta para recibir tarja»): la columna Notas del CSV dice la causa del recorte y su medida: lateral con rebaje en el
        frente = «Recorte para recibir la gola 26 x 57 mm (esquina frontal superior)»; cubierta con huecos = «Recorte para tarja 560 x 480 mm + recorte para parrilla ...» (el hueco se asocia a la tarja o parrilla cuyo centro cae dentro);
        un rebaje en otro lugar = «Rebaje ... (esquina trasera inferior)» sin afirmar la causa; otra forma = «Forma especial: medida de la caja envolvente». csvRebaje(forma), csvNota(). Ingles con el vocabulario English.
@@ -4536,6 +4543,10 @@ const CAMP_DECO = { banda: 12, talud: 45, cuello: 25 };
 const CAMP_ISLA = { alto: 70, caja: 10, fondo: 60, chimenea: 32, anchos: [60, 90, 120], altoMin: 55, altoMax: 100 };
 /* A448 (usuario 22/10: «la campana de la isla deberia ponerse a una altura por default de 70 cm desde la cubierta, asi como agregar un
    parametro editable de la misma altura»): m.campanaIslaAlto (de la cubierta al pie de la caja; de fabrica 70, de 55 a 100) */
+/* A452: espesor de las repisas sueltas: 15, 18 o 25 mm, u otro (1 a 6 cm) */
+const espRepisasHTML = m => { const e = espRepisasSueltas(m), cur = ESP_REPISAS.find(v => Math.abs(v - e) < .001);
+  return grupo('Espesor', radios('espRepS', ESP_REPISAS.map(v => [String(v), medida(v)]), cur ? String(cur) : '')
+    + `<div class="grid-2" style="margin-top:8px">${num('espRepSV', 'Otro espesor', e, 'cm', 1, 6, .1)}</div>`); };
 const campIslaAlto = m => m && m.campanaIslaAlto > 0 ? Math.max(CAMP_ISLA.altoMin, Math.min(CAMP_ISLA.altoMax, m.campanaIslaAlto)) : CAMP_ISLA.alto;
 /* medidas de la campana de isla de un modulo con parrilla (cm): caja z0..z1 de W x D y chimenea ch x ch hasta el techo; cx: el centro de la parrilla */
 const campIslaMedidas = m => { if (m.upper || !m.parrilla || !m.campanaIsla || !(cfg.isla || cfg.peninsula)) return null;
@@ -4588,11 +4599,21 @@ const sinPuertas = m => m.tipo === 'Abierto' || m.tipo === 'Flotantes' || m.tipo
    queda su contorno punteado para elegirlo) */
 const sinMarco = m => !m || !m.upper || m.reserved ? null : m.tipo === 'Flotantes' ? 'repisas' : m.tipo === 'Vacio' ? 'vacio'
   : m.tipo === 'Doble' && m.inferiorAbierto && ['repisas', 'vacio'].includes(m.inferiorSinMarco) ? m.inferiorSinMarco : null;
-/* alturas de las repisas sueltas (cm, su cara de abajo): en el alto completo, del pie al tope (la de arriba al ras de los demas altos); en el
-   inferior del doble, del pie hacia arriba (el modulo superior hace de tope) */
-const flotantesZ = (m, z0, z1) => { const n = Math.max(1, Math.round(m.repisas) || 1), e = PLAN_CUERPO.lateral, H = z1 - z0;
-  if (m.tipo === 'Doble' || n === 1) return Array.from({ length: n }, (_, k) => z0 + k*H/n);
-  return Array.from({ length: n }, (_, k) => z0 + k*(H - e)/(n - 1)); };
+/* A452 (usuario 23/10: «las repisas deberian poder distribuirse desde el centro: si se coloca una, empieza en el centro; si se colocan dos, el
+   entrepano queda centrado»; «poder cambiar el espesor de las repisas: 15, 18 y 25 mm y campo abierto»): alturas (su cara de abajo) de las
+   repisas sueltas: cada una en el centro de su parte del alto (z0 + (k + 1/2) H / n), asi quedan simetricas respecto al centro */
+const ESP_REPISAS = [1.5, 1.8, 2.5];
+const espRepisasSueltas = m => m && m.espesorRepisas > 0 ? m.espesorRepisas : PLAN_CUERPO.lateral;
+const flotantesZ = (m, z0, z1) => { const n = Math.max(1, Math.round(m.repisas) || 1), e = espRepisasSueltas(m), H = z1 - z0;
+  return Array.from({ length: n }, (_, k) => z0 + (k + .5)*H/n - e/2); };
+/* A452 (usuario 23/10: «vacio deberia generar que el backsplash llene el vacio»; «las repisas sin fondo: deberia mostrarse el backsplash
+   detras»): columnas de altos sin caja con el tope hasta donde sube el backsplash: la campana sola (al tope de su chimenea), el alto vacio o de
+   repisas sueltas (al tope de los altos) y el inferior sin marco del doble (al pie de su modulo superior). Vecinas con el mismo tope, unidas */
+const subidasBacksplash = () => { const r = []; let x = ajusteIzq();
+  row(true).forEach(m => { const sm = sinMarco(m), top = m.reserved ? null : soloCamp(m) ? topeCampanaSola() : sm ? (m.tipo === 'Doble' ? topeAltos() - m.altoSuperior : topeAltos()) : null;
+    if (top !== null) { const u = r[r.length - 1]; if (u && Math.abs(u[1] - x) < .01 && Math.abs(u[2] - top) < .01) u[1] = x + m.ancho; else r.push([x, x + m.ancho, top]); }
+    x += m.ancho; });
+  return r; };
 const NOMBRES = { Esquina: 'Esquinero', EspecieroTorre: 'Especiero torre', Hornos: 'Hornos', Alacena: 'Alacena', Refri: 'Refrigerador', Estufa: 'Estufa', Basura: 'Cesto de basura', Frigobar: 'Frigobar de vinos', Especiero: 'Especiero', Lavavajillas: 'Lavavajillas' };
 /* E16: codigo de gabinete de EE. UU. (estimado del oficio): B30, SB36, DB18, W3042, W361524, T2484, OC3384... Solo en el panel con la region US */
 const pulgEnteras = v => Math.round(v/PULG);
@@ -5494,7 +5515,7 @@ function planDePiezas(c = cfg){
   const previo = cfg; cfg = c;
   try {
     if (cfg.closet) throw new Error('El plan de piezas todavía no cubre closets.');
-    const piezas = [], sepMuro = cfg.separacionPosterior || 0, t = espFrente(), r2 = v => Math.round(v*100)/100;
+    const piezas = [], fantasmas = [], sepMuro = cfg.separacionPosterior || 0, t = espFrente(), r2 = v => Math.round(v*100)/100;   /* A452: fantasmas, lo que solo el editor dibuja (no va a SketchUp ni a Presentar) */
     Object.defineProperty(cfg, '__piezas', { value: piezas, enumerable: false, configurable: true, writable: true });   /* A134: los esquineros recortan zoclo y cubierta */
     /* sep: del origen del plan a la cara posterior del modulo. Muro: separacion posterior. Isla (B16): y va del canto de los bancos
        (0) al frente de la cubierta (islaAncho) y los frentes quedan alineados, asi que cada modulo arranca segun su fondo */
@@ -5965,8 +5986,11 @@ function planDePiezas(c = cfg){
         const z1 = upper ? baseAltos() + bodyH(m) : cfg.baseBajos + cfg.altoBajos;
         const grp = upper && sinPuertas(m) ? bodyGroupOf(m) : null, frs = fronts(m), cajones = frs.filter(f => f.kind === 'Cajon' && !f.fijo);
         const sm = upper ? sinMarco(m) : null;   /* A448: sin caja; las repisas sueltas, al muro y a todo el ancho de la columna */
-        if (sm === 'repisas') flotantesZ(m, z0, z1).forEach((z, k) => add({ id: m.id + ':flotante:' + k, rol: 'repisa', modulo: m.id, tipo: 'Repisa', x, y: sep, z,
-          ancho: m.ancho, fondo: m.fondo, alto: PLAN_CUERPO.lateral, material: matDe(m), etiqueta: 'gabinetes' }));
+        /* A452: sobre el backsplash que sube detras (su cara), sin entrar en el: asi el orden de dibujo no las esconde */
+        const yS = Math.max(sep, cfg.backsplash && !(multiCara() && cfg.peninsula) ? (cfg.espesorBacksplash || 0) + .01 : 0), fS = Math.max(5, sep + m.fondo - yS);
+        if (sm === 'repisas') flotantesZ(m, z0, z1).forEach((z, k) => add({ id: m.id + ':flotante:' + k, rol: 'repisa', modulo: m.id, tipo: 'Repisa', x, y: r2(yS), z,
+          ancho: m.ancho, fondo: r2(fS), alto: espRepisasSueltas(m), material: matDe(m), etiqueta: 'gabinetes' }));
+        if (sm === 'vacio') fantasmas.push({ id: m.id + ':vacio', rol: 'panel', modulo: m.id, tipo: 'Vacio', fantasma: true, x, y: r2(yS), z: z0, ancho: m.ancho, fondo: r2(fS), alto: z1 - z0, material: null, etiqueta: 'gabinetes' });   /* A452: solo en el isometrico del editor, para elegirlo */
         if (!sm && (!grp || grp.members[grp.members.length - 1] === m)) {
           const lead = grp ? grp.members[0] : m, gx0 = grp ? grp.x0 : x, gx1 = grp ? grp.x0 + grp.width : x + m.ancho;
           const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
@@ -6242,12 +6266,13 @@ function planDePiezas(c = cfg){
       if (cfg.backsplash && !pen) { const top = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;   /* A383: sin muro, sin backsplash */
         /* A123: detras de la campana sola el backsplash sigue por el muro hasta el tope de los altos. A125 (usuario, 09/10): de una
            pieza: el tramo y sus subidas son un solo perfil (forma perfil, eje y: puntos [x, z] desde la esquina de la caja) */
-        const zt = topeCampanaSola(), cols = zt > top + .01 ? columnasCampanaSola() : [];   /* A283 */
+        const cols = subidasBacksplash().filter(([, , zt]) => zt > top + .01);   /* A283; A452: tambien el vacio y las repisas sueltas, cada una a su tope */
         cutRun(run0, run1, cortaBack).forEach(([a, b], k) => {
-          const sube = cols.map(([c0, c1]) => [Math.max(a, c0), Math.min(b, c1)]).filter(([c0, c1]) => c1 - c0 > .01).sort((p, q) => q[0] - p[0]);
-          const pieza = { id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: (sube.length ? zt : top) - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' };
-          if (sube.length) { const h = top - zBar, H = zt - zBar, W = b - a, pts = [[0, 0], [W, 0]];
-            let x = W; sube.forEach(([c0, c1]) => { pts.push([x, h], [c1 - a, h], [c1 - a, H], [c0 - a, H], [c0 - a, h]); x = c0 - a; }); pts.push([x, h], [0, h]);
+          const sube = cols.map(([c0, c1, zt]) => [Math.max(a, c0), Math.min(b, c1), zt]).filter(([c0, c1]) => c1 - c0 > .01).sort((p, q) => q[0] - p[0]);
+          const zMax = Math.max(top, ...sube.map(q => q[2]));
+          const pieza = { id: 'backsplash:' + k, rol: 'backsplash', x: a, y: 0, z: zBar, ancho: b - a, fondo: cfg.espesorBacksplash, alto: zMax - zBar, material: groupMaterial('Backsplash'), etiqueta: 'backsplash' };
+          if (sube.length) { const h = top - zBar, W = b - a, pts = [[0, 0], [W, 0]];
+            let x = W; sube.forEach(([c0, c1, zt]) => { const H = zt - zBar; pts.push([x, h], [c1 - a, h], [c1 - a, H], [c0 - a, H], [c0 - a, h]); x = c0 - a; }); pts.push([x, h], [0, h]);
             const lim = pts.map(q => q.map(r2)).filter((q, i, arr) => i === 0 || q[0] !== arr[i - 1][0] || q[1] !== arr[i - 1][1]);
             const sinColineales = lim.filter((q, i, arr) => { const a0 = arr[(i - 1 + arr.length) % arr.length], a1 = arr[(i + 1) % arr.length]; return !((a0[0] === q[0] && q[0] === a1[0]) || (a0[1] === q[1] && q[1] === a1[1])); });
             pieza.forma = { tipo: 'perfil', eje: 'y', puntos: sinColineales }; }
@@ -6836,7 +6861,7 @@ function planDePiezas(c = cfg){
         .concat([...usados].map(k => ({ id: k, nombre: PREDETERMINADOS[k].nombre, rgb: PREDETERMINADOS[k].rgb.slice() })))
         .concat([...new Map(piezas.filter(q => q.rol === 'luz').map(q => [q.material, q])).values()].map(q => ({ id: q.material, nombre: PLAN_LUZ.nombre + (q.material === PLAN_LUZ.id ? '' : ' ' + r2(q.alto)), rgb: rgbLuz(), textura: texturaLuz(q.alto) })))
         .concat(piezas.some(q => q.material === PLAN_TIRA.id) ? [{ id: PLAN_TIRA.id, nombre: PLAN_TIRA.nombre, rgb: rgbLuz() }] : []),
-      piezas, pendiente: PLAN_PENDIENTE.slice() };
+      piezas, fantasmas, pendiente: PLAN_PENDIENTE.slice() };
   } finally { cfg = previo; }
 }
 /* pruebas del plan (se corren en el navegador o desde SketchUp): devuelve la lista de fallas, vacia si todo esta bien */
@@ -8321,7 +8346,7 @@ function drawElevation(){
   /* backsplash entre la cubierta y los altos */
   const bsTop = cfg.backsplashCompleto && highs.length ? zBA : zBar + cfg.altoBacksplash;
   /* A123: detras de la campana sola sube al tope. A124 (usuario, 09/10): un solo relleno y el contorno de la union, sin lineas divisorias */
-  const bsRects = cutRun(run0, run1, cortaBack).map(([a, b]) => RX(a, b, zBar, bsTop)).concat(columnasCampanaSola().filter(() => topeCampanaSola() > bsTop + .01).map(([a, b]) => RX(a, b, bsTop, topeCampanaSola())));   /* A283 */
+  const bsRects = cutRun(run0, run1, cortaBack).map(([a, b]) => RX(a, b, zBar, bsTop)).concat(subidasBacksplash().filter(([, , zt]) => zt > bsTop + .01).map(([a, b, zt]) => RX(a, b, bsTop, zt)));   /* A283; A452 */
   if (cfg.backsplash && bsRects.length && !penA) { const bb = bsRects.reduce((q, r) => ({ x0: Math.min(q.x0, r.x), y0: Math.min(q.y0, r.y), x1: Math.max(q.x1, r.x + r.w), y1: Math.max(q.y1, r.y + r.h) }), { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 });
     ctx.save(); ctx.beginPath(); bsRects.forEach(r => ctx.rect(r.x, r.y, r.w, r.h)); ctx.clip(); fillMat(bb.x0, bb.y0, bb.x1 - bb.x0, bb.y1 - bb.y0, groupMaterial('Backsplash'), C.backsplash); ctx.restore();
     contornoUnion(bsRects, C.line, 1); }
@@ -8743,7 +8768,7 @@ function drawSeccionCocina(xw, s, Z, xc, dir = 1){
     if (!soloCamp(up)) {
       const hs = isDoble(up) ? up.altoSuperior : 0;
       const smU = sinMarco(up), ub = smU ? null : caja(up, z0, zTop - hs, up.fondo + (sinPuertas(up) ? espFrente() : 0), !camp);   /* A266: el repisero llega al frente */
-      if (smU === 'repisas') flotantesZ(up, z0, zTop - hs).forEach(z => brd({ x: P(up.fondo), y: Z(z + PLAN_CUERPO.lateral), w: up.fondo*s, h: Math.max(2, PLAN_CUERPO.lateral*s) }, up.material || cfg.materialGeneral));   /* A448 */
+      if (smU === 'repisas') flotantesZ(up, z0, zTop - hs).forEach(z => brd({ x: P(up.fondo), y: Z(z + espRepisasSueltas(up)), w: up.fondo*s, h: Math.max(2, espRepisasSueltas(up)*s) }, up.material || cfg.materialGeneral));   /* A448 */
       if (cfg.tapetaSuperior && cfg.alturaMuro - zTop > .1) {   /* A209: la tapeta superior (a ras, detras o moldura) en corte */
         const t1 = 1.8, d0 = molduraTs() ? up.fondo - crownFaja(cfg.alturaMuro - zTop) : up.fondo + (tsModo() === 'atras' ? 0 : t1), hTs = cfg.alturaMuro - zTop, modo = tsModo(), conMol = molduraTs();
         post.push(() => { ctx.save(); ctx.fillStyle = flat ? C.flat : C.front; ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.beginPath();
@@ -10059,7 +10084,7 @@ function planCocina(){
   const marcos = m0.map(f => ({ O: loc(f.O), d: dirL(f.d), n: dirL(f.n) }));
   const p = planes[kR], mats = new Map(p.materiales.map(m => [m.id, m]));
   p.caras = planes.map((q, k) => [q, k]).filter(([, k]) => k !== kR).map(([q, k], i) => { const f = marcos[k]; q.materiales.forEach(m => { if (!mats.has(m.id)) mats.set(m.id, m); });
-    return { cara: i + 2, indice: k,   /* cara: numero en el plan (2, 3; la 1 es la de referencia); indice: la cara de la cocina */ origen: [r2(f.O[0]), r2(-f.O[1]), 0], ejeX: [r2(f.d[0]), r2(-f.d[1]), 0], ejeY: [r2(-f.n[0]), r2(f.n[1]), 0], tramo: q.tramo, piezas: q.piezas }; });
+    return { cara: i + 2, indice: k,   /* cara: numero en el plan (2, 3; la 1 es la de referencia); indice: la cara de la cocina */ origen: [r2(f.O[0]), r2(-f.O[1]), 0], ejeX: [r2(f.d[0]), r2(-f.d[1]), 0], ejeY: [r2(-f.n[0]), r2(f.n[1]), 0], tramo: q.tramo, piezas: q.piezas, fantasmas: q.fantasmas }; });
   p.caraRef = kR; p.materiales = [...mats.values()]; p.forma = cfg.forma;
   return p;
 }
@@ -10197,7 +10222,8 @@ function drawModule(m, x0, RX, X, Z, post){
   const mat = m.material || cfg.materialGeneral, grp = m.upper && sinPuertas(m) ? bodyGroupOf(m) : null, sm = sinMarco(m);
   if (sm) {   /* A448: sin caja: sus repisas sueltas, o vacio con su contorno punteado (se sigue eligiendo) */
     if (sel) { ctx.fillStyle = C.selFill; ctx.globalAlpha = .5; ctx.fillRect(body.x, body.y, body.w, body.h); ctx.globalAlpha = 1; }
-    if (sm === 'repisas') flotantesZ(m, z0 + huecoAlto(m), z1).forEach(z => { const r = RX(x0, x0 + m.ancho, z, z + PLAN_CUERPO.lateral); fillMat(r.x, r.y, r.w, Math.max(2, r.h), flat ? null : mat, C.board); outline({ x: r.x, y: r.y, w: r.w, h: Math.max(2, r.h) }, C.line, 1); });
+    if (sm === 'repisas') post.push(() => flotantesZ(m, z0 + huecoAlto(m), z1).forEach(z => { const r = RX(x0, x0 + m.ancho, z, z + espRepisasSueltas(m)), h = Math.max(2.5, r.h), q = { x: r.x, y: r.y + r.h - h, w: r.w, h };
+      fillMat(q.x, q.y, q.w, q.h, flat ? null : mat, C.board); outline(q, C.line, 1); }));   /* A452: encima del backsplash, con su espesor */
     post.push(() => { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.strokeRect(body.x + .5, body.y + .5, body.w - 1, body.h - 1); ctx.restore();
       if (sm === 'vacio' && !exporting) { ctx.fillStyle = C.muted; ctx.font = "500 11px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Vacío', body.x + body.w/2, body.y + body.h/2); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; } });
   }
@@ -11672,7 +11698,7 @@ function modulePanel(m){
   if (isDoble(m) && !hasCampana(m)) {   /* A38: repisas y divisiones del gabinete inferior y del superior */
     const mxI = maxShelves(bodyH(m), 1.8, GAP_ALTOS), nI = shelvesOf(m), cl = capLead(m), mxS = MAX_REPISAS, smI = sinMarco(m);
     if (smI === 'vacio') html += section('Inferior vacío', `<div class="note-sm" style="margin-top:0">Sin gabinete bajo el módulo superior. Para volver a ponerlo, quita «Inferior vacío» en Opciones.</div>`);   /* A448 */
-    else if (smI === 'repisas') html += section('Inferior: solo repisas', `<div class="grid-2">${num('repAlto', 'Repisas sueltas', Math.max(1, nI), 'u', 1, 8, 1)}</div><div class="note-sm">Repisas al muro, sin laterales, techo ni trasera; la de abajo al pie de los altos y el módulo superior hace de tope.</div>`);
+    else if (smI === 'repisas') html += section('Inferior: solo repisas', grupo('', `<div class="grid-2">${num('repAlto', 'Repisas sueltas', Math.max(1, nI), 'u', 1, 8, 1)}</div><div class="note-sm">Repisas al muro, sin laterales, techo ni trasera, repartidas desde el centro bajo el módulo superior; detrás se ve el backsplash.</div>`) + espRepisasHTML(m));
     else html += section('Gabinete inferior', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete inferior', nI, 'u', 0, 12, 1)}</div><div class="note-sm">Mínimo ${medida(25)} libres entre repisas: en este alto caben ${mxI}.${bodyGroupOf(m) ? ' Caja corrida: repisas y divisiones en toda la caja.' : ''}</div>`
       + chk('div', m.division, 'División vertical interna') + (m.division ? `<div class="sub"><div class="grid-2">${num('nDiv', 'Divisiones verticales', m.divisiones || 1, 'u', 1, bodyGroupOf(m) ? 99 : 4, 1)}</div></div>` : ''));
     html += section('Gabinete superior', `<div class="grid-2">${num('supRep', 'Repisas del gabinete superior', cl.repisasSuperior, 'u', 0, mxS, 1)}</div>` + shelfNote(cl.altoSuperior, cl.repisasSuperior)
@@ -11686,7 +11712,7 @@ function modulePanel(m){
   if (isDoble(m) && !soloCamp(m)) html += section('Módulo superior', tiles('supTipo', [['SupPiston', 'Pistón'], ['SupPuerta', 'Una puerta'], ['SupPuertas', 'Dos puertas'], ['SupRepisas', 'Repisas']], 'Sup' + capLead(m).tipoSuperior).replace(/value="Sup/g, 'value="') + (capLead(m).tipoSuperior === 'Puerta' ? `<div style="margin-top:8px">${chk('supInv', !!capLead(m).bisagraDerechaSuperior, 'Invertir abatimiento')}</div>` : '')   /* A116: tambien con columnas unidas: va al primero del grupo */
     + `<div class="note-sm">Doble clic en el dibujo: alto, material y unir columnas.</div>` + avisoDoble(m) + `<button class="btn btn-block" style="margin-top:10px" data-act="editCap">Editar el módulo superior</button>`);
   if (m.tipo === 'Vacio') html += section('Vacío', `<div class="note-sm" style="margin-top:0">La columna queda sin alto. Sigue en el dibujo con su contorno punteado: elígela y cambia su función cuando quieras.</div>`);   /* A448 */
-  else if (m.tipo === 'Flotantes') html += section('Repisas sueltas', `<div class="grid-2">${num('repAlto', 'Repisas', Math.max(1, shelvesOf(m)), 'u', 1, 8, 1)}</div><div class="note-sm">Repisas al muro, sin laterales, techo, piso ni trasera, a todo el ancho de la columna y del fondo del alto; la de arriba al ras de los demás altos.</div>`);   /* A448 */
+  else if (m.tipo === 'Flotantes') html += section('Repisas sueltas', grupo('', `<div class="grid-2">${num('repAlto', 'Repisas', Math.max(1, shelvesOf(m)), 'u', 1, 8, 1)}</div><div class="note-sm">Repisas al muro, sin laterales, techo, piso ni trasera, a todo el ancho de la columna y del fondo del alto, repartidas desde el centro (una, al centro; dos, con el entrepaño centrado); detrás se ve el backsplash.</div>`) + espRepisasHTML(m));   /* A448; A452 */
   if (m.upper && !hasCampana(m) && !isDoble(m) && !sinMarco(m)) { const mx = maxShelves(bodyH(m), 1.8, GAP_ALTOS), n = shelvesOf(m), gap = ((bodyH(m) - 3.6) - n*1.8)/(n + 1);
     html += section('Repisas', `<div class="grid-2">${num('repAlto', 'Repisas del gabinete alto', n, 'u', 0, 12, 1)}</div>`
       + (n > mx ? `<div class="note-sm" style="color:#C2410C">Entre repisas quedan ${fmt(gap)}${uS()}: menos de los ${medida(25)} recomendados. Se generan igual.</div>`
@@ -12126,6 +12152,8 @@ const ACT = {
   soloCamp: (v, m) => change(() => byId(m.id).soloCampana = v, 'Revisar altura'),   /* A81 */
   campTipo: (v, m) => change(() => byId(m.id).campanaTipo = v), campRep: (v, m) => change(() => byId(m.id).campanaRepisa = v),   /* A437 */
   campIsla: (v, m) => change(() => byId(m.id).campanaIsla = v), campIslaW: (v, m) => change(() => byId(m.id).campanaIslaAncho = +v),   /* A438 */
+  espRepS: (v, m) => change(() => { byId(m.id).espesorRepisas = Math.abs(+v - PLAN_CUERPO.lateral) < .001 ? null : +v; }),   /* A452 */
+  espRepSV: (v, m) => change(() => { const e = Math.max(1, Math.min(6, +v)); byId(m.id).espesorRepisas = Math.abs(e - PLAN_CUERPO.lateral) < .001 ? null : e; }),
   campIslaAlto: (v, m) => change(() => { byId(m.id).campanaIslaAlto = Math.abs(v - CAMP_ISLA.alto) < .01 ? null : Math.max(CAMP_ISLA.altoMin, Math.min(CAMP_ISLA.altoMax, v)); }),   /* A448 */
   hueco: (v, m) => change(() => byId(m.id).huecoCampana = v, 'Revisar altura'), fCamp: (v, m) => change(() => byId(m.id).fondoCampana = v),
   mCamp: (v, m) => change(() => byId(m.id).mostrarCampana = v),
@@ -14520,9 +14548,9 @@ const LAM = (() => {
   }
 
   function isoEscena(o = {}){
-    const plan = o.plan || planCocina(), conPuertas = o.puertas !== false;
-    const caras = [{ piezas: plan.piezas, org: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], k: plan.caraRef || 0 }]   /* A398: k, el indice de la cara */
-      .concat((plan.caras || []).map((c, i) => ({ piezas: c.piezas, org: c.origen, ex: c.ejeX, ey: c.ejeY, k: c.indice ?? i + 1 })))
+    const plan = o.plan || planCocina(), conPuertas = o.puertas !== false, fan = q => o.fantasmas ? (q.fantasmas || []) : [];   /* A452: el vacio, solo en el editor */
+    const caras = [{ piezas: plan.piezas.concat(fan(plan)), org: [0, 0, 0], ex: [1, 0, 0], ey: [0, 1, 0], k: plan.caraRef || 0 }]   /* A398: k, el indice de la cara */
+      .concat((plan.caras || []).map((c, i) => ({ piezas: c.piezas.concat(fan(c)), org: c.origen, ex: c.ejeX, ey: c.ejeY, k: c.indice ?? i + 1 })))
       .concat((o.extraCaras || []).map(c => Object.assign({ extra: true }, c)));   /* A178: la isla combinada */
     const todas = caras.flatMap(c => c.piezas), abres = {};
     todas.forEach(p => { if (p.frente && p.abre) abres[p.frente] = p.abre; });
@@ -14731,6 +14759,7 @@ const LAM = (() => {
         tri.push({ t: 'zmalla', q, caras }); }
       else if (q.malla) { q.malla.forEach(c => { if (vpunto(c.n, V) <= 1e-6) return; const pr = c.pts.map(proy); cuenta(pr);
           tri.push({ t: 'cara', pr, k: .80 + .35 * Math.max(0, vpunto(c.n, luz)), q, holes: null, pat: patMalla(q, c) }); }); }
+      else if (q.p.fantasma) { const pr = q.hull.map(v => [v[0], v[1]]); cuenta(pr); tri.push({ t: 'fantasma', q, pr }); }   /* A452 */
       else if (!contiene.has(q)) { emitCaras(q); emitExtras(q); }
       if (q.deco) q.deco.forEach(d => { const pr = d.pts.map(proy); cuenta(pr); tri.push({ t: 'cara', pr, k: 1, q, color: d.color, holes: null }); });
       trasPuerta();
@@ -14861,6 +14890,10 @@ const LAM = (() => {
       if (t.t === 'alambre') { g.save(); g.lineCap = 'round'; g.strokeStyle = plano ? '#333333' : '#4F5962';
         [.45, 1].forEach(gr => { g.lineWidth = gr === 1 ? 1.1 : .65; g.beginPath(); t.segs.forEach(sg => { if (sg[2] !== gr) return; g.moveTo(X(sg[0][0]), Y(sg[0][1])); g.lineTo(X(sg[1][0]), Y(sg[1][1])); }); g.stroke(); });
         g.restore(); return; }
+      if (t.t === 'fantasma') { const pr = t.pr.map(p => [X(p[0]), Y(p[1])]);   /* A452: el vacio: contorno punteado y se elige como un modulo */
+        g.save(); g.setLineDash([4, 3]); g.strokeStyle = '#9AA3AB'; g.lineWidth = 1; g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke(); g.restore();
+        if (o.hits && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null, p: t.q.p, ci: t.q.ci, kc: t.q.kc });
+        return; }
       if (t.t === 'zmalla') { const tn = o.tinte ? o.tinte(t.q) : null, { cas, zm } = pintarZMalla(g, t, X, Y, plano, tn, sombra);   /* A436 */
         if (o.hits && cas && t.q && !t.q.extra) isoModHits.push({ pr: cas, zm, modulo: t.q.p.modulo || null, p: t.q.p, ci: t.q.ci, kc: t.q.kc });   /* A440: zm, su silueta */
         return; }
@@ -17622,7 +17655,7 @@ function drawIsometrico(){
   /* A364 (usuario 21/10: «se siente laggeado cuando arrastro un material a los elementos»): la escena se rehace solo si cambio la cocina,
      las puertas, lo abierto o las cotas; arrastrar, pasar el mouse o elegir reutilizan la ultima */
   const claveEsc = exporting ? null : [JSON.stringify(cfg), showDoors, measure, [...LAM.abiertos].sort().join(','), cfg.region].join('|');
-  try { esc = claveEsc && isoCache.clave === claveEsc ? isoCache.esc : LAM.isoEscena({ puertas: showDoors, cotas: measure }); if (claveEsc) isoCache = { clave: claveEsc, esc }; }
+  try { esc = claveEsc && isoCache.clave === claveEsc ? isoCache.esc : LAM.isoEscena({ puertas: showDoors, cotas: measure, fantasmas: true }); if (claveEsc) isoCache = { clave: claveEsc, esc }; }
   catch (e) { ctx.save(); ctx.font = "13px 'Inter'"; ctx.fillStyle = C.muted; ctx.fillText(e.message, 40, 130); ctx.restore(); return; }
   const L = 40, R = 40, T = 96, B = 66, w = esc.bb.x1 - esc.bb.x0, h = esc.bb.y1 - esc.bb.y0, aw = cssW - L - R - 30, ah = cssH - T - B - 30;
   const fit = Math.max(.05, Math.min(aw / w, ah / h)), zk = exporting ? 1 : isoZoom.k, s = fit*zk;
