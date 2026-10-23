@@ -365,6 +365,14 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A462. [Master hecho 23/10; SketchUp: piezas Peralte y Barra ya conocidas; Revit pendiente] (usuario 23/10) 1) «La barra elevada (area de vuelo
+       para bancos) le falta escalonamiento con la barra baja con pieza de cubierta como pasa con la isla»: con gabinetes, peninsula:barra:peralte
+       (de la cubierta a la barra, en el canto junto al panel posterior; material BarraPeralte). 2) «Solo si la peninsula no tiene gabinetes y esta
+       la barra elevada, lo que se eleva seria la barra en grapa; sin vuelo para bancos; hasta el backsplash»: la barra va del backsplash de la
+       cara principal (penMuroX) al extremo libre, a todo el fondo, con una pata contra el backsplash (de la cubierta a la barra) y la cascada al
+       piso; penVuelo es 0 en ese caso y el panel lo dice. 3) «La barra de la peninsula deberia tener posibilidad de un material independiente al
+       de la cubierta»: en el alzado de la peninsula la barra, su pata y su cascada son la parte 'raisedbar' (BarraElevada) y el peralte 'riser'
+       (BarraPeralte): se eligen y reciben material; su panel lo explica.
    A461. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «cuando cambio la peninsula de ancho y despues pongo la opcion de
        sin gabinetes el ancho asignado ya no se respeta»): sin gabinetes, los bajos de la peninsula quedan reservados y fondoCara los dejaba
        fuera (volvia al fondo de fabrica). Ahora en la peninsula sin gabinetes cuentan (fondoCara, penGabinetes): el ancho se conserva al activar
@@ -4444,7 +4452,12 @@ function setForma(c, v, largos = null){
    fases). La peninsula es la segunda cara de una cocina en L sin muro detras (cara.peninsula): el bajo del extremo pasa a ser el esquinero
    (e.penin: sin alto de esquina), la cara no lleva altos (todos reservados), backsplash ni potfiller; por fuera lleva el panel posterior
    (penPanel), la cubierta vuela penVuelo detras de el para los bancos y el extremo libre cierra con costado o con cascada (penCascada) */
-const penVuelo = (q = cfg) => Number.isFinite(q.penVuelo) && q.penVuelo >= 0 ? q.penVuelo : 0;   /* A388: de fabrica sin vuelo para bancos */
+const penVuelo = (q = cfg) => q.penSinGabinetes && q.penBarra ? 0 : Number.isFinite(q.penVuelo) && q.penVuelo >= 0 ? q.penVuelo : 0;   /* A388: de fabrica sin vuelo para bancos; A462: la barra en grapa (sin gabinetes) no lo lleva */
+/* A462 (usuario 23/10: «solo si la peninsula no tiene gabinetes y esta encendida la barra elevada, lo que se eleva unicamente seria la barra
+   en grapa; el vuelo para bancos no es necesario y la barra podria extenderse hasta el backsplash»): la barra en grapa va del backsplash de la
+   cara principal al extremo libre, a todo el fondo; una pata contra el backsplash baja a la cubierta y la cascada del extremo libre al piso.
+   penMuroX: la cara del backsplash (o del muro) en la x de la peninsula */
+const penMuroX = () => { const bsT = cfg.backsplash ? (cfg.espesorBacksplash || 0) : 0; return cfg.cara === 0 ? cfg.longitud - bsT : bsT; };
 /* A385 (usuario 21/10: «opcion de ponerla sin gabinetes (solo como barra y puede estar elevada)»): barra elevada (penBarra, a penBarraElev
    sobre la cubierta, del grueso de la cubierta) del lado de los bancos, sobre un peralte apoyado en la cubierta; la cubierta baja ya no vuela
    (el vuelo para bancos pasa a la barra) y el panel posterior sube hasta la barra. Sin gabinetes (penSinGabinetes): los bajos de la
@@ -6425,10 +6438,14 @@ function planDePiezas(c = cfg){
          Sin gabinetes: ese tramo angosto solo sobre el esquinero; fuera de el, la barra a todo el fondo y un remate sobre el canto de la cubierta */
       if (penBar && cfg.generarCubierta) {
         /* A389 (usuario 21/10: «la barra elevada solo se aplica en el vuelo para bancos»): del canto de los bancos al panel, sin peralte */
-        if (!penSG) caja('barra', 'Barra', pg.bx0, pg.bx1, -penSale, yB, zt - be, zt, mB);
-        if (penSG) { const [f0, f1] = libreIzq ? [pg.bx0, pg.ec0] : [pg.ec1, pg.bx1], r0 = libreIzq ? pg.ec0 : pg.ec1 - be;
+        if (!penSG) { caja('barra', 'Barra', pg.bx0, pg.bx1, -penSale, yB, zt - be, zt, mB);
+          /* A462 (usuario 23/10: «la barra elevada (area de vuelo para bancos) le falta escalonamiento con la barra baja con pieza de cubierta como
+             pasa con la isla»): el peralte, de la cubierta a la barra, en el canto de la cubierta junto al panel posterior */
+          const [q0, q1] = [Math.max(pg.bx0, penCasc && libreIzq ? wL : -Infinity), Math.min(pg.bx1, penCasc && !libreIzq ? W - wL : Infinity)];
+          if (q1 - q0 > 1) caja('barra:peralte', 'Peralte', q0, q1, yB, yB + be, zBar, zt - be, mP); }
+        if (penSG) { const xm = penMuroX(), [f0, f1] = libreIzq ? [pg.bx0, xm] : [xm, pg.bx1], r0 = libreIzq ? xm - be : xm;   /* A462: en grapa, hasta el backsplash */
           caja('barra:completa', 'Barra', f0, f1, -penSale, Dc, zt - be, zt, mB);
-          caja('barra:remate', 'Peralte', r0, r0 + be, yB, Dc, zBar, zt - be, mP); }
+          caja('barra:pata', 'Peralte', r0, r0 + be, -penSale, Dc, zBar, zt - be, mB); }
       }
       /* cascada del extremo libre: sin barra, del piso a la cubierta; con barra, la parte de la barra sube hasta ella (sin gabinetes, a todo el fondo) */
       if (penCasc && cfg.generarCubierta) { const x0 = libreIzq ? 0 : W - wL;
@@ -8486,11 +8503,16 @@ function drawElevation(){
   if (penA && cfg.penBarra) { const g = penGeo(), sg = !!cfg.penSinGabinetes;
     const p0 = cfg.penCascada && g.izq ? g.wL : 0, p1 = cfg.penCascada && !g.izq ? W - g.wL : W;
     const caja = (x0, x1, z0, z1, mat, col) => { if (x1 - x0 < .01) return; const r = RX(x0, x1, z0, z1); post.push(() => { fillMat(r.x, r.y, r.w, r.h, mat, col); outline(r, C.line, 1); }); };
-    if (!sg) caja(Math.max(g.bx0, p0), Math.min(g.bx1, p1), zBar, g.zt - g.be, cfg.materialGeneral, C.front);   /* A389: el panel posterior sube detras de la cubierta */
-    else { const r0 = g.izq ? g.ec0 : g.ec1 - g.be; caja(r0, r0 + g.be, zBar, g.zt - g.be, groupMaterial('BarraPeralte'), C.backsplash); }
-    if (cfg.penCascada) { const x0 = g.izq ? 0 : W - g.wL; caja(x0, x0 + g.wL, sg ? 0 : zBar, g.zt - g.be, groupMaterial('BarraElevada'), C.planCover); }
-    const [b0, b1] = sg ? (g.izq ? [g.bx0, g.ec0] : [g.ec1, g.bx1]) : [g.bx0, g.bx1];
-    caja(b0, b1, g.zt - g.be, g.zt, groupMaterial('BarraElevada'), C.planCover); }
+    /* A462: con gabinetes, el peralte de cubierta; sin gabinetes, la barra en grapa hasta el backsplash con su pata. La barra y el peralte se eligen
+       (partes 'raisedbar' y 'riser') y llevan su material (BarraElevada, BarraPeralte) */
+    const parte = (x0, x1, z0, z1, mat, col, key) => { if (x1 - x0 < .01) return; const r = RX(x0, x1, z0, z1); partHits.push({ rect: r, key, active: true });
+      post.push(() => { fillMat(r.x, r.y, r.w, r.h, mat, col); outline(r, C.line, 1); if (selectedPart === 'raisedbar' || selectedPart === key) outline(r, C.select, 2); }); };
+    const xm = penMuroX();
+    if (!sg) parte(Math.max(g.bx0, p0), Math.min(g.bx1, p1), zBar, g.zt - g.be, groupMaterial('BarraPeralte'), C.backsplash, 'riser');
+    else { const r0 = g.izq ? xm - g.be : xm; parte(r0, r0 + g.be, zBar, g.zt - g.be, groupMaterial('BarraElevada'), C.planCover, 'raisedbar'); }
+    if (cfg.penCascada) { const x0 = g.izq ? 0 : W - g.wL; parte(x0, x0 + g.wL, sg ? 0 : zBar, g.zt - g.be, groupMaterial('BarraElevada'), C.planCover, 'raisedbar'); }
+    const [b0, b1] = sg ? (g.izq ? [g.bx0, xm] : [xm, g.bx1]) : [g.bx0, g.bx1];
+    parte(b0, b1, g.zt - g.be, g.zt, groupMaterial('BarraElevada'), C.planCover, 'raisedbar'); }
   /* tapeta superior bajo el techo, a todo el largo de los altos */
   /* A214 (usuario): la moldura se ve en el alzado: sus cambios de plano como lineas y los cierres de extremo */
   const tapetaTopPaint = r => { tapetaPaint(r);
@@ -8619,7 +8641,8 @@ function drawPenPosterior(y0, s0){
       px = x1; }); }
   const losa = (x0, x1, z0, z1, mat) => { const r = RX(x0, x1, z0, z1); fillMat(r.x, r.y, r.w, r.h, mat, C.cubierta); outline(r, C.line, 1); };
   if (cfg.generarCubierta) {
-    if (bar) { const [b0, b1] = sg ? (g.izq ? [g.bx0, g.ec0] : [g.ec1, g.bx1]) : [g.bx0, g.bx1]; losa(b0, b1, g.zt - g.be, g.zt, groupMaterial('BarraElevada')); }
+    if (bar) { const xm = penMuroX(), [b0, b1] = sg ? (g.izq ? [g.bx0, xm] : [xm, g.bx1]) : [g.bx0, g.bx1]; losa(b0, b1, g.zt - g.be, g.zt, groupMaterial('BarraElevada'));   /* A462 */
+      if (sg) { const r0 = g.izq ? xm - g.be : xm; losa(r0, r0 + g.be, zBar, g.zt - g.be, groupMaterial('BarraElevada')); } }
     else losa(g.izq ? (casc ? wL : -vueloLat()) : 0, g.izq ? W : casc ? W - wL : W + vueloLat(), zBar - (cfg.penNariz > 0 ? Math.max(cfg.penNariz, pq) : pq), zBar, groupMaterial('Cubierta'));   /* A398 */
     if (casc) { const x0 = g.izq ? 0 : W - wL; losa(x0, x0 + wL, 0, bar ? g.zt - g.be : zBar, groupMaterial(bar ? 'BarraElevada' : 'Cubierta')); } }
   proyCaraPrincipal(X, Z);   /* A459 */
@@ -11784,7 +11807,7 @@ function penPanelHTML(){
   if (cfg.cara !== kP) return section('Península', `<div class="note-sm">Sus opciones están en la pestaña «Península» o con un clic en ella en el isométrico.</div>` + quitar);
   return section('Península', (view !== 'Alzado' ? `<button class="btn btn-sm btn-block" data-act="penVer" style="margin-bottom:10px">Ver frente y posterior</button>` : '')   /* A386; A389: el alzado ya es doble */
     + `<div class="grid-2">${num('penLargo', 'Largo desde el frente', penLargoLibre(), 'cm', 20, 400)}${num('penAncho', 'Ancho de la península', penAnchoDe(cfg), 'cm', Math.round(penAnchoRango(cfg)[0]*10)/10, Math.round(penAnchoRango(cfg)[1]*10)/10)}</div>`   /* A389; A398: su ancho; A444: el fondo de sus gabinetes */
-    + `<div class="grid-2" style="margin-top:6px">${num('penVuelo', 'Vuelo para bancos', penVuelo(), 'cm', 0, 60)}${num('penNariz', 'Alto de su nariz', cfg.penNariz > 0 ? cfg.penNariz : paquete(), 'cm', cfg.espesorCubierta, 15)}</div>`   /* A398: su nariz */
+    + `<div class="grid-2" style="margin-top:6px">${cfg.penSinGabinetes && cfg.penBarra ? `<div class="note-sm" style="margin:0">Barra en grapa: sin vuelo para bancos.</div>` : num('penVuelo', 'Vuelo para bancos', penVuelo(), 'cm', 0, 60)}${num('penNariz', 'Alto de su nariz', cfg.penNariz > 0 ? cfg.penNariz : paquete(), 'cm', cfg.espesorCubierta, 15)}</div>`   /* A398: su nariz */
     + chk('penCasc', !!cfg.penCascada, 'Cascada en el extremo libre')
     + chk('penBarra', !!cfg.penBarra, 'Barra elevada') + (cfg.penBarra ? `<div class="grid-2" style="margin-top:6px">${num('penBarraElev', 'Elevación sobre la cubierta', penElev(), 'cm', 5, 40)}</div><div class="note-sm">El vuelo para bancos pasa a la barra y el panel posterior sube hasta ella.</div>` : '')   /* A385 */
     + chk('penSinGab', !!cfg.penSinGabinetes, 'Sin gabinetes (solo barra)') + (cfg.penSinGabinetes ? `<div class="note-sm">Los gabinetes y los paneles posteriores no se construyen; el esquinero queda ciego del lado de la cara del muro, sin piezas de ajuste, y el extremo libre lleva cascada.</div>` : '')
@@ -12028,6 +12051,10 @@ function islaPartPanel(key){
   if (key === 'wall') return head('Isla y colocación', null) + section('Medidas', num('piso', 'Piso respecto al nivel', cfg.desfasePiso, 'cm', -300, 300))
     + section('', `<div class="note-sm" style="margin-top:0">Elige una pieza en el dibujo. La cara posterior se edita en la vista Posterior.</div>`);
   if (key === 'cascada') return head('Cascadas de cubierta', null) + section('Cascadas', chk('cascI', cfg.cascadaIzq, 'Cascada izquierda hasta el piso') + chk('cascD', cfg.cascadaDer, 'Cascada derecha hasta el piso') + cascNote(true)) + back;
+  if ((key === 'raisedbar' || key === 'riser') && multiCara() && cfg.peninsula) return head('Barra elevada', 'Península')   /* A462 */
+    + section('Barra', `<div class="grid-2">${num('penBarraElev', 'Elevación sobre la cubierta', penElev(), 'cm', 5, 40)}</div>`
+      + `<div class="note-sm">${cfg.penSinGabinetes ? 'Sin gabinetes, la barra va en grapa: del backsplash de la cara principal al extremo libre, a todo el fondo, con una pata contra el backsplash y la cascada al piso; no lleva vuelo para bancos.' : 'Sobre el vuelo para bancos; entre la cubierta y la barra, el peralte de cubierta.'}</div>`)
+    + section('Material', `<div class="note-sm" style="margin-top:0">La barra y su ${cfg.penSinGabinetes ? 'pata' : 'peralte'} llevan material propio, independiente de la cubierta: arrastra uno de la biblioteca (pestaña Materiales) sobre ${cfg.penSinGabinetes ? 'ella' : 'la barra o el peralte'} en el alzado.</div>`);
   if (key === 'raisedbar') return head('Barra elevada', null)
     + section('Medidas', `<div class="grid-2">${num('barraAncho', 'Ancho', cfg.islaBarraAncho, 'cm', 5, 250)}${num('barraElev', 'Elevación sobre la cubierta', cfg.islaBarraElevacion, 'cm', 5, 40)}${num('barraEsp', 'Espesor (losa, peralte y cascada)', cfg.islaBarraEspesor, 'cm', 1, 10)}</div>`)
     + section('Vuelos laterales', `<div class="grid-2">${num('barraVI', 'Izquierdo', cfg.islaBarraVueloIzq, 'cm', 0, 30)}${num('barraVD', 'Derecho', cfg.islaBarraVueloDer, 'cm', 0, 30)}</div><div class="note-sm">0 = a paño de la cascada (o del canto de la cubierta); más, la saca por fuera. Lados del alzado frontal.</div>`)
@@ -12129,6 +12156,7 @@ function partPanel(key){
   if (/^door(filler|top|cap)?:/.test(key)) return doorPanel(key);
   if (key.startsWith('backpanel:')) return backPanelHtml(key.slice(10));
   if (key.startsWith('penpanel:')) return penPanelPartHtml(key.slice(9));   /* A386 */
+  if ((key === 'raisedbar' || key === 'riser') && multiCara() && cfg.peninsula) return islaPartPanel('raisedbar');   /* A462: la barra de la peninsula (su rama esta al inicio de islaPartPanel) */
   if (EQUIPOS.test(key)) return equipPanel(key);
   if (cfg.isla && (key === 'wall' || key === 'cascada' || key === 'raisedbar' || key === 'cover' || key === 'sink' || key === 'tap')) { const ih = islaPartPanel(key); if (ih) return ih; }
   const T = { wall: 'Muro y colocación', cover: 'Cubierta', sink: 'Tarja', tap: 'Tarja',   /* A90: la cubierta se titula solo «Cubierta» */ plinth: 'Zoclos', backsplash: 'Backsplash', fillerI: 'Pieza de ajuste izquierda', fillerD: 'Pieza de ajuste derecha', fillerTop: 'Pieza de ajuste superior', gola: 'Franja gola' };
