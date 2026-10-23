@@ -365,6 +365,9 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A451. [Master hecho 23/10; SketchUp y Revit: sin cambio (solo cambia el contenido del .csv)] (usuario 23/10: «especificar dependiendo del tipo: laterales para recibir gola, cubierta para recibir tarja»): la columna Notas del CSV dice la causa del recorte y su medida: lateral con rebaje en el
+       frente = «Recorte para recibir la gola 26 x 57 mm (esquina frontal superior)»; cubierta con huecos = «Recorte para tarja 560 x 480 mm + recorte para parrilla ...» (el hueco se asocia a la tarja o parrilla cuyo centro cae dentro);
+       un rebaje en otro lugar = «Rebaje ... (esquina trasera inferior)» sin afirmar la causa; otra forma = «Forma especial: medida de la caja envolvente». csvRebaje(forma), csvNota(). Ingles con el vocabulario English.
    A450. [Master hecho 23/10; SketchUp y Revit: sin cambio (solo cambia el contenido del .csv que el master entrega)] (usuario 23/10: «la nomenclatura de salida del CSV debe ser legible y convencional, que se entienda en diferentes regiones y se adapte»): el CSV de A449
        lleva ahora una columna CODIGO estable (LATERAL, PISO, TRASERA, PUERTA, FRENTE_CAJON, ZOCLO_FRENTE, CUBIERTA...; no cambia con la region) y otra con el nombre segun el vocabulario elegido (Mexico, Colombia y
        Ecuador, English US; el de Colombia y Ecuador esta POR CONFIRMAR con talleres de esos paises), la unidad (mm, cm, in; EE. UU. arranca en in) y el formato de Excel. «Editar nombres…» deja que cada taller
@@ -17687,6 +17690,31 @@ const csvCodigo = q => (csvEntrada(q) || [])[2] || [q.rol, q.tipo].filter(Boolea
 const csvNombreBase = (q, vocab) => { const e = csvEntrada(q); return e ? e[vocab === 'en' ? 5 : vocab === 'co' ? 4 : 3] : [q.rol, q.tipo].filter(Boolean).join(' '); };
 /* sin comas ni punto y coma en el nombre: el archivo no depende de las comillas */
 const csvNombre = (q, vocab) => String((prefs.csvNombres || {})[csvCodigo(q)] || csvNombreBase(q, vocab)).replace(/[,;"]/g, '').trim();
+/* Nota de una pieza que no es un rectangulo (AA451): dice la CAUSA del recorte y su medida; la lista de corte da el rectangulo y el recorte es una operacion aparte.
+   Lateral con rebaje en una esquina del frente: recorte para recibir la gola. Cubierta con huecos: recorte para la tarja o la parrilla que cae dentro (la medida del hueco).
+   Un rebaje en otro lugar, o una forma que no se reconoce: solo la medida (rebaje) o «forma especial: caja envolvente». Sin comas ni punto y coma: no depende de las comillas */
+function csvRebaje(forma){
+  if (!forma || forma.tipo !== 'perfil' || forma.eje !== 'x' || !Array.isArray(forma.puntos) || forma.puntos.length !== 6) return null;
+  const P = forma.puntos, xs = P.map(q => q[0]), ys = P.map(q => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), eq = (a, b) => Math.abs(a - b) < .005;
+  const falta = [[x0, y0], [x0, y1], [x1, y0], [x1, y1]].filter(c => !P.some(q => eq(q[0], c[0]) && eq(q[1], c[1])));
+  if (falta.length !== 1) return null;
+  const c = falta[0], r = P.find(q => !eq(q[0], x0) && !eq(q[0], x1) && !eq(q[1], y0) && !eq(q[1], y1)); if (!r) return null;
+  return { ancho: Math.abs(c[0] - r[0]) * 10, alto: Math.abs(c[1] - r[1]) * 10, frente: eq(c[0], x1), arriba: eq(c[1], y1) };   /* el eje x del perfil son (fondo, alto): el frente es el fondo mayor */
+}
+function csvNota(q, todas, en, num, uni){
+  const medida = (a, b) => `${num(a)} × ${num(b)} ${uni}`, T = en
+    ? { gola: 'Notch to receive the gola channel', reb: 'Notch', fr: 'front', tr: 'back', sup: 'top', inf: 'bottom', esq: 'corner', rec: 'Cut-out for', rec0: 'Cut-out', tarja: 'sink', parrilla: 'cooktop', forma: 'Special shape: bounding-box size' }
+    : { gola: 'Recorte para recibir la gola', reb: 'Rebaje', fr: 'frontal', tr: 'trasera', sup: 'superior', inf: 'inferior', esq: 'esquina', rec: 'Recorte para', rec0: 'Recorte', tarja: 'tarja', parrilla: 'parrilla', forma: 'Forma especial: medida de la caja envolvente' };
+  const esquina = r => en ? `${r.frente ? T.fr : T.tr} ${r.arriba ? T.sup : T.inf} ${T.esq}` : `${T.esq} ${r.frente ? T.fr : T.tr} ${r.arriba ? T.sup : T.inf}`;
+  const huecos = [].concat(q.hueco || [], q.huecos || []);
+  if (q.rol === 'cubierta' && huecos.length) return huecos.map(h => {
+    const eq = (todas || []).find(e => e.rol === 'equipo' && (e.tipo === 'Tarja' || e.tipo === 'Parrilla') && [0, 1].some(rel => { const cx = e.x + e.ancho / 2, cy = e.y + e.fondo / 2, hx = (rel ? q.x : 0) + h.x, hy = (rel ? q.y : 0) + h.y;
+      return cx >= hx - 2 && cx <= hx + h.ancho + 2 && cy >= hy - 2 && cy <= hy + h.fondo + 2; }));
+    return eq ? `${T.rec} ${eq.tipo === 'Tarja' ? T.tarja : T.parrilla} ${medida(h.ancho * 10, h.fondo * 10)}` : `${T.rec0} ${medida(h.ancho * 10, h.fondo * 10)}`; }).join(' + ');
+  const r = q.rol === 'panel' && q.tipo === 'Lateral' ? csvRebaje(q.forma) : null;
+  if (r) return r.frente ? `${T.gola} ${medida(r.ancho, r.alto)} (${esquina(r)})` : `${T.reb} ${medida(r.ancho, r.alto)} (${esquina(r)})`;
+  return q.forma || huecos.length ? T.forma : '';
+}
 function csvPiezas(plan, opc = {}){
   const fmt = opc.fmt === 'es' ? 'es' : 'mx', vocab = ['mx', 'co', 'en'].includes(opc.vocab) ? opc.vocab : 'mx', uni = ['mm', 'cm', 'in'].includes(opc.unidad) ? opc.unidad : 'mm', en = vocab === 'en';
   const sep = fmt === 'es' ? ';' : ',', r1 = v => Math.round(v * 10) / 10, k = uni === 'in' ? 1 / 25.4 : uni === 'cm' ? .1 : 1, dec = uni === 'in' ? 1000 : uni === 'cm' ? 100 : 10;
@@ -17698,14 +17726,13 @@ function csvPiezas(plan, opc = {}){
   const todas = (plan.piezas || []).concat(...(plan.caras || []).map(c => c.piezas || [])), grupos = new Map();
   todas.filter(q => !CSV_SIN_TABLERO.includes(q.rol)).forEach(q => {
     const d = [q.ancho, q.fondo, q.alto].map(v => r1(v * 10)).sort((a, b) => b - a); if (!(d[2] > 0)) return;
-    const id = q.material || predeterminadoDe(q), mat = en && CSV_MAT_EN[id] ? CSV_MAT_EN[id] : mats.get(id) || (PREDETERMINADOS[id] && PREDETERMINADOS[id].nombre) || id || (en ? 'No material' : 'Sin material'), forma = !!(q.forma || q.hueco || q.huecos);
-    const cod = csvCodigo(q), nombre = csvNombre(q, vocab), kk = [cod, nombre, d.join('x'), mat, forma].join('|'), g = grupos.get(kk) || { cod, nombre, d, mat, forma, n: 0, mods: new Set() };
+    const id = q.material || predeterminadoDe(q), mat = en && CSV_MAT_EN[id] ? CSV_MAT_EN[id] : mats.get(id) || (PREDETERMINADOS[id] && PREDETERMINADOS[id].nombre) || id || (en ? 'No material' : 'Sin material'), nota = csvNota(q, todas, en, num, uni);
+    const cod = csvCodigo(q), nombre = csvNombre(q, vocab), kk = [cod, nombre, d.join('x'), mat, nota].join('|'), g = grupos.get(kk) || { cod, nombre, d, mat, nota, n: 0, mods: new Set() };
     g.n++; if (q.modulo && mods.has(q.modulo)) g.mods.add(mods.get(q.modulo)); grupos.set(kk, g); });
   const filas = [...grupos.values()].sort((a, b) => a.nombre.localeCompare(b.nombre, en ? 'en' : 'es') || b.d[0] - a.d[0] || b.d[1] - a.d[1]);
   const cab = en ? ['Code', 'Part', 'Qty', `Length (${uni})`, `Width (${uni})`, `Thickness (${uni})`, 'Material', 'Modules', 'Notes'] : ['Código', 'Pieza', 'Cantidad', `Largo (${uni})`, `Ancho (${uni})`, `Espesor (${uni})`, 'Material', 'Módulos', 'Notas'];
-  const aviso = en ? 'Shaped or with cut-outs: bounding-box size' : 'Con forma o huecos: medida de la caja envolvente';
   const lista = [cab].concat(filas.map(g => { const m = [...g.mods];
-    return [g.cod, g.nombre, g.n, num(g.d[0]), num(g.d[1]), num(g.d[2]), g.mat, m.length > 6 ? m.slice(0, 6).join(' / ') + ' / …' : m.join(' / '), g.forma ? aviso : '']; }));
+    return [g.cod, g.nombre, g.n, num(g.d[0]), num(g.d[1]), num(g.d[2]), g.mat, m.length > 6 ? m.slice(0, 6).join(' / ') + ' / …' : m.join(' / '), g.nota]; }));
   return '﻿' + lista.map(f => f.map(celda).join(sep)).join('\r\n') + '\r\n';
 }
 function csvArchivo(prefijo, sello, opc){
@@ -17743,6 +17770,17 @@ function pruebasCsv(){
     const cod = f => csvPiezas(pl, f).split('\r\n').slice(1).map(l => l.split(',')[0]).sort().join('|');
     ok(cod({ vocab: 'mx' }) === cod({ vocab: 'en' }) && cod({ vocab: 'mx' }) === cod({ vocab: 'co' }), 'el código cambia con el vocabulario');
     ok(csvPiezas(pl, { vocab: 'en' }).includes('Side panel') && csvPiezas(pl, { vocab: 'mx' }).includes('Lateral'), 'el vocabulario no cambia los nombres');
+    /* AA451: notas por causa del recorte */
+    const lat = { id: 'x:lat', rol: 'panel', tipo: 'Lateral', modulo: null, x: 0, y: 0, z: 0, ancho: 1.8, fondo: 59.7, alto: 77, material: null, forma: { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [59.7, 0], [59.7, 71.3], [57.1, 71.3], [57.1, 77], [0, 77]] } };
+    const cub = { id: 'cubierta:0', rol: 'cubierta', tipo: 'Losa', x: 0, y: 0, z: 87, ancho: 300, fondo: 62, alto: 3, material: null, huecos: [{ x: 10, y: 6, ancho: 56, fondo: 48 }, { x: 150, y: 6, ancho: 56, fondo: 48 }] };
+    const tarja = { id: 'a:tarja', rol: 'equipo', tipo: 'Tarja', x: 8, y: 4, z: 85, ancho: 60, fondo: 52 }, parr = { id: 'a:parrilla', rol: 'equipo', tipo: 'Parrilla', x: 148, y: 4, z: 85, ancho: 60, fondo: 52 };
+    const trasero = Object.assign({}, lat, { id: 'x:lat2', forma: { tipo: 'perfil', eje: 'x', puntos: [[0, 0], [59.7, 0], [59.7, 77], [2.6, 77], [2.6, 71.3], [0, 71.3]] } });
+    const sint = csvPiezas({ piezas: [lat, trasero, cub, tarja, parr], materiales: [] }, { vocab: 'mx' }), sinten = csvPiezas({ piezas: [lat, cub, tarja, parr], materiales: [] }, { vocab: 'en', unidad: 'in' });
+    ok(/Recorte para recibir la gola 26 × 57 mm \(esquina frontal superior\)/.test(sint), 'la nota de la gola no sale con su medida y su esquina');
+    ok(/Rebaje 26 × 57 mm \(esquina trasera superior\)/.test(sint), 'un rebaje trasero no se describe solo con su medida');
+    ok(sint.includes('Recorte para tarja 560 × 480 mm + Recorte para parrilla 560 × 480 mm'), 'la nota de la cubierta no dice tarja y parrilla');
+    ok(/Notch to receive the gola channel/.test(sinten) && /Cut-out for sink/.test(sinten) && /Cut-out for cooktop/.test(sinten), 'la nota en ingles no sale');
+    ok(sint.split('\r\n').slice(1, -1).every(l => l.split(',').length === 9) && sinten.split('\r\n').slice(1, -1).every(l => l.split(',').length === 9), 'una nota trae coma y descuadra las columnas');
     prefs.csvNombres = { LATERAL: 'Costado' }; const t2 = csvPiezas(pl, {}); ok(t2.includes('LATERAL,Costado,') && !t2.includes('LATERAL,Lateral,'), 'el nombre editado no se aplica'); delete prefs.csvNombres;
     ok(csvPiezas(pl, { fmt: 'es' }).includes(';') && !csvPiezas(pl, { fmt: 'mx' }).split('\r\n')[0].includes(';'), 'los separadores de los dos formatos no coinciden');
   } finally { if (previo) prefs.csvNombres = previo; else delete prefs.csvNombres; }
