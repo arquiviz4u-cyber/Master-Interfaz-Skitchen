@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A454. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «si, quitala tambien en ese caso [la pieza de ajuste lateral
+       de los altos junto al vacio o las repisas del borde]; y cuando haya repisas en los bordes la tapeta superior deja de existir, a menos que se
+       coloque una de piso a techo para todos los casos») 1) Sin pieza de ajuste lateral del alto junto a la campana sola, el vacio o las repisas
+       sueltas del extremo (altoSinCaja), en el plan y en el alzado. 2) Con el lateral piso a techo de ese lado, la tapeta superior sigue sobre la
+       campana, el vacio o las repisas del borde hasta el lateral; sin el, no hay tapeta sobre ellos (A453). La campana sola entre gabinetes
+       sigue sin tapeta (A283). 3) «Que el desfase se modifique con un slider, mas comodo y fluido»: deslizador junto al campo; mueve el dibujo
+       en vivo y al soltarlo queda un solo paso de deshacer.
    A453. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10) 1) «Las repisas y los vacios no se pueden seleccionar en alzado»:
        el backsplash que sube detras (A452) ganaba el clic; la columna sin caja va primero (prio) en el alzado y, en el isometrico, el vacio y
        las repisas sueltas llevan su caja de seleccion (la de repisas, invisible). 2) «Las repisas no se actualizan en isometrico cuando se
@@ -4557,6 +4564,9 @@ const espRepisasHTML = m => { const e = espRepisasSueltas(m), cur = ESP_REPISAS.
   return grupo('Espesor', radios('espRepS', ESP_REPISAS.map(v => [String(v), medida(v)]), cur ? String(cur) : '')
     + `<div class="grid-2" style="margin-top:8px">${num('espRepSV', 'Otro espesor', e, 'cm', 1, 6, .1)}</div>`)
     + grupo('Distribución', `<div class="grid-2">${n > 1 ? num('entRepS', 'Entrepaño (libre)', rd(gap), 'cm', 5, rd(Math.max(5, (H - n*e)/(n - 1)))) : ''}${num('desRepS', 'Desfase vertical', rd(des), 'cm', -rd(H/2), rd(H/2), .5)}</div>`   /* A453 */
+      /* A454 (usuario 23/10: «que el desfase se modifique con un slider para que sea mas comodo y fluido el ajuste»): mientras se arrastra se
+         mueve el dibujo (sin redibujar el panel); al soltar queda un paso de deshacer */
+      + `<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="range" data-act="desRepS" data-vivo="desfase" min="${-rd(H/2)}" max="${rd(H/2)}" step="0.5" value="${rd(des)}" aria-label="Desfase vertical" style="flex:1"><span class="vivo" style="flex:none;width:58px;text-align:right;font-size:12px">${fmt(rd(des))}${uS()}</span></div>`
       + `<div class="note-sm">El juego de repisas va centrado en el alto; el desfase lo sube (+) o lo baja (−) sin salirse.${n > 1 ? ' El entrepaño es el espacio libre entre una repisa y la siguiente.' : ''}</div>`
       + (m.entrepanoRepisas > 0 || des ? `<button type="button" class="btn btn-sm" data-act="repSParejo" style="margin-top:6px">Repartir parejo y centrar</button>` : '')); };
 const campIslaAlto = m => m && m.campanaIslaAlto > 0 ? Math.max(CAMP_ISLA.altoMin, Math.min(CAMP_ISLA.altoMax, m.campanaIslaAlto)) : CAMP_ISLA.alto;
@@ -4631,9 +4641,16 @@ const altoRepisasSueltas = m => [baseAltos() + huecoAlto(m), baseAltos() + bodyH
 /* A453 (usuario 23/10: «si la campana, vacio y repisas en borde, desaparece la tapeta superior»): sin tapeta superior sobre la campana sola
    (A283, en cualquier lugar) y sobre el alto vacio o de repisas sueltas en el borde de la fila (los que llegan al extremo sin otro alto en
    medio); entre dos gabinetes la tapeta sigue */
-const altosSinTapetaSup = (highs = row(true)) => { const out = new Set(highs.filter(u => !u.reserved && soloCamp(u))), sinCaja = u => !u.reserved && (soloCamp(u) || u.tipo === 'Flotantes' || u.tipo === 'Vacio');
-  for (let i = 0; i < highs.length && sinCaja(highs[i]); i++) out.add(highs[i]);
-  for (let i = highs.length - 1; i >= 0 && sinCaja(highs[i]); i--) out.add(highs[i]);
+/* A454 (usuario 23/10: «cuando haya repisas en los bordes la tapeta superior deja de existir, a menos que se coloque una de piso a techo, para
+   todos los casos»): con el lateral piso a techo (corridaIzq / corridaDer) de ese lado, la tapeta superior sigue sobre la campana, el vacio
+   o las repisas del borde hasta el lateral */
+const altoSinCaja = u => !!u && !u.reserved && (soloCamp(u) || u.tipo === 'Flotantes' || u.tipo === 'Vacio');
+const altosSinTapetaSup = (highs = row(true)) => { const out = new Set(), n = highs.length; let i0 = 0, i1 = n - 1;
+  while (i0 < n && altoSinCaja(highs[i0])) i0++;
+  while (i1 >= 0 && altoSinCaja(highs[i1])) i1--;
+  highs.forEach((u, i) => { const bI = i < i0, bD = i > i1;
+    if (bI || bD) { if (bI && !cfg.corridaIzq || bD && !cfg.corridaDer) out.add(u); }
+    else if (!u.reserved && soloCamp(u)) out.add(u); });   /* A283: la campana sola entre gabinetes, siempre sin tapeta */
   return out; };
 const columnasSinTapetaSup = () => { const r = [], sin = altosSinTapetaSup(); let x = ajusteIzq(); row(true).forEach(m => { if (sin.has(m)) { if (r.length && Math.abs(r[r.length - 1][1] - x) < .01) r[r.length - 1][1] = x + m.ancho; else r.push([x, x + m.ancho]); } x += m.ancho; }); return r; };
 const subidasBacksplash = () => { const r = []; let x = ajusteIzq();
@@ -6395,7 +6412,7 @@ function planDePiezas(c = cfg){
       if (left ? cfg.corridaIzq : cfg.corridaDer) { pieza('', 0, cfg.alturaMuro, Math.max(dBajo, dAlto)); return; }
       const lo = lows.length ? lows[left ? 0 : lows.length - 1] : null, hi = highs.length ? highs[left ? 0 : highs.length - 1] : null;
       if (lo) { const [z0, z1] = isSpecial(lo) ? [0, topeEspecial(lo)] : cortaZoclo(lo) ? [0, zBar - pq] : [zb, zBar - pq]; pieza(':bajo', z0, z1, dBajo); }
-      if (hi && !hi.reserved && !soloCamp(hi)) pieza(':alto', zBA, zTop, dAlto);   /* A283 */
+      if (hi && !hi.reserved && !altoSinCaja(hi)) pieza(':alto', zBA, zTop, dAlto);   /* A283; A454 (usuario 23/10): ni junto al vacio o las repisas sueltas del extremo */
     });
     /* puertas ocultas (drawHiddenDoors / hdFronts): fuera de la cota del muro. Hoja de piso a techo con su zoclo pegado (o desde
        el piso), juntas aplicadas al frente, jaladera a 100 cm junto al canto libre, gabinete de piston opcional y tapetas lateral
@@ -8384,7 +8401,7 @@ function drawElevation(){
   const sideRows = left => {
     if (left ? cfg.corridaIzq : cfg.corridaDer) return [[0, cfg.alturaMuro]];
     const lo = lows.length ? lows[left ? 0 : lows.length - 1] : null, hi = highs.length ? highs[left ? 0 : highs.length - 1] : null;
-    return [lo && isSpecial(lo) ? [0, topeEspecial(lo)] : lo && cortaZoclo(lo) ? [0, zBar - paquete()] : [zb, zBar - paquete()]].concat(hi && !hi.reserved && !soloCamp(hi) ? [[zBA, zTop]] : []);   /* A283 */
+    return [lo && isSpecial(lo) ? [0, topeEspecial(lo)] : lo && cortaZoclo(lo) ? [0, zBar - paquete()] : [zb, zBar - paquete()]].concat(hi && !hi.reserved && !altoSinCaja(hi) ? [[zBA, zTop]] : []);   /* A283; A454 */
   };
   const tapetaPaint = r => { fillMat(r.x, r.y, r.w, r.h, groupMaterial('Tapetas'), C.tapeta); outline(r, C.line, 1); };
   part('fillerI', cfg.tapetaIzq, sideRows(true).map(([a, b]) => RX(0, cfg.tapetaIzq ? ajusteIzq() : 3, a, b)), tapetaPaint, post);
@@ -12374,6 +12391,7 @@ function onSideAction(e){
   const el = e.target.closest('[data-act]'); if (!el) return;
   const isBtn = el.tagName === 'BUTTON'; if (isBtn !== (e.type === 'click')) return;
   const act = ACT[el.dataset.act]; if (!act) return;
+  if (el.dataset.vivo === 'desfase' && el.dataset.orig !== undefined && selection.size === 1) { const m0 = byId([...selection][0]); if (m0) m0.desfaseRepisas = +el.dataset.orig; delete el.dataset.orig; }   /* A454: el deshacer vuelve al de antes de arrastrar */
   let v = el.type === 'checkbox' ? el.checked : el.dataset.len ? parseLen(el.value) : el.type === 'number' ? parseFloat(el.value) : el.value;
   if ((el.dataset.len || el.type === 'number') && isNaN(v)) { render(); return; }
   if (el.dataset.len && el.dataset.min !== undefined) v = Math.max(+el.dataset.min, Math.min(+el.dataset.max, v));   /* limites en cm */
@@ -12389,6 +12407,10 @@ function multiAplica(act, v){
   finally { selection = new Set(ids.filter(id => byId(id))); undoStack.length = Math.min(undoStack.length, n0); if (JSON.stringify(cfg) !== before) { undoStack.push(before); redoStack = []; } render(); }
 }
 side.addEventListener('change', onSideAction);
+/* A454: deslizador del desfase de las repisas sueltas: en vivo sobre el dibujo; onSideAction lo deja como un cambio (con su deshacer) al soltar */
+side.addEventListener('input', e => { const el = e.target; if (!el.dataset || el.dataset.vivo !== 'desfase' || selection.size !== 1) return; const m = byId([...selection][0]); if (!m) return;
+  if (el.dataset.orig === undefined) el.dataset.orig = String(Number.isFinite(m.desfaseRepisas) ? m.desfaseRepisas : 0);
+  m.desfaseRepisas = +el.value; const lb = el.parentElement.querySelector('.vivo'); if (lb) lb.textContent = fmt(+el.value) + uS(); drawCanvas(); });
 side.addEventListener('click', onSideAction);
 side.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.type === 'number' || e.target.dataset.len)) { e.preventDefault(); e.target.blur(); } });
 
