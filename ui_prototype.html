@@ -365,6 +365,9 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A456. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «el slider de desfase vertical debe quedar unificado con la
+       casilla numerica de desfase; de primera instancia no se sabe a que pertenece el slider») Un solo control «Desfase vertical»: el
+       deslizador y su casilla en la misma linea bajo el titulo; al arrastrar, la casilla muestra el valor; al escribir, el deslizador se acomoda.
    A455. [Master hecho 23/10; SketchUp: sin cambio (piezas Cierre ya conocidas); Revit pendiente] (usuario 23/10) 1) «Ctrl+C para copiar seleccion
        en editor (alzado e isometrico) y Ctrl+V para reemplazar en el nuevo modulo seleccionado, manteniendo exactamente la misma configuracion»:
        copiarModulos / pegarModulos (todo salvo id, fila, esquina, reserva y uniones con vecinos; uno a todos o uno a uno; misma fila; sin
@@ -4570,10 +4573,14 @@ const espRepisasHTML = m => { const e = espRepisasSueltas(m), cur = ESP_REPISAS.
   const n = Math.max(1, Math.round(m.repisas) || 1), gap = entrepanoRepisas(m, H), des = Number.isFinite(m.desfaseRepisas) ? m.desfaseRepisas : 0, rd = v => Math.round(v*10)/10;
   return grupo('Espesor', radios('espRepS', ESP_REPISAS.map(v => [String(v), medida(v)]), cur ? String(cur) : '')
     + `<div class="grid-2" style="margin-top:8px">${num('espRepSV', 'Otro espesor', e, 'cm', 1, 6, .1)}</div>`)
-    + grupo('Distribución', `<div class="grid-2">${n > 1 ? num('entRepS', 'Entrepaño (libre)', rd(gap), 'cm', 5, rd(Math.max(5, (H - n*e)/(n - 1)))) : ''}${num('desRepS', 'Desfase vertical', rd(des), 'cm', -rd(H/2), rd(H/2), .5)}</div>`   /* A453 */
+    + grupo('Distribución', (n > 1 ? `<div class="grid-2">${num('entRepS', 'Entrepaño (libre)', rd(gap), 'cm', 5, rd(Math.max(5, (H - n*e)/(n - 1))))}</div>` : '')   /* A453 */
       /* A454 (usuario 23/10: «que el desfase se modifique con un slider para que sea mas comodo y fluido el ajuste»): mientras se arrastra se
-         mueve el dibujo (sin redibujar el panel); al soltar queda un paso de deshacer */
-      + `<div style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="range" data-act="desRepS" data-vivo="desfase" min="${-rd(H/2)}" max="${rd(H/2)}" step="0.5" value="${rd(des)}" aria-label="Desfase vertical" style="flex:1"><span class="vivo" style="flex:none;width:58px;text-align:right;font-size:12px">${fmt(rd(des))}${uS()}</span></div>`
+         mueve el dibujo (sin redibujar el panel); al soltar queda un paso de deshacer. A456 (usuario 23/10: «el slider de desfase vertical debe
+         quedar unificado con la casilla numerica de desfase; de primera instancia no se sabe a que pertenece el slider»): un solo control con su
+         titulo, el deslizador y su casilla en la misma linea; la casilla sigue al deslizador */
+      + `<div class="field"${n > 1 ? ' style="margin-top:8px"' : ''}><span>Desfase vertical</span><div style="display:flex;gap:10px;align-items:center">`
+      + `<input type="range" data-act="desRepS" data-vivo="desfase" min="${-rd(H/2)}" max="${rd(H/2)}" step="0.5" value="${rd(des)}" aria-label="Desfase vertical" style="flex:1;min-width:0">`
+      + `<div class="unit" data-unit="${unitTag()}" style="flex:none;width:96px"><input type="text" inputmode="decimal" data-len="1" data-act="desRepS" data-min="${-rd(H/2)}" data-max="${rd(H/2)}" data-vivo-num="desfase" value="${esc(fmt(rd(des)))}" aria-label="Desfase vertical"></div></div></div>`
       + `<div class="note-sm">El juego de repisas va centrado en el alto; el desfase lo sube (+) o lo baja (−) sin salirse.${n > 1 ? ' El entrepaño es el espacio libre entre una repisa y la siguiente.' : ''}</div>`
       + (m.entrepanoRepisas > 0 || des ? `<button type="button" class="btn btn-sm" data-act="repSParejo" style="margin-top:6px">Repartir parejo y centrar</button>` : '')); };
 const campIslaAlto = m => m && m.campanaIslaAlto > 0 ? Math.max(CAMP_ISLA.altoMin, Math.min(CAMP_ISLA.altoMax, m.campanaIslaAlto)) : CAMP_ISLA.alto;
@@ -12454,7 +12461,7 @@ side.addEventListener('change', onSideAction);
 /* A454: deslizador del desfase de las repisas sueltas: en vivo sobre el dibujo; onSideAction lo deja como un cambio (con su deshacer) al soltar */
 side.addEventListener('input', e => { const el = e.target; if (!el.dataset || el.dataset.vivo !== 'desfase' || selection.size !== 1) return; const m = byId([...selection][0]); if (!m) return;
   if (el.dataset.orig === undefined) el.dataset.orig = String(Number.isFinite(m.desfaseRepisas) ? m.desfaseRepisas : 0);
-  m.desfaseRepisas = +el.value; const lb = el.parentElement.querySelector('.vivo'); if (lb) lb.textContent = fmt(+el.value) + uS(); drawCanvas(); });
+  m.desfaseRepisas = +el.value; const bx = el.parentElement.querySelector('input[data-vivo-num]'); if (bx) bx.value = fmt(+el.value); drawCanvas(); });   /* A456: la casilla sigue al deslizador */
 side.addEventListener('click', onSideAction);
 side.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.target.type === 'number' || e.target.dataset.len)) { e.preventDefault(); e.target.blur(); } });
 
