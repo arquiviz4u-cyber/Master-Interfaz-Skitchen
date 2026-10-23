@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A455. [Master hecho 23/10; SketchUp: sin cambio (piezas Cierre ya conocidas); Revit pendiente] (usuario 23/10) 1) «Ctrl+C para copiar seleccion
+       en editor (alzado e isometrico) y Ctrl+V para reemplazar en el nuevo modulo seleccionado, manteniendo exactamente la misma configuracion»:
+       copiarModulos / pegarModulos (todo salvo id, fila, esquina, reserva y uniones con vecinos; uno a todos o uno a uno; misma fila; sin
+       esquineros; un paso de deshacer). 2) «El backsplash se ve recortado por la huella que dejaria una tapeta en los modulos de repisas y
+       vacio»: en el extremo sin pieza de ajuste del alto, su subida llega al borde. 3) «Cerrar extremo deberia cerrar ambas caras (externa e
+       interna) solo cuando la tapeta sea de piso a techo»: el lateral piso a techo con cierre lleva el costado de adentro (en lugar del
+       regreso); las demas tapetas siguen con el de afuera.
    A454. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «si, quitala tambien en ese caso [la pieza de ajuste lateral
        de los altos junto al vacio o las repisas del borde]; y cuando haya repisas en los bordes la tapeta superior deja de existir, a menos que se
        coloque una de piso a techo para todos los casos») 1) Sin pieza de ajuste lateral del alto junto a la campana sola, el vacio o las repisas
@@ -4653,9 +4660,12 @@ const altosSinTapetaSup = (highs = row(true)) => { const out = new Set(), n = hi
     else if (!u.reserved && soloCamp(u)) out.add(u); });   /* A283: la campana sola entre gabinetes, siempre sin tapeta */
   return out; };
 const columnasSinTapetaSup = () => { const r = [], sin = altosSinTapetaSup(); let x = ajusteIzq(); row(true).forEach(m => { if (sin.has(m)) { if (r.length && Math.abs(r[r.length - 1][1] - x) < .01) r[r.length - 1][1] = x + m.ancho; else r.push([x, x + m.ancho]); } x += m.ancho; }); return r; };
-const subidasBacksplash = () => { const r = []; let x = ajusteIzq();
-  row(true).forEach(m => { const sm = sinMarco(m), top = m.reserved ? null : soloCamp(m) ? topeCampanaSola() : sm ? (m.tipo === 'Doble' ? topeAltos() - m.altoSuperior : topeAltos()) : null;
-    if (top !== null) { const u = r[r.length - 1]; if (u && Math.abs(u[1] - x) < .01 && Math.abs(u[2] - top) < .01) u[1] = x + m.ancho; else r.push([x, x + m.ancho, top]); }
+const subidasBacksplash = () => { const r = [], hs = row(true); let x = ajusteIzq();
+  hs.forEach((m, i) => { const sm = sinMarco(m), top = m.reserved ? null : soloCamp(m) ? topeCampanaSola() : sm ? (m.tipo === 'Doble' ? topeAltos() - m.altoSuperior : topeAltos()) : null;
+    /* A455 (usuario 23/10: «el backsplash se ve recortado por la huella que dejaria una tapeta en los modulos de repisas y vacio»): en el
+       extremo sin pieza de ajuste del alto (A454) ni lateral piso a techo, la subida llega al borde */
+    const a = i === 0 && altoSinCaja(m) && !cfg.corridaIzq ? 0 : x, b = i === hs.length - 1 && altoSinCaja(m) && !cfg.corridaDer ? cfg.longitud : x + m.ancho;
+    if (top !== null) { const u = r[r.length - 1]; if (u && Math.abs(u[1] - a) < .01 && Math.abs(u[2] - top) < .01) u[1] = b; else r.push([a, b, top]); }
     x += m.ancho; });
   return r; };
 const NOMBRES = { Esquina: 'Esquinero', EspecieroTorre: 'Especiero torre', Hornos: 'Hornos', Alacena: 'Alacena', Refri: 'Refrigerador', Estufa: 'Estufa', Basura: 'Cesto de basura', Frigobar: 'Frigobar de vinos', Especiero: 'Especiero', Lavavajillas: 'Lavavajillas' };
@@ -6407,7 +6417,12 @@ function planDePiezas(c = cfg){
       const w = left ? ajusteIzq() : ajusteDer(), x0 = left ? 0 : W - w, e1 = PLAN_CUERPO.lateral, cierre = left ? cfg.cerrarTapetaIzq : cfg.cerrarTapetaDer, mT = groupMaterial('Tapetas');
       const pieza = (suf, z0, z1, fondo) => { const yT = fondo - t, R = Math.min(reg().tapetaRegreso, yT - sep), xi = left ? x0 + w : x0;   /* xi: el lado del gabinete */
         add({ id: 'tapeta:' + lado + suf, rol: 'tapeta', x: x0, y: r2(yT), z: z0, ancho: w, fondo: t, alto: z1 - z0, material: mT, etiqueta: 'tapetas' });
-        if (w >= e1 + .3 && R > .5) add({ id: 'tapeta:' + lado + suf + ':regreso', rol: 'tapeta', tipo: 'Regreso', x: r2(left ? xi - e1 : xi), y: r2(yT - R), z: z0, ancho: e1, fondo: r2(R), alto: z1 - z0, material: mT, etiqueta: 'tapetas' });
+        /* A455 (usuario 23/10: «la opcion de cerrar extremo en tapetas deberia cerrar ambas caras (externa e interna) solo cuando la tapeta sea
+           de piso a techo»): el lateral piso a techo con «Cerrar extremo» lleva tambien el costado de adentro (junto a los gabinetes), del muro a
+           la tira, en lugar del regreso */
+        const corrida = left ? cfg.corridaIzq : cfg.corridaDer;
+        if (cierre && corrida && w >= 2*e1 + .3 && yT - sep > .5) add({ id: 'tapeta:' + lado + suf + ':cierre:interior', rol: 'tapeta', tipo: 'Cierre', x: r2(left ? xi - e1 : xi), y: sep, z: z0, ancho: e1, fondo: r2(yT - sep), alto: z1 - z0, material: mT, etiqueta: 'tapetas' });
+        else if (w >= e1 + .3 && R > .5) add({ id: 'tapeta:' + lado + suf + ':regreso', rol: 'tapeta', tipo: 'Regreso', x: r2(left ? xi - e1 : xi), y: r2(yT - R), z: z0, ancho: e1, fondo: r2(R), alto: z1 - z0, material: mT, etiqueta: 'tapetas' });
         if (cierre && yT - sep > .5) add({ id: 'tapeta:' + lado + suf + ':cierre', rol: 'tapeta', tipo: 'Cierre', x: r2(left ? x0 : x0 + w - e1), y: sep, z: z0, ancho: Math.min(e1, w), fondo: r2(yT - sep), alto: z1 - z0, material: mT, etiqueta: 'tapetas' }); };
       if (left ? cfg.corridaIzq : cfg.corridaDer) { pieza('', 0, cfg.alturaMuro, Math.max(dBajo, dAlto)); return; }
       const lo = lows.length ? lows[left ? 0 : lows.length - 1] : null, hi = highs.length ? highs[left ? 0 : highs.length - 1] : null;
@@ -8071,6 +8086,33 @@ function igualarColumnas(){
     if (w*u < mn - 1e-6) throw new Error(`Igualadas quedarían de ${medida(w*u)}: alguna no baja de ${medida(mn)}.`);
     cols.forEach((m, k) => { const v = Math.round(((w + (k < extra ? 1 : 0))*u + (k === cols.length - 1 ? sobra : 0))*1e4)/1e4; m.ancho = v; m.fijo = true; const o = par ? (base === l ? h : l)[idx[k]] : null; if (o) { o.ancho = v; o.fijo = true; } });
   }, 'Igualar anchos');
+}
+/* A455 (usuario 23/10: «ctrl+c para copiar seleccion en editor (alzado e isometrico) y ctrl+v para reemplazar en el nuevo modulo
+   seleccionado, manteniendo exactamente la misma configuracion del modulo original»): Ctrl+C guarda la configuracion de los modulos elegidos
+   (en su orden en la fila); Ctrl+V la pone en los elegidos: uno copiado va a todos; varios, uno a uno en orden. Se copia todo (funcion,
+   ancho y si es fijo, frentes, repisas, materiales...) salvo lo que es de su lugar: id, fila, esquina, reserva y las uniones con vecinos.
+   Solo entre modulos de la misma fila (bajo con bajo, alto con alto) y nunca en esquineros. Un solo paso de deshacer */
+let portapapeles = null;
+const NO_COPIAR = ['id', 'upper', 'esquina', 'reserved', 'peso', 'unirCuerpo', 'unirSuperior', 'penEsq'];
+function copiarModulos(){
+  const ms = [...selection].map(byId).filter(m => m && !m.esquina && !m.reserved); if (!ms.length) return false;
+  const orden = m => row(m.upper).indexOf(m); ms.sort((a, b) => a.upper - b.upper || orden(a) - orden(b));
+  portapapeles = ms.map(m => JSON.parse(JSON.stringify(m)));
+  setStatus(ms.length === 1 ? `Copiado: ${nombreModulo(ms[0])}. Elige otro módulo de la misma fila y pulsa Ctrl+V.` : `Copiados ${ms.length} módulos. Elige otros tantos de la misma fila y pulsa Ctrl+V.`);
+  return true;
+}
+function pegarModulos(){
+  if (!portapapeles || !portapapeles.length) { setStatus('Nada copiado: elige un módulo y pulsa Ctrl+C.'); return; }
+  const orden = m => row(m.upper).indexOf(m), dest = [...selection].map(byId).filter(Boolean).sort((a, b) => a.upper - b.upper || orden(a) - orden(b));
+  if (!dest.length) { setStatus('Elige el módulo donde pegar y pulsa Ctrl+V.'); return; }
+  if (dest.some(m => m.esquina || m.reserved)) { showDialog('Pegar', 'Los esquineros y las columnas reservadas no reciben otra configuración.'); return; }
+  const src = portapapeles.length === 1 ? dest.map(() => portapapeles[0]) : portapapeles;
+  if (src.length !== dest.length) { showDialog('Pegar', `Copiaste ${portapapeles.length} módulos y elegiste ${dest.length}: elige uno solo o la misma cantidad.`); return; }
+  if (dest.some((m, i) => !!m.upper !== !!src[i].upper)) { showDialog('Pegar', 'Se pega entre módulos de la misma fila: un bajo en un bajo y un alto en un alto.'); return; }
+  change(() => dest.forEach((m, i) => { const q = byId(m.id), o = JSON.parse(JSON.stringify(src[i]));
+    Object.keys(q).forEach(k => { if (!NO_COPIAR.includes(k)) delete q[k]; });
+    Object.keys(o).forEach(k => { if (!NO_COPIAR.includes(k)) q[k] = o[k]; }); }));
+  setStatus(dest.length === 1 ? `Pegado en ${nombreModulo(byId(dest[0].id))}.` : `Pegado en ${dest.length} módulos.`);
 }
 function deleteSelected(){
   if (selectedPart && selectedPart !== 'wall') { deletePart(selectedPart); return; }
@@ -11314,6 +11356,8 @@ document.addEventListener('keydown', e => {
   const editing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName);
   if (editing) return;
   if (e.key === 'Delete') { e.preventDefault(); deleteSelected(); }
+  if (e.ctrlKey && !e.shiftKey && (e.key === 'c' || e.key === 'C') && (view === 'Alzado' || view === 'Isometrico') && !window.getSelection().toString()) { if (copiarModulos()) e.preventDefault(); }   /* A455 */
+  if (e.ctrlKey && !e.shiftKey && (e.key === 'v' || e.key === 'V') && (view === 'Alzado' || view === 'Isometrico')) { e.preventDefault(); pegarModulos(); }
   if (e.ctrlKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
   if (e.ctrlKey && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); redo(); }
 });
