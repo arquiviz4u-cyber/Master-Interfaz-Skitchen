@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A459. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «en los alzados de peninsula necesito identificar el mueble de
+       la cara principal en proyeccion sin que nos reste o se haga mas pequena la ventana del visualizador»): en el frente y en el posterior de la
+       peninsula, los bajos de la cara principal en proyeccion (punteado, «Cara A (proyeccion)») sobre el tramo de la esquina que ocupan (penOff),
+       del piso a la cubierta, sin cambiar la escala (proyCaraPrincipal).
    A458. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10, con captura: «al poner una peninsula sin gabinetes aparece
        una tapeta debajo adosada al ciego del mueble bajo; puedes quitarla para que no se genere en esta situacion»): la peninsula sin gabinetes
        no lleva la tapeta de ajuste del ciego (esq:tapeta:ajuste) y su columna no suma los 5 cm de minimo de A443.
@@ -8568,6 +8572,7 @@ function drawElevation(){
   dim(X(0), ground + 36, X(W), ground + 36, fmt(W) + uS(), 'length');
   if (measure) drawMeasure(X, Z);
   if (sec) { const xc = guideVal('corteA', corteX()); marcaCorte(X(xc), top - 8, ground + 12, 'corteA', miraCorte(xc)); seccionCocina(X(W + eR) + R - 12 + SEC_HUECO + Ds*scale, scale, Z, xc); }
+  if (penA) proyCaraPrincipal(X, Z);   /* A459 */
   if (pd) { const off = penOff(), a = cfg.cara === 0 ? 0 : off, b = cfg.cara === 0 ? W - off : W;   /* A389: largo desde el paño de los frentes de la cocina */
     dim(X(a), ground + 60, X(b), ground + 60, fmt(b - a) + uS(), 'penLargo');   /* A398: sin texto */ drawPenPosterior(hA, scale); }   /* A386 */
   if (drag && drag.kind === 'box') { const b = boxRect(); ctx.fillStyle = C.boxFill; ctx.fillRect(b.x, b.y, b.w, b.h); outline(b, C.accent, 1); }
@@ -8575,6 +8580,16 @@ function drawElevation(){
 
 /* A386: posterior de la peninsula, desde los bancos y debajo del frente (espejado: el extremo izquierdo del frente queda a la derecha):
    paneles con su reparto (clic: elegirlo; cota: su ancho; material por panel), canto de la cubierta o de la barra y cascada */
+/* A459 (usuario 23/10: «en los alzados de peninsula necesito identificar el mueble de la cara principal en proyeccion sin que nos reste o se
+   haga mas pequena la ventana del visualizador»): los bajos de la cara principal llegan a la esquina de la peninsula y ocupan su fondo
+   (penOff: del muro al pano de sus frentes); en el frente y en el posterior van en proyeccion (punteado, con la letra de su cara) sobre ese
+   tramo, sin cambiar la escala del dibujo */
+function proyCaraPrincipal(X, Z){
+  const W = cfg.longitud, off = penOff(), a = cfg.cara === 0 ? W - off : 0, b = cfg.cara === 0 ? W : off, k = cfg.cara === 0 ? 1 : cfg.cara - 1;
+  const x0 = Math.min(X(a), X(b)), x1 = Math.max(X(a), X(b)), y0 = Z(altoBarra()), y1 = Z(0);
+  ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = C.hood; ctx.lineWidth = 1.2; ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+  ctx.setLineDash([]); ctx.fillStyle = C.muted; ctx.font = "500 10px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(`Cara ${letraCara(k)} (proyección)`, (x0 + x1)/2, y0 - 3); ctx.restore(); }
 function drawPenPosterior(y0, s0){
   const W = cfg.longitud, L = 74, R = 112, B = 46, g = penGeo(), zBar = altoBarra(), pq = paquete(), bar = !!cfg.penBarra, casc = !!cfg.penCascada;
   const zTop = bar ? g.zt : zBar, H = zTop + 12, s = Math.max(.1, Math.min(s0, (cssH - y0 - 40 - B)/H)), ox = L + ((cssW - L - R) - W*s)/2, ground = cssH - B;
@@ -8599,6 +8614,7 @@ function drawPenPosterior(y0, s0){
     if (bar) { const [b0, b1] = sg ? (g.izq ? [g.bx0, g.ec0] : [g.ec1, g.bx1]) : [g.bx0, g.bx1]; losa(b0, b1, g.zt - g.be, g.zt, groupMaterial('BarraElevada')); }
     else losa(g.izq ? (casc ? wL : -vueloLat()) : 0, g.izq ? W : casc ? W - wL : W + vueloLat(), zBar - (cfg.penNariz > 0 ? Math.max(cfg.penNariz, pq) : pq), zBar, groupMaterial('Cubierta'));   /* A398 */
     if (casc) { const x0 = g.izq ? 0 : W - wL; losa(x0, x0 + wL, 0, bar ? g.zt - g.be : zBar, groupMaterial(bar ? 'BarraElevada' : 'Cubierta')); } }
+  proyCaraPrincipal(X, Z);   /* A459 */
   sobre.forEach(f => f());
   dim(X(W), ground + 26, X(0), ground + 26, fmt(W) + uS(), null);
   const xe = X(Math.min(0, g.bx0)) + 30; dim(xe, ground, xe, Z(zTop), fmt(zTop) + uS(), null);
