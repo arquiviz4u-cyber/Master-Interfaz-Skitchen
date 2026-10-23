@@ -365,6 +365,11 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A463. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «las charolas de esquina en peninsula cuando las pongo,
+       independientemente del ancho actual, deberian ponerse al minimo que necesitan las charolas; si tengo un ancho mas pequeno no me deja, y en
+       cara de peninsula pasa lo mismo»): en la peninsula el esquinero no lleva alto y el alto de la cara del muro va sobre su columna con su
+       ancho; con charolas (ciego de 120.5) superaba el maximo de 120 y validate rechazaba el cambio. El alto sobre la columna de un esquinero
+       queda sin ese maximo (como el alto de esquina): las charolas se ponen a su ancho minimo (A443) desde cualquier cara.
    A462. [Master hecho 23/10; SketchUp: piezas Peralte y Barra ya conocidas; Revit pendiente] (usuario 23/10) 1) «La barra elevada (area de vuelo
        para bancos) le falta escalonamiento con la barra baja con pieza de cubierta como pasa con la isla»: con gabinetes, peninsula:barra:peralte
        (de la cubierta a la barra, en el canto junto al panel posterior; material BarraPeralte). 2) «Solo si la peninsula no tiene gabinetes y esta
@@ -7835,7 +7840,11 @@ function validate(){
     if (isSpecial(m)) { if (m.ancho < minWidth(m) - .01 || m.espesorLaterales < 1 || m.espesorLaterales > 5) throw new Error(`Especial: ancho mínimo ${medida(reg().especialMin)}, fondo ${medida(50)}–${medida(80)} y laterales ${medida(1)}–${medida(5)}.`); }
     else if (m.ancho < minWidth(m) - .01) throw new Error(`${what} quedaría de ${fmt(m.ancho)}${uS()} y el mínimo es ${medida(minWidth(m))}. Quita un módulo, libera un ancho fijo o alarga el tramo.`);
     const anA = m.anexo ? m.anexo.ancho : 0;   /* A160 (usuario): con especiero anexado el maximo es de la parte de la torre o del refrigerador */
-    if (!m.esquina && m.ancho - anA > reg().ancho.max + .01) throw new Error(`${what} quedaría de ${fmt(m.ancho - anA)}${uS()} y el máximo es ${medida(reg().ancho.max)}. Añade un módulo o fija otros anchos.`);
+    /* A463 (usuario 23/10: «las charolas de esquina en peninsula, independientemente del ancho actual, deberian ponerse al minimo que necesitan;
+       si tengo un ancho mas pequeno no me deja»): en la peninsula el esquinero no lleva alto y el alto de la cara del muro va sobre su columna
+       con su ancho (con charolas, 120.5): como el alto de esquina, no tiene el maximo de los gabinetes */
+    const sobreEsq = m.upper && (() => { const lw = row(false), up = row(true); return lw.length === up.length && !!(lw[up.indexOf(m)] || {}).esquina; })();
+    if (!m.esquina && !sobreEsq && m.ancho - anA > reg().ancho.max + .01) throw new Error(`${what} quedaría de ${fmt(m.ancho - anA)}${uS()} y el máximo es ${medida(reg().ancho.max)}. Añade un módulo o fija otros anchos.`);
     if (hasDrawers(m)) {
       const h = heights(m).slice(0, count(m)); if (m.tipo === 'C') h.push(split(m, 1) - agarreEntre() - .2);
       if (h.some(v => v < 8)) throw new Error(`La división deja un frente menor de ${medida(8)}.`);
