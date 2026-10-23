@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A457. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «las repisas deben llegar hasta el pano del limite de la
+       columna; actualmente dejan el espacio para una tapeta; solo quedan al pano interno de la tapeta cuando es de piso a techo»): las repisas
+       sueltas (y la caja de seleccion del vacio) del extremo llegan al limite de la columna, sobre el lugar de la pieza de ajuste que ya no va
+       (A454); con el lateral piso a techo, a su cara interior (extensionSinCaja). Plan, alzado e isometrico.
    A456. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10: «el slider de desfase vertical debe quedar unificado con la
        casilla numerica de desfase; de primera instancia no se sabe a que pertenece el slider») Un solo control «Desfase vertical»: el
        deslizador y su casilla en la misma linea bajo el titulo; al arrastrar, la casilla muestra el valor; al escribir, el deslizador se acomoda.
@@ -4658,6 +4662,10 @@ const altoRepisasSueltas = m => [baseAltos() + huecoAlto(m), baseAltos() + bodyH
 /* A454 (usuario 23/10: «cuando haya repisas en los bordes la tapeta superior deja de existir, a menos que se coloque una de piso a techo, para
    todos los casos»): con el lateral piso a techo (corridaIzq / corridaDer) de ese lado, la tapeta superior sigue sobre la campana, el vacio
    o las repisas del borde hasta el lateral */
+/* A457 (usuario 23/10: «las repisas deben llegar hasta el pano del limite de la columna; actualmente dejan el espacio para una tapeta; solo
+   quedan al pano interno de la tapeta cuando es de piso a techo»): lo que el alto sin caja del extremo gana a cada lado (el ancho de la
+   pieza de ajuste que ya no lleva, A454; con el lateral piso a techo, nada) */
+const extensionSinCaja = m => { const hs = row(true); return [hs[0] === m && altoSinCaja(m) && !cfg.corridaIzq ? ajusteIzq() : 0, hs[hs.length - 1] === m && altoSinCaja(m) && !cfg.corridaDer ? ajusteDer() : 0]; };
 const altoSinCaja = u => !!u && !u.reserved && (soloCamp(u) || u.tipo === 'Flotantes' || u.tipo === 'Vacio');
 const altosSinTapetaSup = (highs = row(true)) => { const out = new Set(), n = highs.length; let i0 = 0, i1 = n - 1;
   while (i0 < n && altoSinCaja(highs[i0])) i0++;
@@ -6049,9 +6057,10 @@ function planDePiezas(c = cfg){
         const sm = upper ? sinMarco(m) : null;   /* A448: sin caja; las repisas sueltas, al muro y a todo el ancho de la columna */
         /* A452: sobre el backsplash que sube detras (su cara), sin entrar en el: asi el orden de dibujo no las esconde */
         const yS = Math.max(sep, cfg.backsplash && !(multiCara() && cfg.peninsula) ? (cfg.espesorBacksplash || 0) + .01 : 0), fS = Math.max(5, sep + m.fondo - yS);
-        if (sm === 'repisas') flotantesZ(m, z0, z1).forEach((z, k) => add({ id: m.id + ':flotante:' + k, rol: 'repisa', modulo: m.id, tipo: 'Repisa', x, y: r2(yS), z,
-          ancho: m.ancho, fondo: r2(fS), alto: espRepisasSueltas(m), material: matDe(m), etiqueta: 'gabinetes' }));
-        if (sm) fantasmas.push({ id: m.id + ':' + sm, rol: 'panel', modulo: m.id, tipo: 'Vacio', fantasma: true, invisible: sm === 'repisas', x, y: r2(yS), z: z0, ancho: m.ancho, fondo: r2(fS), alto: z1 - z0, material: null, etiqueta: 'gabinetes' });   /* A453: el de repisas, invisible: su columna se elige tambien entre las repisas */   /* A452: solo en el isometrico del editor, para elegirlo */
+        const [eI, eD] = sm ? extensionSinCaja(m) : [0, 0];   /* A457: en el extremo, hasta el limite de la columna */
+        if (sm === 'repisas') flotantesZ(m, z0, z1).forEach((z, k) => add({ id: m.id + ':flotante:' + k, rol: 'repisa', modulo: m.id, tipo: 'Repisa', x: r2(x - eI), y: r2(yS), z,
+          ancho: r2(m.ancho + eI + eD), fondo: r2(fS), alto: espRepisasSueltas(m), material: matDe(m), etiqueta: 'gabinetes' }));
+        if (sm) fantasmas.push({ id: m.id + ':' + sm, rol: 'panel', modulo: m.id, tipo: 'Vacio', fantasma: true, invisible: sm === 'repisas', x: r2(x - eI), y: r2(yS), z: z0, ancho: r2(m.ancho + eI + eD), fondo: r2(fS), alto: z1 - z0, material: null, etiqueta: 'gabinetes' });   /* A453: el de repisas, invisible: su columna se elige tambien entre las repisas */   /* A452: solo en el isometrico del editor, para elegirlo */
         if (!sm && (!grp || grp.members[grp.members.length - 1] === m)) {
           const lead = grp ? grp.members[0] : m, gx0 = grp ? grp.x0 : x, gx1 = grp ? grp.x0 + grp.width : x + m.ancho;
           const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
@@ -10315,7 +10324,7 @@ function drawModule(m, x0, RX, X, Z, post){
   const mat = m.material || cfg.materialGeneral, grp = m.upper && sinPuertas(m) ? bodyGroupOf(m) : null, sm = sinMarco(m);
   if (sm) {   /* A448: sin caja: sus repisas sueltas, o vacio con su contorno punteado (se sigue eligiendo) */
     if (sel) { ctx.fillStyle = C.selFill; ctx.globalAlpha = .5; ctx.fillRect(body.x, body.y, body.w, body.h); ctx.globalAlpha = 1; }
-    if (sm === 'repisas') post.push(() => flotantesZ(m, z0 + huecoAlto(m), z1).forEach(z => { const r = RX(x0, x0 + m.ancho, z, z + espRepisasSueltas(m)), h = Math.max(2.5, r.h), q = { x: r.x, y: r.y + r.h - h, w: r.w, h };
+    if (sm === 'repisas') post.push(() => flotantesZ(m, z0 + huecoAlto(m), z1).forEach(z => { const [eI, eD] = extensionSinCaja(m), r = RX(x0 - eI, x0 + m.ancho + eD, z, z + espRepisasSueltas(m)), h = Math.max(2.5, r.h), q = { x: r.x, y: r.y + r.h - h, w: r.w, h };
       fillMat(q.x, q.y, q.w, q.h, flat ? null : mat, C.board); outline(q, C.line, 1); }));   /* A452: encima del backsplash, con su espesor */
     post.push(() => { ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = C.muted; ctx.lineWidth = 1; ctx.strokeRect(body.x + .5, body.y + .5, body.w - 1, body.h - 1); ctx.restore();
       if (sm === 'vacio' && !exporting) { ctx.fillStyle = C.muted; ctx.font = "500 11px 'Inter'"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('Vacío', body.x + body.w/2, body.y + body.h/2); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; } });
