@@ -57,7 +57,7 @@ Ordenadas por valor para Skitchen. «Aviso» = mismo mecanismo que los avisos NK
 18. **Melamina RH** (resistente a humedad) en el costado hacia el lavavajillas y bajo la tarja; regatones bajo lavavajillas y refri.
 19. **Uniones**: confirmat (taladro 7 mm en la pieza que pasa, 5 mm en el canto), espigos de 6 u 8 mm con cola, grapas de 32–40 mm, pocket hole a 15°. Útil para el instructivo de armado.
 20. **Anclaje**: 2 + 2 puntos hasta 60 cm de ancho, 3 + 3 en más anchos; mampostería 5×60 mm; tablaroca con anclaje específico o refuerzo.
-21. **Nomenclatura** de muebles `a-apv-6` (letra de orden – tipo – número de piezas) con códigos apv, aph, bpv, bc, bpc, esl, esc, esd, T, TR, Th, bex, bf, bh. Opción para exportar despiece en MX.
+21. **Nomenclatura** de muebles `a-apv-6` (letra de orden – tipo – número de piezas) con códigos apv, aph, bpv, bc, bpc, esl, esc, esd, T, TR, Th, bex, bf, bh. Opción para exportar despiece en MX. **Decisión 22/10: no se usa; el despiece llevará una nomenclatura convencional propia (A447).**
 22. **Glosario con sinónimos de Latinoamérica** (anexo A): fregadero = tarja (MX) = pileta (AR) = lavaplatos (CL, CO). Sirve para la interfaz en español por región.
 23. **Checklist de entrega** (anexo C, por paso) y **lista de errores frecuentes** (anexo D): 40–60 comprobaciones que casi todas ya son avisos o pueden serlo. Una vista «Revisión final» en Presentar.
 24. **Parte I (estética)**: 60/30/10, regla 5-7 de luz, temperaturas de color (2700–3000 cálida, 3500–4000 cocina, 5000–6500 tarea precisa), regla de tres texturas. Material para el asistente de color, no para la geometría.
