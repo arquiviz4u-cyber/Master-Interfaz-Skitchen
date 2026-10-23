@@ -365,6 +365,14 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A453. [Master hecho 23/10; SketchUp: sin cambio; Revit pendiente] (usuario 23/10) 1) «Las repisas y los vacios no se pueden seleccionar en alzado»:
+       el backsplash que sube detras (A452) ganaba el clic; la columna sin caja va primero (prio) en el alzado y, en el isometrico, el vacio y
+       las repisas sueltas llevan su caja de seleccion (la de repisas, invisible). 2) «Las repisas no se actualizan en isometrico cuando se
+       cambia el espesor»: el clic abria el panel del backsplash, no el de las repisas (lo mismo del punto 1). 3) «Definir la medida de
+       entrepanos, valor editable»: «Entrepano (libre)» (m.entrepanoRepisas; sin el, parejo). 4) «Editar el desfase vertical de las repisas
+       sin fondo»: «Desfase vertical» (m.desfaseRepisas; 0 = centrado), sin salir del alto; «Repartir parejo y centrar». 5) «Si la campana,
+       vacio y repisas en borde, desaparece la tapeta superior»: sin tapeta superior sobre la campana sola (como antes) y sobre el vacio o las
+       repisas sueltas del borde de la fila (altosSinTapetaSup), en el plan y en el alzado; entre gabinetes sigue.
    A452. [Master hecho 23/10; SketchUp: sin cambio (repisas y backsplash ya conocidos); Revit pendiente] (usuario 23/10) 1) «Vacio deberia generar
        que el backsplash llene el vacio»; «las repisas sin fondo: deberia mostrarse el backsplash detras»: el backsplash sube en las columnas
        sin caja hasta lo de arriba (subidasBacksplash: campana sola, alto vacio o de repisas sueltas al tope de los altos, inferior sin marco del
@@ -4544,9 +4552,13 @@ const CAMP_ISLA = { alto: 70, caja: 10, fondo: 60, chimenea: 32, anchos: [60, 90
 /* A448 (usuario 22/10: «la campana de la isla deberia ponerse a una altura por default de 70 cm desde la cubierta, asi como agregar un
    parametro editable de la misma altura»): m.campanaIslaAlto (de la cubierta al pie de la caja; de fabrica 70, de 55 a 100) */
 /* A452: espesor de las repisas sueltas: 15, 18 o 25 mm, u otro (1 a 6 cm) */
-const espRepisasHTML = m => { const e = espRepisasSueltas(m), cur = ESP_REPISAS.find(v => Math.abs(v - e) < .001);
+const espRepisasHTML = m => { const e = espRepisasSueltas(m), cur = ESP_REPISAS.find(v => Math.abs(v - e) < .001), [z0, z1] = altoRepisasSueltas(m), H = z1 - z0;
+  const n = Math.max(1, Math.round(m.repisas) || 1), gap = entrepanoRepisas(m, H), des = Number.isFinite(m.desfaseRepisas) ? m.desfaseRepisas : 0, rd = v => Math.round(v*10)/10;
   return grupo('Espesor', radios('espRepS', ESP_REPISAS.map(v => [String(v), medida(v)]), cur ? String(cur) : '')
-    + `<div class="grid-2" style="margin-top:8px">${num('espRepSV', 'Otro espesor', e, 'cm', 1, 6, .1)}</div>`); };
+    + `<div class="grid-2" style="margin-top:8px">${num('espRepSV', 'Otro espesor', e, 'cm', 1, 6, .1)}</div>`)
+    + grupo('Distribución', `<div class="grid-2">${n > 1 ? num('entRepS', 'Entrepaño (libre)', rd(gap), 'cm', 5, rd(Math.max(5, (H - n*e)/(n - 1)))) : ''}${num('desRepS', 'Desfase vertical', rd(des), 'cm', -rd(H/2), rd(H/2), .5)}</div>`   /* A453 */
+      + `<div class="note-sm">El juego de repisas va centrado en el alto; el desfase lo sube (+) o lo baja (−) sin salirse.${n > 1 ? ' El entrepaño es el espacio libre entre una repisa y la siguiente.' : ''}</div>`
+      + (m.entrepanoRepisas > 0 || des ? `<button type="button" class="btn btn-sm" data-act="repSParejo" style="margin-top:6px">Repartir parejo y centrar</button>` : '')); };
 const campIslaAlto = m => m && m.campanaIslaAlto > 0 ? Math.max(CAMP_ISLA.altoMin, Math.min(CAMP_ISLA.altoMax, m.campanaIslaAlto)) : CAMP_ISLA.alto;
 /* medidas de la campana de isla de un modulo con parrilla (cm): caja z0..z1 de W x D y chimenea ch x ch hasta el techo; cx: el centro de la parrilla */
 const campIslaMedidas = m => { if (m.upper || !m.parrilla || !m.campanaIsla || !(cfg.isla || cfg.peninsula)) return null;
@@ -4604,11 +4616,26 @@ const sinMarco = m => !m || !m.upper || m.reserved ? null : m.tipo === 'Flotante
    repisas sueltas: cada una en el centro de su parte del alto (z0 + (k + 1/2) H / n), asi quedan simetricas respecto al centro */
 const ESP_REPISAS = [1.5, 1.8, 2.5];
 const espRepisasSueltas = m => m && m.espesorRepisas > 0 ? m.espesorRepisas : PLAN_CUERPO.lateral;
-const flotantesZ = (m, z0, z1) => { const n = Math.max(1, Math.round(m.repisas) || 1), e = espRepisasSueltas(m), H = z1 - z0;
-  return Array.from({ length: n }, (_, k) => z0 + (k + .5)*H/n - e/2); };
+/* A453 (usuario 23/10: «definir la medida de entrepanos de estas repisas, valor editable; editar el desfase vertical de las repisas sin
+   fondo»): m.entrepanoRepisas (libre entre repisas; sin el, el parejo H/n - e) y m.desfaseRepisas (sube el juego; 0 = centrado). El juego
+   queda dentro del alto */
+const entrepanoRepisas = (m, H) => { const n = Math.max(1, Math.round(m.repisas) || 1), e = espRepisasSueltas(m); return n > 1 && m.entrepanoRepisas > 0 ? m.entrepanoRepisas : H/n - e; };
+const flotantesZ = (m, z0, z1) => { const n = Math.max(1, Math.round(m.repisas) || 1), e = espRepisasSueltas(m), H = z1 - z0, gap = entrepanoRepisas(m, H), pila = n*e + (n - 1)*gap;
+  const b = Math.max(z0, Math.min(z1 - pila, z0 + (H - pila)/2 + (Number.isFinite(m.desfaseRepisas) ? m.desfaseRepisas : 0)));
+  return Array.from({ length: n }, (_, k) => b + k*(e + gap)); };
+/* el alto donde van (z0, z1) de un alto sin marco: el cuerpo del alto completo o el inferior del doble */
+const altoRepisasSueltas = m => [baseAltos() + huecoAlto(m), baseAltos() + bodyH(m)];
 /* A452 (usuario 23/10: «vacio deberia generar que el backsplash llene el vacio»; «las repisas sin fondo: deberia mostrarse el backsplash
    detras»): columnas de altos sin caja con el tope hasta donde sube el backsplash: la campana sola (al tope de su chimenea), el alto vacio o de
    repisas sueltas (al tope de los altos) y el inferior sin marco del doble (al pie de su modulo superior). Vecinas con el mismo tope, unidas */
+/* A453 (usuario 23/10: «si la campana, vacio y repisas en borde, desaparece la tapeta superior»): sin tapeta superior sobre la campana sola
+   (A283, en cualquier lugar) y sobre el alto vacio o de repisas sueltas en el borde de la fila (los que llegan al extremo sin otro alto en
+   medio); entre dos gabinetes la tapeta sigue */
+const altosSinTapetaSup = (highs = row(true)) => { const out = new Set(highs.filter(u => !u.reserved && soloCamp(u))), sinCaja = u => !u.reserved && (soloCamp(u) || u.tipo === 'Flotantes' || u.tipo === 'Vacio');
+  for (let i = 0; i < highs.length && sinCaja(highs[i]); i++) out.add(highs[i]);
+  for (let i = highs.length - 1; i >= 0 && sinCaja(highs[i]); i--) out.add(highs[i]);
+  return out; };
+const columnasSinTapetaSup = () => { const r = [], sin = altosSinTapetaSup(); let x = ajusteIzq(); row(true).forEach(m => { if (sin.has(m)) { if (r.length && Math.abs(r[r.length - 1][1] - x) < .01) r[r.length - 1][1] = x + m.ancho; else r.push([x, x + m.ancho]); } x += m.ancho; }); return r; };
 const subidasBacksplash = () => { const r = []; let x = ajusteIzq();
   row(true).forEach(m => { const sm = sinMarco(m), top = m.reserved ? null : soloCamp(m) ? topeCampanaSola() : sm ? (m.tipo === 'Doble' ? topeAltos() - m.altoSuperior : topeAltos()) : null;
     if (top !== null) { const u = r[r.length - 1]; if (u && Math.abs(u[1] - x) < .01 && Math.abs(u[2] - top) < .01) u[1] = x + m.ancho; else r.push([x, x + m.ancho, top]); }
@@ -5990,7 +6017,7 @@ function planDePiezas(c = cfg){
         const yS = Math.max(sep, cfg.backsplash && !(multiCara() && cfg.peninsula) ? (cfg.espesorBacksplash || 0) + .01 : 0), fS = Math.max(5, sep + m.fondo - yS);
         if (sm === 'repisas') flotantesZ(m, z0, z1).forEach((z, k) => add({ id: m.id + ':flotante:' + k, rol: 'repisa', modulo: m.id, tipo: 'Repisa', x, y: r2(yS), z,
           ancho: m.ancho, fondo: r2(fS), alto: espRepisasSueltas(m), material: matDe(m), etiqueta: 'gabinetes' }));
-        if (sm === 'vacio') fantasmas.push({ id: m.id + ':vacio', rol: 'panel', modulo: m.id, tipo: 'Vacio', fantasma: true, x, y: r2(yS), z: z0, ancho: m.ancho, fondo: r2(fS), alto: z1 - z0, material: null, etiqueta: 'gabinetes' });   /* A452: solo en el isometrico del editor, para elegirlo */
+        if (sm) fantasmas.push({ id: m.id + ':' + sm, rol: 'panel', modulo: m.id, tipo: 'Vacio', fantasma: true, invisible: sm === 'repisas', x, y: r2(yS), z: z0, ancho: m.ancho, fondo: r2(fS), alto: z1 - z0, material: null, etiqueta: 'gabinetes' });   /* A453: el de repisas, invisible: su columna se elige tambien entre las repisas */   /* A452: solo en el isometrico del editor, para elegirlo */
         if (!sm && (!grp || grp.members[grp.members.length - 1] === m)) {
           const lead = grp ? grp.members[0] : m, gx0 = grp ? grp.x0 : x, gx1 = grp ? grp.x0 + grp.width : x + m.ancho;
           const fondo = grp ? Math.max(...grp.members.map(q => q.fondo)) : m.fondo;
@@ -6398,13 +6425,13 @@ function planDePiezas(c = cfg){
     /* A126 (usuario, 09/10): la tapeta superior sigue el saque de cada columna: el frente del alto (o de su modulo superior con fondo
        propio, A82) o el de la torre que llega al tope; tramos seguidos del mismo fondo son una pieza */
     if (highs.length && cfg.tapetaSuperior && !pen) {   /* A383 */
-      const tramosTs = []; let xc = ajusteIzq();
+      const tramosTs = [], sinTs = altosSinTapetaSup(highs); let xc = ajusteIzq();   /* A453 */
       highs.forEach((u, i) => { const bajo = lows.length === highs.length ? lows[i] : null;
         const f = u.esquina && esquinaAlta(u) ? fondoCara(cfg, false)   /* A247: la alacena de esquina, al fondo de los bajos */
           : u.reserved && bajo && isSpecial(bajo) ? bajo.fondo : isDoble(u) && u.fondoSuperior > 0 ? u.fondoSuperior : u.fondo;
-        if (!soloCamp(u)) tramosTs.push([xc, xc + u.ancho, sep + f + t]); xc += u.ancho; });   /* A283: sin tramo sobre la campana sola */
-      if (tramosTs.length) { if (!soloCamp(highs[0])) tramosTs[0][0] = run0; if (!soloCamp(highs[highs.length - 1])) tramosTs[tramosTs.length - 1][1] = run1; }
-      const huecosTs = columnasCampanaSola(), huecoA = x => huecosTs.some(([, c1]) => Math.abs(c1 - x) < .01), huecoB = x => huecosTs.some(([c0]) => Math.abs(c0 - x) < .01);   /* A283 */
+        if (!sinTs.has(u)) tramosTs.push([xc, xc + u.ancho, sep + f + t]); xc += u.ancho; });   /* A283: sin tramo sobre la campana sola; A453: ni sobre el vacio o las repisas del borde */
+      if (tramosTs.length) { if (!sinTs.has(highs[0])) tramosTs[0][0] = run0; if (!sinTs.has(highs[highs.length - 1])) tramosTs[tramosTs.length - 1][1] = run1; }
+      const huecosTs = columnasSinTapetaSup(), huecoA = x => huecosTs.some(([, c1]) => Math.abs(c1 - x) < .01), huecoB = x => huecosTs.some(([c0]) => Math.abs(c0 - x) < .01);   /* A283 */
       const unidos = []; tramosTs.forEach(q => { const u = unidos[unidos.length - 1]; if (u && Math.abs(u[2] - q[2]) < .01 && Math.abs(u[1] - q[0]) < .01) u[1] = q[1]; else unidos.push(q.slice()); });
       /* A160 (usuario): no es una pieza solida hasta el muro: un canto del grueso del frente en el borde de los altos y, donde
          cambia el saque, un regreso del frente menos saliente al mas saliente */
@@ -8382,7 +8409,7 @@ function drawElevation(){
     crownLineas(cfg.tapetaSuperiorPerfil || 'ogee', h).forEach(dz => { const y = r.y + r.h - dz*scale; ctx.beginPath(); ctx.moveTo(r.x, y); ctx.lineTo(r.x + r.w, y); ctx.stroke(); });
     [[cfg.cerrarMolduraIzq, r.x + h*scale], [cfg.cerrarMolduraDer, r.x + r.w - h*scale]].forEach(([on, x]) => { if (!on) return; ctx.beginPath(); ctx.moveTo(x, r.y); ctx.lineTo(x, r.y + r.h); ctx.stroke(); });
     ctx.restore(); };
-  if (highs.length && !penA) { let tr = [[run0, run1]]; columnasCampanaSola().forEach(([c0, c1]) => { tr = tr.flatMap(([a, b]) => [[a, Math.min(b, c0)], [Math.max(a, c1), b]].filter(([u, v]) => v - u > .01)); });   /* A283 */
+  if (highs.length && !penA) { let tr = [[run0, run1]]; columnasSinTapetaSup().forEach(([c0, c1]) => {   /* A453 */ tr = tr.flatMap(([a, b]) => [[a, Math.min(b, c0)], [Math.max(a, c1), b]].filter(([u, v]) => v - u > .01)); });   /* A283 */
     part('fillerTop', cfg.tapetaSuperior, tr.map(([a, b]) => RX(a, b, cfg.tapetaSuperior ? zTop : cfg.alturaMuro - 3, cfg.alturaMuro)), tapetaTopPaint, post); }
   { const rE = cfg.potFiller && !penA ? estufaRango() : null;   /* A216: potfiller en la columna de la estufa (escudo, brazo y pico); A383: no en la peninsula */
     if (rE) { const cx0 = potFillerCx(rE), zc = altoBarra() + Math.max(15, cfg.potFillerAlto || 30), cils = potFillerCils(cx0, 0, zc);
@@ -10248,7 +10275,8 @@ function drawModule(m, x0, RX, X, Z, post){
   }
   if (gap) drawCampana(m, full, { x: full.x, y: body.y + body.h, w: full.w, h: gap });
   if (!grp && !sm) outline(full, C.line, 1);
-  hits.push({ rect: full, module: m, body: true });
+  if (sm) hits.unshift({ rect: full, module: m, body: true, prio: true });   /* A453 (usuario 23/10: «las repisas y los vacios no se pueden seleccionar en alzado»): ganan al backsplash que sube detras */
+  else hits.push({ rect: full, module: m, body: true });
   /* alto doble: el modulo superior es un elemento aparte; su franja tambien elige la columna */
   let slice = null;
   if (isDoble(m) && !soloCamp(m)) {
@@ -12152,6 +12180,8 @@ const ACT = {
   soloCamp: (v, m) => change(() => byId(m.id).soloCampana = v, 'Revisar altura'),   /* A81 */
   campTipo: (v, m) => change(() => byId(m.id).campanaTipo = v), campRep: (v, m) => change(() => byId(m.id).campanaRepisa = v),   /* A437 */
   campIsla: (v, m) => change(() => byId(m.id).campanaIsla = v), campIslaW: (v, m) => change(() => byId(m.id).campanaIslaAncho = +v),   /* A438 */
+  entRepS: (v, m) => change(() => { byId(m.id).entrepanoRepisas = Math.max(1, +v); }), desRepS: (v, m) => change(() => { byId(m.id).desfaseRepisas = +v || 0; }),   /* A453 */
+  repSParejo: (v, m) => change(() => { const t = byId(m.id); t.entrepanoRepisas = null; t.desfaseRepisas = 0; }),
   espRepS: (v, m) => change(() => { byId(m.id).espesorRepisas = Math.abs(+v - PLAN_CUERPO.lateral) < .001 ? null : +v; }),   /* A452 */
   espRepSV: (v, m) => change(() => { const e = Math.max(1, Math.min(6, +v)); byId(m.id).espesorRepisas = Math.abs(e - PLAN_CUERPO.lateral) < .001 ? null : e; }),
   campIslaAlto: (v, m) => change(() => { byId(m.id).campanaIslaAlto = Math.abs(v - CAMP_ISLA.alto) < .01 ? null : Math.max(CAMP_ISLA.altoMin, Math.min(CAMP_ISLA.altoMax, v)); }),   /* A448 */
@@ -14891,7 +14921,7 @@ const LAM = (() => {
         [.45, 1].forEach(gr => { g.lineWidth = gr === 1 ? 1.1 : .65; g.beginPath(); t.segs.forEach(sg => { if (sg[2] !== gr) return; g.moveTo(X(sg[0][0]), Y(sg[0][1])); g.lineTo(X(sg[1][0]), Y(sg[1][1])); }); g.stroke(); });
         g.restore(); return; }
       if (t.t === 'fantasma') { const pr = t.pr.map(p => [X(p[0]), Y(p[1])]);   /* A452: el vacio: contorno punteado y se elige como un modulo */
-        g.save(); g.setLineDash([4, 3]); g.strokeStyle = '#9AA3AB'; g.lineWidth = 1; g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke(); g.restore();
+        if (!t.q.p.invisible) { g.save(); g.setLineDash([4, 3]); g.strokeStyle = '#9AA3AB'; g.lineWidth = 1; g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke(); g.restore(); }
         if (o.hits && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null, p: t.q.p, ci: t.q.ci, kc: t.q.kc });
         return; }
       if (t.t === 'zmalla') { const tn = o.tinte ? o.tinte(t.q) : null, { cas, zm } = pintarZMalla(g, t, X, Y, plano, tn, sombra);   /* A436 */
