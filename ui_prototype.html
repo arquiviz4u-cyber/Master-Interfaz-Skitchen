@@ -365,6 +365,14 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A466. [Master hecho 23/10 (prueba en el editor; si se queda, pasa a Presentar); SketchUp y Revit: no aplica] (usuario 23/10: «¿se podra
+       realizar una vista rayos x en isometrico? ¿se verian las bisagras y correderas? haz la prueba en el editor con su boton/icono y vemos si
+       se queda para integrarla en presentar») Boton «Rayos X» (solo en la vista Isometrico, junto a Plano). Con el encendido, isoEscena no
+       descarta lo de adentro ni las bisagras de las puertas cerradas (o.rayos) y los simbolos de brazo y cazoleta van encima de todo;
+       isoPintar pinta primero la madera (gabinetes, frentes, cubierta, equipos) con un velo de relleno y el contorno tenue, sin trama, y
+       despues los herrajes opacos en su orden: bisagras, correderas, pistones, charolas, botes, jaladeras (la gola va transparente, es del
+       mueble). Se combina con abrir puertas y con Interior; no entra a lo exportado. Boton solo con icono (con texto la barra no cabia en
+       1136 px). L con cajonera: rehacer la escena ~0.5 s con rayos (0.17 sin), repintar ~60 ms (15 sin).
    A465. [Master hecho 23/10; SketchUp: sin cambio (las mallas salen de sus modelos: herramientas/malla_dibujo.py, BISAGRAS a 1.5 mm);
        Revit pendiente] (usuario 23/10: «¿como podemos hacerle para que todas las soluciones de esquina muestren correctamente las bisagras en
        isometrico?, en la ronda anterior solo actualizaste a medias algunas») Causa: cada esquinero dibujaba sus bisagras de otra forma: el
@@ -3436,6 +3444,9 @@
     <button class="btn btn-toggle" id="btnFlat" title="Plano: dibuja la previa sin colores ni texturas, como un plano, para leer mejor las cotas">
       <svg width="18" height="14" viewBox="0 0 22 17" fill="none"><rect x="1" y="1" width="20" height="15" stroke="#266096" stroke-width="1.4"/><path d="M13 1v15M13 7H21M1 11H13" stroke="#266096" stroke-width="1.1"/></svg>
       Plano
+    </button>
+    <button class="btn btn-icon btn-toggle" id="btnRayos" style="display:none" title="Rayos X: en el isométrico, gabinetes y frentes transparentes y los herrajes encima (bisagras, correderas, pistones, charolas)">   <!-- A466 -->
+      <svg width="18" height="16" viewBox="0 0 22 20" fill="none"><path d="M3 6l8-4 8 4v8l-8 4-8-4V6Z" stroke="#266096" stroke-width="1.1" stroke-dasharray="2 1.6"/><path d="M3 6l8 4 8-4M11 10v8" stroke="#266096" stroke-width="1.1" stroke-dasharray="2 1.6"/><rect x="8" y="8.5" width="6" height="4" rx="1" fill="#266096"/><circle cx="9.6" cy="10.5" r=".9" fill="#fff"/></svg>   <!-- solo icono: con texto la barra no cabe en 1136 px -->
     </button>
     <button class="btn btn-toggle" id="btnMeasure" title="Medir: primer clic, cotas de los gabinetes seleccionados; segundo clic, las de todos los muebles; tercer clic, las quita">
       <svg width="22" height="13" viewBox="0 0 26 16" fill="none"><rect x="1" y="4" width="23" height="8" stroke="#266096" stroke-width="1.5"/><path d="M5 4v5M9 4v3M13 4v5M17 4v3M21 4v5" stroke="#266096" stroke-width="1.5"/></svg>
@@ -8294,6 +8305,7 @@ let selection = new Set([row(false)[0].id]);  /* el real arranca con el primer m
 let focusPanel = null, upperFocus = null, esqFoco = null,   /* A237: doble clic en el bajo o en el alto de un esquinero */ pieces = new Set(), justActivated = null;
 const pieceSelected = key => !!selectedPart && selectedPart.startsWith('piece:') && pieces.has(key);
 let selectedPart = null;   /* 'wall' | 'cover' | 'sink' | 'tap' | 'plinth' | 'backsplash' | 'fillerI' | 'fillerD' | 'gola' */
+let rayos = false;   /* A466: rayos X del isometrico (solo el editor) */
 let view = 'Alzado', showDoors = true, flat = false, measure = false, medirTodo = false, seccionOn = false;   /* A119: Medir en tres pasos (elegidos, todos, apagado) */   /* A115: seccion lateral junto al alzado */
 let hover = null, drag = null, matDrag = null, dimensionKey = null, editingSwatch = null, cotaFina = false;   /* A380: cotas de detalle */
 
@@ -13410,7 +13422,8 @@ const EN = {
   'Perfil de aluminio visible en 3D.': 'Aluminum profile visible in 3D.',
   'Piso respecto al nivel': 'Floor relative to level',
   'Pistón + repisas': 'Lift-up + shelves',
-  'Plano': 'Flat',
+  'Plano': 'Flat',   /* A466: el titulo de Rayos X */
+  'Rayos X: en el isométrico, gabinetes y frentes transparentes y los herrajes encima (bisagras, correderas, pistones, charolas)': 'X-ray: in the isometric, cabinets and fronts see-through with the hardware on top (hinges, slides, pistons, trays)',
   'Plano: dibuja la previa sin colores ni texturas, como un plano, para leer mejor las cotas': 'Flat: draws the preview without colors or textures, like a drawing, to read dimensions better',
   'Planta': 'Plan',
   'Preparado para tarja': 'Sink-ready',
@@ -13929,6 +13942,7 @@ function setView(v){
   if (cfg.isla && v !== 'Alzado') { selection.clear(); focusPanel = null; }
   document.getElementById('viewLabel').textContent = viewName(view); hover = null;
   { const bi = document.getElementById('btnIso'); if (bi) bi.classList.toggle('active', view === 'Isometrico'); }   /* A393 */
+  { const br = document.getElementById('btnRayos'); if (br) br.style.display = view === 'Isometrico' ? '' : 'none'; }   /* A466: solo en el isometrico */
   render();
 }
 function closeMenu(){ const mnu = document.querySelector('.menu'); if (mnu) mnu.remove(); }
@@ -13948,6 +13962,8 @@ function openViewMenu(){
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
 })();
 document.getElementById('btnDoors').addEventListener('click', () => { showDoors = !showDoors; document.getElementById('btnDoors').classList.toggle('active', showDoors); document.getElementById('doorsLabel').textContent = showDoors ? 'Puertas' : 'Interior'; drawCanvas(); trUI(); if (typeof liveUI === 'function') liveUI(); });
+document.getElementById('btnRayos').addEventListener('click', () => { rayos = !rayos; document.getElementById('btnRayos').classList.toggle('active', rayos); drawCanvas();   /* A466 */
+  setStatus(rayos ? 'Rayos X: gabinetes y frentes transparentes; los herrajes se ven aunque las puertas estén cerradas.' : 'Rayos X apagado.'); });
 document.getElementById('btnFlat').addEventListener('click', () => { flat = !flat; document.getElementById('btnFlat').classList.toggle('active', flat); drawCanvas(); });
 /* A119 (usuario, 08/10): primer clic, los elegidos; segundo, todos los muebles; tercero, apagado */
 function syncMeasureUI(){ document.getElementById('btnMeasure').classList.toggle('active', measure); document.getElementById('measureLabel').textContent = measure && medirTodo ? 'Medir todo' : 'Medir'; trUI(); }
@@ -14837,8 +14853,10 @@ const LAM = (() => {
       const abierto = !!(conPuertas && p.frente && open.has(p.frente));
       const interior = p.rol === 'caja' || p.rol === 'repisa' || p.rol === 'division' || (p.rol === 'herraje' && INTERIOR.has(p.tipo));
       if (p.tipo === 'Cazoleta' && !mh && !(fs && modeloCad(p))) return;   /* la cazoleta es la perforacion de la puerta: circulo al abrirla; con modelo, el modelo */
-      if (interior && conPuertas && !abierto && !modAbierto.has(p.modulo) && tapado(p, ci)) return;   /* con puertas cerradas lo interior no se ve; A354: sin frente delante, si */
-      if (conPuertas && !abierto && p.frente && p.rol === 'herraje' && ['Bisagra', 'Cazoleta', 'CalzaBisagra'].includes(p.tipo)) return;   /* A189: la bisagra de una puerta cerrada queda tras ella, aunque otro frente del modulo este abierto */
+      /* A466 (usuario 23/10: «¿se podra realizar una vista rayos x en isometrico? ¿se verian las bisagras y correderas?»): con o.rayos lo de
+         adentro y las bisagras de las puertas cerradas no se descartan; isoPintar los pinta encima de la madera transparente */
+      if (interior && conPuertas && !abierto && !o.rayos && !modAbierto.has(p.modulo) && tapado(p, ci)) return;   /* con puertas cerradas lo interior no se ve; A354: sin frente delante, si */
+      if (conPuertas && !abierto && !o.rayos && p.frente && p.rol === 'herraje' && ['Bisagra', 'Cazoleta', 'CalzaBisagra'].includes(p.tipo)) return;   /* A189: la bisagra de una puerta cerrada queda tras ella, aunque otro frente del modulo este abierto */
       if (p.estado && p.frente && (p.estado === 'abierto') !== abierto) return;      /* variantes cerrado / abierto de bisagras y correderas */
       const m = abierto && p.estado !== 'abierto' ? movimientoDe(abres[p.frente]) : null;   /* A184: el brazo abierto ya esta en su sitio */
       const K = v => [cara.org[0] + v[0] * cara.ex[0] + v[1] * cara.ey[0], cara.org[1] + v[0] * cara.ex[1] + v[1] * cara.ey[1], cara.org[2] + v[2]];
@@ -14857,10 +14875,12 @@ const LAM = (() => {
           /* A337 (usuario 21/10: «una de las bisagras del piston elevable se sobrepone en el isometrico sin puertas y, al abrir los elevables,
              tambien sobre las puertas»): el brazo de la elevable (modelo.giro) va en el techo, no en la puerta: siempre en el orden de las
              cajas; y sin puertas en la escena ningun brazo va sobre su puerta (antes quedaba encima de todo) */
+          if (o.rayos) { herr.push({ id: sim.id, flip: sim.flip, O: OO }); return; }   /* A466: encima de todo */
           if (conPuertas && !mod.giro && p.frente && md && (a1[0] - a0[0]) * SX - (a1[1] - a0[1]) + (a1[2] - a0[2]) > .05) { cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }
           simQ = { id: sim.id, flip: sim.flip, O: OO, ar: true }; }
         else if (sim && FAM[mod.archivo] === 'caz' && p.frente) {   /* va con su puerta, y solo si se ve la cara interior donde esta atornillada */
           const b0 = [mod.origen[0], -mod.origen[1], mod.origen[2]], a0 = K(mover(b0, m)), a1 = K(mover([b0[0], b0[1] + 1, b0[2]], m));   /* normal de la cara interior, hacia el muro */
+          if (o.rayos) { herr.push({ id: sim.id, flip: sim.flip, O: OO }); return; }   /* A466: la cazoleta, tambien con la puerta de frente */
           if ((a1[0] - a0[0]) * SX - (a1[1] - a0[1]) + (a1[2] - a0[2]) <= .05) return;
           cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }
         else if (sim) { herr.push({ id: sim.id, flip: sim.flip, O: OO }); return; }
@@ -15153,7 +15173,11 @@ const LAM = (() => {
     const sombra = (c, k) => { const q = rgbDe(c); return '#' + [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round(q[i] * k))).toString(16).padStart(2, '0')).join(''); };
     if (o.hits) { isoHits.length = 0; isoModHits.length = 0; }
     g.save(); g.lineJoin = 'round'; g.lineCap = 'round'; g.lineWidth = 1;
-    esc.tri.forEach(t => {
+    /* A466: rayos X: primero la madera (gabinetes, frentes, cubierta, equipos) con un velo de relleno y su contorno tenue, sin trama;
+       despues, en su orden, los herrajes opacos (bisagras, correderas, pistones, charolas, botes, jaladeras) */
+    const esHerrT = t => !!(t.q && t.q.p && (t.q.p.rol === 'herraje' || t.q.p.etiqueta === 'herrajes') && !['Gola', 'Perfil'].includes(t.q.p.tipo));   /* la gola es parte del mueble: transparente */
+    const pinta = t => {
+      const ray = !!o.rayos && !esHerrT(t);
       if (t.t === 'sim') { const pr0 = esc.proy(t.O); dibujarSim(g, t.id, t.flip, X(pr0[0]), Y(pr0[1]), s, plano); return; }
       if (t.t === 'alambre') { g.save(); g.lineCap = 'round'; g.strokeStyle = plano ? '#333333' : '#4F5962';
         [.45, 1].forEach(gr => { g.lineWidth = gr === 1 ? 1.1 : .65; g.beginPath(); t.segs.forEach(sg => { if (sg[2] !== gr) return; g.moveTo(X(sg[0][0]), Y(sg[0][1])); g.lineTo(X(sg[1][0]), Y(sg[1][1])); }); g.stroke(); });
@@ -15174,8 +15198,10 @@ const LAM = (() => {
       }
       const tn = o.tinte ? o.tinte(t.q) : null, c = tn || base(t.q.p);
       g.fillStyle = t.color ? (plano ? '#B9C0C6' : t.color) : plano ? (t.t === 'perf' ? C.line : tn ? '#9AA3AB' : C.flat) : t.t === 'perf' ? '#3A3F45' : sombra(c, t.k);
+      if (ray) g.globalAlpha = .1;
       g.fill();
-      if (t.pat && !plano && !tn) {   /* A187: trama del material (madera, piedra...) recortada a la cara */
+      if (ray) g.globalAlpha = .5;
+      if (t.pat && !plano && !tn && !ray) {   /* A187: trama del material (madera, piedra...) recortada a la cara */
         const { spec, k, P0, Pu, Pv, lu, lv } = t.pat, tw = spec.w * k, th = spec.h * k, cols = Math.ceil(lu / tw) + 1, rows = Math.ceil(lv / th) + 1;
         if (tw * s >= 1.5 && th * s >= 1.5 && cols * rows * spec.trazos.length <= 5000) {
           g.save(); g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
@@ -15189,10 +15215,11 @@ const LAM = (() => {
           g.beginPath(); pr.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
           (t.holes || []).forEach(h0 => { h0.forEach((p, i) => i ? g.lineTo(X(p[0]), Y(p[1])) : g.moveTo(X(p[0]), Y(p[1]))); g.closePath(); }); }   /* el contorno de la cara, otra vez: el trazo de la trama lo reemplazo */
       }
-      g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke();
+      g.strokeStyle = plano ? C.line : sombra(c, .55); g.lineWidth = t.t === 'perf' ? .6 : 1; g.stroke(); g.globalAlpha = 1;
       if (o.hits && t.t === 'cara' && (t.q.p.rol === 'frente' && (t.q.p.frente || t.q.p.fijo) || t.q.p.soloDibujo && /:(bandeja|canasta):\d+$/.test(t.q.p.frente || ''))) isoHits.push({ pr, frente: t.q.p.frente || null, modulo: t.q.p.modulo });   /* A376: el falso frente tambien; A418: las charolas de esquina y las canastas del carrusel (su dibujo) salen y entran con doble clic */
       if (o.hits && t.t === 'cara' && t.q && !t.q.extra) isoModHits.push({ pr, modulo: t.q.p.modulo || null, p: t.q.p, ci: t.q.ci, kc: t.q.kc });   /* A389: y su cara */   /* A355: y su pieza */   /* A340; A353: todas, en orden de pintado (cubierta, zoclo: sin modulo) */
-    });
+    };
+    if (o.rayos) { esc.tri.filter(t => !esHerrT(t)).forEach(pinta); esc.tri.filter(esHerrT).forEach(pinta); } else esc.tri.forEach(pinta);   /* A466 */
     (esc.herr || []).forEach(h => { const pr = esc.proy(h.O); dibujarSim(g, h.id, h.flip, X(pr[0]), Y(pr[1]), s, plano); });
     if (o.cotas !== false) esc.cotas.forEach(c => {
       const P = v => { const p = esc.proy(v); return [X(p[0]), Y(p[1])]; };
@@ -17922,8 +17949,10 @@ function drawIsometrico(){
   let esc;
   /* A364 (usuario 21/10: «se siente laggeado cuando arrastro un material a los elementos»): la escena se rehace solo si cambio la cocina,
      las puertas, lo abierto o las cotas; arrastrar, pasar el mouse o elegir reutilizan la ultima */
-  const claveEsc = exporting ? null : [JSON.stringify(cfg), showDoors, measure, [...LAM.abiertos].sort().join(','), cfg.region].join('|');
-  try { esc = claveEsc && isoCache.clave === claveEsc ? isoCache.esc : LAM.isoEscena({ puertas: showDoors, cotas: measure, fantasmas: true }); if (claveEsc) isoCache = { clave: claveEsc, esc }; }
+  const rx = rayos && !exporting;   /* A466 */
+  { const br = document.getElementById('btnRayos'); if (br && !exporting) br.style.display = ''; }
+  const claveEsc = exporting ? null : [JSON.stringify(cfg), showDoors, measure, [...LAM.abiertos].sort().join(','), cfg.region, rx].join('|');
+  try { esc = claveEsc && isoCache.clave === claveEsc ? isoCache.esc : LAM.isoEscena({ puertas: showDoors, cotas: measure, fantasmas: true, rayos: rx }); if (claveEsc) isoCache = { clave: claveEsc, esc }; }
   catch (e) { ctx.save(); ctx.font = "13px 'Inter'"; ctx.fillStyle = C.muted; ctx.fillText(e.message, 40, 130); ctx.restore(); return; }
   const L = 40, R = 40, T = 96, B = 66, w = esc.bb.x1 - esc.bb.x0, h = esc.bb.y1 - esc.bb.y0, aw = cssW - L - R - 30, ah = cssH - T - B - 30;
   const fit = Math.max(.05, Math.min(aw / w, ah / h)), zk = exporting ? 1 : isoZoom.k, s = fit*zk;
@@ -17932,7 +17961,7 @@ function drawIsometrico(){
   /* A358 (usuario 21/10: «el estilo oscuro en isometrico pinta los componentes a oscuro»): el mueble va con sus colores reales (los de la
      paleta clara); el tema oscuro solo cambia el fondo y los textos */
   { const previo = Object.assign({}, C); Object.assign(C, LIGHT); if (cfg.closet) Object.assign(C, CLOSET_LIGHT);
-    try { LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true }); } finally { Object.assign(C, previo); } }
+    try { LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true, rayos: rx }); } finally { Object.assign(C, previo); } }
   /* A353: el que esta bajo el puntero, contorno tenue; los elegidos, contorno y etiqueta (nombre y ancho) sobre su silueta */
   /* A393 (usuario 21/10: «la seleccion de la peninsula no se ve correcta en isometrico, solo tiene que verse el contorno de la misma»): la
      peninsula (todas las piezas de su cara) se resalta con su contorno, sin tinte, al pasar y al elegirla */
