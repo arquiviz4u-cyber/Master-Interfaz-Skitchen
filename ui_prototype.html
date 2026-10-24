@@ -365,6 +365,9 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A469. [Master hecho 23/10; SketchUp y Revit: no aplica] (usuario 23/10: «se ve bien, solo cuando le doy en modo nocturno las rejillas se
+       oscurecen») Las varillas (canastas del carrusel, condimentero) iban con borde gris oscuro: sobre el fondo de noche se apagaban. En el
+       editor de noche (o.noche) van con borde y brillo de acero claro; lo exportado y Presentar siguen con los colores de dia.
    A468. [Master hecho 23/10; SketchUp: sin cambio (son sus modelos); herramientas/alambre_dibujo.py nueva y prueba de los alambres del master;
        Revit pendiente] (usuario 23/10: «¿podriamos hacer con el metodo que desarrollamos de integracion de modelos 3D integrar correctamente el
        carrusel y los condimenteros de herraje para su correcta representacion en 3D?») Revisados con integrar_modelo.py revisar (sin avisos).
@@ -15230,10 +15233,12 @@ const LAM = (() => {
       if (t.t === 'sim') { const pr0 = esc.proy(t.O); dibujarSim(g, t.id, t.flip, X(pr0[0]), Y(pr0[1]), s, plano); return; }
       if (t.t === 'alambre' && t.q.alambreD) { const w = Math.max(.6, Math.min(4, t.q.alambreD * s));   /* A468: la varilla a su grueso; gruesa, con su brillo al centro */
         g.save(); g.lineCap = 'round'; g.lineJoin = 'round'; g.beginPath(); t.segs.forEach(sg => { g.moveTo(X(sg[0][0]), Y(sg[0][1])); g.lineTo(X(sg[1][0]), Y(sg[1][1])); });
-        g.strokeStyle = plano ? '#333333' : '#4A535B'; g.lineWidth = w; g.stroke();
-        if (!plano && w >= 1.6) { g.strokeStyle = '#AEB6BD'; g.lineWidth = w*.4; g.stroke(); }
+        /* A469 (usuario 23/10: «cuando le doy en modo nocturno las rejillas se oscurecen»): sobre el fondo de noche del editor el borde
+           oscuro de la varilla la apagaba; de noche, borde y brillo de acero claro (lo exportado sigue con los de dia) */
+        g.strokeStyle = plano ? '#333333' : o.noche ? '#7F8890' : '#4A535B'; g.lineWidth = w; g.stroke();
+        if (!plano && w >= 1.6) { g.strokeStyle = o.noche ? '#E6EAEE' : '#AEB6BD'; g.lineWidth = w*.4; g.stroke(); }
         g.restore(); return; }
-      if (t.t === 'alambre') { g.save(); g.lineCap = 'round'; g.strokeStyle = plano ? '#333333' : '#4F5962';
+      if (t.t === 'alambre') { g.save(); g.lineCap = 'round'; g.strokeStyle = plano ? '#333333' : o.noche ? '#8A939B' : '#4F5962';
         [.45, 1].forEach(gr => { g.lineWidth = gr === 1 ? 1.1 : .65; g.beginPath(); t.segs.forEach(sg => { if (sg[2] !== gr) return; g.moveTo(X(sg[0][0]), Y(sg[0][1])); g.lineTo(X(sg[1][0]), Y(sg[1][1])); }); g.stroke(); });
         g.restore(); return; }
       if (t.t === 'fantasma') { const pr = t.pr.map(p => [X(p[0]), Y(p[1])]);   /* A452: el vacio: contorno punteado y se elige como un modulo */
@@ -18015,7 +18020,7 @@ function drawIsometrico(){
   /* A358 (usuario 21/10: «el estilo oscuro en isometrico pinta los componentes a oscuro»): el mueble va con sus colores reales (los de la
      paleta clara); el tema oscuro solo cambia el fondo y los textos */
   { const previo = Object.assign({}, C); Object.assign(C, LIGHT); if (cfg.closet) Object.assign(C, CLOSET_LIGHT);
-    try { LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true, rayos: rx }); } finally { Object.assign(C, previo); } }
+    try { LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true, rayos: rx, noche: dark && !exporting });   /* A469 */ } finally { Object.assign(C, previo); } }
   /* A353: el que esta bajo el puntero, contorno tenue; los elegidos, contorno y etiqueta (nombre y ancho) sobre su silueta */
   /* A393 (usuario 21/10: «la seleccion de la peninsula no se ve correcta en isometrico, solo tiene que verse el contorno de la misma»): la
      peninsula (todas las piezas de su cara) se resalta con su contorno, sin tinte, al pasar y al elegirla */
