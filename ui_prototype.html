@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A470. [Master hecho 23/10; SketchUp: el carrusel (poste y canastas) llega con ejes espejados en X (Modelos.por_ejes ya los aplica);
+       Revit pendiente] (usuario 23/10) 1) «El tercer clic del boton isometrico no vuelve a la vista de alzado, solo se intercambia el modo»:
+       el boton de vistas crecia al decir «Isométrico» y el del isometrico se corria; el clic siguiente en el mismo lugar caia en otro boton.
+       El de vistas tiene ancho fijo (122 px) y el tercer clic apaga los rayos y vuelve a la vista anterior (o al alzado). 2) «El carrusel esta
+       mal colocado: el cuarto del circulo recortado deberia ajustarse a la escuadra de las puertas»: el modelo del carrusel (canastas y poste)
+       iba sin espejo y su cuarto abierto miraba a la pared de la otra cara; ahora va espejado en X (ejes [-1, 0, 0]...), con el cuarto
+       abierto hacia las puertas como el arco de A252.
    A469. [Master hecho 23/10; SketchUp y Revit: no aplica] (usuario 23/10: «se ve bien, solo cuando le doy en modo nocturno las rejillas se
        oscurecen») Las varillas (canastas del carrusel, condimentero) iban con borde gris oscuro: sobre el fondo de noche se apagaban. En el
        editor de noche (o.noche) van con borde y brillo de acero claro; lo exportado y Presentar siguen con los colores de dia.
@@ -3011,6 +3018,7 @@
 
   #btnIso.rayos, html[data-theme=dark] #btnIso.rayos, #btnIso.rayos:hover { background: #266096; border-color: #266096; }   /* A467: el isometrico con rayos X */
   #btnIso.rayos svg * { stroke: #fff; }
+  #btnView { min-width: 122px; justify-content: flex-start; }   /* A470: con «Isométrico» el boton crecia y el del isometrico se corria bajo el puntero */
   .btn-toggle.active { background: var(--ink-soft); border-color: var(--ink); color: var(--ink); font-weight: 600; }
   .btn-toggle.active:hover { background: #DCE8F3; }
 
@@ -10229,7 +10237,10 @@ function esquinerosPlan(add, r2, sep, tf){
       [zb + e1 + 8, zb + A*.55].forEach((z, i) => losa(id + ':charola:' + i, 'repisa', 'Carrusel', modB, arco, z, z + 1.2, null, 'herrajes', { soloDibujo: true, frente: id + ':canasta:' + i }));   /* A252 */
       /* A252: el carrusel del usuario (charolas de 3/4 sin el cuarto de la puerta, como el arco) escalado a su radio y su poste en el centro */
       const MC = MODELO_EQUIPOS.carrusel, sc = rr/MC.radio;
-      const oC = [cx - MC.poste[0]*sc, sep + cy + MC.poste[1]*sc, zb + e1], ejC = [[1, 0, 0], [0, -1, 0], [0, 0, 1]], kC = [sc, sc, (A - 2*e1)/MC.medida[2]], PC = MC.partes;
+      /* A470 (usuario 23/10: «el carrusel esta mal colocado: el cuarto del circulo recortado deberia ajustarse a la escuadra de las
+         puertas»): el archivo tiene el cuarto abierto hacia +X y la habitacion; la esquina en L esta en el extremo derecho de la cara, con las
+         puertas hacia -x: el modelo va espejado en X (como el arco de las charolas de A252), su frente-izquierda-abajo del lado de x mayor */
+      const oC = [cx + MC.poste[0]*sc, sep + cy + MC.poste[1]*sc, zb + e1], ejC = [[-1, 0, 0], [0, -1, 0], [0, 0, 1]], kC = [sc, sc, (A - 2*e1)/MC.medida[2]], PC = MC.partes;
       add({ id: id + ':poste', rol: 'herraje', modulo: modB, tipo: 'Carrusel', x: cx - 1.25, y: sep + cy - 1.25, z: zb + e1, ancho: 2.5, fondo: 2.5, alto: A - 2*e1, material: null, etiqueta: 'herrajes',
         forma: { tipo: 'cilindro', de: [1.25, 1.25, 0], a: [1.25, 1.25, r2(A - 2*e1)], diametro: 2.5, lados: 10 },
         modelo: parteModelo('carrusel_poste', oC, ejC, kC, PC.poste.desde, PC.poste.medida) });
@@ -13994,7 +14005,7 @@ let vistaAntesIso = 'Alzado';
 document.getElementById('btnIso').addEventListener('click', () => {
   if (view !== 'Isometrico') { vistaAntesIso = view; rayos = false; setView('Isometrico'); return; }
   if (!rayos) { rayos = true; document.getElementById('btnIso').classList.add('rayos'); drawCanvas(); setStatus('Rayos X: gabinetes y frentes transparentes; los herrajes se ven aunque las puertas estén cerradas. Otro clic: vuelve a la vista anterior.'); return; }
-  setView(viewList().some(q => q[0] === vistaAntesIso) ? vistaAntesIso : 'Alzado'); });
+  rayos = false; setView(vistaAntesIso !== 'Isometrico' && viewList().some(q => q[0] === vistaAntesIso) ? vistaAntesIso : 'Alzado'); });   /* A470 */
 document.getElementById('btnSection').addEventListener('click', () => { seccionOn = !seccionOn; document.getElementById('btnSection').classList.toggle('active', seccionOn); drawCanvas(); });
 /* comando que abre el editor (en los plugins lo decide el boton de la cinta; aqui se simula) */
 function syncCommandUI(){
