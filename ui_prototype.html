@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A473. [Master hecho 23/10; SketchUp y Revit: no aplica] (usuario 23/10: «a un costado del titulo de la vista Isometrico me gustaria
+       una especie de flecha que indique el cambio de angulo de camara del isometrico para ver desde otro perfil el conjunto; 3 opciones:
+       derecha, izquierda y centro») Tres botones con flecha junto a «ISOMÉTRICO» (el activo, relleno): izquierda y derecha fijan el lado
+       del observador (antes, siempre el contrario a las demas caras); de frente es una proyeccion ortogonal a 30 grados de altura. La
+       escena usa la direccion del observador (V) para el orden de pintor, las caras visibles y el z-buffer; de frente no hay simbolos de
+       herrajes (son de los lados): las bisagras van con su malla real (tambien las de frentes comunes, por origen, espejo y giro como en
+       SketchUp) y lo demas con su caja o su forma. Al cambiar de camara el encuadre vuelve a ajustarse. Solo el editor por ahora.
    A472. [Master hecho 23/10; SketchUp: sin cambio (sigue la elevacion de cada alto); Revit pendiente] (usuario 23/10: «en la
        subdivision de gabinetes altos en el caso de peninsula quiero que solo el gabinete del extremo se le aplique la opcion de alacena hasta
        cubierta, por lo tanto los demas modulos tendran su opcion de alacena hasta cubierta independiente») La casilla del borde (A394) ya no
@@ -11348,6 +11355,7 @@ canvas.addEventListener('mousedown', e => {
   if (e.button !== 0) return;   /* el canvas ignora todo boton que no sea el izquierdo */
   const p = pt(e), dbl = e.detail >= 2;   /* e.detail: Clicks del real (2 = doble clic) */
   canvas.focus();
+  if (view === 'Isometrico') { const ch = camHits.find(q => inside(p, q.rect)); if (ch) { e.preventDefault(); isoCam = ch.k; isoZoom = { k: 1, dx: 0, dy: 0, base: null }; setStatus(ch.t + '.'); render(); return; } }   /* A473 */
   if (view === 'Isometrico') { e.preventDefault();   /* A170: doble clic (A183) abre o cierra los frentes; A339: cada frente */
     if (dbl) { if (LAM.isoClick(p, e.shiftKey)) render(); return; }
     /* A355: una pieza de ajuste, la cubierta, el zoclo, el backsplash o la gola se eligen como en el alzado */
@@ -11452,6 +11460,7 @@ canvas.addEventListener('mousemove', e => {
   if (view === 'Isometrico' && drag && drag.kind === 'module') {   /* A362 (usuario 21/10: «intercambiar modulos de posicion tambien funciona en isometrico») */
     drag.x = p.x; drag.y = p.y; const lejos = Math.hypot(p.x - drag.x0, p.y - drag.y0) > 5, t = lejos ? LAM.isoModulo(p) : null;
     drag.over = t && t !== drag.id && byId(t) ? columnaPar(drag.id, t) : null; canvas.style.cursor = lejos ? 'grabbing' : 'pointer'; pedirDibujo(); return; }
+  if (view === 'Isometrico' && camHits.some(q => inside(p, q.rect))) { canvas.style.cursor = 'pointer'; return; }   /* A473 */
   if (view === 'Isometrico') { const hcP = LAM.isoPiezaCara(p), penP = !!(hcP && !hcP.p.modulo && multiCara() && cfg.caras[hcP.kc] && caraDe(hcP.kc).peninsula);   /* A393 */
     const pa = penP ? null : parteIso(LAM.isoPieza(p)), hm = LAM.isoModulo(p), hv = penP ? 'peninsula' : pa ? 'parte:' + pa : hm && byId(hm) ? hm : null; canvas.style.cursor = LAM.isoHit(p) || hv ? 'pointer' : 'default';   /* A170; A340; A355 */
     if (hv !== isoHover) { isoHover = hv; pedirDibujo(); } return; }   /* A353: el contorno tenue sigue al puntero; A364: por cuadro */
@@ -14539,6 +14548,10 @@ const LAM = (() => {
      para su correcta representacion en 3D?»): un modelo estirable a escala con malla (el poste del carrusel, con su buje) va con ella, por su
      origen, ejes y medida; los de rejilla (canastas del carrusel, condimentero) van con el eje de sus varillas (ALAMBRES_DIBUJO), a su medida:
      por origen, ejes y medida si los lleva, si no a la caja de la pieza (X a lo ancho, Y del frente al fondo, Z arriba) */
+  /* A473: la bisagra de un frente cualquiera (origen, espejo y giro, sin ejes) con su malla, en los ejes que le da SketchUp (Modelos.por_origen):
+     X a lo ancho (al reves con espejo), Y hacia el muro, Z arriba; con giro 90 (elevable) X sube y Z va a lo ancho */
+  const mallaBisagraOrigen = p => { const M = p.modelo; if (!(BISAGRAS_CON_MALLA && p.rol === 'herraje' && M && M.origen && !M.ejes && MALLAS_DIBUJO[M.archivo] && /^bisagra/.test(M.archivo))) return null;
+    const e = M.espejo ? -1 : 1; return { tipo: 'malla', archivo: M.archivo, origen: M.origen, ejes: M.giro === 90 ? [[0, 0, 1], [0, -1, 0], [e, 0, 0]] : [[e, 0, 0], [0, -1, 0], [0, 0, 1]] }; };
   const mallaEquipoEscala = p => p.rol === 'herraje' && p.modelo && p.modelo.estirar && p.modelo.ejes && p.modelo.origen && p.modelo.medida && MALLAS_DIBUJO[p.modelo.archivo]
     && MODELO_EQUIPOS[p.modelo.archivo] && MODELO_EQUIPOS[p.modelo.archivo].escala ? { tipo: 'malla', archivo: p.modelo.archivo, origen: p.modelo.origen, ejes: p.modelo.ejes, medida: p.modelo.medida } : null;
   const alambreModelo = p => { const A = p.rol === 'herraje' && p.modelo && ALAMBRES_DIBUJO[p.modelo.archivo]; if (!A) return null;
@@ -14889,11 +14902,19 @@ const LAM = (() => {
     const frentesMod = new Map(); caras.forEach((c, ci) => c.piezas.forEach(p => { if (p.rol === 'frente' && p.modulo) { const k = ci + '|' + p.modulo; if (!frentesMod.has(k)) frentesMod.set(k, []); frentesMod.get(k).push(p); } }));
     const tapado = (p, ci) => (frentesMod.get(ci + '|' + p.modulo) || []).some(f => !open.has(f.frente) && p.x + p.ancho/2 >= f.x - .5 && p.x + p.ancho/2 <= f.x + f.ancho + .5 && p.z + p.alto/2 >= f.z - .5 && p.z + p.alto/2 <= f.z + f.alto + .5);
     const cajas = [], herr = [], cazF = [];
-    const SX = (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, og = (plan.caras || []).map(c => c.origen[0]);
-      return og.length && og.reduce((a, b) => a + b, 0) / og.length > centro ? -1 : 1; })();   /* observador en el cuarto y del lado contrario a las demas caras */
+    const SX = o.camara === 'izq' ? -1 : o.camara === 'der' ? 1 : (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, og = (plan.caras || []).map(c => c.origen[0]);
+      return og.length && og.reduce((a, b) => a + b, 0) / og.length > centro ? -1 : 1; })();   /* observador en el cuarto y del lado contrario a las demas caras; A473: o del lado que se pida */
+    /* A473 (usuario 23/10: «una flecha que indique el cambio de angulo de camara del isometrico para ver desde otro perfil el conjunto; 3
+       opciones: derecha, izquierda y centro»): o.camara 'izq' | 'der' fija el lado del observador (SX); 'centro' lo pone de frente, a 30
+       grados de altura (proyeccion ortogonal: x tal cual, el fondo a sen 30 y lo alto a cos 30). V es la direccion hacia el observador (el
+       orden de pintor, las caras que se ven y el z-buffer la usan); de frente no hay simbolos (son de los lados): las bisagras van con su
+       malla y lo demas con su caja o su forma */
+    const CENTRO = o.camara === 'centro';
+    const proy = CENTRO ? v => [v[0], -v[1] * .5 - v[2] * .866] : v => [(v[0] + SX * v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a un lado y abajo; el cuarto (-Y) al otro y abajo */
+    const V = CENTRO ? [0, -.866, .5] : [SX, -1, 1], luz = CENTRO ? vunit([.3, -.5, .82]) : vunit([.35 * SX, -.45, .82]);
     /* A185: el simbolo de un herraje (proyeccion de su modelo con el observador a (sx, -1) de la cara) sirve a cualquier cara cuyo eje Y
        local mire al cuarto: la proyeccion global de sus ejes locales es la del simbolo, espejada en horizontal si la cara va girada */
-    const simCara = cara => { const ex = cara.ex, ey = cara.ey, vy = SX * ey[0] - ey[1], a = SX * ey[0] + ey[1], sx = SX * ex[0] - ex[1];
+    const simCara = cara => { if (CENTRO) return null; const ex = cara.ex, ey = cara.ey, vy = SX * ey[0] - ey[1], a = SX * ey[0] + ey[1], sx = SX * ex[0] - ex[1];
       return Math.abs(vy + 1) < .01 && Math.abs(Math.abs(a) - 1) < .01 && Math.abs(Math.abs(sx) - 1) < .01 ? { sx: Math.round(sx), f: Math.round(a) } : null; };
     const trocear = (piezas, ci) => !o.recorte || ci !== 0 ? piezas : piezas.flatMap(p => p.modulo || !['zoclo', 'cubierta', 'backsplash'].includes(p.rol) ? [p] : trocearEn(p, p.rol === 'backsplash' ? o.recorte.mod : o.recorte.todo));
     /* A303 (usuario 19/10: «no se representa el cuerpo de la campana completo»): la campana con modelo lleva su chimenea (zona del modelo
@@ -14915,7 +14936,7 @@ const LAM = (() => {
          abiertos) se dibuja con la malla real de su modelo (MALLAS_DIBUJO), puesta por el origen y los ejes que ya lleva para SketchUp: sirve
          en cualquier cara y a cualquier angulo (el simbolo solo servia de frente y lo demas salia como cajas o dibujos aproximados). Sus
          dibujos aproximados (dib155, dibPleg, libroDibujo) ya no van; queda el eslabon de la oculta abierta, que no tiene modelo abierto */
-      const mh = mallaBisagraEsq(p) || mallaEquipoEscala(p);   /* A468: y el poste del carrusel */
+      const mh = mallaBisagraEsq(p) || (CENTRO ? mallaBisagraOrigen(p) : null) || mallaEquipoEscala(p);   /* A468: y el poste del carrusel; A473: de frente, toda bisagra con su malla */
       const am = alambreModelo(p);   /* A468: herrajes de rejilla, con el eje de sus varillas */
       if (!mh && BISAGRAS_CON_MALLA && /:(dib155|dibPleg|libroDibujo):/.test(p.id) && !/:dibPleg:eslabon:/.test(p.id)) return;
       if (p.soloModelo && !mh && !am) return;   /* A290: pieza que solo es el modelo (canastas, charolas): en los dibujos van sus charolas de dibujo */
@@ -14946,12 +14967,12 @@ const LAM = (() => {
              tambien sobre las puertas»): el brazo de la elevable (modelo.giro) va en el techo, no en la puerta: siempre en el orden de las
              cajas; y sin puertas en la escena ningun brazo va sobre su puerta (antes quedaba encima de todo) */
           if (o.rayos) { herr.push({ id: sim.id, flip: sim.flip, O: OO }); return; }   /* A466: encima de todo */
-          if (conPuertas && !mod.giro && p.frente && md && (a1[0] - a0[0]) * SX - (a1[1] - a0[1]) + (a1[2] - a0[2]) > .05) { cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }
+          if (conPuertas && !mod.giro && p.frente && md && vpunto(vsub(a1, a0), V) > .05) { cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }
           simQ = { id: sim.id, flip: sim.flip, O: OO, ar: true }; }
         else if (sim && FAM[mod.archivo] === 'caz' && p.frente) {   /* va con su puerta, y solo si se ve la cara interior donde esta atornillada */
           const b0 = [mod.origen[0], -mod.origen[1], mod.origen[2]], a0 = K(mover(b0, m)), a1 = K(mover([b0[0], b0[1] + 1, b0[2]], m));   /* normal de la cara interior, hacia el muro */
           if (o.rayos) { herr.push({ id: sim.id, flip: sim.flip, O: OO }); return; }   /* A466: la cazoleta, tambien con la puerta de frente */
-          if ((a1[0] - a0[0]) * SX - (a1[1] - a0[1]) + (a1[2] - a0[2]) <= .05) return;
+          if (vpunto(vsub(a1, a0), V) <= .05) return;
           cazF.push({ frente: p.frente, id: sim.id, flip: sim.flip, O: OO }); return; }
         else if (sim) { herr.push({ id: sim.id, flip: sim.flip, O: OO }); return; }
       }
@@ -14994,7 +15015,7 @@ const LAM = (() => {
       if (p.soloDibujo && p.tipo === 'Carrusel' && /:charola:\d+$/.test(p.id) && ALAMBRES_DIBUJO.carrusel_canasta) q.oculta = true;
       const malla = mh ? mallaForma(Object.assign({}, p, { forma: mh })) : (p.hueco || p.huecos) && p.rol === 'cubierta' ? null : mallaForma(p);   /* A465 */   /* A185: pistones, vastagos, perfiles de gola: su forma, no su caja. A191: la losa con hueco (tarja) va como caja con su hueco: el inglete no la tapa */
       if (malla) q.malla = malla.map(c => { const cen = c.pl.reduce((t, v) => vadd(t, v), [0, 0, 0]).map(t => t / c.pl.length), w0 = P(cen[0], cen[1], cen[2]), w1 = P(cen[0] + c.n[0], cen[1] + c.n[1], cen[2] + c.n[2]);
-        return { pts: c.pl.map(v => P(v[0], v[1], v[2])), n: vunit(vsub(w1, w0)), col: c.col, dc: c.dc, d: SX * cen[0] - cen[1] + cen[2],
+        return { pts: c.pl.map(v => P(v[0], v[1], v[2])), n: vunit(vsub(w1, w0)), col: c.col, dc: c.dc, d: vpunto(V, cen),
           nv: c.nv ? c.nv.map((nn, i) => { const v = c.pl[i]; return vunit(vsub(P(v[0] + nn[0], v[1] + nn[1], v[2] + nn[2]), P(v[0], v[1], v[2]))); }) : null }; });   /* A429: color, dos caras y profundidad; A439: normales por esquina */
       /* A468: el alambre de un cajon sacado (el condimentero) va en dos tramos, el que sigue dentro del mueble y el de fuera, partidos en el
          plano de su frente cerrado: cada uno con su caja, el orden de pintor los separa del lateral (sin eso lo de adentro se pintaba encima) */
@@ -15011,18 +15032,18 @@ const LAM = (() => {
     }));
     if (!cajas.length && !cazF.length) throw new Error('El plan no trae piezas para el isométrico');
     /* orden de pintor exacto para cajas alineadas con los ejes: A va antes que B si queda por completo detras de B en algun eje */
-    cajas.sort((a, b) => (SX * a.c[0] - a.c[1] + a.c[2]) - (SX * b.c[0] - b.c[1] + b.c[2]));
+    cajas.sort((a, b) => vpunto(V, a.c) - vpunto(V, b.c));   /* A473: por la direccion del observador */
     /* A185: orden topologico (Kahn): lo que queda detras va antes; entre los libres sale el de menor centro y, si hay un ciclo de
        cajas que se tocan, el de menor centro de los que quedan. El recorrido en profundidad anterior pintaba el piso y la trasera
        del cuerpo despues de los cajones sacados */
-    const detras = (a, b) => (SX > 0 ? a.mx[0] <= b.mn[0] + .01 : a.mn[0] >= b.mx[0] - .01) || a.mn[1] >= b.mx[1] - .01 || a.mx[2] <= b.mn[2] + .01;
+    const detras = (a, b) => (V[0] > 0 ? a.mx[0] <= b.mn[0] + .01 : V[0] < 0 ? a.mn[0] >= b.mx[0] - .01 : false) || a.mn[1] >= b.mx[1] - .01 || a.mx[2] <= b.mn[2] + .01;   /* A473: de frente, x no ordena */
     const N = cajas.length, faltan = new Array(N).fill(0), peso = new Array(N).fill(0), despues = Array.from({ length: N }, () => []);
     /* casco convexo de cada caja en pantalla y cuanto se tapan: un contacto de canto (gola sobre un lateral) no es un tapado y metia ciclos */
     const casco = pts => { const P = pts.slice().sort((p, q) => p[0] - q[0] || p[1] - q[1]), cr = (o, a2, b2) => (a2[0] - o[0]) * (b2[1] - o[1]) - (a2[1] - o[1]) * (b2[0] - o[0]), H = [];
       for (const pass of [0, 1]) { const ini = H.length; (pass ? P.slice().reverse() : P).forEach(p => { while (H.length >= ini + 2 && cr(H[H.length - 2], H[H.length - 1], p) <= 1e-9) H.pop(); H.push(p); }); H.pop(); }
       return H; };
     const areaP = P => P.reduce((t, p, k) => { const q = P[(k + 1) % P.length]; return t + p[0] * q[1] - q[0] * p[1]; }, 0) / 2;
-    cajas.forEach(q => { q.hull = casco(q.v.map(v => [(v[0] + SX * v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]])); if (q.hull.length > 2 && areaP(q.hull) < 0) q.hull.reverse(); });   /* A255 */
+    cajas.forEach(q => { q.hull = casco(q.v.map(proy)); if (q.hull.length > 2 && areaP(q.hull) < 0) q.hull.reverse(); });   /* A255 */
     const recorta = (S, Cc) => { let out = S;   /* Sutherland-Hodgman: la parte de S dentro del convexo Cc (antihorario) */
       for (let k = 0; k < Cc.length && out.length; k++) { const c1 = Cc[k], c2 = Cc[(k + 1) % Cc.length], inp = out; out = [];
         const dentro = p => (c2[0] - c1[0]) * (p[1] - c1[1]) - (c2[1] - c1[1]) * (p[0] - c1[0]) >= 0;
@@ -15043,7 +15064,7 @@ const LAM = (() => {
       const sobre = (h, d) => { if (!((h.p.soloDibujo || h.mh) && h.p.rol === 'herraje' && h.p.frente && d.p.rol === 'frente' && d.p.frente && d.nb)) return 0;
         const base = f => f.replace(/:hoja:[ab]$/, ''), deHojas = /:(libroDibujo|dibPleg|plegable):/.test(h.p.id);   /* A465: y las de malla con su puerta (tambien la de 45: d.nb) */
         if (!((h.mh || h.p.estado === 'abierto') && h.p.frente === d.p.frente || deHojas && base(d.p.frente) === base(h.p.frente))) return 0;
-        return vpunto(d.nb, [SX, -1, 1]) > 0 ? 1 : -1; };
+        return vpunto(d.nb, V) > 0 ? 1 : -1; };
       const tornillo = (h, d) => /:libroDibujo:tornillo/.test(h.p.id) && /:libroDibujo:ala/.test(d.p.id) && h.p.frente === d.p.frente ? 1 : 0;   /* la cabeza, sobre su ala */
       { const so = sobre(cajas[i], cajas[j]) || -sobre(cajas[j], cajas[i]) || tornillo(cajas[i], cajas[j]) || -tornillo(cajas[j], cajas[i]);
         if (so > 0) { despues[j].push([i, ar]); faltan[i]++; peso[i] += ar; continue; }
@@ -15058,8 +15079,6 @@ const LAM = (() => {
       hecho[pick] = true; orden.push(cajas[pick]); despues[pick].forEach(([j, w]) => { faltan[j]--; peso[j] -= w; }); }
     /* A255 (usuario 18/10: «el isometrico de presentar pone la cocina espejeada»): con el observador al frente izquierda (SX = -1, la cocina
        en L o U con sus caras a la derecha) la pantalla tomaba -x: un espejo, no la vista desde el otro lado. x de pantalla = x + SX y */
-    const proy = v => [(v[0] + SX * v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a un lado y abajo; el cuarto (-Y) al otro y abajo */
-    const V = [SX, -1, 1], luz = vunit([.35 * SX, -.45, .82]);
     const caraIdx = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [3, 2, 6, 7], [0, 3, 7, 4], [1, 2, 6, 5]];
     const normalHacia = (pts, ref, haciaAfuera) => { let n = vunit(vcruz(vsub(pts[1], pts[0]), vsub(pts[2], pts[0])));
       const d = vsub(ref, pts[0]); return (vpunto(n, d) > 0) === haciaAfuera ? vmul(n, -1) : n; };
@@ -15143,7 +15162,7 @@ const LAM = (() => {
     cotas.forEach(c => { cuenta([proy(c.a), proy(c.b), proy(vadd(c.a, vmul(c.d, 1.12))), proy(vadd(c.b, vmul(c.d, 1.12)))]); });
     herr.forEach(h => { const pr = proy(h.O), c = HSYM[h.id], a = c.u0 / 100, b = (c.u0 + c.w) / 100;
       cuenta([[pr[0] + (h.flip ? -b : a), pr[1] + c.v0 / 100], [pr[0] + (h.flip ? -a : b), pr[1] + (c.v0 + c.h) / 100]]); });
-    return { tri, cotas, bb, proy, SX, abres, open, herr, forzadas };
+    return { tri, cotas, bb, proy, SX, camara: CENTRO ? 'centro' : SX < 0 ? 'izq' : 'der', abres, open, herr, forzadas };
   }
 
   /* cotas del isometrico: cadena de anchos y total al frente de cada cara, fondo de la cubierta y cadena de alturas en la primera cara */
@@ -18035,15 +18054,31 @@ let cuadroPend = 0; const pedirDibujo = () => { if (cuadroPend) return; cuadroPe
 const parteIso = p => !p || p.rol === 'tapeta' && /^esq/.test(p.id) ? null : p.rol === 'tapeta' ? (/^tapeta:izq/.test(p.id) ? 'fillerI' : /^tapeta:der/.test(p.id) ? 'fillerD' : 'fillerTop')
   : p.rol === 'cubierta' ? 'cover' : p.rol === 'zoclo' ? 'plinth' : p.rol === 'backsplash' ? 'backsplash' : p.tipo === 'Gola' || p.tipo === 'Perfil' ? 'gola' : null;
 const GRUPO_PARTE = { fillerI: 'Tapetas', fillerD: 'Tapetas', fillerTop: 'Tapetas', cover: 'Cubierta', plinth: 'Zoclo', backsplash: 'Backsplash', gola: 'Gola' };   /* A353: modulo bajo el puntero */
+/* A473: camara del isometrico junto al titulo: izquierda, de frente y derecha (isoCam; null, la de siempre: del lado contrario a las demas
+   caras). Tres botones con flecha en el lienzo (camHits); el activo, relleno */
+let isoCam = null, camHits = [];
+function dibujarCamaras(actual){
+  ctx.save(); ctx.font = "600 15px 'Inter'"; let x = 22 + ctx.measureText(prefs.idioma === 'en' ? 'ISOMETRIC' : 'ISOMÉTRICO').width + 14;
+  const y = 17, w = 26, h = 20;
+  [['izq', 'Ver desde la izquierda'], ['centro', 'Ver de frente'], ['der', 'Ver desde la derecha']].forEach(([k, t]) => { const r = { x, y, w, h }, act = actual === k;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(r.x, r.y, w, h, 4) : ctx.rect(r.x, r.y, w, h); ctx.fillStyle = act ? C.accent : (dark ? '#2A3038' : '#FFFFFF'); ctx.fill();
+    ctx.strokeStyle = act ? C.accent : C.line; ctx.lineWidth = 1; ctx.stroke();
+    const cx = r.x + w/2, cy = r.y + h/2; ctx.strokeStyle = act ? '#FFFFFF' : C.accent; ctx.fillStyle = ctx.strokeStyle; ctx.lineWidth = 1.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath();
+    if (k === 'centro') { ctx.moveTo(cx, cy - 6); ctx.lineTo(cx, cy + 4); ctx.moveTo(cx - 4, cy); ctx.lineTo(cx, cy + 4); ctx.lineTo(cx + 4, cy); }   /* de frente: flecha hacia el mueble */
+    else { const sg = k === 'izq' ? -1 : 1; ctx.moveTo(cx - 7*sg, cy + 5); ctx.quadraticCurveTo(cx - 6*sg, cy - 5, cx + 6*sg, cy - 4); ctx.moveTo(cx + 2*sg, cy - 7); ctx.lineTo(cx + 6*sg, cy - 4); ctx.lineTo(cx + 3*sg, cy); }   /* curva: la camara gira hacia ese lado */
+    ctx.stroke(); camHits.push({ rect: r, k, t }); x += w + 4; });
+  ctx.restore(); }
 function drawIsometrico(){
   title('ISOMÉTRICO', '');
+  camHits = [];
   frame = { scale: 1, ox: 0, ground: 0, X: x => x, Z: z => z, W: 0 };
   let esc;
   /* A364 (usuario 21/10: «se siente laggeado cuando arrastro un material a los elementos»): la escena se rehace solo si cambio la cocina,
      las puertas, lo abierto o las cotas; arrastrar, pasar el mouse o elegir reutilizan la ultima */
   const rx = rayos && !exporting;   /* A466 */
-  const claveEsc = exporting ? null : [JSON.stringify(cfg), showDoors, measure, [...LAM.abiertos].sort().join(','), cfg.region, rx].join('|');
-  try { esc = claveEsc && isoCache.clave === claveEsc ? isoCache.esc : LAM.isoEscena({ puertas: showDoors, cotas: measure, fantasmas: true, rayos: rx }); if (claveEsc) isoCache = { clave: claveEsc, esc }; }
+  const cam = exporting ? null : isoCam;   /* A473 */
+  const claveEsc = exporting ? null : [JSON.stringify(cfg), showDoors, measure, [...LAM.abiertos].sort().join(','), cfg.region, rx, cam].join('|');
+  try { esc = claveEsc && isoCache.clave === claveEsc ? isoCache.esc : LAM.isoEscena({ puertas: showDoors, cotas: measure, fantasmas: true, rayos: rx, camara: cam }); if (claveEsc) isoCache = { clave: claveEsc, esc }; }
   catch (e) { ctx.save(); ctx.font = "13px 'Inter'"; ctx.fillStyle = C.muted; ctx.fillText(e.message, 40, 130); ctx.restore(); return; }
   const L = 40, R = 40, T = 96, B = 66, w = esc.bb.x1 - esc.bb.x0, h = esc.bb.y1 - esc.bb.y0, aw = cssW - L - R - 30, ah = cssH - T - B - 30;
   const fit = Math.max(.05, Math.min(aw / w, ah / h)), zk = exporting ? 1 : isoZoom.k, s = fit*zk;
@@ -18052,7 +18087,8 @@ function drawIsometrico(){
   /* A358 (usuario 21/10: «el estilo oscuro en isometrico pinta los componentes a oscuro»): el mueble va con sus colores reales (los de la
      paleta clara); el tema oscuro solo cambia el fondo y los textos */
   { const previo = Object.assign({}, C); Object.assign(C, LIGHT); if (cfg.closet) Object.assign(C, CLOSET_LIGHT);
-    try { LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true, rayos: rx, noche: dark && !exporting });   /* A469 */ } finally { Object.assign(C, previo); } }
+    try { LAM.isoPintar(ctx, esc, s, ox, oy, { plano: flat, cotas: measure, hits: true, rayos: rx, noche: dark && !exporting }); } finally { Object.assign(C, previo); } }   /* A469 */
+  if (!exporting) dibujarCamaras(esc.camara);   /* A473 */
   /* A353: el que esta bajo el puntero, contorno tenue; los elegidos, contorno y etiqueta (nombre y ancho) sobre su silueta */
   /* A393 (usuario 21/10: «la seleccion de la peninsula no se ve correcta en isometrico, solo tiene que verse el contorno de la misma»): la
      peninsula (todas las piezas de su cara) se resalta con su contorno, sin tinte, al pasar y al elegirla */
