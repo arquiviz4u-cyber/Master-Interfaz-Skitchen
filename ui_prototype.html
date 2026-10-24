@@ -365,6 +365,10 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A471. [Master hecho 23/10; SketchUp y Revit: no aplica] (usuario 23/10: «con lo del tercer clic en el boton isometrico te manda a la vista
+       alzado, no quiero regresar a la vista alzado, quiero seguir en isometrico y solo intercambiar estilo (rayos x) con ese boton»): desde
+       otra vista el boton lleva al isometrico; en el, cada clic prende o apaga los rayos X y ya no sale de la vista (se sale con el boton de
+       vistas). Cambia lo de A467/A470.
    A470. [Master hecho 23/10; SketchUp: el carrusel (poste y canastas) llega con ejes espejados en X (Modelos.por_ejes ya los aplica);
        Revit pendiente] (usuario 23/10) 1) «El tercer clic del boton isometrico no vuelve a la vista de alzado, solo se intercambia el modo»:
        el boton de vistas crecia al decir «Isométrico» y el del isometrico se corria; el clic siguiente en el mismo lugar caia en otro boton.
@@ -3448,7 +3452,7 @@
       <svg width="20" height="13" viewBox="0 0 22 14" fill="none"><path d="M1 7C3.5 1.5 8 1 11 1s7.5 0.5 10 6c-2.5 5.5-7 6-10 6s-7.5-0.5-10-6Z" stroke="#266096" stroke-width="1.6" stroke-linejoin="round"/><circle cx="11" cy="7" r="3" fill="#266096"/></svg>
       <span id="viewLabel">Alzado</span>
     </button>
-    <button class="btn btn-icon btn-toggle" id="btnIso" title="Isom&eacute;trico (segundo clic: rayos X, los herrajes a trav&eacute;s del mueble; tercero: vuelve a la vista anterior)">   <!-- A393 -->
+    <button class="btn btn-icon btn-toggle" id="btnIso" title="Isom&eacute;trico (en el isom&eacute;trico, cada clic prende o apaga los rayos X: los herrajes a trav&eacute;s del mueble)">   <!-- A393 -->
       <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M10 2 17 6v8l-7 4-7-4V6l7-4Z" stroke="#266096" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 6l7 4 7-4M10 10v8" stroke="#266096" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 2 17 6l-7 4-7-4 7-4Z" fill="#266096" fill-opacity=".18"/></svg>
     </button>
     <button class="btn btn-icon btn-toggle" id="btnSection" title="Secci&oacute;n: muestra u oculta en el alzado la secci&oacute;n lateral del gabinete elegido (o del primero), con su l&iacute;nea de corte">   <!-- A115: solo icono, junto al tipo de vista -->
@@ -13998,14 +14002,14 @@ document.getElementById('btnFlat').addEventListener('click', () => { flat = !fla
 function syncMeasureUI(){ document.getElementById('btnMeasure').classList.toggle('active', measure); document.getElementById('measureLabel').textContent = measure && medirTodo ? 'Medir todo' : 'Medir'; trUI(); }
 document.getElementById('btnMeasure').addEventListener('click', () => { if (!measure) { measure = true; medirTodo = false; } else if (!medirTodo) medirTodo = true; else { measure = false; medirTodo = false; }
   syncMeasureUI(); drawCanvas(); setStatus(!measure ? 'Medir apagado.' : medirTodo ? 'Medir: cotas de todos los muebles.' : 'Medir: cotas de los gabinetes seleccionados.'); });
-/* A393 (usuario 21/10: «la vista isometrico tiene su propio boton con icono a un lado del boton de vistas»): clic, isometrico; otro clic, la anterior */
-let vistaAntesIso = 'Alzado';
-/* A467 (usuario 23/10: «se queda, solo habria que integrarlo en el mismo boton de isometrico al segundo clic»): primer clic, isometrico;
-   segundo, rayos X; tercero, la vista anterior */
+/* A393 (usuario 21/10: «la vista isometrico tiene su propio boton con icono a un lado del boton de vistas») */
+/* A467 (usuario 23/10: «se queda, solo habria que integrarlo en el mismo boton de isometrico al segundo clic»); A471 (usuario 23/10: «no
+   quiero regresar a la vista alzado, quiero seguir en isometrico y solo intercambiar estilo (rayos x) con ese boton»): desde otra vista, el
+   clic lleva al isometrico; ya en el, cada clic prende o apaga los rayos X. Para salir, el boton de vistas */
 document.getElementById('btnIso').addEventListener('click', () => {
-  if (view !== 'Isometrico') { vistaAntesIso = view; rayos = false; setView('Isometrico'); return; }
-  if (!rayos) { rayos = true; document.getElementById('btnIso').classList.add('rayos'); drawCanvas(); setStatus('Rayos X: gabinetes y frentes transparentes; los herrajes se ven aunque las puertas estén cerradas. Otro clic: vuelve a la vista anterior.'); return; }
-  rayos = false; setView(vistaAntesIso !== 'Isometrico' && viewList().some(q => q[0] === vistaAntesIso) ? vistaAntesIso : 'Alzado'); });   /* A470 */
+  if (view !== 'Isometrico') { rayos = false; setView('Isometrico'); return; }
+  rayos = !rayos; document.getElementById('btnIso').classList.toggle('rayos', rayos); drawCanvas();
+  setStatus(rayos ? 'Rayos X: gabinetes y frentes transparentes; los herrajes se ven aunque las puertas estén cerradas. Otro clic: vista normal.' : 'Isométrico normal. Otro clic: rayos X.'); });
 document.getElementById('btnSection').addEventListener('click', () => { seccionOn = !seccionOn; document.getElementById('btnSection').classList.toggle('active', seccionOn); drawCanvas(); });
 /* comando que abre el editor (en los plugins lo decide el boton de la cinta; aqui se simula) */
 function syncCommandUI(){
