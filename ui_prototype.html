@@ -365,6 +365,12 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A472. [Master hecho 23/10; SketchUp: sin cambio (sigue la elevacion de cada alto); Revit pendiente] (usuario 23/10: «en la
+       subdivision de gabinetes altos en el caso de peninsula quiero que solo el gabinete del extremo se le aplique la opcion de alacena hasta
+       cubierta, por lo tanto los demas modulos tendran su opcion de alacena hasta cubierta independiente») La casilla del borde (A394) ya no
+       baja a todo el grupo: cada parte baja o no por su cuenta («Este gabinete hasta la cubierta» cuando hay varias). Al subdividir (a mano o
+       el partido de A464), la parte nueva no baja; si el que bajaba deja de ser el del extremo, la opcion pasa al nuevo extremo. El
+       backsplash y el LED se cortan solo bajo las partes que bajan (spansBorde en cutRun; antes, toda la columna del esquinero).
    A471. [Master hecho 23/10; SketchUp y Revit: no aplica] (usuario 23/10: «con lo del tercer clic en el boton isometrico te manda a la vista
        alzado, no quiero regresar a la vista alzado, quiero seguir en isometrico y solo intercambiar estilo (rayos x) con ese boton»): desde
        otra vista el boton lleva al isometrico; en el, cada clic prende o apaga los rayos X y ya no sale de la vista (se sale con el boton de
@@ -4215,14 +4221,24 @@ const isSpecial = m => isTower(m) || isPantry(m) || isRefri(m);
 const cortaCubierta = m => isSpecial(m) || m.tipo === 'Estufa' || esquinaAlta(m);
 /* A134: la alacena esquinera llega al tope de los altos: corta cubierta y backsplash como un especial */
 const esquinaAlta = m => !!(m && m.esquina && cfg.esquinas && cfg.esquinas[m.esquina.k] && cfg.esquinas[m.esquina.k].tipo === 'alacena');
-const cortaBack = m => isSpecial(m) || esquinaAlta(m) || !!(m && m.esquina && bordeAbajo(m.esquina.k));   /* A394: la alacena del borde llega a la cubierta */
+const cortaBack = m => isSpecial(m) || esquinaAlta(m);   /* A394; A472: las partes del borde que bajan a la cubierta las corta cutRun (spansBorde) */
+const cortaLed = m => isSpecial(m);   /* A398; A472 */
 /* A394 (usuario 21/10: «el gabinete alto que queda en el borde (dentro de la columna de peninsula)»: subdividir a lo ancho («cada parte debe
    contemplarse como un nuevo gabinete que no pierde las opciones de funcion»), repisas en su costado y alacena hasta la cubierta). El alto de
    la cara del muro sobre la esquina de la peninsula (m.penEsq, A383) puede ser varios altos (partes del mismo grupo penEsq.k + lado) que
    llenan la huella del esquinero; uno con penEsq.costado es el repisero abierto hacia afuera, en el extremo; con hastaCubierta bajan a la
    cubierta (elevacion negativa) */
 const grupoBorde = m => m && m.penEsq ? cfg.modulos.filter(q => q.upper && q.penEsq && q.penEsq.k === m.penEsq.k && q.penEsq.lado === m.penEsq.lado) : [];
-const bordeAbajo = k => cfg.modulos.some(q => q.upper && q.penEsq && q.penEsq.k === k && q.hastaCubierta);
+/* A472 (usuario 23/10: «en la subdivision de gabinetes altos en el caso de peninsula quiero que solo el gabinete del extremo se le aplique
+   la opcion de alacena hasta cubierta; los demas tendran su opcion independiente»): cada parte del borde baja o no por su cuenta. spansBorde:
+   los tramos (en la fila de altos) de las que bajan; en el extremo de la fila llegan al muro, como los especiales en cutRun. extremoBorde: la
+   parte (sin el repisero) en el extremo de la fila, la que se queda con la opcion al subdividir */
+const spansBorde = () => { const hs = row(true), r = []; let x = ajusteIzq();
+  hs.forEach((m, i) => { if (m.penEsq && m.hastaCubierta) r.push([i === 0 ? -1e4 : x, i === hs.length - 1 ? 1e4 : x + m.ancho]); x += m.ancho; });
+  return r; };
+const extremoBorde = g => { const ps = g.filter(q => !q.penEsq.costado); return ps.length ? (ps[0].penEsq.lado === 'der' ? ps[ps.length - 1] : ps[0]) : null; };
+/* al partir el borde: la parte nueva no baja; si el que bajaba deja de ser el del extremo, la opcion pasa al nuevo extremo */
+const bordeAbajoAlExtremo = (b, n) => { const bajaba = !!b.hastaCubierta; n.hastaCubierta = false; if (bajaba && extremoBorde(grupoBorde(b)) === n) { b.hastaCubierta = false; n.hastaCubierta = true; n.campana = false; n.elevacionAlto = 0; } };
 const costadoAncho = m => Number.isFinite(m.penEsq.ancho) && m.penEsq.ancho >= 10 ? Math.min(40, m.penEsq.ancho) : cfg.region === 'US' ? inch(8) : 20;
 const costadoN = m => Number.isFinite(m.penEsq.n) ? Math.max(0, Math.min(8, Math.round(m.penEsq.n))) : 3;
 /* las filas se emparejan por columna: del borde subdividido cuenta una sola parte */
@@ -4482,7 +4498,7 @@ function aplicarEsquinas(){
       { const partes = ps.filter(m => !m.penEsq.costado), libre = total - ps.filter(m => m.penEsq.costado).reduce((t, m) => t + costadoAncho(m), 0);
         if (partes.length === 1 && libre > reg().ancho.max + .01) { const b = partes[0], n = JSON.parse(JSON.stringify(b));
           n.id = uid(); n.penEsq = { k: pe.k, lado: pe.lado }; ['unirCuerpo', 'unirSuperior', 'peso', 'reserved'].forEach(q => delete n[q]); delete b.penEsq.w;
-          cfg.modulos.splice(cfg.modulos.indexOf(b) + 1, 0, n); ps.splice(ps.indexOf(b) + 1, 0, n); } }
+          cfg.modulos.splice(cfg.modulos.indexOf(b) + 1, 0, n); ps.splice(ps.indexOf(b) + 1, 0, n); bordeAbajoAlExtremo(b, n); } }   /* A472 */
       if (ps.length > 1) ps.forEach(m => { if (!m.penEsq.costado && Number.isFinite(m.penEsq.ultimo) && Math.abs(m.ancho - m.penEsq.ultimo) > .01) m.penEsq.w = m.ancho; });
       else delete ps[0].penEsq.w;
       const fija = m => m.penEsq.costado || m.penEsq.w > 0, fw = m => m.penEsq.costado ? costadoAncho(m) : m.penEsq.w;
@@ -8621,7 +8637,7 @@ function drawElevation(){
 
   /* LED bajo los altos */
   /* A188 (usuario): solo el degradado de la luz, color de su temperatura, desde la cama de los altos hasta la cubierta (antes una banda y su linea) */
-  if (cfg.led && cfg.ledLuz !== false && highs.length) cutRun(ajusteIzq(), W - ajusteDer(), m => isSpecial(m) || !!(m.esquina && bordeAbajo(m.esquina.k))).forEach(([a, b]) => {   /* A398: sin la alacena del borde */
+  if (cfg.led && cfg.ledLuz !== false && highs.length) cutRun(ajusteIzq(), W - ajusteDer(), cortaLed).forEach(([a, b]) => {   /* A398: sin la alacena del borde (A472: solo bajo las partes que bajan) */
     const alto = Math.max(10, (zBA - altoBarra()) * Math.max(5, Math.min(100, cfg.ledFade ?? 45)) / 100), r = RX(a, b, zBA - alto, zBA), [lr, lg, lb] = rgbLuzVista(), N = 18;   /* A190: el degradado es un % del backsplash (45 de fabrica) */
     ctx.save(); ctx.fillStyle = `rgb(${lr},${lg},${lb})`;
     for (let k = 0; k < N; k++) { ctx.globalAlpha = .62 * Math.pow(1 - k/N, 1.7); ctx.fillRect(r.x, r.y + r.h*k/N, r.w, Math.ceil(r.h/N) + .5); }
@@ -9585,6 +9601,7 @@ function cutRun(a, b, corta = isSpecial){
       if (corta === cortaZoclo && isRefri(m) && m.anexo) { if (m.anexo.lado === 'Izquierda') s0 = x + m.anexo.ancho; else s1 = x + m.ancho - m.anexo.ancho; }   /* A154: el especiero lleva zoclo */
       spans.push([i === 0 && s0 === x ? -1e4 : s0, i === lows.length - 1 && s1 === x + m.ancho ? 1e4 : s1]); } x += m.ancho; });
   let parts = [[a, b]];
+  if (corta === cortaBack || corta === cortaLed) spans.push(...spansBorde());   /* A472 */
   spans.forEach(([s0, s1]) => { parts = parts.flatMap(([p0, p1]) => s1 <= p0 || s0 >= p1 ? [[p0, p1]] : [[p0, s0], [s1, p1]].filter(([u, v]) => v - u > .5)); });
   return parts;
 }
@@ -12036,7 +12053,7 @@ function modulePanel(m){
   if (m.upper && m.penEsq && selection.size === 1) { const g = grupoBorde(m), cost = g.find(q => q.penEsq.costado);
     html += section('Borde de la península', `<button class="btn btn-sm btn-block" data-act="bordeSub">+ Subdividir: añadir un gabinete</button>`
       + chk('bordeCostado', !!cost, 'Repisas en su costado') + (cost ? `<div class="grid-2" style="margin-top:6px">${num('bordeCostAncho', 'Ancho de las repisas', costadoAncho(cost), 'cm', 10, 40)}${num('bordeCostN', 'Repisas', costadoN(cost), '', 0, 8, 1)}</div>` : '')
-      + chk('bordeAbajo', !!m.hastaCubierta, 'Alacena hasta la cubierta')
+      + chk('bordeAbajo', !!m.hastaCubierta, g.filter(q => !q.penEsq.costado).length > 1 ? 'Este gabinete hasta la cubierta' : 'Alacena hasta la cubierta')   /* A472: cada parte por su cuenta */
       + `<div class="note-sm">${g.filter(q => !q.penEsq.costado).length > 1 ? `Borde en ${g.filter(q => !q.penEsq.costado).length} gabinetes; cada uno con su función. Su ancho se cambia en su cota; los demás se reparten.` : 'Cada gabinete añadido es otro alto con todas sus funciones; entre todos llenan el ancho del esquinero.'}</div>`); }
   /* A383: en una cocina recta, el primer y el ultimo bajo pueden volverse la esquina de una peninsula */
   if (!m.upper && !cfg.isla && !cfg.closet && !multiCara() && selection.size === 1) { const l = row(false), i = l.indexOf(m);
@@ -12584,7 +12601,7 @@ const ACT = {
       const n = Object.assign(newModule(true, c.region), { tipo: 'Sencillo', fondo: b.fondo, material: b.material, penEsq: { k: b.penEsq.k, lado: b.penEsq.lado }, hastaCubierta: !!b.hastaCubierta }); nid = n.id;
       g.forEach(q => { if (!q.penEsq.costado) delete q.penEsq.w; });
       const tras = b.penEsq.lado === 'der' || !cost ? b : b;   /* el nuevo, junto al elegido (el repisero sigue en el extremo) */
-      c.modulos.splice(c.modulos.indexOf(tras) + 1, 0, n); });
+      c.modulos.splice(c.modulos.indexOf(tras) + 1, 0, n); bordeAbajoAlExtremo(b, n); });   /* A472 */
     if (nid && byId(nid)) { selection = new Set([nid]); render(); } },
   bordeCostado: (v, m) => change(c => { const b = byId(m.id), g = grupoBorde(b), cost = g.find(q => q.penEsq.costado);
       if (!v) { if (cost) c.modulos = c.modulos.filter(q => q !== cost); return; }
@@ -12594,7 +12611,7 @@ const ACT = {
   bordeCostAncho: (v, m) => change(() => { const cost = grupoBorde(byId(m.id)).find(q => q.penEsq.costado); if (cost) cost.penEsq.ancho = Math.max(10, Math.min(40, v)); }),
   bordeCostN: (v, m) => change(() => { const cost = grupoBorde(byId(m.id)).find(q => q.penEsq.costado); if (cost) cost.penEsq.n = v; }),
   bordeCostQuitar: (v, m) => { change(c => { c.modulos = c.modulos.filter(q => q.id !== m.id); }); selection.clear(); render(); },
-  bordeAbajo: (v, m) => change(() => grupoBorde(byId(m.id)).forEach(q => { q.hastaCubierta = v; if (v) { q.campana = false; q.elevacionAlto = 0; } })),
+  bordeAbajo: (v, m) => change(() => { const q = byId(m.id); q.hastaCubierta = v; if (v) { q.campana = false; q.elevacionAlto = 0; } }),   /* A472: solo este */
   penVer: () => penAbrir(),   /* A386; A389: siempre doble */
   penLargo: v => change(c => c.longitud = Math.round((v + penOff())*100)/100),   /* A389 */
   penAncho: v => change(c => penAnchoAplica(c, v)),   /* A398; A444 */
