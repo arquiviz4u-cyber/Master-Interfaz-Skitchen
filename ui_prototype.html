@@ -365,6 +365,13 @@
        12) La barra elevada sube 10 cm de fabrica (US 4"). 13) El ciego (cara duena) con marco shaker en clasica y jaladera, en el plan y en
        el alzado. 14) Las pestanas: arriba las caras de muro y la peninsula debajo de la suya. 15) Magic corner: las charolas se escalan
        parejo en los tres ejes (antes la altura iba con la del mueble y se deformaban), a la misma altura de apoyo.
+   A474. [Master hecho 24/10; SketchUp y Revit: no aplica] (usuario 24/10: «las vistas isometricas (izquierda, derecha y frente) no salen
+       correctamente cuando tenemos una cocina en U, aparecen solo vistas de espalda; la intencion es que la vista izquierda podamos ver cara
+       A, la de frente cara B y la derecha cara C, independiente de la orientacion en la que se genere el modelo 3D») Con varias caras la
+       camara de A473 sale de las caras (su normal hacia el cuarto), no de los ejes del dibujo. En U: izquierda, A y B; de frente, B
+       (ortogonal); derecha, C y B. En L: izquierda, A de frente; centro, las dos; derecha, B de frente. La escena se gira un multiplo de 90
+       grados para que esa direccion sea la del isometrico de siempre (simbolos de herrajes, orden de pintor y cotas sin cambio) y la cara que
+       daria la espalda al observador no se dibuja. Sin camara elegida, la de siempre (el boton activo es la que coincide). Cocina recta: igual.
    A473. [Master hecho 23/10; SketchUp y Revit: no aplica] (usuario 23/10: «a un costado del titulo de la vista Isometrico me gustaria
        una especie de flecha que indique el cambio de angulo de camara del isometrico para ver desde otro perfil el conjunto; 3 opciones:
        derecha, izquierda y centro») Tres botones con flecha junto a «ISOMÉTRICO» (el activo, relleno): izquierda y derecha fijan el lado
@@ -14902,14 +14909,35 @@ const LAM = (() => {
     const frentesMod = new Map(); caras.forEach((c, ci) => c.piezas.forEach(p => { if (p.rol === 'frente' && p.modulo) { const k = ci + '|' + p.modulo; if (!frentesMod.has(k)) frentesMod.set(k, []); frentesMod.get(k).push(p); } }));
     const tapado = (p, ci) => (frentesMod.get(ci + '|' + p.modulo) || []).some(f => !open.has(f.frente) && p.x + p.ancho/2 >= f.x - .5 && p.x + p.ancho/2 <= f.x + f.ancho + .5 && p.z + p.alto/2 >= f.z - .5 && p.z + p.alto/2 <= f.z + f.alto + .5);
     const cajas = [], herr = [], cazF = [];
-    const SX = o.camara === 'izq' ? -1 : o.camara === 'der' ? 1 : (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, og = (plan.caras || []).map(c => c.origen[0]);
+    /* A474 (usuario 24/10: «las vistas isometricas no salen correctamente cuando tenemos una cocina en U, aparecen solo vistas de
+       espalda; la intencion es que la vista izquierda podamos ver cara A, la de frente cara B y la derecha cara C, independiente de la
+       orientacion en que se genere el modelo»): con varias caras la camara se toma de las caras (su normal hacia el cuarto, -ey), no de
+       los ejes del dibujo. En U: izquierda, A y B (isometrico entre sus normales); de frente, B (ortogonal); derecha, C y B. En L:
+       izquierda, A de frente; centro, las dos (isometrico); derecha, B de frente. La escena se gira un multiplo de 90 grados para que esa
+       direccion quede como la del isometrico de siempre ((SX, -1) u ortogonal (0, -1)): simbolos, orden y cotas siguen igual. Las caras
+       que darian la espalda al observador no se dibujan (taparian a las otras) */
+    const vistaDe = (cam, F) => { const nC = c => { const v = [-c.ey[0], -c.ey[1]], L = Math.hypot(v[0], v[1]) || 1; return [v[0]/L, v[1]/L]; }, sm = (a, b) => [a[0] + b[0], a[1] + b[1]];
+      if (F.length === 2) return cam === 'izq' ? { dv: nC(F[0]), orto: true } : cam === 'der' ? { dv: nC(F[1]), orto: true } : { dv: sm(nC(F[0]), nC(F[1])), orto: false };
+      return cam === 'centro' ? { dv: nC(F[1]), orto: true } : { dv: sm(nC(F[cam === 'izq' ? 0 : 2]), nC(F[1])), orto: false }; };
+    const carasV = caras.filter(c => !c.extra).sort((a, b) => a.k - b.k);
+    let camV = null;
+    if (carasV.length > 1) { const opc = c => vistaDe(c, carasV.slice(0, 3));
+      if (o.camara) { const { dv, orto } = opc(o.camara), Ld = Math.hypot(dv[0], dv[1]) || 1, d = [dv[0]/Ld, dv[1]/Ld];
+        for (const g of [0, 90, -90, 180]) { const co = Math.round(Math.cos(g*Math.PI/180)), sn = Math.round(Math.sin(g*Math.PI/180)), r = [d[0]*co - d[1]*sn, d[0]*sn + d[1]*co];
+          if (orto ? Math.abs(r[0]) < 1e-6 && r[1] < 0 : r[1] < -1e-6 && Math.abs(Math.abs(r[0]) - Math.abs(r[1])) < 1e-6) { camV = { sx: orto ? 1 : Math.sign(r[0]), orto };
+            caras.forEach(c => { const nk = [-c.ey[0], -c.ey[1]]; if (!c.extra && nk[0]*d[0] + nk[1]*d[1] < -.3) c.oculta = true; });
+            const rot = v => [v[0]*co - v[1]*sn, v[0]*sn + v[1]*co, v[2] || 0]; caras.forEach(c => { c.org = rot(c.org); c.ex = rot(c.ex); c.ey = rot(c.ey); }); break; } } } }
+    const SX = camV ? camV.sx : o.camara === 'izq' ? -1 : o.camara === 'der' ? 1 : (() => { const xs = plan.piezas.flatMap(p => [p.x, p.x + p.ancho]), centro = (Math.min(...xs) + Math.max(...xs)) / 2, og = (plan.caras || []).map(c => c.origen[0]);
       return og.length && og.reduce((a, b) => a + b, 0) / og.length > centro ? -1 : 1; })();   /* observador en el cuarto y del lado contrario a las demas caras; A473: o del lado que se pida */
     /* A473 (usuario 23/10: «una flecha que indique el cambio de angulo de camara del isometrico para ver desde otro perfil el conjunto; 3
        opciones: derecha, izquierda y centro»): o.camara 'izq' | 'der' fija el lado del observador (SX); 'centro' lo pone de frente, a 30
        grados de altura (proyeccion ortogonal: x tal cual, el fondo a sen 30 y lo alto a cos 30). V es la direccion hacia el observador (el
        orden de pintor, las caras que se ven y el z-buffer la usan); de frente no hay simbolos (son de los lados): las bisagras van con su
        malla y lo demas con su caja o su forma */
-    const CENTRO = o.camara === 'centro';
+    const CENTRO = camV ? camV.orto : o.camara === 'centro';   /* A474 */
+    /* la camara que se ve (para el boton activo): la pedida o, sin pedir, la que coincide con la de siempre */
+    const camaraVista = o.camara || (carasV.length > 1 ? (['izq', 'centro', 'der'].find(c => { const { dv, orto } = vistaDe(c, carasV.slice(0, 3)), L = Math.hypot(dv[0], dv[1]) || 1;
+      return !orto && Math.abs(dv[0]/L - SX/Math.SQRT2) < 1e-6 && Math.abs(dv[1]/L + 1/Math.SQRT2) < 1e-6; }) || null) : SX < 0 ? 'izq' : 'der');
     const proy = CENTRO ? v => [v[0], -v[1] * .5 - v[2] * .866] : v => [(v[0] + SX * v[1]) * C30, (SX * v[0] - v[1]) * S30 - v[2]];   /* x a un lado y abajo; el cuarto (-Y) al otro y abajo */
     const V = CENTRO ? [0, -.866, .5] : [SX, -1, 1], luz = CENTRO ? vunit([.3, -.5, .82]) : vunit([.35 * SX, -.45, .82]);
     /* A185: el simbolo de un herraje (proyeccion de su modelo con el observador a (sx, -1) de la cara) sirve a cualquier cara cuyo eje Y
@@ -14926,7 +14954,12 @@ const LAM = (() => {
       const mx = mapaEstirar(E.zonas.x, E.medida[0], M.medida[0]), my = mapaEstirar(E.zonas.y, E.medida[1], M.medida[1]);
       const x0 = O[0] + mx(E.chimenea.x[0]), x1 = O[0] + mx(E.chimenea.x[1]), y0 = O[1] - my(E.chimenea.y[1]), y1 = O[1] - my(E.chimenea.y[0]);
       return [p, Object.assign({}, p, { id: p.id + ':chimenea', x: x0, ancho: x1 - x0, y: Math.max(p.y, y0), fondo: y1 - Math.max(p.y, y0), z: z0, alto: z1 - z0, modelo: undefined })]; });   /* A356: delante del backsplash, como la campana */
-    caras.forEach((cara, ci) => conChimenea(trocear(cara.piezas, ci)).forEach(p0 => {
+    /* A474: de la cara que da la espalda solo van sus esquineros (son tambien de la cara vecina) y lo que pasa sobre su columna (cubierta,
+       zoclo, backsplash), recortado a ella */
+    const restoOculta = cara => { const g = {}; cara.piezas.forEach(p => { const m = /^(esq\d+)/.exec(p.id); if (m) { const r = g[m[1]] = g[m[1]] || [1e9, -1e9]; r[0] = Math.min(r[0], p.x); r[1] = Math.max(r[1], p.x + p.ancho); } });
+      const ivs = Object.values(g);
+      return cara.piezas.flatMap(p => /^esq\d/.test(p.id) ? [p] : p.forma ? (ivs.some(([a, b2]) => p.x >= a - .5 && p.x + p.ancho <= b2 + .5) ? [p] : []) : trocearEn(p, ivs)); };
+    caras.forEach((cara, ci) => conChimenea(trocear(cara.oculta ? restoOculta(cara) : cara.piezas, ci)).forEach(p0 => {
       let p = p0;
       if (p.rol === 'luz' || !(p.ancho > 0 && p.fondo > 0 && p.alto > 0)) return;
       const fs = o.sinCad ? null : simCara(cara);
@@ -15157,12 +15190,12 @@ const LAM = (() => {
       (despues2.get(qi) || []).forEach(z => emitCaras(z.q));
     });
     cazF.forEach((c, i) => { if (!cazHechas.has(i)) herr.push({ id: c.id, flip: c.flip, O: c.O }); });   /* sin puerta en la escena: encima de todo */
-    const carasF = o.filtro ? caras.map((c, ci) => Object.assign({}, c, { piezas: c.piezas.filter(p => o.filtro(p, ci)) })) : caras;
+    const carasF = (o.filtro ? caras.map((c, ci) => Object.assign({}, c, { piezas: c.piezas.filter(p => o.filtro(p, ci)) })) : caras).filter(c => !c.oculta);   /* A474: sin las cotas de la que no va */
     const cotas = o.cotas === false ? [] : isoCotas(carasF, proy);
     cotas.forEach(c => { cuenta([proy(c.a), proy(c.b), proy(vadd(c.a, vmul(c.d, 1.12))), proy(vadd(c.b, vmul(c.d, 1.12)))]); });
     herr.forEach(h => { const pr = proy(h.O), c = HSYM[h.id], a = c.u0 / 100, b = (c.u0 + c.w) / 100;
       cuenta([[pr[0] + (h.flip ? -b : a), pr[1] + c.v0 / 100], [pr[0] + (h.flip ? -a : b), pr[1] + (c.v0 + c.h) / 100]]); });
-    return { tri, cotas, bb, proy, SX, camara: CENTRO ? 'centro' : SX < 0 ? 'izq' : 'der', abres, open, herr, forzadas };
+    return { tri, cotas, bb, proy, SX, camara: carasV.length > 1 ? camaraVista : CENTRO ? 'centro' : SX < 0 ? 'izq' : 'der', abres, open, herr, forzadas };
   }
 
   /* cotas del isometrico: cadena de anchos y total al frente de cada cara, fondo de la cubierta y cadena de alturas en la primera cara */
